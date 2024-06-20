@@ -1,14 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clock In</title>
-</head>
-<body>
-    <h1>Clock In Page</h1>
-    <form method="POST">
-        <button type="submit">Clock In</button>
-    </form>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Clock In{% endblock %}
+
+{% block content %}
+<h1>Clock In Page</h1>
+<form method="POST">
+    <button type="submit">Clock In</button>
+</form>
+{% endblock %}

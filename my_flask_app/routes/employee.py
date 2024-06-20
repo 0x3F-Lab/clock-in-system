@@ -16,4 +16,6 @@ def clock_in():
 
 @employee_bp.route('/clock_out', methods=['GET', 'POST'])
 def clock_out():
+    if request.method == 'POST':
+        return redirect(url_for('employee.clock_in'))
     return render_template('clock_out.html')
