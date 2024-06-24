@@ -19,3 +19,34 @@ main {
 h1, h2 {
     color: #333;
 }
+
+table.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px 0;
+    font-size: 1em;
+    text-align: left;
+    border-spacing: 0 15px;
+}
+
+table.styled-table th, table.styled-table td {
+    padding: 12px 15px;
+}
+
+table.styled-table thead tr {
+    background-color: #333;
+    color: #fff;
+    text-align: left;
+}
+
+table.styled-table tbody tr {
+    border-bottom: 1px solid #dddddd;
+}
+
+table.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+table.styled-table tbody tr:last-of-type {
+    border-bottom: 2px solid #333;
+}

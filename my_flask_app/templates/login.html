@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %} Login {% endblock %}
+{% block title %}Login{% endblock %}
 
 {% block content %}
 <h1>Login</h1>
 <form method="POST">
-    <button type="submit">login</button>
+    <button type="submit" name="view" value="employee">Employee View</button>
+    <button type="submit" name="view" value="manager">Manager View</button>
 </form>
 {% endblock %}

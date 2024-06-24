@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Manager View{% endblock %}
+
+{% block content %}
+<h1>Weekly Summary</h1>
+<table class="styled-table">
+    <thead>
+        <tr>
+            <th>Staff Name</th>
+            <th>Weekday</th>
+            <th>Weekend</th>
+            <th>Public Holidays</th>
+            <th>Deliveries</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for employee, data in summary.items() %}
+        <tr>
+            <td>{{ employee }}</td>
+            <td>{{ data.weekday }}</td>
+            <td>{{ data.weekend }}</td>
+            <td>{{ data.public_holidays }}</td>
+            <td>{{ data.deliveries }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h1>Logs</h1>
+<table class="styled-table">
+    <thead>
+        <tr>
+            <th>Staff Name</th>
+            <th>Login Time</th>
+            <th>Is Public Holiday</th>
+            <th>Logout Time</th>
+            <th>Deliveries</th>
+            <th>Login Timestamp</th>
+            <th>Logout Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for employee, log in logs %}
+        <tr>
+            <td>{{ employee }}</td>
+            <td>{{ log.login_time }}</td>
+            <td>{{ 'Yes' if log.is_public_holiday else 'No' }}</td>
+            <td>{{ log.logout_time }}</td>
+            <td>{{ log.deliveries }}</td>
+            <td>{{ log.login_timestamp }}</td>
+            <td>{{ log.logout_timestamp }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h1>Add Employee</h1>
+<form method="POST">
+    <label for="new_employee">New Employee Name:</label>
+    <input type="text" id="new_employee" name="new_employee" required>
+    <button type="submit">Add Employee</button>
+</form>
+{% endblock %}
