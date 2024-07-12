@@ -8,15 +8,12 @@
     <label for="employee">Select Employee:</label>
     <select name="employee" id="employee">
         {% for employee in employees %}
-        <option value="{{ employee }}">{{ employee }}</option>
+        <option value="{{ employee.name }}">{{ employee.name }}</option>
         {% endfor %}
     </select>
     <br>
-    <label for="hours">Hours:</label>
-    <input type="number" name="hours" step="0.01" min="0" disabled>
-    <br>
     <label for="deliveries">Deliveries:</label>
-    <input type="number" name="deliveries" min="0">
+    <input type="number" name="deliveries" min="0" value="0">
     <br>
     <button type="submit" name="action" value="clock_in">Clock In</button>
     <button type="submit" name="action" value="clock_out">Clock Out</button>
@@ -25,7 +22,7 @@
 <h2>Currently Clocked In Employees</h2>
 <ul>
     {% for employee in clocked_in_employees %}
-    <li>{{ employee }}</li>
+    <li>{{ employee.name }}</li>
     {% endfor %}
 </ul>
 {% endblock %}

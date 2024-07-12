@@ -15,13 +15,13 @@
         </tr>
     </thead>
     <tbody>
-        {% for employee, data in summary.items() %}
+        {% for employee in summary %}
         <tr>
-            <td>{{ employee }}</td>
-            <td>{{ data.weekday }}</td>
-            <td>{{ data.weekend }}</td>
-            <td>{{ data.public_holidays }}</td>
-            <td>{{ data.deliveries }}</td>
+            <td>{{ employee.name }}</td>
+            <td>{{ employee.weekday_hours }}</td>
+            <td>{{ employee.weekend_hours }}</td>
+            <td>{{ employee.public_holidays }}</td>
+            <td>{{ employee.deliveries }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -41,24 +41,33 @@
         </tr>
     </thead>
     <tbody>
-        {% for employee, log in logs %}
+        {% for log in logs %}
         <tr>
-            <td>{{ employee }}</td>
-            <td>{{ log.login_time }}</td>
+            <td>{{ log.employee.name }}</td>
+            <td class="utc-time">{{ log.login_time }}</td>
             <td>{{ 'Yes' if log.is_public_holiday else 'No' }}</td>
-            <td>{{ log.logout_time }}</td>
+            <td class="utc-time">{{ log.logout_time }}</td>
             <td>{{ log.deliveries }}</td>
-            <td>{{ log.login_timestamp }}</td>
-            <td>{{ log.logout_timestamp }}</td>
+            <td class="utc-time">{{ log.login_time }}</td>
+            <td class="utc-time">{{ log.logout_time }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
 <h1>Add Employee</h1>
-<form method="POST">
+<form method="POST" action="{{ url_for('employee.add_employee_view') }}">
     <label for="new_employee">New Employee Name:</label>
     <input type="text" id="new_employee" name="new_employee" required>
     <button type="submit">Add Employee</button>
 </form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.utc-time').forEach(function(element) {
+            const utcDate = new Date(element.textContent);
+            element.textContent = utcDate.toLocaleString();
+        });
+    });
+</script>
 {% endblock %}

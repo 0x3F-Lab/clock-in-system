@@ -1,106 +1,91 @@
-import json
-import os
-from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timezone
+import pytz # used to get time in perth 
 
-DATA_FILE = 'data.json'
-CLOCKED_IN_FILE = 'clocked_in.json'
-LOG_FILE = 'logs.json'
-EMPLOYEES_FILE = 'employees.json'
+db = SQLAlchemy()
 
-def load_data(file, default=None):
-    if os.path.exists(file):
-        with open(file, 'r') as f:
-            return json.load(f)
-    return default if default is not None else {}
 
-def save_data(data, file):
-    with open(file, 'w') as f:
-        json.dump(data, f, indent=4)
+local_tz = pytz.timezone('Australia/Perth')
+
+class Employee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    clocked_in = db.Column(db.Boolean, default=False)
+    logs = db.relationship('Log', backref='employee', lazy=True)
+    weekday_hours = db.Column(db.Float, default=0)
+    weekend_hours = db.Column(db.Float, default=0)
+    public_holidays = db.Column(db.Float, default=0)
+    deliveries = db.Column(db.Integer, default=0)
+
+class Log(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    login_time = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    logout_time = db.Column(db.DateTime(timezone=True))
+    hours_worked = db.Column(db.Float)
+    deliveries = db.Column(db.Integer)
+    is_public_holiday = db.Column(db.Boolean)
+
 
 def reset_weekly_data():
-    data = load_data(DATA_FILE, {})
-    for employee in data.keys():
-        data[employee]['weekday'] = 0
-        data[employee]['weekend'] = 0
-        data[employee]['public_holidays'] = 0
-        data[employee]['deliveries'] = 0
-    save_data(data, DATA_FILE)
+    for employee in Employee.query.all():
+        employee.weekday_hours = 0
+        employee.weekend_hours = 0
+        employee.public_holidays = 0
+        employee.deliveries = 0
+    db.session.commit()
 
 def add_hours(employee, hours, deliveries):
-    data = load_data(DATA_FILE, {})
-    if employee not in data:
-        data[employee] = {'weekday': 0, 'weekend': 0, 'public_holidays': 0, 'deliveries': 0}
-    day = datetime.now().weekday()
+    current_time_local = datetime.now(local_tz)
+    day = current_time_local.weekday()
     if day < 5:
-        data[employee]['weekday'] += hours
+        employee.weekday_hours += hours
     else:
-        data[employee]['weekend'] += hours
-    data[employee]['deliveries'] += deliveries
-    save_data(data, DATA_FILE)
+        employee.weekend_hours += hours
+    employee.deliveries += deliveries
+    db.session.commit()
 
-def clock_in(employee):
-    clocked_in_data = load_data(CLOCKED_IN_FILE, {})
-    log_data = load_data(LOG_FILE, {})
-    current_time = datetime.now().isoformat()
-    formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-    clocked_in_data[employee] = {'time': current_time}
+def clock_in(employee_name):
+    employee = Employee.query.filter_by(name=employee_name).first()
+    if employee:
+        employee.clocked_in = True
+        log = Log(employee_id=employee.id, login_time=datetime.now(local_tz))
+        db.session.add(log)
+        db.session.commit()
 
-    if employee not in log_data:
-        log_data[employee] = []
-
-    log_data[employee].append({
-        'login_time': formatted_time,
-        'logout_time': '',
-        'deliveries': 0,
-        'is_public_holiday': datetime.now().weekday() >= 5,
-        'login_timestamp': current_time,
-        'logout_timestamp': ''
-    })
-    save_data(clocked_in_data, CLOCKED_IN_FILE)
-    save_data(log_data, LOG_FILE)
-
-def clock_out(employee, deliveries):
-    clocked_in_data = load_data(CLOCKED_IN_FILE, {})
-    log_data = load_data(LOG_FILE, {})
-    if employee in clocked_in_data:
-        clock_in_time = datetime.fromisoformat(clocked_in_data.pop(employee)['time'])
-        hours_worked = (datetime.now() - clock_in_time).total_seconds() / 3600
-        formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M")
-        
-        for log in log_data[employee]:
-            if log['logout_time'] == '':
-                log['logout_time'] = formatted_time
-                log['hours_worked'] = hours_worked
-                log['deliveries'] = deliveries
-                log['logout_timestamp'] = datetime.now().isoformat()
-                break
-
-        add_hours(employee, hours_worked, deliveries)
-        save_data(clocked_in_data, CLOCKED_IN_FILE)
-        save_data(log_data, LOG_FILE)
-        return hours_worked
+def clock_out(employee_name, deliveries):
+    employee = Employee.query.filter_by(name=employee_name).first()
+    if employee and employee.clocked_in:
+        log = Log.query.filter_by(employee_id=employee.id, logout_time=None).first()
+        if log:
+            clock_in_time = log.login_time
+            if clock_in_time.tzinfo is None:
+                clock_in_time = local_tz.localize(clock_in_time)
+            current_time_local = datetime.now(local_tz)
+            hours_worked = (current_time_local - clock_in_time).total_seconds() / 3600
+            log.logout_time = current_time_local
+            log.hours_worked = hours_worked
+            log.deliveries = deliveries
+            log.is_public_holiday = current_time_local.weekday() >= 5
+            add_hours(employee, hours_worked, deliveries)
+            employee.clocked_in = False
+            db.session.commit()
+            return hours_worked
     return 0
 
 def get_clocked_in_employees():
-    return load_data(CLOCKED_IN_FILE, {})
+    return Employee.query.filter_by(clocked_in=True).all()
 
 def get_summary():
-    return load_data(DATA_FILE, {})
+    return Employee.query.all()
 
 def get_logs():
-    logs = load_data(LOG_FILE, {})
-    all_logs = []
-    for employee, logs_list in logs.items():
-        for log in logs_list:
-            all_logs.append((employee, log))
-    sorted_logs = sorted(all_logs, key=lambda x: x[1]['logout_timestamp'])
-    return sorted_logs
+    return Log.query.order_by(Log.logout_time.desc()).all()
 
 def get_employees():
-    return load_data(EMPLOYEES_FILE, [])
+    return Employee.query.all()
 
 def add_employee(employee_name):
-    employees = load_data(EMPLOYEES_FILE, [])
-    if employee_name not in employees:
-        employees.append(employee_name)
-    save_data(employees, EMPLOYEES_FILE)
+    employee = Employee(name=employee_name)
+    db.session.add(employee)
+    db.session.commit()
