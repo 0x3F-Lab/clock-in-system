@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from models import People, Stores, Logs, db
-from flask_login import login_user, logout_user, login_required
+from flask_login import login_user, logout_user, login_required, current_user
 import forms
 from datetime import datetime
 import pytz
@@ -78,19 +78,33 @@ def employee_view():
 @employee_bp.route('/manager')
 @login_required
 def manager():
-    summary = get_summary()
-    logs = get_logs()
+    store_id = current_user.store_id  # Assuming current_user has a store_id attribute
+    store = Stores.query.get(store_id)
+    if not store:
+        return "Store not found", 404
+    
+    if request.method == 'POST':
+        new_employee_name = request.form.get('new_employee')
+        if new_employee_name:
+            store.add_employee(new_employee_name)
+            flash('New employee added successfully.')
+            return redirect(url_for('employee.manager'))
+    
+    employees = store.get_employees()
+    logs = store.get_logs()
+    
     # Convert times to local timezone for display
     for log in logs:
         if log.login_time:
             log.login_time = log.login_time.astimezone(local_tz)
         if log.logout_time:
             log.logout_time = log.logout_time.astimezone(local_tz)
-    return render_template('manager.html', summary=summary, logs=logs)
+    
+    return render_template('manager.html', employees=employees, logs=logs)
 
-@employee_bp.route('/add_employee', methods=['POST'])
-@login_required
-def add_employee_view():
-    employee_name = request.form.get('new_employee')
-    add_employee(employee_name)
-    return redirect(url_for('employee.manager'))
+# @employee_bp.route('/add_employee', methods=['POST'])
+# @login_required
+# def add_employee_view():
+#     employee_name = request.form.get('new_employee')
+#     add_employee(employee_name)
+#     return redirect(url_for('employee.manager'))

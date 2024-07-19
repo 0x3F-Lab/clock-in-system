@@ -8,14 +8,14 @@
     <thead>
         <tr>
             <th>Staff Name</th>
-            <th>Weekday</th>
-            <th>Weekend</th>
+            <th>Weekday Hours</th>
+            <th>Weekend Hours</th>
             <th>Public Holidays</th>
             <th>Deliveries</th>
         </tr>
     </thead>
     <tbody>
-        {% for employee in summary %}
+        {% for employee in employees %}
         <tr>
             <td>{{ employee.name }}</td>
             <td>{{ employee.weekday_hours }}</td>
@@ -56,7 +56,7 @@
 </table>
 
 <h1>Add Employee</h1>
-<form method="POST" action="{{ url_for('employee.add_employee_view') }}">
+<form method="POST" action="{{ url_for('employee.manager') }}">
     <label for="new_employee">New Employee Name:</label>
     <input type="text" id="new_employee" name="new_employee" required>
     <button type="submit">Add Employee</button>

@@ -41,7 +41,7 @@ class People(db.Model, UserMixin):
         current_time_local = datetime.now(local_tz)
         if self.clocked_in:
             # Clocking out
-            log = Logs.query.filter_by(employee_id=self.person_id, logout_time=None).first()
+            log = Logs.query.filter_by(person_id=self.person_id, logout_time=None).first()
             if log and (current_time_local - log.login_time).total_seconds() >= 15 * 60:  # 15m protection window
                 clock_in_time = log.login_time
                 if clock_in_time.tzinfo is None:
@@ -60,10 +60,10 @@ class People(db.Model, UserMixin):
                 self.deliveries += deliveries  # Add deliveries to person's data
         else:
             # Clocking in
-            last_log = Logs.query.filter_by(employee_id=self.person_id).order_by(Logs.login_time.desc()).first()
+            last_log = Logs.query.filter_by(person_id=self.person_id).order_by(Logs.login_time.desc()).first()
             if last_log is None or (current_time_local - last_log.logout_time).total_seconds() >= 15 * 60:  # 15m protection window
                 self.clocked_in = True
-                log = Logs(employee_id=self.person_id, login_time=current_time_local)
+                log = Logs(person_id=self.person_id, login_time=current_time_local)
                 db.session.add(log)
         db.session.commit()
         
