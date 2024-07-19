@@ -50,3 +50,32 @@ table.styled-table tbody tr:nth-of-type(even) {
 table.styled-table tbody tr:last-of-type {
     border-bottom: 2px solid #333;
 }
+
+/* Toast */
+#toast-container {
+  /* Position the toast container bottom right of page */
+  position: fixed;
+  min-height: 200px;
+  bottom: 0;
+  right: 0;
+  z-index: 1050;
+  font-size: 3em;
+  font-weight: bold;
+  text-align: center;
+}
+
+.toast {
+  min-width: 200px;
+  align-items: center;
+  text-align: center;
+}
+
+.alert-warning {
+  background-color: lightcoral;
+  color:black;
+}
+
+.alert-success {
+  background-color: lightgreen;
+  color:black;
+}

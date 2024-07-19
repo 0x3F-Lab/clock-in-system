@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timezone
 import pytz # used to get time in perth 
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -19,12 +20,21 @@ class People(db.Model, UserMixin):
     deliveries = db.Column(db.Integer, default=0, nullable=False)
     creationDate = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_manager = db.Column(db.Boolean, default=False, nullable=False)
+    email =  db.Column(db.String(320), unique=True, nullable=True, index=True)
+    password = db.Column(db.String(128), nullable=True) # Null until employee signs up completely
 
-    logs = db.relationship('Logs', backref='employee', lazy='dynamic', foriegn_keys='Logs.log_id') # Link users to any logs they generate
+    logs = db.relationship('Logs', backref='employee', lazy='dynamic', foreign_keys='Logs.person_id') # Link users to any logs they generate
 
     # Override the id function
     def get_id(self):
         return str(self.person_id)
+    
+    # Password handling
+    def set_password(self, password):
+        self.password = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password, password)
     
     # Clock in/out with 15m protection window (prevents double clocking)
     def clock_in_out(self, deliveries=0):
@@ -60,7 +70,7 @@ class People(db.Model, UserMixin):
 
 class Stores(db.Model):
     store_id = db.Column(db.Integer, primary_key=True, nullable=False)
-    store_name = db.Column(db.string(128), nullable=False, index=True)
+    store_name = db.Column(db.String(128), nullable=False, index=True)
 
     def get_id(self):
         return str(self.store_id)
@@ -96,7 +106,7 @@ class Stores(db.Model):
 
 class Logs(db.Model):
     log_id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('people.user_id'), nullable=False)
+    person_id = db.Column(db.Integer, db.ForeignKey('people.person_id'), nullable=False)
     login_time = db.Column(db.DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     logout_time = db.Column(db.DateTime(timezone=True))
     hours_worked = db.Column(db.Float)
