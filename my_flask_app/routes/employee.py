@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for
-from models import Employee, Log, db, clock_in, clock_out, get_clocked_in_employees, get_summary, get_logs, add_employee, get_employees
+from models import People, Stores, Logs
 from datetime import datetime
 import pytz
 
@@ -23,18 +23,21 @@ def employee_view():
     if request.method == 'POST':
         action = request.form.get('action')
         employee_name = request.form.get('employee')
-        if action == 'clock_in':
-            clock_in(employee_name)
-        elif action == 'clock_out':
-            deliveries = request.form.get('deliveries', '0')
-            try:
-                deliveries = int(deliveries)
-            except ValueError:
-                deliveries = 0
-            clock_out(employee_name, deliveries)
+        deliveries = request.form.get('deliveries', '0')
+        
+        try:
+            deliveries = int(deliveries)
+        except ValueError:
+            deliveries = 0
+
+        employee = People.query.filter_by(name=employee_name).first()
+        if employee:
+            employee.clock_in_out(deliveries=deliveries)
+        
         return redirect(url_for('employee.employee_view'))
-    employees = get_employees()
-    clocked_in_employees = get_clocked_in_employees()
+
+    employees = People.query.all()
+    clocked_in_employees = People.query.filter_by(clocked_in=True).all()
     return render_template('employee.html', employees=employees, clocked_in_employees=clocked_in_employees)
 
 @employee_bp.route('/manager')
