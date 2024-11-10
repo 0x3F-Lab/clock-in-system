@@ -20,7 +20,7 @@ This is a Django-based web application for managing employee clock-in and clock-
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/clock-in-system.git
+   git clone git@github.com:0x3F-Lab/clock-in-system.git
    cd clock-in-system
 
 2. **Setup virtual python environment**:
