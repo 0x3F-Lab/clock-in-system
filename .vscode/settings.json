@@ -1,5 +1,0 @@
-{
-    "python.analysis.extraPaths": [
-        "./my_flask_app"
-    ]
-}
