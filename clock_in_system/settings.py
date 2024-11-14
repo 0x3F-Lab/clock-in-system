@@ -78,6 +78,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'djongo',
         'NAME': 'clock_in_system',  
+        'CLIENT': {
+          'host': 'localhost',
+          'port': 27017,
+        }
     }
 }
 
@@ -106,7 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Australia/Perth'
 
 USE_I18N = True
 
