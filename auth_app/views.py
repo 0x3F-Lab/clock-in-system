@@ -1,5 +1,7 @@
 from django.shortcuts import render, redirect
 from .models import User
+from .forms import NewUserForm
+from django.db import IntegrityError
 
 def login_view(request):
     return render(request, 'auth_app/login.html')
@@ -10,12 +12,16 @@ def user_list(request):
 
 def create_user(request):
     if request.method == 'POST':
-        name = request.POST['name']
-        email = request.POST['email']
-        password = request.POST['password']
+        form = NewUserForm(request.POST)
+        if form.is_valid():
+            try:
+                form.save()
+                return redirect('user_list')
+            except IntegrityError as e:
+                print(f"Database integrity error when adding new user: {e}")
+            except Exception as e:
+                print(f"Unexpected error: {e}")
         
-        user = User(name=name, email=email, password=password)
-        user.save()
-        
-        return redirect('user_list')
-    return render(request, 'auth_app/create_user.html')
+    else:
+        form = NewUserForm()
+    return render(request, 'auth_app/create_user.html', {'form': form})

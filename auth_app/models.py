@@ -3,7 +3,8 @@ from django.db import models
 # Create your models here.
 
 class User(models.Model):
-    name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=256)  # Store hashed passwords -- Allow nullable pass for fresh account (shouldnt be used until password is set)
     birth_date = models.DateField(blank=True, default=None)
