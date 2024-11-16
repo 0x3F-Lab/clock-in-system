@@ -1,0 +1,2 @@
+mode: auto
+branchName: '${issue.number}-${issue.title[0,64]}' # Only take the first 64 characters of title
