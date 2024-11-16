@@ -23,10 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
-
-      - name: Install distutils # REMOVE THIS AFTER SWITCHING FROM MONGODB (as its deprecated?)
-        run: sudo apt-get install python3-distutils
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
