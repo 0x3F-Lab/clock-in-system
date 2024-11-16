@@ -22,16 +22,24 @@ This is a Django-based web application for managing employee clock-in and clock-
    ```bash
    git clone git@github.com:0x3F-Lab/clock-in-system.git
    cd clock-in-system
+   ```
 
 2. **Setup virtual python environment**:
     ```bash
     python3 -m venv venv
     source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    ```
 
 3. **Install dependencies**:
+    ```bash
     pip install -r requirements.txt
 
-4. **Set up MongoDB**:
+4. **Setup Pre-commit**
+    ```bash
+    pre-commit install
+    ```
+
+5. **Set up MongoDB**:
 
 Make sure MongoDB is running. I recommend using MongoDB Compass for an easy UI setup.
 
