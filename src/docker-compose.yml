@@ -1,0 +1,23 @@
+services:
+  django:
+    container_name: Django
+    build: ./django
+    volumes:
+      - ./django:/app  # Sync Django project files
+    ports:
+      - "8000:8000"  # Expose Django development server
+    env_file:
+      - .env 
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    container_name: Postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres/data/:/var/lib/postgresql/data/
