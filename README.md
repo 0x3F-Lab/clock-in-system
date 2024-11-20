@@ -23,29 +23,13 @@ This is a Django-based web application for managing employee clock-in and clock-
    git clone git@github.com:0x3F-Lab/clock-in-system.git
    cd clock-in-system
 
-2. **Setup virtual python environment**:
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
 
-3. **Install dependencies**:
-    pip install -r requirements.txt
+2. **Start the containers**:
+  ```bash
+  cd src
+  docker-compose up --build
+  ```
 
-4. **Set up MongoDB**:
+  ### **NOTE:** This will automatically apply all migrations to the database on all startups.
 
-Make sure MongoDB is running. I recommend using MongoDB Compass for an easy UI setup.
-
-1. **Create Connection**:
-   - Open **MongoDB Compass** and connect to your MongoDB server (local).
-
-2. **Create Database**:
-   - In MongoDB Compass, create a new database named **`clock_in_system`**.
-
-3. **Run Migrations**:
-   - From the project directory, run:
-     ```bash
-     python manage.py makemigrations
-     python manage.py migrate
-     ```
-   This will set up the initial database schema in MongoDB.
 
