@@ -25,24 +25,30 @@ This is a Django-based web application for managing employee clock-in and clock-
    ```
 
 2. **Duplicate env for use**:
-  ```bash
-  cp src/.env.example src/.env
-  ```
-  **NOTE:** Please modify the database password in the `.env` file!
+    ```bash
+    cp src/.env.example src/.env
+    ```
+    **NOTE:** Please modify the database password in the `.env` file!
 
 3. **Start the containers**:
-  ```bash
-  cd src
-  docker-compose up --build
-  ```
+    ```bash
+    cd src
+    docker-compose up --build
+    ```
+    **NOTE:** This will automatically apply all migrations to the database on all startups.
 
-  **NOTE:** This will automatically apply all migrations to the database on all startups.
+4. **Setting up pre-commit (Developing)**
+    This will setup the linting process client side before pushes are made to the remote repo. This ensures ease of use for all users without having to re-push with updated linting.
+    ```bash
+    pip install black pre-commit
+    pre-commit install  # Run in root directory
+    ```
 
 
 ### Testing
-The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
+    The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
 
-  ```bash
-  cd src/django
-  python manage.py test -v 2
-  ```
+    ```bash
+    cd src/django
+    python manage.py test -v 2
+    ```
