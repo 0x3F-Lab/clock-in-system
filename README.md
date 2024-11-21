@@ -47,7 +47,7 @@ This is a Django-based web application for managing employee clock-in and clock-
 
 ### Testing
     The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
-
+    
     ```bash
     cd src/django
     python manage.py test -v 2
