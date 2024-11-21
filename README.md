@@ -28,7 +28,7 @@ This is a Django-based web application for managing employee clock-in and clock-
   ```bash
   cp src/.env.example src/.env
   ```
-  ### **NOTE:** Please modify the database password in the `.env` file!
+  **NOTE:** Please modify the database password in the `.env` file!
 
 3. **Start the containers**:
   ```bash
@@ -36,6 +36,13 @@ This is a Django-based web application for managing employee clock-in and clock-
   docker-compose up --build
   ```
 
-  ### **NOTE:** This will automatically apply all migrations to the database on all startups.
+  **NOTE:** This will automatically apply all migrations to the database on all startups.
 
 
+### Testing
+The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
+
+  ```bash
+  cd src/django
+  python manage.py test -v 2
+  ```
