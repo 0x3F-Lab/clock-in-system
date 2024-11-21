@@ -1,18 +1,17 @@
-from unittest import mock
-from django.test import TestCase
+import pytest
 from django.urls import reverse
 
 
-class LoginPageTest(TestCase):
+@pytest.mark.django_db
+def test_login_view(client):
+    """
+    This test checks if the login view of the Django application is accessible and returns the expected response.
+    """
+    url = reverse("login")  # Get the URL for the `login` view
+    response = client.get(url)  # Use Django's test client to send a GET request
 
-    @mock.patch("django.contrib.auth.models.User.objects.get")  # Mock DB call
-    def test_login_page_accessible(self, mock_get_user):
-        # Define a mock return value when objects.get() is called
-        mock_get_user.return_value = mock.MagicMock(id=1, username="testuser")
-
-        # Simulate a GET request to the login page
-        response = self.client.get(reverse("login"))
-
-        # Assert that the login page is accessible
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Login")
+    # Check response
+    assert response.status_code == 200  # Verify it returns a 200 OK
+    assert (
+        b"Login" in response.content
+    )  # Check if the word "Login" is in the response body

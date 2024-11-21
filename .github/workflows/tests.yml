@@ -17,12 +17,19 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mongo:
-        image: mongo:latest
-        options: --health-cmd="curl --silent --fail localhost:27017" --health-timeout=30s --health-start-period=5s --health-retries=3
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: clock_in_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: InsEcuR3Pa55w0Rd
         ports:
-          - 27017:27017
-        # Optionally, you can add a custom database name and initialize here
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout code
@@ -37,14 +44,20 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Wait for MongoDB to be ready
+      - name: Wait for PostgreSQL to be ready
         run: |
-          docker ps # Check running containers to ensure MongoDB is running
-          while ! nc -z localhost 27017; do
-            echo "Waiting for MongoDB..."
+          while ! nc -z localhost 5432; do
+            echo "Waiting for PostgreSQL..."
             sleep 2
           done
+          echo "PostgreSQL is ready!"
 
       - name: Run tests
+        env:
+          POSTGRES_DB: clock_in_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: InsEcuR3Pa55w0Rd
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
         run: |
           python3 manage.py test
