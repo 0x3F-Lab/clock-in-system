@@ -42,7 +42,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          pip install -r ./src/django/requirements.txt
 
       - name: Wait for PostgreSQL to be ready
         run: |
