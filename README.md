@@ -23,8 +23,13 @@ This is a Django-based web application for managing employee clock-in and clock-
    git clone git@github.com:0x3F-Lab/clock-in-system.git
    cd clock-in-system
 
+2. **Duplicate env for use**:
+  ```bash
+  cp src/.env.example src/.env
+  ```
+  ### **NOTE:** Please modify the database password in the `.env` file!
 
-2. **Start the containers**:
+3. **Start the containers**:
   ```bash
   cd src
   docker-compose up --build
