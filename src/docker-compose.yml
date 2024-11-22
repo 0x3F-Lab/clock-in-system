@@ -20,4 +20,7 @@ services:
       - .env
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./postgres/data/:/var/lib/postgresql/data/
+      - postgres-data:/var/lib/postgresql/data  # Use named volume instead of host directory
+
+volumes:
+  postgres-data:  # Named volume for Postgres data

@@ -13,7 +13,6 @@ This is a Django-based web application for managing employee clock-in and clock-
 ### Prerequisites
 
 - Python 3.10 or higher
-- MongoDB (configured and running)
 - Django 3.2 or higher
 
 ### Setting Up the Project

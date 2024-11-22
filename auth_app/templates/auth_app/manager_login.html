@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manager Login</title>
+</head>
+<body>
+    <h2>Manager Login</h2>
+    <form method="POST" action="{% url 'manager_login' %}">
+        {% csrf_token %}
+        <label>Email:</label>
+        <input type="email" name="email" required>
+        <br>
+        <label>Password:</label>
+        <input type="password" name="password" required>
+        <br>
+        <button type="submit">Login</button>
+    </form>
+    {% for message in messages %}
+        <p>{{ message }}</p>
+    {% endfor %}
+</body>
+</html>
