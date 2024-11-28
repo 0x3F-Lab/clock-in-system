@@ -14,3 +14,13 @@ def manager_login(request):
 def manager_dashboard(request):
     # Render the manager dashboard directly
     return render(request, "auth_app/manager_dashboard.html")
+
+
+def employee_login(request):
+    # Redirect to employee page (skip login for now)
+    return redirect("employee_dashboard")
+
+
+def employee_dashboard(request):
+    # Render employee dashboard
+    return render(request, "auth_app/employee_dashboard.html")
