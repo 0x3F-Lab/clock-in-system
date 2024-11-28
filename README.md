@@ -44,6 +44,17 @@ This is a Django-based web application for managing employee clock-in and clock-
     pre-commit install  # Run in root directory
     ```
 
+### Accessing Django admin page
+    This page makes accessing the database significantly easier as it directly integrates with the connected models. First, a super-user must be made for a login account.
+    ```bash
+    # Ensure `Django` container is running.
+    docker exec -it Django bash
+    cd /app
+    python manage.py createsuperuser
+    exit```
+
+    Then go to `localhost:8000/admin/` and use the new account created.
+
 
 ### Testing
    The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
