@@ -13,7 +13,6 @@ This is a Django-based web application for managing employee clock-in and clock-
 ### Prerequisites
 
 - Python 3.10 or higher
-- MongoDB (configured and running)
 - Django 3.2 or higher
 
 ### Setting Up the Project
@@ -22,30 +21,33 @@ This is a Django-based web application for managing employee clock-in and clock-
    ```bash
    git clone git@github.com:0x3F-Lab/clock-in-system.git
    cd clock-in-system
+   ```
 
-2. **Setup virtual python environment**:
+2. **Duplicate env for use**:
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    cp src/.env.example src/.env
+    ```
+    **NOTE:** Please modify the database password in the `.env` file!
 
-3. **Install dependencies**:
-    pip install -r requirements.txt
+3. **Start the containers**:
+    ```bash
+    cd src
+    docker-compose up --build
+    ```
+    **NOTE:** This will automatically apply all migrations to the database on all startups.
 
-4. **Set up MongoDB**:
+4. **Setting up pre-commit (Developing)**
+   
+    This will setup the linting process client side before pushes are made to the remote repo. This ensures ease of use for all users without having to re-push with updated linting.
+    ```bash
+    pip install black pre-commit
+    pre-commit install  # Run in root directory
+    ```
 
-Make sure MongoDB is running. I recommend using MongoDB Compass for an easy UI setup.
 
-1. **Create Connection**:
-   - Open **MongoDB Compass** and connect to your MongoDB server (local).
-
-2. **Create Database**:
-   - In MongoDB Compass, create a new database named **`clock_in_system`**.
-
-3. **Run Migrations**:
-   - From the project directory, run:
-     ```bash
-     python manage.py makemigrations
-     python manage.py migrate
-     ```
-   This will set up the initial database schema in MongoDB.
-
+### Testing
+   The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
+   ```bash
+   cd src/django
+   python manage.py test -v 2
+   ```

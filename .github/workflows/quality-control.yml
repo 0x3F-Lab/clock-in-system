@@ -1,0 +1,36 @@
+name: Code Linting
+
+on:
+  push:
+    branches:
+      - main
+      - "**"
+  pull_request:
+    branches:
+      - main
+      - "**"
+  workflow_dispatch: # Allow manual runs
+
+jobs:
+  lint:
+    name: Run Black Linter
+    runs-on: ubuntu-latest
+    if: github.event_name != 'push' || github.event.head_commit.message != github.event.pull_request.head.commit.message
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          pip install black
+
+      - name: Run Black (Server)
+        run: |
+          #cd .   # Change where it runs the linting
+          black --check .
