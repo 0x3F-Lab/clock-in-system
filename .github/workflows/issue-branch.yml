@@ -5,6 +5,9 @@ on:
 jobs:
   create_issue_branch_job:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: write
     steps:
       - name: Create Issue Branch
         uses: robvanderleek/create-issue-branch@main
