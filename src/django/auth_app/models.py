@@ -1,15 +1,19 @@
 from django.db import models
 
-# Create your models here.
-
 
 class User(models.Model):
     first_name = models.CharField(max_length=100, null=False)
     last_name = models.CharField(max_length=100, null=False)
     email = models.EmailField(unique=True, null=False)
+    phone_number = models.CharField(
+        max_length=15, null=True
+    )  # CharField to handle leading zeros
     pin = models.CharField(
-        max_length=256
+        max_length=256, null=True
     )  # Store hashed pins -- Allow nullable pin for fresh account (shouldnt be used until password is set)
+    password = models.CharField(
+        max_length=256, null=True
+    )  # Allow nullable for non-manager accounts
     birth_date = models.DateField(blank=True, default=None, null=True)
     is_active = models.BooleanField(default=False, null=False)
     is_manager = models.BooleanField(default=False, null=False)
@@ -19,3 +23,36 @@ class User(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Activity(models.Model):
+    employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    login_time = models.DateTimeField(null=False)
+    logout_time = models.DateTimeField(
+        null=True
+    )  # Nullable to allow for ongoing shifts
+    is_public_holiday = models.BooleanField(default=False, null=False)
+    deliveries = models.IntegerField(default=0, null=False)
+    login_timestamp = models.DateTimeField(auto_now_add=True, null=False)
+    logout_timestamp = models.DateTimeField(auto_now=True, null=True)
+
+    def __str__(self):
+        return f"Clock-in data for {self.employee_id}"
+
+
+class Summary(models.Model):
+    employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    weekday_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, null=False, default=0.00
+    )
+    weekend_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, null=False, default=0.00
+    )
+    public_holiday_hours = models.DecimalField(
+        max_digits=5, decimal_places=2, null=False, default=0.00
+    )
+    deliveries = models.IntegerField(default=0, null=False)
+    summary_date = models.DateField(null=False)
+
+    def __str__(self):
+        return f"Weekly Summary for {self.employee_id} on {self.summary_date}"
