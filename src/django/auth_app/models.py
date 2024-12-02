@@ -22,7 +22,7 @@ class User(models.Model):
     clocked_in = models.BooleanField(default=False, null=False)
 
     def __str__(self):
-        return self.name
+        return f"[{self.id}] {self.first_name} {self.last_name} ({self.email})"
 
 
 class Activity(models.Model):
@@ -37,7 +37,7 @@ class Activity(models.Model):
     logout_timestamp = models.DateTimeField(auto_now=True, null=True)
 
     def __str__(self):
-        return f"Clock-in data for {self.employee_id}"
+        return f"[{self.id}] Clock-in data for {self.employee_id}"
 
 
 class Summary(models.Model):
@@ -55,4 +55,6 @@ class Summary(models.Model):
     summary_date = models.DateField(null=False)
 
     def __str__(self):
-        return f"Weekly Summary for {self.employee_id} on {self.summary_date}"
+        return (
+            f"[{self.id}] Weekly Summary for {self.employee_id} on {self.summary_date}"
+        )

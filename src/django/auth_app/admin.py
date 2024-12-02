@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import User
+from .models import User, Activity, Summary
 
-# Register your models here.
+# Register models
 admin.site.register(User)
+admin.site.register(Activity)
+admin.site.register(Summary)
