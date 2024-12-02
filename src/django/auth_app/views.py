@@ -37,23 +37,23 @@ def create_user(request):
 
 @api_view(["POST"])
 def clock_in(request):
-    user_id = request.data.get("user_id")
+    employee_id = request.data.get("employee_id")
     try:
-        user = User.objects.get(id=user_id)
+        employee = User.objects.get(id=employee_id)
 
-        # Ensure user is not already clocked in
-        if user.clocked_in:
+        # Ensure employee is not already clocked in
+        if employee.clocked_in:
             return Response(
-                {"error": "User is already clocked in."},
+                {"error": "Employee is already clocked in."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Mark user as clocked in and create a new Activity
-        user.clocked_in = True
-        user.save()
+        # Mark employee as clocked in and create a new Activity
+        employee.clocked_in = True
+        employee.save()
 
         activity = Activity.objects.create(
-            employee_id=user,
+            employee_id=employee,
             login_time=now(),
         )
         return Response(
@@ -61,24 +61,27 @@ def clock_in(request):
         )
 
     except User.DoesNotExist:
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Employee not found."}, status=status.HTTP_404_NOT_FOUND
+        )
 
 
 @api_view(["POST"])
 def clock_out(request):
-    user_id = request.data.get("user_id")
+    employee_id = request.data.get("employee_id")
     try:
-        user = User.objects.get(id=user_id)
+        employee = User.objects.get(id=employee_id)
 
-        # Ensure user is clocked in
-        if not user.clocked_in:
+        # Ensure employee is clocked in
+        if not employee.clocked_in:
             return Response(
-                {"error": "User is not clocked in."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Employee is not clocked in."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Find the user's last activity
+        # Find the employee's last activity
         activity = Activity.objects.filter(
-            employee_id=user, logout_time__isnull=True
+            employee_id=employee, logout_time__isnull=True
         ).last()
         if not activity:
             return Response(
@@ -86,9 +89,9 @@ def clock_out(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Mark user as clocked out and update the Activity
-        user.clocked_in = False
-        user.save()
+        # Mark employee as clocked out and update the Activity
+        employee.clocked_in = False
+        employee.save()
 
         activity.logout_time = now()
         activity.save()
@@ -96,4 +99,6 @@ def clock_out(request):
         return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
 
     except User.DoesNotExist:
-        return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Employee not found."}, status=status.HTTP_404_NOT_FOUND
+        )
