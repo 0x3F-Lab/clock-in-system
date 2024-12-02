@@ -96,3 +96,5 @@ Add any extra requirements then freeze the current requirements to update the fi
 ```bash
 pip freeze > ./src/django/requirements.txt
 ```
+
+**NOTE:** Ensure that the compose containers are __REBUILT!__ to include the new packages.
