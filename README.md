@@ -34,6 +34,7 @@ This is a Django-based web application for managing employee clock-in and clock-
     cd src
     docker-compose up --build
     ```
+    The site is hosted at `http://localhost:8000` while the database is located at `http://localhost:5432`.
     **NOTE:** This will automatically apply all migrations to the database on all startups.
 
 4. **Setting up pre-commit (Developing)**
@@ -72,4 +73,26 @@ The tests conducted will use a dummy database as a substitute for the Postgres d
 ```bash
 cd src/django
 python manage.py test -v 2
+```
+
+---
+
+### **Updating Requirements (Packages)**
+
+Make an environment to keep the requirements seperate from you system requirements. Ensure to do this in the project's root directory.
+
+```bash
+python -m venv venv
+source ./venv/bin/activate
+```
+
+Install exisiting requirements.
+
+```bash
+pip install ./src/django/requirements.txt
+```
+
+Add any extra requirements then freeze the current requirements to update the file.
+```bash
+pip freeze > ./src/django/requirements.txt
 ```
