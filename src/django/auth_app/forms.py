@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.hashers import make_password
-from .models import User
+from auth_app.models import User
 
 
 class NewUserForm(forms.ModelForm):

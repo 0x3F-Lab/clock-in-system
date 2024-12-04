@@ -3,9 +3,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils.timezone import now
 from django.shortcuts import render, redirect
-from .models import User, Activity
-from .serializers import ActivitySerializer
-from .forms import NewUserForm
+from auth_app.models import User, Activity
+from auth_app.serializers import ActivitySerializer
+from auth_app.forms import NewUserForm
 from django.db import IntegrityError
 
 

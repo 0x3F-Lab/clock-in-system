@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import User, Activity, Summary
+from auth_app.models import User, Activity, Summary
 
 # Register models
 admin.site.register(User)
