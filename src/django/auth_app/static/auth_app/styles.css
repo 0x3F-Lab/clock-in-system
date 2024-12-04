@@ -46,3 +46,49 @@ body, html {
 .login-box button:focus {
     outline: none;
 }
+
+/* Manager Dashboard Styles */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f4f4f9;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+.dashboard-container h1 {
+    font-size: 3rem;
+    color: #333;
+    margin-bottom: 40px;
+}
+
+/* Buttons for manager dashboard */
+.button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Adds vertical spacing between buttons */
+}
+
+.button-container button {
+    width: 400px;
+    padding: 20px;
+    font-size: 1.8rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.button-container button:hover {
+    background-color: #45a049;
+}
+
+.button-container button:focus {
+    outline: none;
+}
