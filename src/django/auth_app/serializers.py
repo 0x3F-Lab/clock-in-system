@@ -10,8 +10,11 @@ class ActivitySerializer(serializers.ModelSerializer):
             "employee_id",
             "login_time",
             "logout_time",
+            "shift_length_mins",
             "is_public_holiday",
             "deliveries",
+            "login_timestamp",
+            "logout_timestamp",
         ]
 
 

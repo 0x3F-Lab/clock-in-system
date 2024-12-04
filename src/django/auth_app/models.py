@@ -27,14 +27,20 @@ class User(models.Model):
 
 class Activity(models.Model):
     employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
-    login_time = models.DateTimeField(null=False)
+    login_time = models.DateTimeField(null=False)  # Rounds in time
     logout_time = models.DateTimeField(
         null=True
     )  # Nullable to allow for ongoing shifts
+    shift_length_mins = models.IntegerField(default=0, null=False)
     is_public_holiday = models.BooleanField(default=False, null=False)
     deliveries = models.IntegerField(default=0, null=False)
-    login_timestamp = models.DateTimeField(auto_now_add=True, null=False)
-    logout_timestamp = models.DateTimeField(auto_now=True, null=True)
+    login_timestamp = models.DateTimeField(
+        auto_now_add=True, null=False
+    )  # Track the specific time
+    logout_timestamp = models.DateTimeField(null=True)
+    last_updated_at = models.DateTimeField(
+        auto_now=True, null=False
+    )  # Track modifications outside clocking
 
     def __str__(self):
         return f"[{self.id}] Clock-in data for {self.employee_id}"
