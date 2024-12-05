@@ -26,9 +26,9 @@ def get_users_name(
     Args:
         only_active (bool): Include only active users if True.
         ignore_managers (bool): Exclude managers if True.
+        ignore_clocked_in (bool): Wether to ignore users who are clocked in.
         order (bool): Whether to order by the user's names, otherwise order by their id.
         order_by_first_name (bool): Order by first name if True, otherwise by last name.
-        clocked_in (bool): Wether to ignore users who are clocked in.
 
     Returns:
         List[Tuple[int, str]]: A list of tuples where each tuple contains user ID and full name.
