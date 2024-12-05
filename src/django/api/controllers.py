@@ -13,7 +13,7 @@ import api.utils as util
 logger = logging.getLogger("api")
 
 
-def list_users_name(
+def get_users_name(
     only_active: bool = True,
     ignore_managers: bool = False,
     order: bool = True,
@@ -44,7 +44,7 @@ def list_users_name(
     users = User.objects.filter(**filters)
 
     if not users:
-        return None
+        raise User.DoesNotExist("No active clock-in activity found.")
 
     # Determine ordering
     if order:
@@ -192,3 +192,51 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+def get_employee_clocked_info(employee_id: int) -> dict:
+    """
+    Get detailed clocked information for an employee.
+
+    Args:
+        employee_id (int): The ID of the employee.
+
+    Returns:
+        dict: A dictionary containing employee info and clocked-in details if applicable.
+    """
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        # Form the basic info
+        full_name = f"{employee.first_name} {employee.last_name}"
+        info = {
+            "employee_id": employee_id,
+            "name": full_name,
+            "clocked_in": employee.clocked_in,
+        }
+
+        # If the employee is logged in, add the activity info
+        if employee.clocked_in:
+            # Fetch the last active clock-in record for the employee
+            activity = Activity.objects.filter(
+                employee_id=employee, logout_time__isnull=True
+            ).last()
+
+            if not activity:
+                raise Activity.DoesNotExist("No active clock-in activity found.")
+
+            # Add the clock-in time to the info
+            info["login_time"] = activity.login_time
+            info["login_timestamp"] = activity.login_timestamp
+
+        return info
+
+    except User.DoesNotExist or Activity.DoesNotExist:
+        # Handle user not existing
+        raise  # Re-raise error to be caught in view
+    except Exception as e:
+        # Catch-all exception
+        logger.error(
+            f"Failed to get clocked information of employee with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        raise e  # Re-raise error to be caught in view

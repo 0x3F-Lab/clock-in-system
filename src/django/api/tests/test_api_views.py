@@ -103,3 +103,71 @@ def test_list_users_name_invalid_query_param(api_client, employee):
 
     # Ensure that the data returned still contains users
     assert isinstance(data, list)
+
+
+@pytest.mark.django_db
+def test_clocked_state_view_success(api_client, employee):
+    """
+    Test the clocked_state_view for an employee who is not clocked in.
+    """
+    url = reverse("clocked_state_view", args=[employee.id])
+    response = api_client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["employee_id"] == employee.id
+    assert data["name"] == f"{employee.first_name} {employee.last_name}"
+    assert data["clocked_in"] is False
+
+
+@pytest.mark.django_db
+def test_clocked_state_view_clocked_in_success(api_client, clocked_in_employee):
+    """
+    Test the clocked_state_view for an employee who is clocked in.
+    """
+    url = reverse("clocked_state_view", args=[clocked_in_employee.id])
+    response = api_client.get(url)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["employee_id"] == clocked_in_employee.id
+    assert (
+        data["name"]
+        == f"{clocked_in_employee.first_name} {clocked_in_employee.last_name}"
+    )
+    assert data["clocked_in"] is True
+    assert "login_time" in data
+    assert "login_timestamp" in data
+
+
+@pytest.mark.django_db
+def test_clocked_state_view_user_not_found(api_client):
+    """
+    Test the clocked_state_view for a non-existent employee.
+    """
+    url = reverse("clocked_state_view", args=[999])
+    response = api_client.get(url)
+
+    assert response.status_code == 404
+    data = response.json()
+    assert data["Error"] == "User not found with ID 999."
+
+
+@pytest.mark.django_db
+def test_clocked_state_view_bugged_state(api_client, employee):
+    """
+    Test the clocked_state_view for an employee with a bugged state (no activity record).
+    """
+    # Mark employee as clocked in without an activity record
+    employee.clocked_in = True
+    employee.save()
+
+    url = reverse("clocked_state_view", args=[employee.id])
+    response = api_client.get(url)
+
+    assert response.status_code == 417
+    data = response.json()
+    assert (
+        data["Error"]
+        == "User state is bugged due to missing activity records. Please contact an admin."
+    )

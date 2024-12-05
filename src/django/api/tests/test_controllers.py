@@ -8,11 +8,11 @@ import api.utils as util
 
 
 @pytest.mark.django_db
-def test_list_users_name_only_active(employee, inactive_employee):
+def test_get_users_name_only_active(employee, inactive_employee):
     """
     Test filtering users by only active status (only active users should be returned).
     """
-    users = controllers.list_users_name(only_active=True)
+    users = controllers.get_users_name(only_active=True)
 
     # Only the active user should be returned
     assert len(users) == 1
@@ -21,11 +21,11 @@ def test_list_users_name_only_active(employee, inactive_employee):
 
 
 @pytest.mark.django_db
-def test_list_users_name_ignore_managers(employee, manager):
+def test_get_users_name_ignore_managers(employee, manager):
     """
     Test filtering users by ignoring managers (should exclude managers).
     """
-    users = controllers.list_users_name(only_active=True, ignore_managers=True)
+    users = controllers.get_users_name(only_active=True, ignore_managers=True)
 
     # The manager should be excluded
     assert len(users) == 1
@@ -34,11 +34,11 @@ def test_list_users_name_ignore_managers(employee, manager):
 
 
 @pytest.mark.django_db
-def test_list_users_name_order_by_first_name(employee, clocked_in_employee):
+def test_get_users_name_order_by_first_name(employee, clocked_in_employee):
     """
     Test ordering users by first name.
     """
-    users = controllers.list_users_name(order=True, order_by_first_name=True)
+    users = controllers.get_users_name(order=True, order_by_first_name=True)
 
     # The users should be ordered by first name
     assert len(users) == 2
@@ -49,11 +49,11 @@ def test_list_users_name_order_by_first_name(employee, clocked_in_employee):
 
 
 @pytest.mark.django_db
-def test_list_users_name_order_by_last_name(employee, manager):
+def test_get_users_name_order_by_last_name(employee, manager):
     """
     Test ordering users by last name.
     """
-    users = controllers.list_users_name(order=True, order_by_first_name=False)
+    users = controllers.get_users_name(order=True, order_by_first_name=False)
 
     # The users should be ordered by last name
     assert len(users) == 2
@@ -64,22 +64,21 @@ def test_list_users_name_order_by_last_name(employee, manager):
 
 
 @pytest.mark.django_db
-def test_list_users_name_no_results(inactive_employee):
+def test_get_users_name_no_results(inactive_employee):
     """
     Test the scenario where no users match the given criteria (should return None).
     """
-    users = controllers.list_users_name(only_active=True)
-
-    assert users is None
+    with pytest.raises(User.DoesNotExist, match="No active clock-in activity found."):
+        controllers.get_users_name(only_active=True)
 
 
 @pytest.mark.django_db
-def test_list_users_name_empty_query(employee, manager):
+def test_get_users_name_empty_query(employee, manager):
     """
     Test the scenario when no filters are applied (default behavior).
     """
 
-    users = controllers.list_users_name()
+    users = controllers.get_users_name()
 
     # All active users should be returned
     assert len(users) == 2
@@ -202,3 +201,56 @@ def test_handle_clock_out_employee_not_found(mock_now):
     assert response.status_code == 404  # HTTP 404 Not Found
     data = response.data
     assert data["Error"] == "Employee not found with the ID 999."
+
+
+@pytest.mark.django_db
+def test_get_employee_clocked_info_success(employee):
+    """
+    Test fetching clocked info for an employee who is not clocked in.
+    """
+    info = controllers.get_employee_clocked_info(employee_id=employee.id)
+
+    assert info["employee_id"] == employee.id
+    assert info["name"] == f"{employee.first_name} {employee.last_name}"
+    assert info["clocked_in"] is False
+
+
+@pytest.mark.django_db
+def test_get_employee_clocked_info_clocked_in_success(clocked_in_employee):
+    """
+    Test fetching clocked info for an employee who is clocked in.
+    """
+    info = controllers.get_employee_clocked_info(employee_id=clocked_in_employee.id)
+
+    assert info["employee_id"] == clocked_in_employee.id
+    assert (
+        info["name"]
+        == f"{clocked_in_employee.first_name} {clocked_in_employee.last_name}"
+    )
+    assert info["clocked_in"] is True
+    assert "login_time" in info
+    assert "login_timestamp" in info
+
+
+@pytest.mark.django_db
+def test_get_employee_clocked_info_user_not_found():
+    """
+    Test fetching clocked info for a non-existent employee.
+    """
+    with pytest.raises(User.DoesNotExist):
+        controllers.get_employee_clocked_info(employee_id=999)
+
+
+@pytest.mark.django_db
+def test_get_employee_clocked_info_bugged_state(employee):
+    """
+    Test fetching clocked info for an employee with a bugged state (no activity record).
+    """
+    # Mark employee as clocked in without an activity record
+    employee.clocked_in = True
+    employee.save()
+
+    with pytest.raises(
+        Activity.DoesNotExist, match="No active clock-in activity found."
+    ):
+        controllers.get_employee_clocked_info(employee_id=employee.id)

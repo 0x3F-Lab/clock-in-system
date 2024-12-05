@@ -8,8 +8,8 @@ def test_clock_in_success(api_client, employee):
     """
     Test successful clock-in for an employee.
     """
-    url = reverse("clock_in")  # Update this to the actual URL name for clock_in
-    response = api_client.post(url, {"employee_id": employee.id})
+    url = reverse("clock_in", args=[employee.id])
+    response = api_client.post(url)
 
     assert response.status_code == 201  # HTTP 201 Created
     data = response.json()
@@ -24,8 +24,8 @@ def test_clock_in_already_clocked_in(api_client, clocked_in_employee):
     """
     Test attempting to clock in an employee who is already clocked in.
     """
-    url = reverse("clock_in")  # Update this to the actual URL name for clock_in
-    response = api_client.post(url, {"employee_id": clocked_in_employee.id})
+    url = reverse("clock_in", args=[clocked_in_employee.id])
+    response = api_client.post(url)
 
     assert response.status_code == 400  # HTTP 400 Bad Request
     data = response.json()
@@ -38,10 +38,8 @@ def test_clock_out_success(api_client, clocked_in_employee):
     """
     Test successful clock-out for an employee.
     """
-    url = reverse("clock_out")  # Update this to the actual URL name for clock_out
-    response = api_client.post(
-        url, {"employee_id": clocked_in_employee.id, "deliveries": 5}
-    )
+    url = reverse("clock_out", args=[clocked_in_employee.id])
+    response = api_client.post(url, {"deliveries": 5})
 
     assert response.status_code == 200  # HTTP 200 OK
     data = response.json()
@@ -57,8 +55,8 @@ def test_clock_out_not_clocked_in(api_client, employee):
     """
     Test attempting to clock out an employee who is not clocked in.
     """
-    url = reverse("clock_out")  # Update this to the actual URL name for clock_out
-    response = api_client.post(url, {"employee_id": employee.id, "deliveries": 5})
+    url = reverse("clock_out", args=[employee.id])
+    response = api_client.post(url, {"deliveries": 5})
 
     assert response.status_code == 400  # HTTP 400 Bad Request
     data = response.json()
@@ -71,8 +69,8 @@ def test_invalid_employee_id(api_client):
     """
     Test using an invalid employee ID for clock in/out.
     """
-    url = reverse("clock_in")  # Update this to the actual URL name for clock_in
-    response = api_client.post(url, {"employee_id": 999})  # Nonexistent employee ID
+    url = reverse("clock_in", args=[999])  # Nonexistent employee ID
+    response = api_client.post(url)
 
     assert response.status_code == 404  # HTTP 404 Not Found
     data = response.json()
