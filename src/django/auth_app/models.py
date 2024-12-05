@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.hashers import make_password, check_password
 
 
 class User(models.Model):
@@ -23,6 +24,38 @@ class User(models.Model):
 
     def __str__(self):
         return f"[{self.id}] {self.first_name} {self.last_name} ({self.email})"
+
+    # Password management
+    def set_password(self, raw_password: str) -> None:
+        """
+        Sets the user's password by hashing it.
+        """
+        self.password = make_password(raw_password)
+        self.save(update_fields=["password"])
+
+    def check_password(self, raw_password: str) -> bool:
+        """
+        Checks if the provided password matches the stored hashed password.
+        """
+        if not self.password:
+            return False
+        return check_password(raw_password, self.password)
+
+    # Pin management
+    def set_pin(self, raw_pin: str) -> None:
+        """
+        Sets the user's pin by hashing it.
+        """
+        self.pin = make_password(raw_pin)
+        self.save(update_fields=["pin"])
+
+    def check_pin(self, raw_pin: str) -> bool:
+        """
+        Checks if the provided pin matches the stored hashed pin.
+        """
+        if not self.pin:
+            return False
+        return check_password(raw_pin, self.pin)
 
 
 class Activity(models.Model):
@@ -68,7 +101,7 @@ class Summary(models.Model):
 
 class KeyValueStore(models.Model):
     key = models.CharField(max_length=255, unique=True)
-    value = models.TextField()
+    value = models.CharField(max_length=256, null=False)
 
     def __str__(self):
         return f"{self.key}: {self.value}"
