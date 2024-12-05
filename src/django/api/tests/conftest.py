@@ -23,6 +23,22 @@ def employee(db):
 
 
 @pytest.fixture
+def inactive_employee(db):
+    """
+    Create a basic employee fixture that is INACTIVE.
+    """
+    return User.objects.create(
+        first_name="Mary",
+        last_name="Jane",
+        email="mary.jane@example.com",
+        phone_number="1234567555",
+        clocked_in=False,
+        is_active=False,
+        is_manager=False,
+    )
+
+
+@pytest.fixture
 def clocked_in_employee(db):
     """
     Create an employee who is already clocked in.
@@ -41,6 +57,22 @@ def clocked_in_employee(db):
         login_time=now() - timedelta(hours=3),  # Set login_time to 3 hours ago
     )
     return employee
+
+
+@pytest.fixture
+def manager():
+    """
+    Creates a manager user for testing.
+    """
+    return User.objects.create(
+        first_name="Manager",
+        last_name="Test",
+        email="manager.test@example.com",
+        phone_number="1234567522",
+        clocked_in=False,
+        is_active=True,
+        is_manager=True,
+    )
 
 
 @pytest.fixture

@@ -8,6 +8,86 @@ import api.utils as util
 
 
 @pytest.mark.django_db
+def test_list_users_name_only_active(employee, inactive_employee):
+    """
+    Test filtering users by only active status (only active users should be returned).
+    """
+    users = controllers.list_users_name(only_active=True)
+
+    # Only the active user should be returned
+    assert len(users) == 1
+    assert users[0][0] == employee.id
+    assert users[0][1] == "John Doe"
+
+
+@pytest.mark.django_db
+def test_list_users_name_ignore_managers(employee, manager):
+    """
+    Test filtering users by ignoring managers (should exclude managers).
+    """
+    users = controllers.list_users_name(only_active=True, ignore_managers=True)
+
+    # The manager should be excluded
+    assert len(users) == 1
+    assert users[0][0] == employee.id
+    assert users[0][1] == "John Doe"
+
+
+@pytest.mark.django_db
+def test_list_users_name_order_by_first_name(employee, clocked_in_employee):
+    """
+    Test ordering users by first name.
+    """
+    users = controllers.list_users_name(order=True, order_by_first_name=True)
+
+    # The users should be ordered by first name
+    assert len(users) == 2
+    assert users[0][0] == clocked_in_employee.id
+    assert users[0][1] == "Jane Doe"
+    assert users[1][0] == employee.id
+    assert users[1][1] == "John Doe"
+
+
+@pytest.mark.django_db
+def test_list_users_name_order_by_last_name(employee, manager):
+    """
+    Test ordering users by last name.
+    """
+    users = controllers.list_users_name(order=True, order_by_first_name=False)
+
+    # The users should be ordered by last name
+    assert len(users) == 2
+    assert users[0][0] == employee.id
+    assert users[0][1] == "John Doe"
+    assert users[1][0] == manager.id
+    assert users[1][1] == "Manager Test"
+
+
+@pytest.mark.django_db
+def test_list_users_name_no_results(inactive_employee):
+    """
+    Test the scenario where no users match the given criteria (should return None).
+    """
+    users = controllers.list_users_name(only_active=True)
+
+    assert users is None
+
+
+@pytest.mark.django_db
+def test_list_users_name_empty_query(employee, manager):
+    """
+    Test the scenario when no filters are applied (default behavior).
+    """
+
+    users = controllers.list_users_name()
+
+    # All active users should be returned
+    assert len(users) == 2
+    assert users[0][0] == employee.id
+    assert users[1][0] == manager.id
+
+
+@pytest.mark.django_db
 @patch("api.utils.now")  # Mock 'now()' to control the timestamp
 def test_handle_clock_in_success(mock_now, employee):
     """

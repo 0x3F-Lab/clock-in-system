@@ -18,7 +18,7 @@ def list_users_name(
     ignore_managers: bool = False,
     order: bool = True,
     order_by_first_name: bool = True,
-    clocked_in: bool = False,
+    ignore_clocked_in: bool = False,
 ) -> List[Tuple[int, str]]:
     """
     Fetches a list of users with their IDs and full names.
@@ -28,26 +28,35 @@ def list_users_name(
         ignore_managers (bool): Exclude managers if True.
         order (bool): Whether to order by the user's names, otherwise order by their id.
         order_by_first_name (bool): Order by first name if True, otherwise by last name.
-        clocked_in (bool): Filter by clocked-in status.
+        clocked_in (bool): Wether to ignore users who are clocked in.
 
     Returns:
         List[Tuple[int, str]]: A list of tuples where each tuple contains user ID and full name.
     """
     # Filter base query
-    filters = {"is_active": only_active, "clocked_in": clocked_in}
+    filters = {"is_active": only_active}
     if ignore_managers:
         filters["is_manager"] = False
+    if ignore_clocked_in:
+        filters["clocked_in"] = False
 
     # Fetch filtered users
     users = User.objects.filter(**filters)
 
+    if not users:
+        return None
+
     # Determine ordering
     if order:
-        order_field = "first_name" if order_by_first_name else "last_name"
-        users = users.order_by(order_field)
+        if order_by_first_name:
+            # First order by first_name, then by last_name
+            users = users.order_by("first_name", "last_name")
+        else:
+            # First order by last_name, then by first_name
+            users = users.order_by("last_name", "first_name")
 
     # Convert users to compact list
-    users_list = List()
+    users_list = list()
     for user in users:
         users_list.append((user.id, f"{user.first_name} {user.last_name}"))
 
