@@ -68,11 +68,19 @@ Then, go to `http://localhost:8000/admin/` and use the newly created account to 
 
 ### **Testing**
 
+For proper testing, the requirements are required to be installed, preferably with a virtual envrionemnt.
+
+```bash
+python -m venv venv
+source ./venv/bin/activate
+pip install ./src/django/requirements.txt
+```
+
 The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use an in-memory SQLite3 database.
 
 ```bash
-cd src/django
-python manage.py test -v 2
+cd ./src/django
+pytest
 ```
 
 ---
