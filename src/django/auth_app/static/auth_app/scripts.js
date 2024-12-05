@@ -48,7 +48,6 @@ function toggleClock() {
         timer.textContent = "Worked: 0H 0M";
         totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
         totalDeliveriesDisplay.textContent = deliveriesCount.textContent;
-        localTimeDisplay.textContent = endTime.toLocaleTimeString();
 
         deliveriesCount.textContent = "0"; // Reset deliveries after clock out
     }
@@ -64,6 +63,12 @@ function updateTimer() {
     timer.textContent = `Worked: ${hours}H ${minutes}M`;
 }
 
+// Update Local Time
+function updateLocalTime() {
+    const now = new Date();
+    localTimeDisplay.textContent = now.toLocaleTimeString();
+}
+
 // Adjust Deliveries Count
 function adjustDeliveries(amount) {
     if (clockedIn) {
@@ -76,3 +81,6 @@ function adjustDeliveries(amount) {
 clockButton.addEventListener("click", toggleClock);
 minusButton.addEventListener("click", () => adjustDeliveries(-1));
 plusButton.addEventListener("click", () => adjustDeliveries(1));
+
+// Start Updating Local Time
+setInterval(updateLocalTime, 1000);
