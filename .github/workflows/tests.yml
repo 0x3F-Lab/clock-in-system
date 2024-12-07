@@ -33,4 +33,4 @@ jobs:
       - name: Run tests
         run: |
           cd src/django
-          python3 manage.py test -v 2
+          pytest

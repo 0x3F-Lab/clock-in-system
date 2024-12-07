@@ -1,14 +1,27 @@
 import pytest
-from django.contrib.auth.models import User
+from auth_app.models import User, Activity
 
-# from ..models import User
+# Default scope if functional (i.e. after every single test the database resets)
 
-# FIXTURES FILE
 
-# Sample Fixture
+@pytest.fixture
+def employee(db):
+    """
+    Create a basic employee fixture.
+    """
+    return User.objects.create(
+        first_name="John",
+        last_name="Doe",
+        email="john.doe@example.com",
+        phone_number="1234567890",
+        clocked_in=False,
+        is_active=True,
+        is_manager=False,
+    )
+
+
 # @pytest.fixture
-# def custom_client(db):
-#     user = User.objects.create_user(username='testuser', password='password')
-#     client = Client()
-#     client.login(username='testuser', password='password')
+# def authenticated_client(client, create_user):
+#     """Fixture to provide an authenticated client"""
+#     client.login(username="testuser", password="password123")
 #     return client

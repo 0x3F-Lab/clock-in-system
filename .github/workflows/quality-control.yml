@@ -33,4 +33,4 @@ jobs:
       - name: Run Black (Server)
         run: |
           #cd .   # Change where it runs the linting
-          black --check .
+          black --check . --exclude "src/django/.*/migrations/"

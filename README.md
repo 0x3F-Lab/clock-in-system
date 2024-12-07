@@ -34,6 +34,7 @@ This is a Django-based web application for managing employee clock-in and clock-
     cd src
     docker-compose up --build
     ```
+    The site is hosted at `http://localhost:8000` while the database is located at `http://localhost:5432`.
     **NOTE:** This will automatically apply all migrations to the database on all startups.
 
 4. **Setting up pre-commit (Developing)**
@@ -44,10 +45,64 @@ This is a Django-based web application for managing employee clock-in and clock-
     pre-commit install  # Run in root directory
     ```
 
+---
 
-### Testing
-   The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use a SQLite3 database in memory.
-   ```bash
-   cd src/django
-   python manage.py test -v 2
-   ```
+### **Accessing Django Admin Page**
+
+This page makes accessing the database significantly easier as it directly integrates with the connected models. First, a superuser must be created for a login account.
+
+```bash
+# Ensure the `Django` container is running.
+docker exec -it Django bash
+```
+
+```bash
+cd /app
+python manage.py createsuperuser
+exit
+```
+
+Then, go to `http://localhost:8000/admin/` and use the newly created account to log in.
+
+---
+
+### **Testing**
+
+For proper testing, the requirements are required to be installed, preferably with a virtual envrionemnt.
+
+```bash
+python -m venv venv
+source ./venv/bin/activate
+pip install ./src/django/requirements.txt
+```
+
+The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use an in-memory SQLite3 database.
+
+```bash
+cd ./src/django
+pytest
+```
+
+---
+
+### **Updating Requirements (Packages)**
+
+Make an environment to keep the requirements seperate from you system requirements. Ensure to do this in the project's root directory.
+
+```bash
+python -m venv venv
+source ./venv/bin/activate
+```
+
+Install exisiting requirements.
+
+```bash
+pip install ./src/django/requirements.txt
+```
+
+Add any extra requirements then freeze the current requirements to update the file.
+```bash
+pip freeze > ./src/django/requirements.txt
+```
+
+**NOTE:** Ensure that the compose containers are __REBUILT!__ to include the new packages.
