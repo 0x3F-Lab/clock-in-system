@@ -8,4 +8,6 @@ urlpatterns = [
     path(
         "clocked_state/<int:id>/", views.clocked_state_view, name="clocked_state_view"
     ),
+    path("employees/", views.employee_details_view, name="employee_list"),
+    path("employees/<int:id>/", views.employee_details_view, name="employee_detail"),
 ]
