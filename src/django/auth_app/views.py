@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from auth_app.models import User, Activity
 from django.db import IntegrityError
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
 
 
 def login_view(request):
@@ -9,8 +11,17 @@ def login_view(request):
 
 
 def manager_login(request):
-    # Redirect directly to the manager dashboard without authentication
-    return render(request, "auth_app/manager_login.html")
+    if request.method == "POST":
+        email = request.POST.get("email")
+        password = request.POST.get("password")
+        user = authenticate(request, username=email, password=password)
+
+        if user is not None and user.is_superuser:  # Check if the user is a superuser
+            login(request, user)
+            return render(request, "auth_app/manager_dashboard.html")
+        else:
+            messages.error(request, "Invalid credentials or insufficient permissions.")
+    return render(request, "auth_app/manager_login.html")  # Render the login page
 
 
 def manager_dashboard(request):
