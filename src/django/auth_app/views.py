@@ -4,6 +4,7 @@ from auth_app.models import User, Activity
 from django.db import IntegrityError
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required, user_passes_test
 
 
 def login_view(request):
@@ -23,7 +24,8 @@ def manager_login(request):
             messages.error(request, "Invalid credentials or insufficient permissions.")
     return render(request, "auth_app/manager_login.html")  # Render the login page
 
-
+@login_required
+@user_passes_test(lambda user: user.is_superuser)
 def manager_dashboard(request):
     # Render the manager dashboard directly
     return render(request, "auth_app/manager_dashboard.html")
