@@ -4,6 +4,10 @@ from rest_framework.response import Response
 from rest_framework import status
 import api.controllers as controllers
 from auth_app.models import User, Activity
+from rest_framework.renderers import JSONRenderer
+from rest_framework.decorators import renderer_classes
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
 
 
 logger = logging.getLogger("api")
@@ -53,6 +57,53 @@ def list_users_name_view(request):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET", "PUT"])
+@renderer_classes([JSONRenderer])
+def employee_details_view(request, id=None):
+    if request.method == "GET":
+        # API Call
+        if request.headers.get("Accept") == "application/json":
+            employees = User.objects.filter(is_manager=False)
+            employee_data = [
+                {
+                    "id": emp.id,
+                    "first_name": emp.first_name,
+                    "last_name": emp.last_name,
+                    "email": emp.email,
+                    "phone_number": emp.phone_number,
+                    "pin": emp.pin,
+                }
+                for emp in employees
+            ]
+            return JsonResponse(employee_data, safe=False)
+
+        # Template Rendering
+        return render(request, "auth_app/employee_details.html")
+
+    if request.method == "PUT" and id:
+        employee = get_object_or_404(User, id=id)
+        data = request.data
+        employee.first_name = data.get("first_name", employee.first_name)
+        employee.last_name = data.get("last_name", employee.last_name)
+        employee.email = data.get("email", employee.email)
+        employee.phone_number = data.get("phone_number", employee.phone_number)
+
+        if "pin" in data:
+            employee.set_pin(data["pin"])
+
+        employee.save()
+        return JsonResponse({"message": "Employee updated successfully"})
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+def employee_details_page(request):
+    """
+    View to render the employee details HTML page.
+    """
+    return render(request, "auth_app/employee_details.html")
 
 
 @api_view(["POST"])
