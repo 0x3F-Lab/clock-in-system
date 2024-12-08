@@ -18,7 +18,7 @@ def manager_login(request):
 
         if user is not None and user.is_superuser:  # Check if the user is a superuser
             login(request, user)
-            return render(request, "auth_app/manager_dashboard.html")
+            return redirect("manager_dashboard")
         else:
             messages.error(request, "Invalid credentials or insufficient permissions.")
     return render(request, "auth_app/manager_login.html")  # Render the login page
