@@ -10,7 +10,7 @@ def login_view(request):
 
 def manager_login(request):
     # Redirect directly to the manager dashboard without authentication
-    return redirect("manager_dashboard")
+    return render(request, "auth_app/manager_login.html")
 
 
 def manager_dashboard(request):

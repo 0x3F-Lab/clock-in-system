@@ -217,3 +217,67 @@ body, html {
     margin: 0 10px;
     display: inline-block;
 }
+
+/* Styling for the login form */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Form group styling */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.form-group label {
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.form-group input {
+    width: 90%;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+/* Login button styling */
+.login-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.2rem;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #45a049;
+}
+
+.login-button:focus {
+    outline: none;
+}
+
+/* Styling for messages */
+.message {
+    margin-top: 20px;
+    font-size: 1rem;
+    color: #e53e3e;
+    text-align: center;
+}
