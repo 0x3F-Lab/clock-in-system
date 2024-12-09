@@ -185,6 +185,8 @@ document.addEventListener("DOMContentLoaded", () => {
         editForm.addEventListener("submit", (e) => {
             e.preventDefault();
 
+            const csrftoken = document.querySelector('#editForm input[name="csrfmiddlewaretoken"]').value;
+
             const id = document.getElementById("editEmployeeId").value;
             const payload = {
                 first_name: document.getElementById("editFirstName").value,
@@ -193,11 +195,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 phone_number: document.getElementById("editPhone").value,
                 pin: document.getElementById("editPin").value,
             };
-
+            
             fetch(`/api/employees/${id}/`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
+                    "X-CSRFToken": csrftoken
                 },
                 body: JSON.stringify(payload),
             })

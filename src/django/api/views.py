@@ -8,7 +8,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
-
+from django.middleware.csrf import get_token
 
 logger = logging.getLogger("api")
 
@@ -63,26 +63,40 @@ def list_users_name_view(request):
 @renderer_classes([JSONRenderer])
 def employee_details_view(request, id=None):
     if request.method == "GET":
-        # API Call
         if request.headers.get("Accept") == "application/json":
-            employees = User.objects.filter(is_manager=False)
-            employee_data = [
-                {
-                    "id": emp.id,
-                    "first_name": emp.first_name,
-                    "last_name": emp.last_name,
-                    "email": emp.email,
-                    "phone_number": emp.phone_number,
-                    "pin": emp.pin,
+            # JSON response logic here (unchanged)
+            if id is not None:
+                employee = get_object_or_404(User, id=id, is_manager=False)
+                employee_data = {
+                    "id": employee.id,
+                    "first_name": employee.first_name,
+                    "last_name": employee.last_name,
+                    "email": employee.email,
+                    "phone_number": employee.phone_number,
+                    "pin": employee.pin,
                 }
-                for emp in employees
-            ]
-            return JsonResponse(employee_data, safe=False)
-
-        # Template Rendering
-        return render(request, "auth_app/employee_details.html")
+                return JsonResponse(employee_data, safe=False)
+            else:
+                employees = User.objects.filter(is_manager=False)
+                employee_data = [
+                    {
+                        "id": emp.id,
+                        "first_name": emp.first_name,
+                        "last_name": emp.last_name,
+                        "email": emp.email,
+                        "phone_number": emp.phone_number,
+                        "pin": emp.pin,
+                    }
+                    for emp in employees
+                ]
+                return JsonResponse(employee_data, safe=False)
+        else:
+            # Not JSON: Return the HTML and ensure CSRF cookie is set
+            get_token(request)  # This forces a CSRF cookie to be sent
+            return render(request, "auth_app/employee_details.html")
 
     if request.method == "PUT" and id:
+        # PUT logic unchanged
         employee = get_object_or_404(User, id=id)
         data = request.data
         employee.first_name = data.get("first_name", employee.first_name)
@@ -103,6 +117,7 @@ def employee_details_page(request):
     """
     View to render the employee details HTML page.
     """
+    get_token(request)
     return render(request, "auth_app/employee_details.html")
 
 
