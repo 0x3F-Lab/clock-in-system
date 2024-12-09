@@ -24,6 +24,7 @@ def manager_login(request):
             messages.error(request, "Invalid credentials or insufficient permissions.")
     return render(request, "auth_app/manager_login.html")  # Render the login page
 
+
 @login_required
 @user_passes_test(lambda user: user.is_superuser)
 def manager_dashboard(request):
