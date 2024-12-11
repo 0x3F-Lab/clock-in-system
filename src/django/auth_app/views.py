@@ -7,13 +7,16 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
 from functools import wraps
 
+
 def login_view(request):
     return render(request, "auth_app/login.html")
+
 
 def manager_required(view_func):
     """
     Decorator to ensure the user is an authenticated manager.
     """
+
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         user_id = request.session.get("user_id")
@@ -44,9 +47,12 @@ def manager_login(request):
             request.session["is_manager"] = user.is_manager
             return redirect("manager_dashboard")
         else:
-            messages.error(request, "Invalid email, password, or insufficient permissions.")
+            messages.error(
+                request, "Invalid email, password, or insufficient permissions."
+            )
 
     return render(request, "auth_app/manager_login.html")
+
 
 def logout_view(request):
     request.session.flush()  # Clear all session data
