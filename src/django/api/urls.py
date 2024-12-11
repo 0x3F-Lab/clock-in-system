@@ -10,4 +10,5 @@ urlpatterns = [
     ),
     path("employees/", views.employee_details_view, name="employee_list"),
     path("employees/<int:id>/", views.employee_details_view, name="employee_detail"),
+    path("raw-data-logs/", views.raw_data_logs_view, name="raw_data_logs"),
 ]
