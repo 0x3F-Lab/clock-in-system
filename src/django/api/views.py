@@ -105,7 +105,7 @@ def employee_details_view(request, id=None):
         employee.phone_number = data.get("phone_number", employee.phone_number)
 
         if "pin" in data:
-            employee.set_pin(data["pin"])
+            employee.pin = data["pin"]
 
         employee.save()
         return JsonResponse({"message": "Employee updated successfully"})

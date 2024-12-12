@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <td>${employee.first_name} ${employee.last_name}</td>
                                 <td>${employee.email}</td>
                                 <td>${employee.phone_number || "N/A"}</td>
-                                <td>${employee.pin ? "******" : "Not Set"}</td>
+                                <td>${employee.pin}</td>
                                 <td>
                                     <button class="editBtn" data-id="${employee.id}">Edit</button>
                                 </td>
