@@ -12,44 +12,112 @@ const totalDeliveriesDisplay = document.getElementById("totalDeliveries");
 const localTimeDisplay = document.getElementById("localTime");
 const userDropdown = document.getElementById("userDropdown");
 
-// Enable "Clock In" button when a user is selected
-userDropdown.addEventListener("change", () => {
-    if (userDropdown.value) {
-        clockButton.disabled = false; // Enable the clock button
+// Access Django-generated URLs
+const listEmployeesUrl = window.djangoUrls.listEmployees;
+const clockedStateUrl = window.djangoUrls.clockedState;
+const clockInUrl = window.djangoUrls.clockIn;
+const clockOutUrl = window.djangoUrls.clockOut;
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          // Does this cookie string begin with the name we want?
+          if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+          }
+      }
+  }
+  return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+// Fetch employees and populate dropdown
+function fetchEmployees() {
+    $.get(listEmployeesUrl, function(data) {
+        data.forEach(employee => {
+            $("#userDropdown").append(new Option(employee[1], employee[0]));
+        });
+    });
+}
+
+// Fetch clocked state when user is selected
+$("#userDropdown").change(function() {
+    const userId = $(this).val();
+    if (userId) {
+        $.get(`${clockedStateUrl}${userId}/`, function(data) {
+            clockedIn = data.clocked_in;
+            clockButton.disabled = false;
+            updateClockButtonState();
+        });
     }
 });
 
-// Toggle Clock In/Clock Out
-function toggleClock() {
-    if (!clockedIn) {
-        // Clocking in
-        clockedIn = true;
-        startTime = new Date();
+// Update clock button state based on clockedIn
+function updateClockButtonState() {
+    if (clockedIn) {
         clockButton.textContent = "Clock Out";
         clockButton.style.backgroundColor = "red";
-        deliveriesCount.textContent = "0"; // Reset deliveries
         minusButton.disabled = false;
         plusButton.disabled = false;
-
-        intervalId = setInterval(updateTimer, 1000); // Start timer
     } else {
-        // Clocking out
-        clockedIn = false;
-        clearInterval(intervalId); // Stop timer
-        const endTime = new Date();
-        const totalMinutes = Math.round((endTime - startTime) / 60000);
-
         clockButton.textContent = "Clock In";
         clockButton.style.backgroundColor = "green";
         minusButton.disabled = true;
         plusButton.disabled = true;
+    }
+}
 
-        // Update left panel
-        timer.textContent = "Worked: 0H 0M";
-        totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
-        totalDeliveriesDisplay.textContent = deliveriesCount.textContent;
+// Toggle Clock In/Clock Out
+function toggleClock() {
+    const userId = $("#userDropdown").val();
+    const deliveries = parseInt(deliveriesCount.textContent, 10);
 
-        deliveriesCount.textContent = "0"; // Reset deliveries after clock out
+    if (!clockedIn) {
+        // Clocking in
+        $.ajax({
+            url: `${clockInUrl}${userId}/`,
+            type: "PUT",
+            contentType: "application/json",
+            headers: {
+                'X-CSRFToken': csrftoken // Include CSRF token
+            },
+            success: function() {
+                  clockedIn = true;
+                  startTime = new Date();
+                  updateClockButtonState();
+                  intervalId = setInterval(updateTimer, 1000); // Start timer
+            }
+        });
+    } else {
+        // Clocking out
+        $.ajax({
+            url: `${clockOutUrl}${userId}/`,
+            type: "PUT",
+            contentType: "application/json",
+            headers: {
+                'X-CSRFToken': csrftoken // Include CSRF token
+            },
+            data: JSON.stringify({ deliveries: deliveries }),
+            success: function() {
+                clockedIn = false;
+                clearInterval(intervalId); // Stop timer
+                const endTime = new Date();
+                const totalMinutes = Math.round((endTime - startTime) / 60000);
+
+                // Update left panel
+                timer.textContent = "Worked: 0H 0M";
+                totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
+                totalDeliveriesDisplay.textContent = deliveries;
+
+                deliveriesCount.textContent = "0"; // Reset deliveries after clock out
+                updateClockButtonState();
+            }
+        });
     }
 }
 
@@ -84,3 +152,6 @@ plusButton.addEventListener("click", () => adjustDeliveries(1));
 
 // Start Updating Local Time
 setInterval(updateLocalTime, 1000);
+
+// Fetch employees on load
+fetchEmployees();

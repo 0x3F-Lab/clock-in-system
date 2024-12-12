@@ -6,6 +6,7 @@
     <title>Employee Dashboard</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'auth_app/styles.css' %}">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 <body>
     <div class="employee-dashboard">
@@ -14,9 +15,6 @@
             <label for="userDropdown">Select User:</label>
             <select id="userDropdown">
                 <option value="" disabled selected>Select User</option>
-                <option value="Bob">Bob</option>
-                <option value="Akhil">Akhil</option>
-                <option value="Emily">Emily</option>
             </select>
             <p>Local Time: <span id="localTime">--:--</span></p>
             <p>Total hours: <span id="totalTime">--:--</span></p>
@@ -35,6 +33,14 @@
             </div>
         </div>
     </div>
-    <script src="{% static 'auth_app/scripts.js' %}"></script>
+    <script>
+      window.djangoUrls = {
+          listEmployees: "{% url 'api:list_users_name_view' %}",
+          clockedState: "{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
+          clockIn: "{% url 'api:clock_in' 0 %}".slice(0, -2),
+          clockOut: "{% url 'api:clock_out' 0 %}".slice(0, -2)
+      };
+  </script>
+  <script src="{% static 'auth_app/scripts.js' %}"></script>
 </body>
 </html>

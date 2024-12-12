@@ -55,13 +55,13 @@ def list_users_name_view(request):
         )
 
 
-@api_view(["POST"])
+@api_view(["POST", "PUT"])
 def clock_in(request, id):
     # Delegate to the controller function
     return controllers.handle_clock_in(employee_id=id)
 
 
-@api_view(["POST"])
+@api_view(["POST", "PUT"])
 def clock_out(request, id):
     # Check if they made any deliveries on clock out
     deliveries = max(
