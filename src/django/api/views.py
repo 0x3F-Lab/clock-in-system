@@ -111,6 +111,7 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
+                        "hours_worked": str(act.hours_worked),
                     }
                 )
             return JsonResponse(data, safe=False)

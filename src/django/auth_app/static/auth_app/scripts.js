@@ -254,6 +254,7 @@ if (rawDataTableElement) {
                             <td>${log.exact_login_timestamp}</td>
                             <td>${log.exact_logout_timestamp || "N/A"}</td>
                             <td>${log.deliveries}</td>
+                            <td>${log.hours_worked}</td> 
                         `;
                         rawDataTbody.appendChild(row);
                     });
