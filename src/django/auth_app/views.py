@@ -48,7 +48,7 @@ def manager_login(request):
             return redirect("manager_dashboard")
         else:
             messages.error(
-                request, "Invalid email, password, or insufficient permissions."
+                request, "Invalid Details"
             )
 
     return render(request, "auth_app/manager_login.html")
