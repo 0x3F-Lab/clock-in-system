@@ -47,9 +47,7 @@ def manager_login(request):
             request.session["is_manager"] = user.is_manager
             return redirect("manager_dashboard")
         else:
-            messages.error(
-                request, "Invalid Details"
-            )
+            messages.error(request, "Invalid Details")
 
     return render(request, "auth_app/manager_login.html")
 
