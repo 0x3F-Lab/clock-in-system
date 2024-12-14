@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <td>${employee.first_name} ${employee.last_name}</td>
                                 <td>${employee.email}</td>
                                 <td>${employee.phone_number || "N/A"}</td>
-                                <td>${employee.pin ? "******" : "Not Set"}</td>
+                                <td>${employee.pin}</td>
                                 <td>
                                     <button class="editBtn" data-id="${employee.id}">Edit</button>
                                 </td>
@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     document.getElementById("editLastName").value = data.last_name;
                     document.getElementById("editEmail").value = data.email;
                     document.getElementById("editPhone").value = data.phone_number || "";
-                    document.getElementById("editPin").value = "";
+                    document.getElementById("editPin").value = data.pin || "";
                     editModal.style.display = "block";
                 })
                 .catch((error) => {
