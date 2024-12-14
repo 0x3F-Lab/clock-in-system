@@ -74,6 +74,9 @@ class Activity(models.Model):
     last_updated_at = models.DateTimeField(
         auto_now=True, null=False
     )  # Track modifications outside clocking
+    hours_worked = models.DecimalField(
+        max_digits=5, decimal_places=2, null=False, default=0.00
+    )
 
     def __str__(self):
         return f"[{self.id}] Clock-in data for {self.employee_id}"

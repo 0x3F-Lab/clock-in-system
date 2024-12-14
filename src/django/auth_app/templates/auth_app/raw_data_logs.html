@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Data Logs</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'auth_app/styles.css' %}">
+    <script src="{% static 'auth_app/scripts.js' %}" defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Raw Data Logs</h1>
+        <table id="rawDataTable">
+            <thead>
+                <tr>
+                    <th>Staff Name</th>
+                    <th>Rounded Login Time</th>
+                    <th>Rounded Logout Time</th>
+                    <th>Is Public Holiday</th>
+                    <th>Exact Login Timestamp</th>
+                    <th>Exact Logout Timestamp</th>
+                    <th>Deliveries</th>
+                    <th>Hours Worked</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
