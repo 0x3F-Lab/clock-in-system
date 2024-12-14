@@ -245,19 +245,22 @@ if (rawDataTableElement) {
                     rawDataTbody.innerHTML = `<tr><td colspan="7">No logs found.</td></tr>`;
                 } else {
                     data.forEach((log) => {
+                        console.log("Log being processed:", log); // Debugging line
+                    
                         const row = document.createElement("tr");
                         row.innerHTML = `
                             <td>${log.staff_name}</td>
-                            <td>${log.rounded_login_time}</td>
-                            <td>${log.rounded_logout_time}</td>
+                            <td>${log.login_time || "N/A"}</td> <!-- Add fallback just in case -->
+                            <td>${log.logout_time || "N/A"}</td> <!-- Add fallback just in case -->
                             <td>${log.is_public_holiday ? "Yes" : "No"}</td>
                             <td>${log.exact_login_timestamp}</td>
                             <td>${log.exact_logout_timestamp || "N/A"}</td>
                             <td>${log.deliveries}</td>
-                            <td>${log.hours_worked}</td> 
+                            <td>${log.hours_worked}</td>
                         `;
                         rawDataTbody.appendChild(row);
                     });
+                    
                 }
             })
             .catch((error) => {

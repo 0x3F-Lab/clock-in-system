@@ -166,7 +166,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
             time = now()
             activity.logout_timestamp = time
             activity.logout_time = util.round_datetime_minute(
-                time, rounding_mins=1
+                time, rounding_mins=15
             )  ####################### FOR TESTING SET TO 1MINUTE -- CHANGE BACK LATER
             activity.deliveries = deliveries
             activity.shift_length_mins = util.calculate_shift_length_mins(

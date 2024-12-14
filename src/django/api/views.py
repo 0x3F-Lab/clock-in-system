@@ -9,9 +9,7 @@ from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-from math import floor
-from datetime import timedelta
-
+import json
 
 logger = logging.getLogger("api")
 
@@ -62,18 +60,6 @@ def list_users_name_view(request):
         )
 
 
-def round_to_nearest_15(dt):
-    if not dt:
-        return None
-    # Calculate minutes from midnight
-    minutes = dt.hour * 60 + dt.minute
-    # Round to nearest 15
-    rounded = 15 * round(minutes / 15)
-    # Convert back to hours and minutes
-    h, m = divmod(rounded, 60)
-    return dt.replace(hour=h, minute=m, second=0, microsecond=0)
-
-
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
@@ -83,20 +69,17 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                rounded_login = round_to_nearest_15(act.login_time)
-                rounded_logout = (
-                    round_to_nearest_15(act.logout_time) if act.logout_time else None
-                )
-
                 data.append(
                     {
                         "staff_name": staff_name,
-                        "rounded_login_time": (
-                            rounded_login.strftime("%H:%M") if rounded_login else "N/A"
+                        "login_time": (
+                            act.login_time.strftime("%H:%M")
+                            if act.login_time
+                            else "N/A"
                         ),
-                        "rounded_logout_time": (
-                            rounded_logout.strftime("%H:%M")
-                            if rounded_logout
+                        "logout_time": (
+                            act.logout_time.strftime("%H:%M")
+                            if act.logout_time
                             else "N/A"
                         ),
                         "is_public_holiday": act.is_public_holiday,
@@ -114,7 +97,11 @@ def raw_data_logs_view(request):
                         "hours_worked": str(act.hours_worked),
                     }
                 )
+            # Log and return the JSON response
+            json_response = json.dumps(data, indent=2)
+            print(json_response)  # Log to console for debugging
             return JsonResponse(data, safe=False)
+
         else:
             # Return the template with CSRF token
             get_token(request)
