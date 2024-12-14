@@ -173,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     document.getElementById("editLastName").value = data.last_name;
                     document.getElementById("editEmail").value = data.email;
                     document.getElementById("editPhone").value = data.phone_number || "";
-                    document.getElementById("editPin").value = "";
+                    document.getElementById("editPin").value = data.pin || "";
                     editModal.style.display = "block";
                 })
                 .catch((error) => {
