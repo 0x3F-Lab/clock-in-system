@@ -1,6 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
     console.log("DOM fully loaded");
 
+    // Store location and allowed radius (in meters)
+    const storeLatitude = -31.851786611616173;   // Example: New York latitude
+    const storeLongitude = 115.97646041574286; // Example: New York longitude
+    const allowedRadius = 1;       // Example: 100 meters radius
+
     // --- Manager Clock-In Section ---
     const clockButton = document.getElementById("clockButton");
     const deliveriesCount = document.getElementById("deliveriesCount");
@@ -16,6 +21,23 @@ document.addEventListener("DOMContentLoaded", () => {
     let startTime = null; // Store clock-in start time
     let intervalId = null; // Interval for timer
 
+    // Haversine formula to calculate distance between two lat/lng points in meters
+    function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Earth's radius in meters
+        const toRad = (deg) => deg * Math.PI / 180;
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c;
+        return distance;
+    }
+
     // Only run the clock-in logic if these elements exist (i.e., on the manager page)
     if (clockButton && deliveriesCount && minusButton && plusButton && timer && totalTimeDisplay && totalDeliveriesDisplay && localTimeDisplay && userDropdown) {
 
@@ -29,35 +51,67 @@ document.addEventListener("DOMContentLoaded", () => {
         // Toggle Clock In/Clock Out
         function toggleClock() {
             if (!clockedIn) {
-                // Clocking in
-                clockedIn = true;
-                startTime = new Date();
-                clockButton.textContent = "Clock Out";
-                clockButton.style.backgroundColor = "red";
-                deliveriesCount.textContent = "0"; // Reset deliveries
-                minusButton.disabled = false;
-                plusButton.disabled = false;
+                // Before clocking in, check location
+                if ('geolocation' in navigator) {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const userLat = position.coords.latitude;
+                            const userLon = position.coords.longitude;
 
-                intervalId = setInterval(updateTimer, 1000); // Start timer
+                            const distance = getDistanceFromLatLonInM(storeLatitude, storeLongitude, userLat, userLon);
+                            console.log(`Distance from store: ${distance} meters`);
+
+                            if (distance <= allowedRadius) {
+                                // Within allowed distance, proceed to clock in
+                                clockInProcedure();
+                            } else {
+                                // Not within allowed distance
+                                alert("You must be at the store location to clock in.");
+                            }
+                        },
+                        (error) => {
+                            console.error("Geolocation error:", error);
+                            alert("Unable to get your location. Cannot clock in.");
+                        }
+                    );
+                } else {
+                    alert("Geolocation is not supported by your browser. Cannot clock in.");
+                }
             } else {
                 // Clocking out
-                clockedIn = false;
-                clearInterval(intervalId); // Stop timer
-                const endTime = new Date();
-                const totalMinutes = Math.round((endTime - startTime) / 60000);
-
-                clockButton.textContent = "Clock In";
-                clockButton.style.backgroundColor = "green";
-                minusButton.disabled = true;
-                plusButton.disabled = true;
-
-                // Update left panel
-                timer.textContent = "Worked: 0H 0M";
-                totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
-                totalDeliveriesDisplay.textContent = deliveriesCount.textContent;
-
-                deliveriesCount.textContent = "0"; // Reset deliveries after clock out
+                clockOutProcedure();
             }
+        }
+
+        function clockInProcedure() {
+            clockedIn = true;
+            startTime = new Date();
+            clockButton.textContent = "Clock Out";
+            clockButton.style.backgroundColor = "red";
+            deliveriesCount.textContent = "0"; // Reset deliveries
+            minusButton.disabled = false;
+            plusButton.disabled = false;
+
+            intervalId = setInterval(updateTimer, 1000); // Start timer
+        }
+
+        function clockOutProcedure() {
+            clockedIn = false;
+            clearInterval(intervalId); // Stop timer
+            const endTime = new Date();
+            const totalMinutes = Math.round((endTime - startTime) / 60000);
+
+            clockButton.textContent = "Clock In";
+            clockButton.style.backgroundColor = "green";
+            minusButton.disabled = true;
+            plusButton.disabled = true;
+
+            // Update left panel
+            timer.textContent = "Worked: 0H 0M";
+            totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
+            totalDeliveriesDisplay.textContent = deliveriesCount.textContent;
+
+            deliveriesCount.textContent = "0"; // Reset deliveries after clock out
         }
 
         // Update Timer
