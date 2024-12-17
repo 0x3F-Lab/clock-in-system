@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weekly Summary</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'auth_app/styles.css' %}">
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const summaryTableBody = document.getElementById("summaryTableBody");
+
+            // Fetch the weekly summary data from the API endpoint
+            fetch("/api/weekly-summary/", {
+                headers: { "Accept": "application/json" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                summaryTableBody.innerHTML = "";
+                if (data.length === 0) {
+                    const noDataRow = document.createElement("tr");
+                    const noDataCell = document.createElement("td");
+                    noDataCell.colSpan = 5; // Adjust since we have 5 columns now
+                    noDataCell.textContent = "No summary data available.";
+                    noDataCell.style.textAlign = "center";
+                    noDataRow.appendChild(noDataCell);
+                    summaryTableBody.appendChild(noDataRow);
+                } else {
+                    data.forEach(item => {
+                        const row = document.createElement("tr");
+
+                        const nameCell = document.createElement("td");
+                        nameCell.textContent = `${item.first_name} ${item.last_name}`;
+                        row.appendChild(nameCell);
+
+                        const weekdayHoursCell = document.createElement("td");
+                        weekdayHoursCell.textContent = `${item.weekday_hours} hours`;
+                        row.appendChild(weekdayHoursCell);
+
+                        const weekendHoursCell = document.createElement("td");
+                        weekendHoursCell.textContent = `${item.weekend_hours} hours`;
+                        row.appendChild(weekendHoursCell);
+
+                        const totalHoursCell = document.createElement("td");
+                        totalHoursCell.textContent = `${item.total_hours} hours`;
+                        row.appendChild(totalHoursCell);
+
+                        const deliveriesCell = document.createElement("td");
+                        deliveriesCell.textContent = item.total_deliveries;
+                        row.appendChild(deliveriesCell);
+
+                        summaryTableBody.appendChild(row);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error("Failed to fetch weekly summary:", error);
+                summaryTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align:center;">
+                            Failed to load weekly summary. Please try again later.
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Weekly Summary</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee Name</th>
+                    <th>Weekday Hours</th>
+                    <th>Weekend Hours</th>
+                    <th>Total Hours</th>
+                    <th>Total Deliveries</th>
+                </tr>
+            </thead>
+            <tbody id="summaryTableBody">
+                <!-- Data will be populated dynamically -->
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
