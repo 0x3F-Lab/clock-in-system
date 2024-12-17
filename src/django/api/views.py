@@ -1,15 +1,18 @@
 import logging
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 import api.controllers as controllers
-from auth_app.models import User, Activity
 from rest_framework.renderers import JSONRenderer
-from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 import json
+from django.db.models import Sum, Q, F, Case, When, DecimalField
+from datetime import datetime, timezone
+from django.utils import timezone as dj_timezone
+from auth_app.models import Activity, User, KeyValueStore
+from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
 
@@ -220,3 +223,78 @@ def clocked_state_view(request, id):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def weekly_summary_view(request):
+    try:
+        kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
+        last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
+    except KeyValueStore.DoesNotExist:
+        last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+
+    activities = Activity.objects.filter(login_time__gte=last_reset_date)
+
+    summary = (
+        activities.annotate(day_of_week=ExtractWeekDay("login_time"))
+        .values("employee_id", "employee_id__first_name", "employee_id__last_name")
+        .annotate(
+            weekday_hours=Sum(
+                Case(
+                    When(day_of_week__in=[2, 3, 4, 5, 6], then="hours_worked"),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            weekend_hours=Sum(
+                Case(
+                    When(day_of_week__in=[1, 7], then="hours_worked"),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            ),
+            total_hours=Sum("hours_worked"),
+            total_deliveries=Sum("deliveries"),
+        )
+    )
+
+    data = [
+        {
+            "employee_id": item["employee_id"],
+            "first_name": item["employee_id__first_name"],
+            "last_name": item["employee_id__last_name"],
+            "weekday_hours": float(item["weekday_hours"] or 0.0),
+            "weekend_hours": float(item["weekend_hours"] or 0.0),
+            "total_hours": float(item["total_hours"] or 0.0),
+            "total_deliveries": item["total_deliveries"] or 0,
+        }
+        for item in summary
+    ]
+
+    return Response(data, status=status.HTTP_200_OK)
+
+
+def weekly_summary_page(request):
+    # Return the HTML template
+    return render(request, "auth_app/weekly_summary.html")
+
+
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def reset_summary_view(request):
+    # Reset the weekly summary date to today's date
+    today_str = datetime.now().date().isoformat()
+    kv, created = KeyValueStore.objects.get_or_create(
+        key="last_weekly_summary_reset", defaults={"value": today_str}
+    )
+    if not created:
+        kv.value = today_str
+        kv.save()
+
+    return Response(
+        {"message": "Weekly summary reset successfully", "reset_date": today_str},
+        status=status.HTTP_200_OK,
+    )
