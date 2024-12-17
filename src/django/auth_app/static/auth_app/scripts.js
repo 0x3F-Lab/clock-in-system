@@ -272,4 +272,86 @@ if (rawDataTableElement) {
     // Initial fetch of raw data logs
     fetchRawDataLogs();
 }
+
+// --- Weekly Summary Section ---
+const weeklySummaryTableElement = document.getElementById("weeklySummaryTable");
+
+if (weeklySummaryTableElement) {
+    const summaryTbody = weeklySummaryTableElement.querySelector("tbody");
+    const resetButton = document.getElementById("resetWeeklySummary");
+
+    // Fetch Weekly Summary Data
+    const fetchWeeklySummary = () => {
+        fetch("/weekly-summary/", {
+            headers: { "Accept": "application/json" },
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error("Failed to fetch weekly summary.");
+                return res.json();
+            })
+            .then((data) => {
+                console.log("Fetched weekly summary:", data);
+
+                // Update the reset date header
+                document.getElementById("summaryResetDate").textContent = `Since ${data.reset_date}`;
+
+                // Clear table
+                summaryTbody.innerHTML = "";
+                if (data.summary.length === 0) {
+                    summaryTbody.innerHTML = `<tr><td colspan="5">No data available.</td></tr>`;
+                } else {
+                    data.summary.forEach((row) => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${row.name}</td>
+                            <td class="weekday">${row.weekday_hours.toFixed(2)}</td>
+                            <td class="weekend">${row.weekend_hours.toFixed(2)}</td>
+                            <td class="holiday">${row.public_holiday_hours.toFixed(2)}</td>
+                            <td class="deliveries">${row.deliveries}</td>
+                        `;
+                        summaryTbody.appendChild(tr);
+                    });
+                }
+            })
+            .catch((error) => {
+                console.error("Error fetching weekly summary:", error);
+                summaryTbody.innerHTML = `<tr><td colspan="5">Failed to load data. Try again later.</td></tr>`;
+            });
+    };
+
+    // Reset Weekly Summary
+    if (resetButton) {
+        resetButton.addEventListener("click", () => {
+            fetch("/reset-summary/", {
+                method: "POST",
+                headers: { "X-CSRFToken": getCSRFToken() },
+            })
+                .then((res) => {
+                    if (!res.ok) throw new Error("Failed to reset weekly summary.");
+                    return res.json();
+                })
+                .then((data) => {
+                    alert("Weekly summary reset successfully!");
+                    console.log(data.message);
+                    fetchWeeklySummary(); // Refresh the summary after reset
+                })
+                .catch((error) => {
+                    console.error("Error resetting weekly summary:", error);
+                    alert("Failed to reset weekly summary.");
+                });
+        });
+    }
+
+    // Initial Fetch
+    fetchWeeklySummary();
+}
+
+// Helper function to get CSRF token
+function getCSRFToken() {
+    return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+}
+
+
+
+
 });
