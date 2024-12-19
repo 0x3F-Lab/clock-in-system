@@ -172,6 +172,9 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         raise
     except NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
+        logger.error(
+            f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity)."
+        )
         raise
     except User.DoesNotExist:
         # If the user is not found, return 404
