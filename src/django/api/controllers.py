@@ -7,6 +7,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from auth_app.models import User, Activity
 from auth_app.serializers import ActivitySerializer
+from api.exceptions import (
+    AlreadyClockedInError,
+    AlreadyClockedOutError,
+    NoActiveClockingRecordError,
+)
 import api.utils as util
 
 
@@ -63,7 +68,7 @@ def get_users_name(
     return users_list
 
 
-def handle_clock_in(employee_id: int) -> Response:
+def handle_clock_in(employee_id: int) -> Activity:
     """
     Handles clocking in an employee by ID.
 
@@ -71,7 +76,7 @@ def handle_clock_in(employee_id: int) -> Response:
         employee_id (int): The employee's ID.
 
     Returns:
-        Response: Serialized Activity object or error message.
+        Activity: An activity object containing the information about the clock in.
     """
     try:
         # Start a database transaction (rolls back on error)
@@ -81,10 +86,7 @@ def handle_clock_in(employee_id: int) -> Response:
 
             # Check if already clocked in
             if employee.clocked_in:
-                return Response(
-                    {"Error": "Employee is already clocked in."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise AlreadyClockedInError
 
             # Update employee clocked-in status
             employee.clocked_in = True
@@ -103,28 +105,23 @@ def handle_clock_in(employee_id: int) -> Response:
                 deliveries=0,
             )
 
-            return Response(
-                ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
-            )
+            return activity
 
+    except AlreadyClockedInError:
+        # If the user is already clocked in
+        raise
     except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {employee_id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        # If the user is not found
+        raise
     except Exception as e:
         # Catch-all exception
         logger.error(
             f"Failed to clock in employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        raise
 
 
-def handle_clock_out(employee_id: int, deliveries: int) -> Response:
+def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
     """
     Handles clocking out an employee by ID.
 
@@ -133,7 +130,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
         deliveries (int): Number of deliveries made during the shift.
 
     Returns:
-        Response: Serialized Activity object or error message.
+        Activity: An activity object containing the information about the clock out.
     """
     try:
         # Start a database transaction (rolls back on error)
@@ -143,10 +140,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
 
             # Check if not clocked in
             if not employee.clocked_in:
-                return Response(
-                    {"Error": "Employee is not clocked in."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise AlreadyClockedOutError
 
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
@@ -154,10 +148,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
             ).last()
 
             if not activity:
-                return Response(
-                    {"Error": "No active clock-in record found."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise NoActiveClockingRecordError
 
             # Update employee clocked-out status and Activity record
             employee.clocked_in = False
@@ -174,24 +165,22 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
             )
             activity.save()
 
-            return Response(
-                ActivitySerializer(activity).data, status=status.HTTP_200_OK
-            )
+            return activity
 
+    except AlreadyClockedOutError:
+        # If the user is already clocked out.
+        raise
+    except NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        raise
     except User.DoesNotExist:
         # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {employee_id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        raise
     except Exception as e:
         logger.error(
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        raise
 
 
 def get_employee_clocked_info(employee_id: int) -> dict:

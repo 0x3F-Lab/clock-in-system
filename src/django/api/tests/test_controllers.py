@@ -3,6 +3,11 @@ from datetime import timedelta
 from django.utils.timezone import now
 from unittest.mock import patch
 from auth_app.models import User, Activity
+from api.exceptions import (
+    AlreadyClockedInError,
+    AlreadyClockedOutError,
+    NoActiveClockingRecordError,
+)
 import api.controllers as controllers
 import api.utils as util
 
@@ -95,17 +100,14 @@ def test_handle_clock_in_success(mock_now, employee):
     mock_now.return_value = now()  # Return the current time
 
     # Call the controller function to clock in
-    response = controllers.handle_clock_in(employee.id)
+    activity = controllers.handle_clock_in(employee.id)
 
-    assert response.status_code == 201  # HTTP 201 Created
-    data = response.data
-    assert data["employee_id"] == employee.id
+    # Validate that the returned object is an Activity instance
+    assert isinstance(activity, Activity)
 
-    # Check if Activity record is created
-    activity = Activity.objects.filter(
-        employee_id=employee, logout_time__isnull=True
-    ).first()
-    assert activity is not None
+    # Check that the activity belongs to the employee
+    assert activity.employee_id == employee
+    assert activity.logout_time is None
 
     # Calculate the difference between the timestamps and assert it is within the allowed tolerance (1 second)
     delta = abs(activity.login_timestamp - mock_now.return_value)
@@ -120,12 +122,12 @@ def test_handle_clock_in_already_clocked_in(mock_now, clocked_in_employee):
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
-    # Call the controller function to clock in (should fail)
-    response = controllers.handle_clock_in(clocked_in_employee.id)
+    # Attempt to clock in a user who is already clocked in
+    with pytest.raises(AlreadyClockedInError) as excinfo:
+        controllers.handle_clock_in(clocked_in_employee.id)
 
-    assert response.status_code == 400  # HTTP 400 Bad Request
-    data = response.data
-    assert data["Error"] == "Employee is already clocked in."
+    # Check the exception message
+    assert str(excinfo.value) == "Employee is already clocked in."
 
 
 @pytest.mark.django_db
@@ -136,12 +138,12 @@ def test_handle_clock_in_employee_not_found(mock_now):
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
-    # Call the controller function with an invalid employee ID
-    response = controllers.handle_clock_in(999)
+    # Attempt to clock in a non-existent employee
+    with pytest.raises(User.DoesNotExist) as excinfo:
+        controllers.handle_clock_in(999)
 
-    assert response.status_code == 404  # HTTP 404 Not Found
-    data = response.data
-    assert data["Error"] == "Employee not found with the ID 999."
+    # Check the exception message
+    assert str(excinfo.value) == "User matching query does not exist."
 
 
 @pytest.mark.django_db
@@ -155,20 +157,21 @@ def test_handle_clock_out_success(mock_round, mock_now, clocked_in_employee):
     mock_round.return_value = mock_now.return_value  # Mock rounding function
 
     # Call the controller function to clock out
-    response = controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
+    activity = controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
 
-    assert response.status_code == 200  # HTTP 200 OK
-    data = response.data
-    assert data["employee_id"] == clocked_in_employee.id
-    assert data["deliveries"] == 5
-
-    # Check if Activity record is updated
-    activity = Activity.objects.filter(
-        employee_id=clocked_in_employee, logout_time__isnull=False
-    ).first()
-    assert activity is not None
+    # Validate the returned Activity instance
+    assert isinstance(activity, Activity)
+    assert activity.employee_id == clocked_in_employee
     assert activity.deliveries == 5
-    assert activity.logout_time == mock_now.return_value
+
+    # Allow for a small tolerance when comparing timestamps
+    timestamp_difference = abs(activity.logout_timestamp - mock_now.return_value)
+    assert timestamp_difference <= timedelta(
+        seconds=1
+    ), f"Timestamp difference is too large: {timestamp_difference}"
+
+    # Ensure the logout_time is correctly rounded
+    assert activity.logout_time == mock_round.return_value
 
 
 @pytest.mark.django_db
@@ -179,12 +182,33 @@ def test_handle_clock_out_not_clocked_in(mock_now, employee):
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
-    # Call the controller function to clock out (should fail)
-    response = controllers.handle_clock_out(employee.id, deliveries=5)
+    # Attempt to clock out an employee who is not clocked in
+    with pytest.raises(AlreadyClockedOutError) as excinfo:
+        controllers.handle_clock_out(employee.id, deliveries=5)
 
-    assert response.status_code == 400  # HTTP 400 Bad Request
-    data = response.data
-    assert data["Error"] == "Employee is not clocked in."
+    # Check the exception message
+    assert str(excinfo.value) == "Employee is already clocked out."
+
+
+@pytest.mark.django_db
+@patch("api.utils.now")
+def test_handle_clock_out_no_active_record(mock_now, clocked_in_employee):
+    """
+    Test attempting to clock out an employee without an active clock-in record.
+    """
+    mock_now.return_value = now()  # Mock 'now()' to return the current time
+
+    # Simulate the scenario where no active clock-in record exists
+    Activity.objects.filter(
+        employee_id=clocked_in_employee, logout_time__isnull=True
+    ).delete()
+
+    # Attempt to clock out
+    with pytest.raises(NoActiveClockingRecordError) as excinfo:
+        controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
+
+    # Check the exception message
+    assert str(excinfo.value) == "Employee is missing an active clocking record."
 
 
 @pytest.mark.django_db
@@ -195,12 +219,12 @@ def test_handle_clock_out_employee_not_found(mock_now):
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
-    # Call the controller function with an invalid employee ID
-    response = controllers.handle_clock_out(999, deliveries=5)
+    # Attempt to clock out a non-existent employee
+    with pytest.raises(User.DoesNotExist) as excinfo:
+        controllers.handle_clock_out(999, deliveries=5)
 
-    assert response.status_code == 404  # HTTP 404 Not Found
-    data = response.data
-    assert data["Error"] == "Employee not found with the ID 999."
+    # Check the exception message
+    assert str(excinfo.value) == "User matching query does not exist."
 
 
 @pytest.mark.django_db

@@ -73,7 +73,7 @@ For proper testing, the requirements are required to be installed, preferably wi
 ```bash
 python -m venv venv
 source ./venv/bin/activate
-pip install ./src/django/requirements.txt
+pip install -r ./src/django/requirements.txt
 ```
 
 The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use an in-memory SQLite3 database.

@@ -4,6 +4,12 @@ from rest_framework.response import Response
 from rest_framework import status
 import api.controllers as controllers
 from auth_app.models import User, Activity
+from auth_app.serializers import ActivitySerializer
+from api.exceptions import (
+    AlreadyClockedInError,
+    AlreadyClockedOutError,
+    NoActiveClockingRecordError,
+)
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
@@ -172,19 +178,73 @@ def employee_details_page(request):
 
 @api_view(["POST"])
 def clock_in(request, id):
-    # Delegate to the controller function
-    return controllers.handle_clock_in(employee_id=id)
+    try:
+        # Clock the user in
+        activity = controllers.handle_clock_in(employee_id=id)
+
+        # Return the results after serialisation
+        return Response(
+            ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
+        )
+
+    except AlreadyClockedInError:
+        # If the user is already clocked in
+        return Response(
+            {"Error": "Employee is already clocked in."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Catch-all exception
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST"])
 def clock_out(request, id):
-    # Check if they made any deliveries on clock out
-    deliveries = max(
-        int(request.data.get("deliveries", 0)), 0  # Ensure it's an integer and above 0
-    )
+    try:
+        # Check if they made any deliveries on clock out
+        deliveries = max(
+            int(request.data.get("deliveries", 0)),
+            0,  # Ensure it's an integer and above 0
+        )
 
-    # Delegate to the controller function
-    return controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+        # Clock the user out
+        activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+
+        # Return the results after serialisation
+        return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
+
+    except AlreadyClockedOutError:
+        # If the user is already clocked out.
+        return Response(
+            {"Error": "Employee is not clocked in."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        return Response(
+            {"Error": "No active clock-in record found."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
