@@ -1,18 +1,10 @@
-from typing import List, Tuple
 import logging
-from django.shortcuts import get_object_or_404
+import api.exceptions as err
+import api.utils as util
+from typing import List, Tuple
 from django.utils.timezone import now
 from django.db import transaction
-from rest_framework.response import Response
-from rest_framework import status
-from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer
-from api.exceptions import (
-    AlreadyClockedInError,
-    AlreadyClockedOutError,
-    NoActiveClockingRecordError,
-)
-import api.utils as util
+from auth_app.models import User, Activity, KeyValueStore
 
 
 logger = logging.getLogger("api")
@@ -86,7 +78,7 @@ def handle_clock_in(employee_id: int) -> Activity:
 
             # Check if already clocked in
             if employee.clocked_in:
-                raise AlreadyClockedInError
+                raise err.AlreadyClockedInError
 
             # Update employee clocked-in status
             employee.clocked_in = True
@@ -107,7 +99,7 @@ def handle_clock_in(employee_id: int) -> Activity:
 
             return activity
 
-    except AlreadyClockedInError:
+    except err.AlreadyClockedInError:
         # If the user is already clocked in
         raise
     except User.DoesNotExist:
@@ -140,7 +132,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
 
             # Check if not clocked in
             if not employee.clocked_in:
-                raise AlreadyClockedOutError
+                raise err.AlreadyClockedOutError
 
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
@@ -148,7 +140,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             ).last()
 
             if not activity:
-                raise NoActiveClockingRecordError
+                raise err.NoActiveClockingRecordError
 
             # Update employee clocked-out status and Activity record
             employee.clocked_in = False
@@ -167,10 +159,10 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
 
             return activity
 
-    except AlreadyClockedOutError:
+    except err.AlreadyClockedOutError:
         # If the user is already clocked out.
         raise
-    except NoActiveClockingRecordError:
+    except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
             f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity)."
@@ -232,3 +224,65 @@ def get_employee_clocked_info(employee_id: int) -> dict:
             f"Failed to get clocked information of employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
         raise e  # Re-raise error to be caught in view
+
+
+def get_store_location() -> tuple[float, float]:
+    """
+    Gets the store's latitude and longitude from the database to be used to check
+    the employee's distance from the store before clocking them in/out.
+
+    Returns:
+        (float, float): The latitude and longitude of the store.
+    """
+    try:
+        # Query the values for the specific keys
+        store_lat = KeyValueStore.objects.get(key="store_latitude").value
+        store_long = KeyValueStore.objects.get(key="store_longitude").value
+
+        # Convert the values to floats (if stored as strings)
+        latitude = float(store_lat)
+        longitude = float(store_long)
+
+        return latitude, longitude
+
+    except KeyValueStore.DoesNotExist:
+        # If the lat or long keys dont exist in the database
+        logger.critical(
+            "Store latitude or longitude does not exist within database. Please run the setup script."
+        )
+        raise
+    except ValueError as e:
+        # If the value stored in the database for the location is not valid
+        logger.critical(
+            "Store latitude or longitude values in the database are not valid. Please run the setup script to correct."
+        )
+        raise ValueError(f"Invalid value for store location: {e}")
+
+
+def get_clocking_range_limit() -> float:
+    """
+    Gets the maximum allowable distance a user can be from the store's location
+    for them to be able to clock in/out.
+
+    Returns:
+        float: The distance in meters the user can be from the store.
+    """
+    try:
+        # Query the value for the allowable distance
+        dist = KeyValueStore.objects.get(key="allowable_clocking_dist_m").value
+
+        # Convert the value to floats (if stored as strings)
+        return float(dist)
+
+    except KeyValueStore.DoesNotExist:
+        # If the lat or long keys dont exist in the database
+        logger.critical(
+            "Allowable distance limit for clocking does not exist within database. Please run the setup script."
+        )
+        raise
+    except ValueError as e:
+        # If the value stored in the database for the location is not valid
+        logger.critical(
+            "Allowable distance limit for clocking in the database is not valid. Please run the setup script to correct."
+        )
+        raise ValueError(f"Invalid value for store location: {e}")

@@ -26,3 +26,13 @@ class NoActiveClockingRecordError(Exception):
     def __init__(self, message="Employee is missing an active clocking record."):
         self.message = message
         super().__init__(self.message)
+
+
+class MissingLocationDataError(Exception):
+    """
+    Raised when a clock in/out request is missing either of the location tags (lat/long).
+    """
+
+    def __init__(self, message="Request is missing location data."):
+        self.message = message
+        super().__init__(self.message)

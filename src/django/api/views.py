@@ -1,21 +1,18 @@
 import logging
+import json
+import api.utils as util
+import api.controllers as controllers
+import api.exceptions as err
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-import api.controllers as controllers
 from auth_app.models import User, Activity
 from auth_app.serializers import ActivitySerializer
-from api.exceptions import (
-    AlreadyClockedInError,
-    AlreadyClockedOutError,
-    NoActiveClockingRecordError,
-)
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-import json
 
 logger = logging.getLogger("api")
 
@@ -179,6 +176,39 @@ def employee_details_page(request):
 @api_view(["POST"])
 def clock_in(request, id):
     try:
+        # Get location data
+        location_lat = request.data.get("location_latitude", None)
+        location_long = request.data.get("location_longitude", None)
+
+        # Check to see they exist
+        if (location_lat is None) or (location_long is None):
+            raise err.MissingLocationDataError
+
+        # Convert to floats
+        try:
+            location_lat = float(location_lat)
+            location_long = float(location_long)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid location values."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get store location and allowable distance
+        (store_lat, store_long) = controllers.get_store_location()
+        allowable_dist = controllers.get_clocking_range_limit()
+
+        # Obtain distance of user from store
+        dist = util.get_distance_from_lat_lon_in_m(
+            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        )
+
+        if dist > allowable_dist:
+            return Response(
+                {"Error": "Not close enough to the store to clock in."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
         # Clock the user in
         activity = controllers.handle_clock_in(employee_id=id)
 
@@ -187,7 +217,13 @@ def clock_in(request, id):
             ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
         )
 
-    except AlreadyClockedInError:
+    except err.MissingLocationDataError:
+        # If the request is missing the location data
+        return Response(
+            {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.AlreadyClockedInError:
         # If the user is already clocked in
         return Response(
             {"Error": "Employee is already clocked in."},
@@ -200,7 +236,8 @@ def clock_in(request, id):
             status=status.HTTP_404_NOT_FOUND,
         )
     except Exception as e:
-        # Catch-all exception
+        # General error capture -- including database location errors
+        print(type(e))
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -216,19 +253,58 @@ def clock_out(request, id):
             0,  # Ensure it's an integer and above 0
         )
 
+        # Get location data
+        location_lat = request.data.get("location_latitude", None)
+        location_long = request.data.get("location_longitude", None)
+
+        # Check to see they exist
+        if (location_lat is None) or (location_long is None):
+            raise err.MissingLocationDataError
+
+        # Convert to floats
+        try:
+            location_lat = float(location_lat)
+            location_long = float(location_long)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid location values."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get store location and allowable distance
+        (store_lat, store_long) = controllers.get_store_location()
+        allowable_dist = controllers.get_clocking_range_limit()
+
+        # Obtain distance of user from store
+        dist = util.get_distance_from_lat_lon_in_m(
+            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        )
+        print("ye")
+        if dist > allowable_dist:
+            return Response(
+                {"Error": "Not close enough to the store to clock out."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        print("yes")
         # Clock the user out
         activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
-
+        print("yess")
         # Return the results after serialisation
         return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
 
-    except AlreadyClockedOutError:
+    except err.MissingLocationDataError:
+        # If the request is missing the location data
+        return Response(
+            {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.AlreadyClockedOutError:
         # If the user is already clocked out.
         return Response(
             {"Error": "Employee is not clocked in."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    except NoActiveClockingRecordError:
+    except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         return Response(
             {"Error": "No active clock-in record found."},
@@ -241,6 +317,7 @@ def clock_out(request, id):
             status=status.HTTP_404_NOT_FOUND,
         )
     except Exception as e:
+        # General error capture -- including database location errors
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

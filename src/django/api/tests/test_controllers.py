@@ -1,15 +1,11 @@
 import pytest
+import api.controllers as controllers
+import api.utils as util
+import api.exceptions as err
 from datetime import timedelta
 from django.utils.timezone import now
 from unittest.mock import patch
-from auth_app.models import User, Activity
-from api.exceptions import (
-    AlreadyClockedInError,
-    AlreadyClockedOutError,
-    NoActiveClockingRecordError,
-)
-import api.controllers as controllers
-import api.utils as util
+from auth_app.models import User, Activity, KeyValueStore
 
 
 @pytest.mark.django_db
@@ -123,7 +119,7 @@ def test_handle_clock_in_already_clocked_in(mock_now, clocked_in_employee):
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
     # Attempt to clock in a user who is already clocked in
-    with pytest.raises(AlreadyClockedInError) as excinfo:
+    with pytest.raises(err.AlreadyClockedInError) as excinfo:
         controllers.handle_clock_in(clocked_in_employee.id)
 
     # Check the exception message
@@ -183,7 +179,7 @@ def test_handle_clock_out_not_clocked_in(mock_now, employee):
     mock_now.return_value = now()  # Mock 'now()' to return the current time
 
     # Attempt to clock out an employee who is not clocked in
-    with pytest.raises(AlreadyClockedOutError) as excinfo:
+    with pytest.raises(err.AlreadyClockedOutError) as excinfo:
         controllers.handle_clock_out(employee.id, deliveries=5)
 
     # Check the exception message
@@ -204,7 +200,7 @@ def test_handle_clock_out_no_active_record(mock_now, clocked_in_employee):
     ).delete()
 
     # Attempt to clock out
-    with pytest.raises(NoActiveClockingRecordError) as excinfo:
+    with pytest.raises(err.NoActiveClockingRecordError) as excinfo:
         controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
 
     # Check the exception message
@@ -278,3 +274,42 @@ def test_get_employee_clocked_info_bugged_state(employee):
         Activity.DoesNotExist, match="No active clock-in activity found."
     ):
         controllers.get_employee_clocked_info(employee_id=employee.id)
+
+
+@pytest.mark.django_db
+def test_get_store_location_success(store_location):
+    """
+    Test fetching store location successfully.
+    """
+    store_lat, store_lon = controllers.get_store_location()
+    assert store_lat == 1.0
+    assert store_lon == 1.0
+
+
+@pytest.mark.django_db
+def test_get_store_location_missing_key():
+    """
+    Test fetching store location when keys are missing.
+    """
+    KeyValueStore.objects.all().delete()  # Remove all entries
+    with pytest.raises(KeyValueStore.DoesNotExist):
+        controllers.get_store_location()
+
+
+@pytest.mark.django_db
+def test_get_clocking_range_limit_success(store_location):
+    """
+    Test fetching the allowable clocking distance successfully.
+    """
+    allowable_dist = controllers.get_clocking_range_limit()
+    assert allowable_dist == 5.0
+
+
+@pytest.mark.django_db
+def test_get_clocking_range_limit_invalid_value():
+    """
+    Test fetching the allowable clocking distance with invalid value.
+    """
+    KeyValueStore.objects.create(key="allowable_clocking_dist_m", value="invalid")
+    with pytest.raises(ValueError):
+        controllers.get_clocking_range_limit()
