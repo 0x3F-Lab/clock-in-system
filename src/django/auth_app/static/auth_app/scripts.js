@@ -1,151 +1,163 @@
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("DOM fully loaded");
+	let clockedIn = false; // Track clock-in state
+	let startTime = null; // Store clock-in start time
+	let intervalId = null; // Interval for timer
 
-    // Store location and allowed radius (in meters)
-    const storeLatitude = -31.851786611616173;   // Example: New York latitude
-    const storeLongitude = 115.97646041574286; // Example: New York longitude
-    const allowedRadius = 1;       // Example: 100 meters radius
+	const clockButton = document.getElementById("clockButton");
+	const deliveriesCount = document.getElementById("deliveriesCount");
+	const minusButton = document.getElementById("minusButton");
+	const plusButton = document.getElementById("plusButton");
+	const timer = document.getElementById("timer");
+	const totalTimeDisplay = document.getElementById("totalTime");
+	const totalDeliveriesDisplay = document.getElementById("totalDeliveries");
+	const localTimeDisplay = document.getElementById("localTime");
+	const userDropdown = document.getElementById("userDropdown");
 
-    // --- Manager Clock-In Section ---
-    const clockButton = document.getElementById("clockButton");
-    const deliveriesCount = document.getElementById("deliveriesCount");
-    const minusButton = document.getElementById("minusButton");
-    const plusButton = document.getElementById("plusButton");
-    const timer = document.getElementById("timer");
-    const totalTimeDisplay = document.getElementById("totalTime");
-    const totalDeliveriesDisplay = document.getElementById("totalDeliveries");
-    const localTimeDisplay = document.getElementById("localTime");
-    const userDropdown = document.getElementById("userDropdown");
+	// Access Django-generated URLs
+	const listEmployeesUrl = window.djangoUrls.listEmployees;
+	const clockedStateUrl = window.djangoUrls.clockedState;
+	const clockInUrl = window.djangoUrls.clockIn;
+	const clockOutUrl = window.djangoUrls.clockOut;
 
-    let clockedIn = false; // Track clock-in state
-    let startTime = null; // Store clock-in start time
-    let intervalId = null; // Interval for timer
+	function getCookie(name) {
+	  let cookieValue = null;
+	  if (document.cookie && document.cookie !== '') {
+		  const cookies = document.cookie.split(';');
+		  for (let i = 0; i < cookies.length; i++) {
+			  const cookie = cookies[i].trim();
+			  // Does this cookie string begin with the name we want?
+			  if (cookie.substring(0, name.length + 1) === (name + '=')) {
+				  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+				  break;
+			  }
+		  }
+	  }
+	  return cookieValue;
+	}
 
-    // Haversine formula to calculate distance between two lat/lng points in meters
-    function getDistanceFromLatLonInM(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Earth's radius in meters
-        const toRad = (deg) => deg * Math.PI / 180;
+	const csrftoken = getCookie('csrftoken');
 
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
+	// Fetch employees and populate dropdown
+	function fetchEmployees() {
+		$.get(listEmployeesUrl, function(data) {
+			data.forEach(employee => {
+				$("#userDropdown").append(new Option(employee[1], employee[0]));
+			});
+		});
+	}
 
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+	// Fetch clocked state when user is selected
+	$("#userDropdown").change(function() {
+		const userId = $(this).val();
+		if (userId) {
+			$.get(`${clockedStateUrl}${userId}/`, function(data) {
+				clockedIn = data.clocked_in;
+				clockButton.disabled = false;
+				updateClockButtonState();
+			});
+		}
+	});
 
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R * c;
-        return distance;
-    }
+	// Update clock button state based on clockedIn
+	function updateClockButtonState() {
+		if (clockedIn) {
+			clockButton.textContent = "Clock Out";
+			clockButton.style.backgroundColor = "red";
+			minusButton.disabled = false;
+			plusButton.disabled = false;
+		} else {
+			clockButton.textContent = "Clock In";
+			clockButton.style.backgroundColor = "green";
+			minusButton.disabled = true;
+			plusButton.disabled = true;
+		}
+	}
 
-    // Only run the clock-in logic if these elements exist (i.e., on the manager page)
-    if (clockButton && deliveriesCount && minusButton && plusButton && timer && totalTimeDisplay && totalDeliveriesDisplay && localTimeDisplay && userDropdown) {
+	// Toggle Clock In/Clock Out
+	function toggleClock() {
+		const userId = $("#userDropdown").val();
+		const deliveries = parseInt(deliveriesCount.textContent, 10);
 
-        // Enable "Clock In" button when a user is selected
-        userDropdown.addEventListener("change", () => {
-            if (userDropdown.value) {
-                clockButton.disabled = false; // Enable the clock button
-            }
-        });
+		if (!clockedIn) {
+			// Clocking in
+			$.ajax({
+				url: `${clockInUrl}${userId}/`,
+				type: "PUT",
+				contentType: "application/json",
+				headers: {
+					'X-CSRFToken': csrftoken // Include CSRF token
+				},
+				success: function() {
+					  clockedIn = true;
+					  startTime = new Date();
+					  updateClockButtonState();
+					  intervalId = setInterval(updateTimer, 1000); // Start timer
+				}
+			});
+		} else {
+			// Clocking out
+			$.ajax({
+				url: `${clockOutUrl}${userId}/`,
+				type: "PUT",
+				contentType: "application/json",
+				headers: {
+					'X-CSRFToken': csrftoken // Include CSRF token
+				},
+				data: JSON.stringify({ deliveries: deliveries }),
+				success: function() {
+					clockedIn = false;
+					clearInterval(intervalId); // Stop timer
+					const endTime = new Date();
+					const totalMinutes = Math.round((endTime - startTime) / 60000);
 
-        // Toggle Clock In/Clock Out
-        function toggleClock() {
-            if (!clockedIn) {
-                // Before clocking in, check location
-                if ('geolocation' in navigator) {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            const userLat = position.coords.latitude;
-                            const userLon = position.coords.longitude;
+					// Update left panel
+					timer.textContent = "Worked: 0H 0M";
+					totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
+					totalDeliveriesDisplay.textContent = deliveries;
 
-                            const distance = getDistanceFromLatLonInM(storeLatitude, storeLongitude, userLat, userLon);
-                            console.log(`Distance from store: ${distance} meters`);
+					deliveriesCount.textContent = "0"; // Reset deliveries after clock out
+					updateClockButtonState();
+				}
+			});
+		}
+	}
 
-                            if (distance <= allowedRadius) {
-                                // Within allowed distance, proceed to clock in
-                                clockInProcedure();
-                            } else {
-                                // Not within allowed distance
-                                alert("You must be at the store location to clock in.");
-                            }
-                        },
-                        (error) => {
-                            console.error("Geolocation error:", error);
-                            alert("Unable to get your location. Cannot clock in.");
-                        }
-                    );
-                } else {
-                    alert("Geolocation is not supported by your browser. Cannot clock in.");
-                }
-            } else {
-                // Clocking out
-                clockOutProcedure();
-            }
-        }
+	// Update Timer
+	function updateTimer() {
+		const now = new Date();
+		const elapsedMinutes = Math.round((now - startTime) / 60000);
+		const hours = Math.floor(elapsedMinutes / 60);
+		const minutes = elapsedMinutes % 60;
 
-        function clockInProcedure() {
-            clockedIn = true;
-            startTime = new Date();
-            clockButton.textContent = "Clock Out";
-            clockButton.style.backgroundColor = "red";
-            deliveriesCount.textContent = "0"; // Reset deliveries
-            minusButton.disabled = false;
-            plusButton.disabled = false;
+		timer.textContent = `Worked: ${hours}H ${minutes}M`;
+	}
 
-            intervalId = setInterval(updateTimer, 1000); // Start timer
-        }
+	// Update Local Time
+	function updateLocalTime() {
+		const now = new Date();
+		localTimeDisplay.textContent = now.toLocaleTimeString();
+	}
 
-        function clockOutProcedure() {
-            clockedIn = false;
-            clearInterval(intervalId); // Stop timer
-            const endTime = new Date();
-            const totalMinutes = Math.round((endTime - startTime) / 60000);
+	// Adjust Deliveries Count
+	function adjustDeliveries(amount) {
+		if (clockedIn) {
+			const current = parseInt(deliveriesCount.textContent, 10);
+			deliveriesCount.textContent = Math.max(0, current + amount);
+		}
+	}
 
-            clockButton.textContent = "Clock In";
-            clockButton.style.backgroundColor = "green";
-            minusButton.disabled = true;
-            plusButton.disabled = true;
+	// Attach Event Listeners
+	clockButton.addEventListener("click", toggleClock);
+	minusButton.addEventListener("click", () => adjustDeliveries(-1));
+	plusButton.addEventListener("click", () => adjustDeliveries(1));
 
-            // Update left panel
-            timer.textContent = "Worked: 0H 0M";
-            totalTimeDisplay.textContent = `${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`;
-            totalDeliveriesDisplay.textContent = deliveriesCount.textContent;
+	// Start Updating Local Time
+	setInterval(updateLocalTime, 1000);
 
-            deliveriesCount.textContent = "0"; // Reset deliveries after clock out
-        }
+	// Fetch employees on load
+	fetchEmployees();
 
-        // Update Timer
-        function updateTimer() {
-            const now = new Date();
-            const elapsedMinutes = Math.round((now - startTime) / 60000);
-            const hours = Math.floor(elapsedMinutes / 60);
-            const minutes = elapsedMinutes % 60;
 
-            timer.textContent = `Worked: ${hours}H ${minutes}M`;
-        }
-
-        // Update Local Time
-        function updateLocalTime() {
-            const now = new Date();
-            localTimeDisplay.textContent = now.toLocaleTimeString();
-        }
-
-        // Adjust Deliveries Count
-        function adjustDeliveries(amount) {
-            if (clockedIn) {
-                const current = parseInt(deliveriesCount.textContent, 10);
-                deliveriesCount.textContent = Math.max(0, current + amount);
-            }
-        }
-
-        // Attach Event Listeners for the Manager Page
-        clockButton.addEventListener("click", toggleClock);
-        minusButton.addEventListener("click", () => adjustDeliveries(-1));
-        plusButton.addEventListener("click", () => adjustDeliveries(1));
-
-        // Start Updating Local Time
-        setInterval(updateLocalTime, 1000);
-    }
 
     // --- Employee Details Section ---
     const employeeTableElement = document.getElementById("employeeTable");
@@ -277,53 +289,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Raw Data Logs Section ---
-const rawDataTableElement = document.getElementById("rawDataTable");
+	const rawDataTableElement = document.getElementById("rawDataTable");
 
-if (rawDataTableElement) {
-    const rawDataTbody = rawDataTableElement.querySelector("tbody");
+	if (rawDataTableElement) {
+		const rawDataTbody = rawDataTableElement.querySelector("tbody");
 
-    const fetchRawDataLogs = () => {
-        fetch("/api/raw-data-logs/", {
-            headers: { "Accept": "application/json" },
-        })
-            .then((res) => {
-                if (!res.ok) throw new Error("Failed to fetch raw data logs.");
-                return res.json();
-            })
-            .then((data) => {
-                console.log("Fetched raw data logs:", data);
+		const fetchRawDataLogs = () => {
+			fetch("/api/raw-data-logs/", {
+				headers: { "Accept": "application/json" },
+			})
+				.then((res) => {
+					if (!res.ok) throw new Error("Failed to fetch raw data logs.");
+					return res.json();
+				})
+				.then((data) => {
+					console.log("Fetched raw data logs:", data);
 
-                // Clear table
-                rawDataTbody.innerHTML = "";
-                if (data.length === 0) {
-                    rawDataTbody.innerHTML = `<tr><td colspan="7">No logs found.</td></tr>`;
-                } else {
-                    data.forEach((log) => {
-                        console.log("Log being processed:", log); // Debugging line
-                    
-                        const row = document.createElement("tr");
-                        row.innerHTML = `
-                            <td>${log.staff_name}</td>
-                            <td>${log.login_time || "N/A"}</td> <!-- Add fallback just in case -->
-                            <td>${log.logout_time || "N/A"}</td> <!-- Add fallback just in case -->
-                            <td>${log.is_public_holiday ? "Yes" : "No"}</td>
-                            <td>${log.exact_login_timestamp}</td>
-                            <td>${log.exact_logout_timestamp || "N/A"}</td>
-                            <td>${log.deliveries}</td>
-                            <td>${log.hours_worked}</td>
-                        `;
-                        rawDataTbody.appendChild(row);
-                    });
-                    
-                }
-            })
-            .catch((error) => {
-                console.error("Error fetching raw data logs:", error);
-                rawDataTbody.innerHTML = `<tr><td colspan="7">Failed to load logs. Please try again later.</td></tr>`;
-            });
-    };
+					// Clear table
+					rawDataTbody.innerHTML = "";
+					if (data.length === 0) {
+						rawDataTbody.innerHTML = `<tr><td colspan="7">No logs found.</td></tr>`;
+					} else {
+						data.forEach((log) => {
+							console.log("Log being processed:", log); // Debugging line
+						
+							const row = document.createElement("tr");
+							row.innerHTML = `
+								<td>${log.staff_name}</td>
+								<td>${log.login_time || "N/A"}</td> <!-- Add fallback just in case -->
+								<td>${log.logout_time || "N/A"}</td> <!-- Add fallback just in case -->
+								<td>${log.is_public_holiday ? "Yes" : "No"}</td>
+								<td>${log.exact_login_timestamp}</td>
+								<td>${log.exact_logout_timestamp || "N/A"}</td>
+								<td>${log.deliveries}</td>
+								<td>${log.hours_worked}</td>
+							`;
+							rawDataTbody.appendChild(row);
+						});
+						
+					}
+				})
+				.catch((error) => {
+					console.error("Error fetching raw data logs:", error);
+					rawDataTbody.innerHTML = `<tr><td colspan="7">Failed to load logs. Please try again later.</td></tr>`;
+				});
+		};
 
     // Initial fetch of raw data logs
     fetchRawDataLogs();
-}
+	}
 });

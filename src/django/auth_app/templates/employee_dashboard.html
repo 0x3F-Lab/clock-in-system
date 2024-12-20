@@ -3,31 +3,40 @@
 {% block content %}
 
 <div class="employee-dashboard">
-    <!-- Left Panel -->
-    <div class="left-panel">
-        <label for="userDropdown">Select User:</label>
-        <select id="userDropdown">
-            <option value="" disabled selected>Select User</option>
-            <option value="Bob">Bob</option>
-            <option value="Akhil">Akhil</option>
-            <option value="Emily">Emily</option>
-        </select>
-        <p>Local Time: <span id="localTime">--:--</span></p>
-        <p>Total hours: <span id="totalTime">--:--</span></p>
-        <p>Total deliveries: <span id="totalDeliveries">0</span></p>
-    </div>
+  <!-- Left Panel -->
+  <div class="left-panel">
+      <label for="userDropdown">Select User:</label>
+      <select id="userDropdown">
+          <option value="" disabled selected>Select User</option>
+      </select>
+      <p>Local Time: <span id="localTime">--:--</span></p>
+      <p>Total hours: <span id="totalTime">--:--</span></p>
+      <p>Total deliveries: <span id="totalDeliveries">0</span></p>
+  </div>
 
-    <!-- Right Panel -->
-    <div class="right-panel">
-        <div id="timer">Worked: 0H 0M</div>
-        <button id="clockButton" disabled>Clock In</button>
-        <div class="deliveries">
-            Deliveries:
-            <button id="minusButton" disabled>-</button>
-            <span id="deliveriesCount">0</span>
-            <button id="plusButton" disabled>+</button>
-        </div>
-    </div>
+  <!-- Right Panel -->
+  <div class="right-panel">
+      <div id="timer">Worked: 0H 0M</div>
+      <button id="clockButton" disabled>Clock In</button>
+      <div class="deliveries">
+          Deliveries:
+          <button id="minusButton" disabled>-</button>
+          <span id="deliveriesCount">0</span>
+          <button id="plusButton" disabled>+</button>
+      </div>
+  </div>
 </div>
 
+{% endblock %}
+
+
+{% block custom_scripts %}
+<script>
+  window.djangoUrls = {
+      listEmployees: "{% url 'api:list_users_name_view' %}",
+      clockedState: "{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
+      clockIn: "{% url 'api:clock_in' 0 %}".slice(0, -2),
+      clockOut: "{% url 'api:clock_out' 0 %}".slice(0, -2)
+  };
+</script>
 {% endblock %}
