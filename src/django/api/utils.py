@@ -70,7 +70,7 @@ def get_distance_from_lat_lon_in_m(
         float: Distance in meters that the user is from the store.
     """
     # Earth's radius in meters
-    R = 6371000.0
+    R = 6378137.0
 
     # Convert degrees to radians
     lat1_rad = math.radians(lat1)
