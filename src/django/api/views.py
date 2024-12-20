@@ -9,10 +9,11 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 import json
 from django.db.models import Sum, Q, F, Case, When, DecimalField
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 from django.utils import timezone as dj_timezone
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
+
 
 logger = logging.getLogger("api")
 
@@ -228,15 +229,60 @@ def clocked_state_view(request, id):
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
-    try:
-        kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
-        last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
-            tzinfo=timezone.utc
-        )
-    except KeyValueStore.DoesNotExist:
-        last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+    start_date_str = request.query_params.get("start_date")
+    end_date_str = request.query_params.get("end_date")
+    employee_ids_str = request.query_params.get("employee_ids")
 
-    activities = Activity.objects.filter(login_time__gte=last_reset_date)
+    # Handle date range
+    if start_date_str and end_date_str:
+        try:
+            # Parse the start and end dates
+            start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+            # Set start_date to midnight of the start_day
+            start_date = datetime.combine(start_day, time.min).replace(
+                tzinfo=timezone.utc
+            )
+            # Set end_date to the last microsecond of the end_day
+            end_date = datetime.combine(end_day, time.max).replace(tzinfo=timezone.utc)
+
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        activities = Activity.objects.filter(
+            login_time__gte=start_date, login_time__lte=end_date
+        )
+    else:
+        # No date range provided, use last reset date
+        try:
+            kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
+            last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc
+            )
+        except KeyValueStore.DoesNotExist:
+            last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+
+        activities = Activity.objects.filter(login_time__gte=last_reset_date)
+
+    # Handle employee filter
+    if employee_ids_str:
+        try:
+            employee_ids = [
+                int(e_id.strip())
+                for e_id in employee_ids_str.split(",")
+                if e_id.strip().isdigit()
+            ]
+            if employee_ids:
+                activities = activities.filter(employee_id__in=employee_ids)
+        except ValueError:
+            return Response(
+                {"error": "Invalid employee_ids parameter. Must be integers."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     summary = (
         activities.annotate(day_of_week=ExtractWeekDay("login_time"))
@@ -277,16 +323,25 @@ def weekly_summary_view(request):
     return Response(data, status=status.HTTP_200_OK)
 
 
-def weekly_summary_page(request):
-    # Return the HTML template
-    return render(request, "auth_app/weekly_summary.html")
-
-
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
-    # Reset the weekly summary date to today's date
-    today_str = datetime.now().date().isoformat()
+    # If a new date is provided in the POST, use it, otherwise today
+    new_date_str = request.data.get("new_reset_date")
+    if new_date_str:
+        try:
+            # Validate the date format
+            datetime.strptime(new_date_str, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        today_str = new_date_str
+    else:
+        # Default to today if no date provided
+        today_str = datetime.now().date().isoformat()
+
     kv, created = KeyValueStore.objects.get_or_create(
         key="last_weekly_summary_reset", defaults={"value": today_str}
     )
@@ -298,3 +353,8 @@ def reset_summary_view(request):
         {"message": "Weekly summary reset successfully", "reset_date": today_str},
         status=status.HTTP_200_OK,
     )
+
+
+def weekly_summary_page(request):
+    # Return the HTML template
+    return render(request, "auth_app/weekly_summary.html")
