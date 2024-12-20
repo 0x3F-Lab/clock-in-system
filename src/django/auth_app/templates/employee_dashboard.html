@@ -30,7 +30,7 @@
 {% endblock %}
 
 
-{% block custom_scripts %}
+{% block customscripts %}
 <script>
   window.djangoUrls = {
       listEmployees: "{% url 'api:list_users_name_view' %}",
@@ -39,4 +39,5 @@
       clockOut: "{% url 'api:clock_out' 0 %}".slice(0, -2)
   };
 </script>
+<script src="/static/js/scripts-clocking.js"></script>
 {% endblock %}

@@ -71,26 +71,23 @@ def get_distance_from_lat_lon_in_m(
     """
     # Earth's radius in meters
     R = 6371000.0
-    print(f"{type(lat1)}, {type(lat2)}, {type(lon1)}, {type(lon2)}")
+
     # Convert degrees to radians
     lat1_rad = math.radians(lat1)
-    print("b")
     lon1_rad = math.radians(lon1)
-    print("b")
     lat2_rad = math.radians(lat2)
-    print("b")
     lon2_rad = math.radians(lon2)
-    print("a")
+
     # Differences in coordinates
     d_lat = lat2_rad - lat1_rad
     d_lon = lon2_rad - lon1_rad
-    print("a")
+
     # Haversine formula
     a = (
         math.sin(d_lat / 2) ** 2
         + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(d_lon / 2) ** 2
     )
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    print("a")
+
     # Return the distance
     return R * c

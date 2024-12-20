@@ -9,7 +9,7 @@ from functools import wraps
 
 
 def login_view(request):
-    return render(request, "auth_app/login.html")
+    return render(request, "login.html")
 
 
 def manager_required(view_func):

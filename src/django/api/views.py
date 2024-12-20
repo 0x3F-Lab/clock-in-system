@@ -312,8 +312,9 @@ def clock_in(request, id):
         dist = util.get_distance_from_lat_lon_in_m(
             lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
         )
-
+        print(dist)
         if dist > allowable_dist:
+            print(dist)
             return Response(
                 {"Error": "Not close enough to the store to clock in."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
@@ -347,7 +348,6 @@ def clock_in(request, id):
         )
     except Exception as e:
         # General error capture -- including database location errors
-        print(type(e))
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -389,16 +389,16 @@ def clock_out(request, id):
         dist = util.get_distance_from_lat_lon_in_m(
             lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
         )
-        print("ye")
+
         if dist > allowable_dist:
             return Response(
                 {"Error": "Not close enough to the store to clock out."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        print("yes")
+
         # Clock the user out
         activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
-        print("yess")
+
         # Return the results after serialisation
         return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
 

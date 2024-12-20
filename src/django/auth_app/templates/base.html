@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Pizza Clock-in{% endblock %}</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'auth_app/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 </head>
 <body>
     <div class="content-container">
       {% block content %}{% endblock %}
     </div>
 
+    <!-- Jquery and other imports -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <!-- Scripts -->
-    <script src="{% static 'auth_app/scripts.js' %}"></script>
+    <script src="{% static 'js/scripts.js' %}"></script>
+    <!-- Custom page scripts -->
+    {% block customscripts %}{% endblock %}
 </body>
 </html>
