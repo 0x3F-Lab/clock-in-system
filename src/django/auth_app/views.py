@@ -49,7 +49,7 @@ def manager_login(request):
         else:
             messages.error(request, "Invalid Details")
 
-    return render(request, "auth_app/manager_login.html")
+    return render(request, "manager_login.html")
 
 
 def logout_view(request):
@@ -61,7 +61,7 @@ def logout_view(request):
 def manager_dashboard(request):
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
-    return render(request, "auth_app/manager_dashboard.html", {"user": user})
+    return render(request, "manager_dashboard.html", {"user": user})
 
 
 def employee_login(request):
@@ -71,4 +71,4 @@ def employee_login(request):
 
 def employee_dashboard(request):
     # Render employee dashboard
-    return render(request, "auth_app/employee_dashboard.html")
+    return render(request, "employee_dashboard.html")
