@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
@@ -444,7 +444,7 @@ def clocked_state_view(request, id):
         info = controllers.get_employee_clocked_info(employee_id=id)
 
         # Return the info
-        return Response(info, status=status.HTTP_200_OK)
+        return Response(ClockedInfoSerializer(info).data, status=status.HTTP_200_OK)
 
     except User.DoesNotExist:
         # Return a 404 if the user does not exist

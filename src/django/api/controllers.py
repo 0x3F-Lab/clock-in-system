@@ -91,8 +91,8 @@ def handle_clock_in(employee_id: int) -> Activity:
                 employee_id=employee,
                 login_timestamp=time,
                 login_time=util.round_datetime_minute(
-                    time, rounding_mins=1
-                ),  ####################### FOR TESTING SET TO 1MINUTE -- CHANGE BACK LATER
+                    time
+                ),  # Default to round to nearest 15m
                 is_public_holiday=util.is_public_holiday(time),
                 deliveries=0,
             )
@@ -149,8 +149,8 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             time = now()
             activity.logout_timestamp = time
             activity.logout_time = util.round_datetime_minute(
-                time, rounding_mins=15
-            )  ####################### FOR TESTING SET TO 1MINUTE -- CHANGE BACK LATER
+                time
+            )  # Default to round to nearest 15m
             activity.deliveries = deliveries
             activity.shift_length_mins = util.calculate_shift_length_mins(
                 start=activity.login_time, end=activity.logout_time

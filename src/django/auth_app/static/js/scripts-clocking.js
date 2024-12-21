@@ -26,6 +26,8 @@ $(document).ready(function() {
 })
 
 
+////// FUNCTIONS //////
+
 function populateDropDownMenu(listEmployeesUrl) {
   $.get(listEmployeesUrl, function(data) {
     data.forEach(employee => {
@@ -43,9 +45,12 @@ function handleDropDownMenu(clockedStateUrl) {
     if (userId) {
       // Enable the clock button and check clocked-in state
       $("#clockButton").prop("disabled", false); // Enable clock button
+
+      // Get clocked info from API
       $.get(`${clockedStateUrl}${userId}/`, function (data) {
         clockedIn = data.clocked_in; // Update clockedIn state
         updateClockButtonState(); // Update the button state
+        updateShiftInfo(startTime=data.login_time); // Update shift info with start time (if clocked in)
       });
 
     } else {
@@ -93,7 +98,6 @@ async function toggleClock(clockInUrl, clockOutUrl) {
   const locationData = await getLocationData();
   
   if (!locationData) {
-    alert("AA");
     return;
   }
 
@@ -112,8 +116,12 @@ async function toggleClock(clockInUrl, clockOutUrl) {
         location_latitude: userLat,
         location_longitude: userLon,
       }),
-      success: function() {
+      success: function(data) {
           clockedIn = true;
+
+          // Update shift info
+          updateShiftInfo(startTime=data.login_time);
+
           updateClockButtonState();
       }
     });
@@ -133,13 +141,9 @@ async function toggleClock(clockInUrl, clockOutUrl) {
       }),
       success: function(data) {
         clockedIn = false;
-        const totalMinutes = data.shift_length_mins
-        console.log(totalMinutes)
 
-        // Update left panel
-        timer.textContent = "Worked: 0H 0M";
-        $("#totalTime").text(`${Math.floor(totalMinutes / 60)}H ${totalMinutes % 60}M`);
-        $("#totalDeliveries").text(deliveries);
+        // Update shift info
+        updateShiftInfo(startTime=data.login_time, endTime=data.logout_time, shiftLengthMins=data.shift_length_mins, deliveryCount=data.deliveries);
 
         $("#deliveriesCount").text("0"); // Reset deliveries after clock out
         updateClockButtonState();
@@ -156,6 +160,28 @@ function updateLocalTime() {
 }
 
 
+// Add shift info
+function updateShiftInfo(startTime, endTime, shiftLengthMins, deliveryCount) {
+  const $shiftInfo = $("#shiftInfo")
+
+  // Clear previous shift info
+  $shiftInfo.empty();
+
+  // Create new <p> elements and append them with the respective text
+  if (startTime) { $shiftInfo.append(`<p>Start Time: ${formatTime(startTime)}</p>`); }
+  if (endTime) { $shiftInfo.append(`<p>End Time: ${formatTime(endTime)}</p>`); }
+
+  if (shiftLengthMins) {
+    const hours = Math.floor(shiftLengthMins / 60);
+    const mins = shiftLengthMins % 60;
+    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? `${mins} Minutes` : ""}</p>`);
+  }
+
+  // Only add delivery count IF they have finished the shift
+  if (endTime && deliveryCount !== undefined) { $shiftInfo.append(`<p>Deliveries Completed: ${deliveryCount}</p>`); }
+}
+
+
 
 /////// HELPER FUNCTIONS ///////
 
@@ -167,6 +193,17 @@ function adjustDeliveries(amount) {
     const current = parseInt($deliveriesCount.textContent, 10);
     $deliveriesCount.textContent = Math.max(0, current + amount);
   }
+}
+
+
+// Format time function
+function formatTime(text) {
+  if (!text) { return ""; }
+
+  const date = new Date(text);
+  const options = { hour: 'numeric', minute: 'numeric', hour12: true };
+  
+  return new Intl.DateTimeFormat('en-US', options).format(date);
 }
 
 
