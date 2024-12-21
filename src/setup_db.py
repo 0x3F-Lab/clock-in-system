@@ -78,8 +78,8 @@ def upsert_key_value(key, value):
 # Function to prompt the user for values for the preset keys
 def get_user_input():
     preset_keys = {
-        "store_latitude": "Enter the latitude of the store as a float (e.g., 1.0): ",
-        "store_longitude": "Enter the longitude of the store as a float (e.g., 1.0): ",
+        "store_latitude": "Enter the latitude of the store as a float (e.g. for 5.1°N enter 5.1): ",
+        "store_longitude": "Enter the longitude of the store as a float (e.g. for -2.2°W enter -2.2): ",
         "allowable_clocking_dist_m": "Enter the allowable clocking distance in meters as an integer (e.g., 5): ",
     }
 
