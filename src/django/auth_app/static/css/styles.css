@@ -100,8 +100,8 @@ body, html {
     flex-direction: column; /* Stack panels vertically */
     justify-content: center;
     align-items: center;
-    width: 90%; /* Make it slightly wider */
-    max-width: 800px; /* Limit the maximum width */
+    width: 100%; /* Make it slightly wider */
+    max-width: 1500px; /* Limit the maximum width */
     gap: 30px; /* Add spacing between the panels */
 }
 
@@ -157,12 +157,6 @@ body, html {
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.right-panel #timer {
-    font-size: 2rem;
-    margin-bottom: 20px;
-    color: #f4f4f9;
 }
 
 #clockButton {
