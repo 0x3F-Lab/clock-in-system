@@ -2,6 +2,7 @@ import logging
 import api.exceptions as err
 import api.utils as util
 from typing import List, Tuple
+from datetime import timedelta
 from django.utils.timezone import now
 from django.db import transaction
 from auth_app.models import User, Activity, KeyValueStore
@@ -80,6 +81,10 @@ def handle_clock_in(employee_id: int) -> Activity:
             if employee.clocked_in:
                 raise err.AlreadyClockedInError
 
+            # Check if the employee is trying to clock in too soon after their last shift (default=30m)
+            if check_new_shift_too_soon(employee_id=employee_id):
+                raise err.StartingShiftTooSoonError
+
             # Update employee clocked-in status
             employee.clocked_in = True
             employee.save()
@@ -104,6 +109,8 @@ def handle_clock_in(employee_id: int) -> Activity:
         raise
     except User.DoesNotExist:
         # If the user is not found
+        raise
+    except err.AlreadyClockedInError:
         raise
     except Exception as e:
         # Catch-all exception
@@ -142,6 +149,10 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             if not activity:
                 raise err.NoActiveClockingRecordError
 
+            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
+            if check_clocking_out_too_soon(employee_id=employee_id):
+                raise err.ClockingOutTooSoonError
+
             # Update employee clocked-out status and Activity record
             employee.clocked_in = False
             employee.save()
@@ -170,6 +181,8 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         raise
     except User.DoesNotExist:
         # If the user is not found, return 404
+        raise
+    except err.StartingShiftTooSoonError:
         raise
     except Exception as e:
         logger.error(
@@ -286,3 +299,77 @@ def get_clocking_range_limit() -> float:
             "Allowable distance limit for clocking in the database is not valid. Please run the setup script to correct."
         )
         raise ValueError(f"Invalid value for store location: {e}")
+
+
+def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
+    """
+    Check if the user attempts to start a new shift within time limits of their last clock-out.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        limit_mins (int): The minimum interval in minutes required between clock-out and clock-in. (Default = 30m)
+
+    Returns:
+        bool: Returns True if the employee is trying to clock in too soon after their last clock-out, otherwise False.
+    """
+    try:
+        # Get the last clock-out activity for the employee
+        last_activity = Activity.objects.filter(
+            employee_id=employee_id, logout_time__isnull=False
+        ).last()
+
+        if not last_activity:
+            # No previous clock-out record found, allow clock-in
+            return False
+
+        # Calculate the time difference between the last clock-out and the attempted clock-in
+        time_diff = now() - last_activity.logout_time
+
+        # Check if the time difference is less than the allowed time gap (x_minutes)
+        if time_diff < timedelta(minutes=limit_mins):
+            return True
+
+        return False
+
+    except Exception as e:
+        raise Exception(
+            f"Error checking if employee {employee_id} is attempting to start a shift too soon: {str(e)}"
+        )
+
+
+def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
+    """
+    Check if the user attempts to clock out within time limits after their last clock-in.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 10m)
+
+    Returns:
+        bool: Returns True if the employee is trying to clock out too soon, otherwise False.
+    """
+    try:
+        # Get the last activity for the employee
+        last_activity = (
+            Activity.objects.filter(employee_id=employee_id)
+            .order_by("-login_timestamp")
+            .first()
+        )  # Order by latest clock-in/out
+
+        if not last_activity:
+            # No previous clock-in or clock-out record found, allow clock-in
+            return False
+
+        # Calculate the time difference between the last clock-in/out and the attempted action
+        time_diff = now() - last_activity.login_timestamp
+
+        # Check if the time difference is less than the allowed time gap (x_minutes)
+        if time_diff < timedelta(minutes=limit_mins):
+            return True
+
+        return False
+
+    except Exception as e:
+        raise Exception(
+            f"Error checking if employee {employee_id} is attempting to clock in/out too soon: {str(e)}"
+        )

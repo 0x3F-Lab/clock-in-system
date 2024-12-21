@@ -36,3 +36,23 @@ class MissingLocationDataError(Exception):
     def __init__(self, message="Request is missing location data."):
         self.message = message
         super().__init__(self.message)
+
+
+class StartingShiftTooSoonError(Exception):
+    """
+    Raised when an attempt is made to start a shift toon soon after their last shift.
+    """
+
+    def __init__(self, message="Can not start a shift too soon after the last shift."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ClockingOutTooSoonError(Exception):
+    """
+    Raised when an attempt is made to clock out too soon after clocking in.
+    """
+
+    def __init__(self, message="Can not clock out too soon after clocking in."):
+        self.message = message
+        super().__init__(self.message)

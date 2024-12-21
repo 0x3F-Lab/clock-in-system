@@ -45,8 +45,6 @@ def list_users_name_view(request):
             ignore_clocked_in=ignore_clocked_in,
         )
 
-        raise KeyError
-
         # Return the list of users in the response
         return Response(users_list, status=status.HTTP_200_OK)
 
@@ -348,6 +346,12 @@ def clock_in(request, id):
             {"Error": f"Employee not found with the ID {id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except err.StartingShiftTooSoonError:
+        # If the user is trying to start a shift too soon after their last shift
+        return Response(
+            {"Error": f"Can't start a shift too soon after your last shift."},
+            status=status.HTTP_409_CONFLICT,
+        )
     except Exception as e:
         # General error capture -- including database location errors
         return Response(
@@ -427,6 +431,12 @@ def clock_out(request, id):
         return Response(
             {"Error": f"Employee not found with the ID {id}."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.ClockingOutTooSoonError:
+        # If the user is trying to clock out too soon after clocking in
+        return Response(
+            {"Error": f"Can't clock out too soon after clocking in."},
+            status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:
         # General error capture -- including database location errors
