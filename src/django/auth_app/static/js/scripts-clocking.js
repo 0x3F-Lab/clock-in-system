@@ -176,7 +176,7 @@ function updateShiftInfo(startTime, endTime, shiftLengthMins, deliveryCount) {
   if (shiftLengthMins) {
     const hours = Math.floor(shiftLengthMins / 60);
     const mins = shiftLengthMins % 60;
-    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? `${mins} Minutes` : ""}</p>`);
+    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? `${mins} Minutes` : (hours ? "" : `${mins} Minutes`)}</p>`);
   }
 
   // Only add delivery count IF they have finished the shift
