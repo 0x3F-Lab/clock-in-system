@@ -45,6 +45,8 @@ def list_users_name_view(request):
             ignore_clocked_in=ignore_clocked_in,
         )
 
+        raise KeyError
+
         # Return the list of users in the response
         return Response(users_list, status=status.HTTP_200_OK)
 

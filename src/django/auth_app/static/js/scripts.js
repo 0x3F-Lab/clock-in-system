@@ -1,3 +1,21 @@
+// Function to show notifications
+function showNotification(message, type = "warning") {
+  // Create notification HTML element
+  const notification = $('<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert"></div>');
+  notification.text(message);
+  
+  // Add close button to the notification
+  notification.append('<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>');
+  
+  // Append notification to the notification container
+  $('#notification-container').append(notification);
+  
+  // Automatically remove notification after 5 seconds
+  setTimeout(() => {
+      notification.alert('close');  // Close the notification
+  }, 5000);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     // --- Employee Details Section ---
     const employeeTableElement = document.getElementById("employeeTable");

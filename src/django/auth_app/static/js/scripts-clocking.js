@@ -33,6 +33,16 @@ function populateDropDownMenu(listEmployeesUrl) {
     data.forEach(employee => {
       $("#userDropdown").append(new Option(employee[1], employee[0]));
     });
+
+  }).fail(function(jqXHR, textStatus, errorThrown) {
+    // Extract the error message from the API response if available
+    let errorMessage;
+    if (jqXHR.status == 500) {
+      errorMessage = "Failed to load employee list due to internal server error. Please try again.";
+    } else {
+      errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee list. Please try again.";
+    }
+    showNotification(errorMessage, "danger");
   });
 }
 
@@ -51,6 +61,15 @@ function handleDropDownMenu(clockedStateUrl) {
         clockedIn = data.clocked_in; // Update clockedIn state
         updateClockButtonState(); // Update the button state
         updateShiftInfo(startTime=data.login_time); // Update shift info with start time (if clocked in)
+      }).fail(function(jqXHR, textStatus, errorThrown) {
+        // Extract the error message from the API response if available
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to retrieve clocked-in state due to internal server error. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to retrieve clocked-in state. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
       });
 
     } else {
@@ -118,6 +137,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
         location_latitude: userLat,
         location_longitude: userLon,
       }),
+
       success: function(data) {
           clockedIn = true;
 
@@ -125,8 +145,20 @@ async function toggleClock(clockInUrl, clockOutUrl) {
           updateShiftInfo(startTime=data.login_time);
 
           updateClockButtonState();
+      },
+
+      error: function(jqXHR, textStatus, errorThrown) {
+        // Extract the error message from the API response if available
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to clock in due to internal server error. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock in. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
       }
     });
+
   } else {
     // Clocking out
     $.ajax({
@@ -141,6 +173,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
         location_longitude: userLon,
         deliveries: deliveries,
       }),
+
       success: function(data) {
         clockedIn = false;
 
@@ -149,6 +182,17 @@ async function toggleClock(clockInUrl, clockOutUrl) {
 
         $("#deliveriesCount").text("0"); // Reset deliveries after clock out
         updateClockButtonState();
+      },
+
+      error: function(jqXHR, textStatus, errorThrown) {
+        // Extract the error message from the API response if available
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to clock out due to internal server errors. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock out. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
       }
     });
   }
@@ -173,10 +217,10 @@ function updateShiftInfo(startTime, endTime, shiftLengthMins, deliveryCount) {
   if (startTime) { $shiftInfo.append(`<p>Start Time: ${formatTime(startTime)}</p>`); }
   if (endTime) { $shiftInfo.append(`<p>End Time: ${formatTime(endTime)}</p>`); }
 
-  if (shiftLengthMins) {
+  if (shiftLengthMins || shiftLengthMins == 0) {
     const hours = Math.floor(shiftLengthMins / 60);
     const mins = shiftLengthMins % 60;
-    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? `${mins} Minutes` : (hours ? "" : `${mins} Minutes`)}</p>`);
+    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? (`${mins} Minutes`) : (hours ? "" : `${mins} Minutes`)}</p>`);
   }
 
   // Only add delivery count IF they have finished the shift
