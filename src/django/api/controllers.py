@@ -362,8 +362,6 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
 
         # Calculate the time difference between the last clock-in/out and the attempted action
         time_diff = now() - last_activity.login_timestamp
-        print(last_activity.login_timestamp)
-        print(now())
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):

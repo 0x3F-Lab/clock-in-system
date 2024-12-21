@@ -52,11 +52,19 @@ def clocked_in_employee(db):
         is_active=True,
         is_manager=False,
     )
-    Activity.objects.create(
+
+    login_time = now() - timedelta(hours=2)
+
+    activity = Activity.objects.create(
         employee_id=employee,
-        login_time=now() - timedelta(hours=2),  # Set login_time to 3 hours ago
-        login_timestamp=now() - timedelta(hours=2),
+        login_time=login_time,
     )
+
+    # Update login_timestamp (cant be passed when creating object)
+    Activity.objects.filter(id=activity.id).update(
+        login_timestamp=now() - timedelta(hours=2)
+    )
+
     return employee
 
 

@@ -145,26 +145,19 @@ def test_handle_clock_in_employee_not_found(mock_now):
 @pytest.mark.django_db
 @patch("api.utils.now")
 @patch("api.utils.round_datetime_minute")
-def test_handle_clock_out_success(mock_round, mock_now, employee):
+def test_handle_clock_out_success(mock_round, mock_now, clocked_in_employee):
     """
     Test successful clock-out for an employee.
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
     mock_round.return_value = mock_now.return_value  # Mock rounding function
 
-    # Create a clock-in activity for the employee
-    activity = Activity.objects.create(
-        employee_id=employee,
-        login_time=now() - timedelta(minutes=5),  # Clocked in 5 minutes ago
-        login_timestamp=now() - timedelta(minutes=5),
-    )
-
     # Call the controller function to clock out
-    activity = controllers.handle_clock_out(employee.id, deliveries=5)
+    activity = controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
 
     # Validate the returned Activity instance
     assert isinstance(activity, Activity)
-    assert activity.employee_id == employee
+    assert activity.employee_id == clocked_in_employee
     assert activity.deliveries == 5
 
     # Allow for a small tolerance when comparing timestamps

@@ -49,7 +49,7 @@ def test_clock_out_success_within_range(
         "deliveries": 5,
     }
     response = api_client.post(url, payload)
-
+    print(Activity.objects.filter(employee_id=clocked_in_employee.id).last().login_time)
     assert response.status_code == 200  # HTTP 200 OK
     data = response.json()
     assert data["employee_id"] == clocked_in_employee.id
@@ -174,3 +174,66 @@ def test_clock_out_missing_location_data(
     data = response.json()
     assert "Error" in data
     assert data["Error"] == "Missing location data in request."
+
+
+from datetime import timedelta
+from django.utils.timezone import now
+import pytest
+from django.urls import reverse
+from auth_app.models import Activity
+
+
+@pytest.mark.django_db
+def test_clock_out_too_soon_after_clock_in(api_client, employee, store_location):
+    """
+    Test attempting to clock out too soon after clocking in.
+    """
+    # Simulate clock-in
+    clock_in_url = reverse("api:clock_in", args=[employee.id])
+    clock_in_payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    clock_in_response = api_client.post(clock_in_url, clock_in_payload)
+    assert clock_in_response.status_code == 201  # HTTP 201 Created
+
+    # Attempt to clock out immediately
+    clock_out_url = reverse("api:clock_out", args=[employee.id])
+    clock_out_payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "deliveries": 5,
+    }
+    clock_out_response = api_client.post(clock_out_url, clock_out_payload)
+
+    # Expect failure due to clocking out too soon
+    assert clock_out_response.status_code == 409  # HTTP 409
+    data = clock_out_response.json()
+    assert "Error" in data
+    assert data["Error"] == "Can't clock out too soon after clocking in."
+
+
+@pytest.mark.django_db
+def test_clock_in_too_soon_after_clock_out(
+    api_client, clocked_in_employee, store_location
+):
+    """
+    Test attempting to clock in too soon after clocking out.
+    """
+    # Simulate clock-out
+    clock_out_url = reverse("api:clock_out", args=[clocked_in_employee.id])
+    clock_out_payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "deliveries": 5,
+    }
+    clock_out_response = api_client.post(clock_out_url, clock_out_payload)
+    assert clock_out_response.status_code == 200  # HTTP 200 OK
+
+    # Attempt to clock in immediately
+    clock_in_url = reverse("api:clock_in", args=[clocked_in_employee.id])
+    clock_in_payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    clock_in_response = api_client.post(clock_in_url, clock_in_payload)
+
+    # Expect failure due to clocking in too soon after clocking out
+    assert clock_in_response.status_code == 409  # HTTP 409
+    data = clock_in_response.json()
+    assert "Error" in data
+    assert data["Error"] == "Can't start a shift too soon after your last shift."
