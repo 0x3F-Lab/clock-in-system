@@ -312,9 +312,8 @@ def clock_in(request, id):
         dist = util.get_distance_from_lat_lon_in_m(
             lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
         )
-        print(dist)
+
         if dist > allowable_dist:
-            print(dist)
             return Response(
                 {"Error": "Not close enough to the store to clock in."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
