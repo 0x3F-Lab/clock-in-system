@@ -54,8 +54,10 @@ function handleDropDownMenu(clockedStateUrl) {
       });
 
     } else {
-      // If no valid user is selected, disable the clock button
+      // If no valid user is selected, disable the clock button and delivery buttons
       $("#clockButton").prop("disabled", true);
+      $("#minusButton").prop("disabled", true);
+      $("#plusButton").prop("disabled", true);
     }
   });
 }
@@ -182,18 +184,22 @@ function updateShiftInfo(startTime, endTime, shiftLengthMins, deliveryCount) {
 }
 
 
-
-/////// HELPER FUNCTIONS ///////
-
 // Adjust Deliveries Count
 function adjustDeliveries(amount) {
   if (clockedIn) {
     const $deliveriesCount = $("#deliveriesCount");
 
-    const current = parseInt($deliveriesCount.textContent, 10);
-    $deliveriesCount.textContent = Math.max(0, current + amount);
+    // Convert to int
+    const current = parseInt($deliveriesCount.text(), 10) || 0; // Returns 0 if it fails
+
+    // Ensure new amount is no less than zero
+    $deliveriesCount.text(Math.max(0, current + amount));
   }
 }
+
+
+
+/////// HELPER FUNCTIONS ///////
 
 
 // Format time function
