@@ -145,19 +145,26 @@ def test_handle_clock_in_employee_not_found(mock_now):
 @pytest.mark.django_db
 @patch("api.utils.now")
 @patch("api.utils.round_datetime_minute")
-def test_handle_clock_out_success(mock_round, mock_now, clocked_in_employee):
+def test_handle_clock_out_success(mock_round, mock_now, employee):
     """
     Test successful clock-out for an employee.
     """
     mock_now.return_value = now()  # Mock 'now()' to return the current time
     mock_round.return_value = mock_now.return_value  # Mock rounding function
 
+    # Create a clock-in activity for the employee
+    activity = Activity.objects.create(
+        employee_id=employee,
+        login_time=now() - timedelta(minutes=5),  # Clocked in 5 minutes ago
+        login_timestamp=now() - timedelta(minutes=5),
+    )
+
     # Call the controller function to clock out
-    activity = controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
+    activity = controllers.handle_clock_out(employee.id, deliveries=5)
 
     # Validate the returned Activity instance
     assert isinstance(activity, Activity)
-    assert activity.employee_id == clocked_in_employee
+    assert activity.employee_id == employee
     assert activity.deliveries == 5
 
     # Allow for a small tolerance when comparing timestamps
@@ -313,3 +320,53 @@ def test_get_clocking_range_limit_invalid_value():
     KeyValueStore.objects.create(key="allowable_clocking_dist_m", value="invalid")
     with pytest.raises(ValueError):
         controllers.get_clocking_range_limit()
+
+
+@pytest.mark.django_db
+def test_check_new_shift_too_soon(employee):
+    """
+    Test that an employee can't start a new shift too soon after their last clock-out.
+    """
+    # First, clock the employee out with a gap
+    last_activity = Activity.objects.create(
+        employee_id=employee,
+        login_time=now() - timedelta(hours=2),
+        login_timestamp=now() - timedelta(hours=2),
+        logout_time=now() - timedelta(hours=1),  # 1 hour ago
+        logout_timestamp=now()
+        - timedelta(hours=1),  # NEED TIMESTAMP AS IT CHECKS TIMESTAMP NOT TIME
+    )
+
+    result = controllers.check_new_shift_too_soon(employee.id, limit_mins=30)
+    assert result is False  # Should be False as the shift is not too soon
+
+    # Now, simulate trying to clock in too soon
+    last_activity.logout_timestamp = now() - timedelta(minutes=5)  # 5 mins ago
+    last_activity.save()
+
+    result = controllers.check_new_shift_too_soon(employee.id, limit_mins=30)
+    assert result is True  # Should be True as the shift is too soon
+
+
+@pytest.mark.django_db
+def test_check_clocking_out_too_soon(employee):
+    """
+    Test that an employee can't clock out too soon after clocking in.
+    """
+    # Create a clock-in activity for the employee
+    activity = Activity.objects.create(
+        employee_id=employee,
+        login_time=now() - timedelta(minutes=5),  # Clocked in 5 minutes ago
+        login_timestamp=now() - timedelta(minutes=5),
+    )
+
+    result = controllers.check_clocking_out_too_soon(employee.id, limit_mins=10)
+    assert result is True  # Clocking out too soon, should return True
+
+    # Move the clock in time outside the limits
+    activity.login_timestamp = now() - timedelta(minutes=35)  # 35 mins ago
+    activity.save()
+
+    # Re-check the controller
+    result = controllers.check_clocking_out_too_soon(employee.id, limit_mins=10)
+    assert result is False  # Clocking out after adequate time

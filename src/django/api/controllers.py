@@ -315,7 +315,7 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
     try:
         # Get the last clock-out activity for the employee
         last_activity = Activity.objects.filter(
-            employee_id=employee_id, logout_time__isnull=False
+            employee_id=employee_id, logout_timestamp__isnull=False
         ).last()
 
         if not last_activity:
@@ -323,7 +323,7 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
             return False
 
         # Calculate the time difference between the last clock-out and the attempted clock-in
-        time_diff = now() - last_activity.logout_time
+        time_diff = now() - last_activity.logout_timestamp
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):
@@ -362,6 +362,8 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
 
         # Calculate the time difference between the last clock-in/out and the attempted action
         time_diff = now() - last_activity.login_timestamp
+        print(last_activity.login_timestamp)
+        print(now())
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):

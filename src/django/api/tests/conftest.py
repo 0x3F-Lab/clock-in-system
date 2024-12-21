@@ -54,7 +54,8 @@ def clocked_in_employee(db):
     )
     Activity.objects.create(
         employee_id=employee,
-        login_time=now() - timedelta(hours=3),  # Set login_time to 3 hours ago
+        login_time=now() - timedelta(hours=2),  # Set login_time to 3 hours ago
+        login_timestamp=now() - timedelta(hours=2),
     )
     return employee
 
