@@ -18,6 +18,19 @@ class AlreadyClockedOutError(Exception):
         super().__init__(self.message)
 
 
+class InactiveUserError(Exception):
+    """
+    Raised when attempting to interact with an inactive user.
+    """
+
+    def __init__(
+        self,
+        message="Employee is marked as inactive, cannot interact with the account.",
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
 class NoActiveClockingRecordError(Exception):
     """
     Raised when an attempt is made to clock out a user who has no active shift where they are clocked in. (Missing the clock-in activity).

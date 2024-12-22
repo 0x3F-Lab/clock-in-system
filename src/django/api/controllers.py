@@ -81,6 +81,10 @@ def handle_clock_in(employee_id: int) -> Activity:
             if employee.clocked_in:
                 raise err.AlreadyClockedInError
 
+            # Check if user is inactive
+            elif not employee.is_active:
+                raise err.InactiveUserError
+
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
             if check_new_shift_too_soon(employee_id=employee_id):
                 raise err.StartingShiftTooSoonError
@@ -104,13 +108,13 @@ def handle_clock_in(employee_id: int) -> Activity:
 
             return activity
 
-    except err.AlreadyClockedInError:
-        # If the user is already clocked in
-        raise
-    except User.DoesNotExist:
-        # If the user is not found
-        raise
-    except err.AlreadyClockedInError:
+    except (
+        err.AlreadyClockedInError,
+        err.InactiveUserError,
+        User.DoesNotExist,
+        err.AlreadyClockedInError,
+    ):
+        # Re-raise common errors
         raise
     except Exception as e:
         # Catch-all exception
@@ -141,6 +145,10 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             if not employee.clocked_in:
                 raise err.AlreadyClockedOutError
 
+            # Check if user is inactive
+            elif not employee.is_active:
+                raise err.InactiveUserError
+
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
                 employee_id=employee, logout_time__isnull=True
@@ -170,19 +178,19 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
 
             return activity
 
-    except err.AlreadyClockedOutError:
-        # If the user is already clocked out.
+    except (
+        err.AlreadyClockedOutError,
+        User.DoesNotExist,
+        err.InactiveUserError,
+        err.StartingShiftTooSoonError,
+    ) as e:
+        # Re-raise common errors
         raise
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
             f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity)."
         )
-        raise
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        raise
-    except err.StartingShiftTooSoonError:
         raise
     except Exception as e:
         logger.error(
@@ -203,6 +211,10 @@ def get_employee_clocked_info(employee_id: int) -> dict:
     """
     try:
         employee = User.objects.get(id=employee_id)
+
+        # Check employee is not inactive
+        if not employee.is_active:
+            raise err.InactiveUserError
 
         # Form the basic info
         full_name = f"{employee.first_name} {employee.last_name}"
@@ -228,8 +240,7 @@ def get_employee_clocked_info(employee_id: int) -> dict:
 
         return info
 
-    except User.DoesNotExist or Activity.DoesNotExist:
-        # Handle user not existing
+    except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
         raise  # Re-raise error to be caught in view
     except Exception as e:
         # Catch-all exception

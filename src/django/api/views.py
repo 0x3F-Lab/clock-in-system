@@ -339,6 +339,12 @@ def clock_in(request, id):
             {"Error": "Employee is already clocked in."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    except err.InactiveUserError:
+        # If the user is trying to clock in an inactive account
+        return Response(
+            {"Error": "Cannot clock in an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except User.DoesNotExist:
         # If the user is not found, return 404
         return Response(
@@ -431,6 +437,12 @@ def clock_out(request, id):
             {"Error": f"Employee not found with the ID {id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except err.InactiveUserError:
+        # If the user is trying to clock out an inactive account
+        return Response(
+            {"Error": "Cannot clock out an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except err.ClockingOutTooSoonError:
         # If the user is trying to clock out too soon after clocking in
         return Response(
@@ -461,6 +473,12 @@ def clocked_state_view(request, id):
         # Return a 404 if the user does not exist
         return Response(
             {"Error": f"User not found with ID {id}."}, status=status.HTTP_404_NOT_FOUND
+        )
+    except err.InactiveUserError:
+        # If the user is trying to view the data of an inactive account
+        return Response(
+            {"Error": "Cannot view information from an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
         )
     except Activity.DoesNotExist:
         # Return a 417 if the user's state is bugged
