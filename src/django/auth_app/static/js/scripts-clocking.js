@@ -1,4 +1,6 @@
 let clockedIn = false; // Track clock-in state
+let userSelected = false; // Track when the user selects an employee
+
 
 $(document).ready(function() {
   // Access Django-generated URLs
@@ -7,11 +9,16 @@ $(document).ready(function() {
 	const clockInUrl = window.djangoUrls.clockIn;
 	const clockOutUrl = window.djangoUrls.clockOut;
 
-  // Populate dropdown menu (done only once)
-  populateDropDownMenu(listEmployeesUrl);
+  // Disable buttons until they are required
+  $("#clockButton").prop("disabled", true);
+  $("#minusButton").prop("disabled", true);
+  $("#plusButton").prop("disabled", true);
 
-  // Handle user updating drop down menu
-  handleDropDownMenu(clockedStateUrl);
+  // Populate the modal user list
+  populateModalUserList(listEmployeesUrl);
+
+  // Handle user selection modal
+  handleUserSelectionModal(clockedStateUrl);
 
   // Handle deliveries adjustment
   handleDeliveryAdjustments();
@@ -26,64 +33,103 @@ $(document).ready(function() {
 })
 
 
+
 ////// FUNCTIONS //////
 
-function populateDropDownMenu(listEmployeesUrl) {
-  $.get(listEmployeesUrl, function(data) {
-    data.forEach(employee => {
-      $("#userDropdown").append(new Option(employee[1], employee[0]));
-    });
+// Populate the modal with the user list
+function populateModalUserList(listEmployeesUrl) {
+  $.get(listEmployeesUrl, function (data) {
+      const $userList = $("#userList");
+      data.forEach(employee => {
+          $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
+      });
 
-  }).fail(function(jqXHR, textStatus, errorThrown) {
-    // Extract the error message from the API response if available
-    let errorMessage;
-    if (jqXHR.status == 500) {
-      errorMessage = "Failed to load employee list due to internal server error. Please try again.";
-    } else {
-      errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee list. Please try again.";
-    }
-    showNotification(errorMessage, "danger");
+  }).fail(function (jqXHR) {
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to load employee list due to internal server error. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee list. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
   });
 }
 
 
-// To handle any changes with the drop down menu
-function handleDropDownMenu(clockedStateUrl) {
-  $("#userDropdown").change(function () {
-    const userId = $(this).val(); // Get the selected user ID
-
-    if (userId) {
-      // Enable the clock button and check clocked-in state
-      $("#clockButton").prop("disabled", false); // Enable clock button
-
-      // Get clocked info from API
-      $.get(`${clockedStateUrl}${userId}/`, function (data) {
-        clockedIn = data.clocked_in; // Update clockedIn state
-        updateClockButtonState(); // Update the button state
-        updateShiftInfo(startTime=data.login_time); // Update shift info with start time (if clocked in)
-      }).fail(function(jqXHR, textStatus, errorThrown) {
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to retrieve clocked-in state due to internal server error. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to retrieve clocked-in state. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      });
-
-    } else {
-      // If no valid user is selected, disable the clock button and delivery buttons
-      $("#clockButton").prop("disabled", true);
-      $("#minusButton").prop("disabled", true);
-      $("#plusButton").prop("disabled", true);
-    }
+// Handle user selection from the modal
+function handleUserSelectionModal(clockedStateUrl) {
+  // Open modal on "Select User" button click
+  $("#selectUserButton").click(function () {
+      const userModal = new bootstrap.Modal(document.getElementById("userModal"));
+      userModal.show();
   });
+
+  // Handle user selection from the list
+  $("#userList").on("click", "li", function () {
+      const userID = $(this).data("id");
+      const userName = $(this).text();
+
+      // Update UI with selected user
+      $("#selectedEmployee")
+        .text(userName)
+        .data("id", userID)
+        .attr("data-id", userID); // Also add it to the DOM
+
+      // Fetch clocked-in state for the selected user (and updates buttons)
+      fetchClockedState(clockedStateUrl, userID);
+
+      // Update selected state
+      userSelected = true
+
+      // Close the modal
+      const userModal = bootstrap.Modal.getInstance(document.getElementById("userModal"));
+      userModal.hide();
+  });
+
+  // Search functionality in the modal
+  $("#userSearchBar").on("input", function () {
+      const searchTerm = $(this).val().toLowerCase();
+      const $userList = $("#userList");
+      const users = $userList.children();
+
+      users.each(function () {
+          const $user = $(this);
+          $user.toggle($user.text().toLowerCase().includes(searchTerm));
+      });
+  });
+}
+
+
+// Fetch clocked-in state for a user
+function fetchClockedState(clockedStateUrl, userID) {
+  if (userID) {
+      $("#clockButton").prop("disabled", false);
+      $.get(`${clockedStateUrl}${userID}/`, function (data) {
+          clockedIn = data.clocked_in;
+
+          // Update buttons and info
+          updateClockButtonState();
+          updateShiftInfo(data.login_time);
+
+      }).fail(function (jqXHR) {
+          // Extract the error message from the API response if available
+          let errorMessage;
+          if (jqXHR.status == 500) {
+            errorMessage = "Failed to retrieve clocked-in state due to internal server error. Please try again.";
+          } else {
+            errorMessage = jqXHR.responseJSON?.Error || "Failed to retrieve clocked-in state. Please try again.";
+          }
+          showNotification(errorMessage, "danger");
+      });
+  }
 }
 
 
 // Update clock button state based on clockedIn
 function updateClockButtonState() {
+  // Assume starting from disabled state going into enabled state (cant go backwards)
+  $("#clockButton").prop("disabled", false);
+
   if (clockedIn) {
     $("#clockButton").text("Clock Out");
     $("#clockButton").css("background-color", "red");
@@ -111,7 +157,10 @@ function handleDeliveryAdjustments() {
 
 // Toggle Clock In/Clock Out
 async function toggleClock(clockInUrl, clockOutUrl) {
-  const userId = $("#userDropdown").val();
+  // Ensure cant clock in/out until an employee is selected
+  if (!userSelected) { return; }
+
+  const userID = $("#selectedEmployee").data("id");
   const deliveries = parseInt(deliveriesCount.textContent, 10);
   const csrftoken = getCookie('csrftoken');
 
@@ -127,7 +176,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
   if (!clockedIn) {
     // Clocking in
     $.ajax({
-      url: `${clockInUrl}${userId}/`,
+      url: `${clockInUrl}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {
@@ -162,7 +211,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
   } else {
     // Clocking out
     $.ajax({
-      url: `${clockOutUrl}${userId}/`,
+      url: `${clockOutUrl}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {
@@ -220,7 +269,7 @@ function updateShiftInfo(startTime, endTime, shiftLengthMins, deliveryCount) {
   if (shiftLengthMins || shiftLengthMins == 0) {
     const hours = Math.floor(shiftLengthMins / 60);
     const mins = shiftLengthMins % 60;
-    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hour(s)` : ""} ${mins ? (`${mins} Minutes`) : (hours ? "" : `${mins} Minutes`)}</p>`);
+    $shiftInfo.append(`<p>Shift Length:${hours ? ` ${hours} Hours` : ""} ${mins ? (`${mins} Minutes`) : (hours ? "" : `${mins} Minutes`)}</p>`);
   }
 
   // Only add delivery count IF they have finished the shift

@@ -5,10 +5,11 @@
 <div class="employee-dashboard">
   <!-- Left Panel -->
   <div class="left-panel">
-      <label for="userDropdown">Select User:</label>
-      <select id="userDropdown">
-          <option value="" disabled selected>Select User</option>
-      </select>
+      <!-- Trigger Button for Modal -->
+      <div class="mb-3">
+        <h1 id="selectedEmployee">No Selected Employee</h1>
+        <button id="selectUserButton" class="btn btn-primary">Select Employee</button>
+      </div>
       <p>Local Time: <span id="localTime">--:--</span></p>
       <div id="shiftInfo"></div>
   </div>
@@ -23,6 +24,24 @@
           <span id="deliveriesCount">0</span>
           <button id="plusButton" disabled>+</button>
       </div>
+  </div>
+
+  <!-- User Selection Modal -->
+  <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalLabel">Select a User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user..." />
+                </div>
+                <ul id="userList" class="list-group"></ul>
+            </div>
+        </div>
+    </div>
   </div>
 </div>
 
