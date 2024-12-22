@@ -147,6 +147,11 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             ).last()
 
             if not activity:
+                # Manually update user's state to ensure they dont remain bugged
+                employee.clocked_in = False
+                employee.save()
+
+                # Raise error to inform user
                 raise err.NoActiveClockingRecordError
 
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
