@@ -103,7 +103,6 @@ function handleUserSelectionModal(clockedStateUrl) {
 // Fetch clocked-in state for a user
 function fetchClockedState(clockedStateUrl, userID) {
   if (userID) {
-      $("#clockButton").prop("disabled", false);
       $.get(`${clockedStateUrl}${userID}/`, function (data) {
           clockedIn = data.clocked_in;
 
@@ -131,13 +130,17 @@ function updateClockButtonState() {
   $("#clockButton").prop("disabled", false);
 
   if (clockedIn) {
-    $("#clockButton").text("Clock Out");
-    $("#clockButton").css("background-color", "red");
+    $("#clockButton")
+      .text("Clock Out")
+      .removeClass("btn-success")
+      .addClass("btn-danger");
     $("#minusButton").prop("disabled", false);
     $("#plusButton").prop("disabled", false);
   } else {
-    $("#clockButton").text("Clock In");
-    $("#clockButton").css("background-color", "green");
+    $("#clockButton")
+      .text("Clock In")
+      .removeClass("btn-danger")
+      .addClass("btn-success");
     $("#minusButton").prop("disabled", true);
     $("#plusButton").prop("disabled", true);
   }
