@@ -8,6 +8,7 @@ $(document).ready(function() {
 	const clockedStateUrl = window.djangoUrls.clockedState;
 	const clockInUrl = window.djangoUrls.clockIn;
 	const clockOutUrl = window.djangoUrls.clockOut;
+  console.log(listEmployeesUrl);
 
   // Disable buttons until they are required
   $("#clockButton").prop("disabled", true);

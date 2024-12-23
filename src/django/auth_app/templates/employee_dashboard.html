@@ -51,11 +51,12 @@
 {% block customscripts %}
 <script>
   window.djangoUrls = {
-      listEmployees: "{% url 'api:list_users_name_view' %}",
-      clockedState: "{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
-      clockIn: "{% url 'api:clock_in' 0 %}".slice(0, -2),
-      clockOut: "{% url 'api:clock_out' 0 %}".slice(0, -2)
+      listEmployees: "{{ BASE_URL }}{% url 'api:list_users_name_view' %}",
+      clockedState: "{{ BASE_URL }}{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
+      clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
+      clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2)
   };
 </script>
-<script src="/static/js/scripts-clocking.js"></script>
+{% load static %}
+<script src="{% static 'js/scripts-clocking.js' %}"></script>
 {% endblock %}
