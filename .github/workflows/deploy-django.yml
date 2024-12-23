@@ -40,9 +40,9 @@ jobs:
 
       - name: Transfer Docker Compose files and Docker image to Lightsail
         run: |
-          scp -i ~/.ssh/id_rsa ./src/docker-compose.yml.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/docker-compose.yml
-          scp -i ~/.ssh/id_rsa ./src/../src/.env.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
-          scp -i ~/.ssh/id_rsa django_image.tar.gz ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
+          scp -i ~/.ssh/id_rsa ./src/docker-compose.yml.production ec2-user@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/docker-compose.yml
+          scp -i ~/.ssh/id_rsa ./src/../src/.env.production ec2-user@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+          scp -i ~/.ssh/id_rsa django_image.tar.gz ec2-user@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
 
       # - name: Transfer SSL Certificate and Key Files
       #   run: |
@@ -62,6 +62,6 @@ jobs:
 
       - name: Load Docker image and run containers on Lightsail
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose down && docker load -i /home/ubuntu/django_image.tar.gz"
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker image prune -f"
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose up -d"
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.LIGHTSAIL_HOST }} "docker compose down && docker load -i /home/ubuntu/django_image.tar.gz"
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.LIGHTSAIL_HOST }} "docker image prune -f"
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.LIGHTSAIL_HOST }} "docker compose up -d"
