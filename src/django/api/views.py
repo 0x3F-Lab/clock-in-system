@@ -428,8 +428,10 @@ def clock_out(request, id):
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         return Response(
-            {"Error": "No active clock-in record found."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {
+                "Error": "No active clock-in record found. The account's state has been reset."
+            },
+            status=status.HTTP_417_EXPECTATION_FAILED,
         )
     except User.DoesNotExist:
         # If the user is not found, return 404

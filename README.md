@@ -25,7 +25,7 @@ This is a Django-based web application for managing employee clock-in and clock-
 
 2. **Duplicate env for use**:
     ```bash
-    cp src/.env.example src/.env
+    cp src/.env.development src/.env
     ```
     **NOTE:** Please modify the database password in the `.env` file!
 

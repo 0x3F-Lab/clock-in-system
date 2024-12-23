@@ -159,24 +159,6 @@ body, html {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
-#clockButton {
-    display: block;
-    width: 200px;
-    padding: 15px;
-    font-size: 1.5rem;
-    color: white;
-    background-color: green; /* Default green for clock in */
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin: 20px auto;
-    transition: background-color 0.3s ease;
-}
-
-#clockButton:hover {
-    background-color: #228B22;
-}
-
 /* Deliveries section */
 .deliveries {
     font-size: 1.5rem;
