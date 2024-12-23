@@ -3,7 +3,7 @@ name: Deploy Client and Server to AWS Lightsail
 on:
   push:
     branches:
-      - "main"
+      - "production"
 
 jobs:
   build_and_deploy:
