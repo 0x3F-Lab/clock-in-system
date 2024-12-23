@@ -1,0 +1,10 @@
+services:
+  django:
+    container_name: Django
+    build: ./django
+    volumes:
+      - ./django:/app:rw  # Sync Django project files
+    ports:
+      - "8000:8000"  # Expose Django development server
+    env_file:
+      - .env.production
