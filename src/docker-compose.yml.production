@@ -1,7 +1,7 @@
 services:
   django:
     container_name: Django
-    build: ./django
+    image: django
     volumes:
       - ./django:/app:rw  # Sync Django project files
     ports:
