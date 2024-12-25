@@ -1,15 +1,18 @@
 import logging
+import json
+import api.utils as util
+import api.controllers as controllers
+import api.exceptions as err
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-import api.controllers as controllers
 from auth_app.models import User, Activity
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-import json
 
 logger = logging.getLogger("api")
 
@@ -170,21 +173,290 @@ def employee_details_page(request):
     return render(request, "auth_app/employee_details.html")
 
 
-@api_view(["POST"])
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def raw_data_logs_view(request):
+    if request.method == "GET":
+        if request.headers.get("Accept") == "application/json":
+            activities = Activity.objects.all().select_related("employee_id")
+            data = []
+            for act in activities:
+                staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
+                data.append(
+                    {
+                        "staff_name": staff_name,
+                        "login_time": (
+                            act.login_time.strftime("%H:%M")
+                            if act.login_time
+                            else "N/A"
+                        ),
+                        "logout_time": (
+                            act.logout_time.strftime("%H:%M")
+                            if act.logout_time
+                            else "N/A"
+                        ),
+                        "is_public_holiday": act.is_public_holiday,
+                        "exact_login_timestamp": (
+                            act.login_timestamp.strftime("%d/%m/%Y %H:%M")
+                            if act.login_timestamp
+                            else "N/A"
+                        ),
+                        "exact_logout_timestamp": (
+                            act.logout_timestamp.strftime("%d/%m/%Y %H:%M")
+                            if act.logout_timestamp
+                            else "N/A"
+                        ),
+                        "deliveries": act.deliveries,
+                        "hours_worked": str(act.hours_worked),
+                    }
+                )
+            # Log and return the JSON response
+            json_response = json.dumps(data, indent=2)
+            print(json_response)  # Log to console for debugging
+            return JsonResponse(data, safe=False)
+
+        else:
+            # Return the template with CSRF token
+            get_token(request)
+            return render(request, "auth_app/raw_data_logs.html")
+
+
+@api_view(["GET", "PUT"])
+@renderer_classes([JSONRenderer])
+def employee_details_view(request, id=None):
+    if request.method == "GET":
+        if request.headers.get("Accept") == "application/json":
+            # JSON response logic here (unchanged)
+            if id is not None:
+                employee = get_object_or_404(User, id=id, is_manager=False)
+                employee_data = {
+                    "id": employee.id,
+                    "first_name": employee.first_name,
+                    "last_name": employee.last_name,
+                    "email": employee.email,
+                    "phone_number": employee.phone_number,
+                    "pin": employee.pin,
+                }
+                return JsonResponse(employee_data, safe=False)
+            else:
+                employees = User.objects.filter(is_manager=False)
+                employee_data = [
+                    {
+                        "id": emp.id,
+                        "first_name": emp.first_name,
+                        "last_name": emp.last_name,
+                        "email": emp.email,
+                        "phone_number": emp.phone_number,
+                        "pin": emp.pin,
+                    }
+                    for emp in employees
+                ]
+                return JsonResponse(employee_data, safe=False)
+        else:
+            # Not JSON: Return the HTML and ensure CSRF cookie is set
+            get_token(request)  # This forces a CSRF cookie to be sent
+            return render(request, "auth_app/employee_details.html")
+
+    if request.method == "PUT" and id:
+        # PUT logic unchanged
+        employee = get_object_or_404(User, id=id)
+        data = request.data
+        employee.first_name = data.get("first_name", employee.first_name)
+        employee.last_name = data.get("last_name", employee.last_name)
+        employee.email = data.get("email", employee.email)
+        employee.phone_number = data.get("phone_number", employee.phone_number)
+
+        if "pin" in data:
+            employee.pin = data["pin"]
+
+        employee.save()
+        return JsonResponse({"message": "Employee updated successfully"})
+
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+def employee_details_page(request):
+    """
+    View to render the employee details HTML page.
+    """
+    get_token(request)
+    return render(request, "auth_app/employee_details.html")
+
+
+@api_view(["POST", "PUT"])
 def clock_in(request, id):
-    # Delegate to the controller function
-    return controllers.handle_clock_in(employee_id=id)
+    try:
+        # Get location data
+        location_lat = request.data.get("location_latitude", None)
+        location_long = request.data.get("location_longitude", None)
+
+        # Check to see they exist
+        if (location_lat is None) or (location_long is None):
+            raise err.MissingLocationDataError
+
+        # Convert to floats
+        try:
+            location_lat = float(location_lat)
+            location_long = float(location_long)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid location values."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get store location and allowable distance
+        (store_lat, store_long) = controllers.get_store_location()
+        allowable_dist = controllers.get_clocking_range_limit()
+
+        # Obtain distance of user from store
+        dist = util.get_distance_from_lat_lon_in_m(
+            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        )
+
+        if dist > allowable_dist:
+            return Response(
+                {"Error": "Not close enough to the store to clock in."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Clock the user in
+        activity = controllers.handle_clock_in(employee_id=id)
+
+        # Return the results after serialisation
+        return Response(
+            ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
+        )
+
+    except err.MissingLocationDataError:
+        # If the request is missing the location data
+        return Response(
+            {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.AlreadyClockedInError:
+        # If the user is already clocked in
+        return Response(
+            {"Error": "Employee is already clocked in."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InactiveUserError:
+        # If the user is trying to clock in an inactive account
+        return Response(
+            {"Error": "Cannot clock in an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.StartingShiftTooSoonError:
+        # If the user is trying to start a shift too soon after their last shift
+        return Response(
+            {"Error": f"Can't start a shift too soon after your last shift."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@api_view(["POST"])
+@api_view(["POST", "PUT"])
 def clock_out(request, id):
-    # Check if they made any deliveries on clock out
-    deliveries = max(
-        int(request.data.get("deliveries", 0)), 0  # Ensure it's an integer and above 0
-    )
+    try:
+        # Check if they made any deliveries on clock out
+        deliveries = max(
+            int(request.data.get("deliveries", 0)),
+            0,  # Ensure it's an integer and above 0
+        )
 
-    # Delegate to the controller function
-    return controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+        # Get location data
+        location_lat = request.data.get("location_latitude", None)
+        location_long = request.data.get("location_longitude", None)
+
+        # Check to see they exist
+        if (location_lat is None) or (location_long is None):
+            raise err.MissingLocationDataError
+
+        # Convert to floats
+        try:
+            location_lat = float(location_lat)
+            location_long = float(location_long)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid location values."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get store location and allowable distance
+        (store_lat, store_long) = controllers.get_store_location()
+        allowable_dist = controllers.get_clocking_range_limit()
+
+        # Obtain distance of user from store
+        dist = util.get_distance_from_lat_lon_in_m(
+            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        )
+
+        if dist > allowable_dist:
+            return Response(
+                {"Error": "Not close enough to the store to clock out."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Clock the user out
+        activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+
+        # Return the results after serialisation
+        return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
+
+    except err.MissingLocationDataError:
+        # If the request is missing the location data
+        return Response(
+            {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.AlreadyClockedOutError:
+        # If the user is already clocked out.
+        return Response(
+            {"Error": "Employee is not clocked in."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        return Response(
+            {
+                "Error": "No active clock-in record found. The account's state has been reset."
+            },
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveUserError:
+        # If the user is trying to clock out an inactive account
+        return Response(
+            {"Error": "Cannot clock out an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.ClockingOutTooSoonError:
+        # If the user is trying to clock out too soon after clocking in
+        return Response(
+            {"Error": f"Can't clock out too soon after clocking in."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
@@ -197,12 +469,18 @@ def clocked_state_view(request, id):
         info = controllers.get_employee_clocked_info(employee_id=id)
 
         # Return the info
-        return Response(info, status=status.HTTP_200_OK)
+        return Response(ClockedInfoSerializer(info).data, status=status.HTTP_200_OK)
 
     except User.DoesNotExist:
         # Return a 404 if the user does not exist
         return Response(
             {"Error": f"User not found with ID {id}."}, status=status.HTTP_404_NOT_FOUND
+        )
+    except err.InactiveUserError:
+        # If the user is trying to view the data of an inactive account
+        return Response(
+            {"Error": "Cannot view information from an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
         )
     except Activity.DoesNotExist:
         # Return a 417 if the user's state is bugged

@@ -1,7 +1,7 @@
 import pytest
 from datetime import timedelta
 from django.utils.timezone import now
-from auth_app.models import User, Activity
+from auth_app.models import User, Activity, KeyValueStore
 
 # Default scope if functional (i.e. after every single test the database resets)
 
@@ -52,15 +52,24 @@ def clocked_in_employee(db):
         is_active=True,
         is_manager=False,
     )
-    Activity.objects.create(
+
+    login_time = now() - timedelta(hours=2)
+
+    activity = Activity.objects.create(
         employee_id=employee,
-        login_time=now() - timedelta(hours=3),  # Set login_time to 3 hours ago
+        login_time=login_time,
     )
+
+    # Update login_timestamp (cant be passed when creating object)
+    Activity.objects.filter(id=activity.id).update(
+        login_timestamp=now() - timedelta(hours=2)
+    )
+
     return employee
 
 
 @pytest.fixture
-def manager():
+def manager(db):
     """
     Creates a manager user for testing.
     """
@@ -73,6 +82,29 @@ def manager():
         is_active=True,
         is_manager=True,
     )
+
+
+@pytest.fixture
+def store_location(db):
+    """
+    Creates the required keys in the KeyValueStore table for clocking
+    """
+    store_lat = KeyValueStore.objects.create(
+        key="store_latitude",
+        value="1.0",
+    )
+
+    store_lon = KeyValueStore.objects.create(
+        key="store_longitude",
+        value="1.0",
+    )
+
+    allowable_dist = KeyValueStore.objects.create(
+        key="allowable_clocking_dist_m",
+        value="5",
+    )
+
+    return store_lat, store_lon, allowable_dist
 
 
 @pytest.fixture

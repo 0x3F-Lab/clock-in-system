@@ -10,9 +10,7 @@ def test_list_users_name_success(api_client, employee):
     """
     Test successful fetching of a list of active users with their IDs and full names.
     """
-    url = reverse(
-        "list_users_name_view"
-    )  # Adjust this to the actual URL name for list_users_name_view
+    url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
         {
@@ -43,7 +41,7 @@ def test_list_users_name_no_results(api_client):
     """
     Test when no users match the criteria (e.g., no active users).
     """
-    url = reverse("list_users_name_view")
+    url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
         {
@@ -66,7 +64,7 @@ def test_list_users_name_with_filters(api_client, employee, manager):
     """
     Test fetching users with specific filters, e.g., only active users and excluding managers.
     """
-    url = reverse("list_users_name_view")
+    url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
         {
@@ -93,7 +91,7 @@ def test_list_users_name_invalid_query_param(api_client, employee):
     """
     Test invalid query parameters.
     """
-    url = reverse("list_users_name_view")
+    url = reverse("api:list_users_name_view")
     response = api_client.get(url, {"invalid_param": "some_value"})
 
     assert (
@@ -110,7 +108,7 @@ def test_clocked_state_view_success(api_client, employee):
     """
     Test the clocked_state_view for an employee who is not clocked in.
     """
-    url = reverse("clocked_state_view", args=[employee.id])
+    url = reverse("api:clocked_state_view", args=[employee.id])
     response = api_client.get(url)
 
     assert response.status_code == 200
@@ -125,7 +123,7 @@ def test_clocked_state_view_clocked_in_success(api_client, clocked_in_employee):
     """
     Test the clocked_state_view for an employee who is clocked in.
     """
-    url = reverse("clocked_state_view", args=[clocked_in_employee.id])
+    url = reverse("api:clocked_state_view", args=[clocked_in_employee.id])
     response = api_client.get(url)
 
     assert response.status_code == 200
@@ -145,7 +143,7 @@ def test_clocked_state_view_user_not_found(api_client):
     """
     Test the clocked_state_view for a non-existent employee.
     """
-    url = reverse("clocked_state_view", args=[999])
+    url = reverse("api:clocked_state_view", args=[999])
     response = api_client.get(url)
 
     assert response.status_code == 404
@@ -162,7 +160,7 @@ def test_clocked_state_view_bugged_state(api_client, employee):
     employee.clocked_in = True
     employee.save()
 
-    url = reverse("clocked_state_view", args=[employee.id])
+    url = reverse("api:clocked_state_view", args=[employee.id])
     response = api_client.get(url)
 
     assert response.status_code == 417

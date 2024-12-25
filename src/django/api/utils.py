@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 
@@ -50,3 +51,43 @@ def calculate_shift_length_mins(start, end):
     total_minutes = time_diff.total_seconds() / 60
 
     return total_minutes
+
+
+def get_distance_from_lat_lon_in_m(
+    lat1: float, lon1: float, lat2: float, lon2: float
+) -> float:
+    """
+    Calculate the distance between two latitude/longitude points in meters
+    using the Haversine formula.
+
+    Args:
+        lat1 (float): Latitude of the user.
+        lon1 (float): Longitude of the user.
+        lat2 (float): Latitude of the store.
+        lon2 (float): Longitude of the store.
+
+    Returns:
+        float: Distance in meters that the user is from the store.
+    """
+    # Earth's radius in meters
+    R = 6371000.0
+
+    # Convert degrees to radians
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    # Differences in coordinates
+    d_lat = lat2_rad - lat1_rad
+    d_lon = lon2_rad - lon1_rad
+
+    # Haversine formula
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(d_lon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    # Return the distance
+    return R * c
