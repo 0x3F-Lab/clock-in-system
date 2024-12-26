@@ -45,6 +45,10 @@ jobs:
           scp -i ~/.ssh/id_rsa ./src/../src/.env.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
           scp -i ~/.ssh/id_rsa django_image.tar.gz ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
 
+      - name: Transfer Nginx configuration to server
+        run: |
+          scp -i ~/.ssh/id_rsa ./src/nginx.conf ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+
       # - name: Transfer SSL Certificate and Key Files
       #   run: |
       #     # Decode the SSL secrets and write them to files
