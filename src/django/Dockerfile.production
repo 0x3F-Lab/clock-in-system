@@ -1,0 +1,32 @@
+# Use Python image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y gcc libpq-dev
+
+# Copy project files
+COPY . .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install gunicorn
+
+# Collect static
+RUN python manage.py collectstatic --noinput
+
+# Expose Django's internal port
+EXPOSE 8000
+
+# Add entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+# Run entrypoint script
+ENTRYPOINT ["sh", "entrypoint.sh"]
+
+# Command to run the server
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "clock_in_system.wsgi:application"]
+# CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
