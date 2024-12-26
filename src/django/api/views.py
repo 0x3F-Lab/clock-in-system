@@ -233,44 +233,41 @@ def weekly_summary_view(request):
     end_date_str = request.query_params.get("end_date")
     employee_ids_str = request.query_params.get("employee_ids")
 
-    # Handle date range
-    if start_date_str and end_date_str:
-        try:
-            # Parse the start and end dates
-            start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-            end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    try:
+        if start_date_str and end_date_str:
+            try:
+                start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
 
-            # Set start_date to midnight of the start_day
-            start_date = datetime.combine(start_day, time.min).replace(
-                tzinfo=timezone.utc
-            )
-            # Set end_date to the last microsecond of the end_day
-            end_date = datetime.combine(end_day, time.max).replace(tzinfo=timezone.utc)
+                start_date = datetime.combine(start_day, time.min).replace(
+                    tzinfo=timezone.utc
+                )
+                end_date = datetime.combine(end_day, time.max).replace(
+                    tzinfo=timezone.utc
+                )
 
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                activities = Activity.objects.filter(
+                    login_time__gte=start_date, login_time__lte=end_date
+                )
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            # No date range provided, use last reset date
+            try:
+                kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
+                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
+            except KeyValueStore.DoesNotExist:
+                last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
 
-        activities = Activity.objects.filter(
-            login_time__gte=start_date, login_time__lte=end_date
-        )
-    else:
-        # No date range provided, use last reset date
-        try:
-            kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
-            last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
-                tzinfo=timezone.utc
-            )
-        except KeyValueStore.DoesNotExist:
-            last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+            activities = Activity.objects.filter(login_time__gte=last_reset_date)
 
-        activities = Activity.objects.filter(login_time__gte=last_reset_date)
-
-    # Handle employee filter
-    if employee_ids_str:
-        try:
+        # Handle employee filter
+        if employee_ids_str:
             employee_ids = [
                 int(e_id.strip())
                 for e_id in employee_ids_str.split(",")
@@ -278,49 +275,57 @@ def weekly_summary_view(request):
             ]
             if employee_ids:
                 activities = activities.filter(employee_id__in=employee_ids)
-        except ValueError:
-            return Response(
-                {"error": "Invalid employee_ids parameter. Must be integers."},
-                status=status.HTTP_400_BAD_REQUEST,
+
+        # Summation logic now uses shift_length_mins / 60.0
+        summary = (
+            activities.annotate(day_of_week=ExtractWeekDay("login_time"))
+            .values("employee_id", "employee_id__first_name", "employee_id__last_name")
+            .annotate(
+                weekday_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[2, 3, 4, 5, 6],
+                            then=F("shift_length_mins") / 60.0,
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                weekend_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[1, 7], then=F("shift_length_mins") / 60.0
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                total_hours=Sum(F("shift_length_mins") / 60.0),
+                total_deliveries=Sum("deliveries"),
             )
-
-    summary = (
-        activities.annotate(day_of_week=ExtractWeekDay("login_time"))
-        .values("employee_id", "employee_id__first_name", "employee_id__last_name")
-        .annotate(
-            weekday_hours=Sum(
-                Case(
-                    When(day_of_week__in=[2, 3, 4, 5, 6], then="hours_worked"),
-                    default=0,
-                    output_field=DecimalField(),
-                )
-            ),
-            weekend_hours=Sum(
-                Case(
-                    When(day_of_week__in=[1, 7], then="hours_worked"),
-                    default=0,
-                    output_field=DecimalField(),
-                )
-            ),
-            total_hours=Sum("hours_worked"),
-            total_deliveries=Sum("deliveries"),
         )
-    )
 
-    data = [
-        {
-            "employee_id": item["employee_id"],
-            "first_name": item["employee_id__first_name"],
-            "last_name": item["employee_id__last_name"],
-            "weekday_hours": float(item["weekday_hours"] or 0.0),
-            "weekend_hours": float(item["weekend_hours"] or 0.0),
-            "total_hours": float(item["total_hours"] or 0.0),
-            "total_deliveries": item["total_deliveries"] or 0,
-        }
-        for item in summary
-    ]
+        data = [
+            {
+                "employee_id": item["employee_id"],
+                "first_name": item["employee_id__first_name"],
+                "last_name": item["employee_id__last_name"],
+                "weekday_hours": float(item["weekday_hours"] or 0.0),
+                "weekend_hours": float(item["weekend_hours"] or 0.0),
+                "total_hours": float(item["total_hours"] or 0.0),
+                "total_deliveries": item["total_deliveries"] or 0,
+            }
+            for item in summary
+        ]
 
-    return Response(data, status=status.HTTP_200_OK)
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        # General exception catch as requested
+        return Response(
+            {"error": f"An unexpected error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST"])
