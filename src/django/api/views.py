@@ -8,9 +8,8 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 import json
-from django.db.models import Sum, Q, F, Case, When, DecimalField
+from django.db.models import Sum, F, Case, When, DecimalField
 from datetime import datetime, timezone, time
-from django.utils import timezone as dj_timezone
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
