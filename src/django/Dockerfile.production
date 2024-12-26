@@ -29,4 +29,3 @@ ENTRYPOINT ["sh", "entrypoint.sh"]
 
 # Command to run the server
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "clock_in_system.wsgi:application"]
-# CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
