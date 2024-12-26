@@ -4,7 +4,6 @@ services:
     image: django
     build:
       context: ./django  # Path to your Django directory
-      dockerfile: ./Dockerfile.production  # Specify the custom Dockerfile
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
     env_file:

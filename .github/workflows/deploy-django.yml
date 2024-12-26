@@ -33,7 +33,7 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -t django ./src/django
+          docker build -t django -f ./src/django/Dockerfile.production ./src/django
 
       - name: Export Docker images
         run: |
