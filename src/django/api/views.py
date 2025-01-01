@@ -285,7 +285,9 @@ def employee_details_view(request, id=None):
 
             # You can add validation or checks here
             if not first_name or not last_name or not email:
-                return JsonResponse({"error": "Required fields are missing."}, status=400)
+                return JsonResponse(
+                    {"error": "Required fields are missing."}, status=400
+                )
 
             # Ensure email is unique
             if User.objects.filter(email=email).exists():
@@ -297,8 +299,8 @@ def employee_details_view(request, id=None):
                 last_name=last_name,
                 email=email,
                 phone_number=phone_number,
-                is_active=True,      # or set as needed
-                is_manager=False     # presumably a normal employee
+                is_active=True,  # or set as needed
+                is_manager=False,  # presumably a normal employee
             )
 
             # Optionally set the PIN (hashed)
@@ -309,7 +311,7 @@ def employee_details_view(request, id=None):
 
             return JsonResponse(
                 {"message": "Employee created successfully", "id": employee.id},
-                status=201
+                status=201,
             )
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
