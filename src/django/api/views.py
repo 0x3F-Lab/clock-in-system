@@ -299,13 +299,10 @@ def employee_details_view(request, id=None):
                 last_name=last_name,
                 email=email,
                 phone_number=phone_number,
+                pin=pin,
                 is_active=True,  # or set as needed
                 is_manager=False,  # presumably a normal employee
             )
-
-            # Optionally set the PIN (hashed)
-            if pin:
-                employee.set_pin(pin)
 
             employee.save()
 
