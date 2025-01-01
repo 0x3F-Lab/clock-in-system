@@ -111,7 +111,7 @@ def raw_data_logs_view(request):
             return render(request, "auth_app/raw_data_logs.html")
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 def employee_details_view(request, id=None):
     if request.method == "GET":
@@ -147,7 +147,7 @@ def employee_details_view(request, id=None):
             get_token(request)  # This forces a CSRF cookie to be sent
             return render(request, "auth_app/employee_details.html")
 
-    if request.method == "PUT" and id:
+    elif request.method == "PUT" and id:
         # PUT logic unchanged
         employee = get_object_or_404(User, id=id)
         data = request.data
@@ -221,7 +221,7 @@ def raw_data_logs_view(request):
             return render(request, "auth_app/raw_data_logs.html")
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 def employee_details_view(request, id=None):
     if request.method == "GET":
@@ -271,6 +271,48 @@ def employee_details_view(request, id=None):
 
         employee.save()
         return JsonResponse({"message": "Employee updated successfully"})
+
+    if request.method == "POST":
+        # Create a new employee
+        try:
+            # Parse data from request
+            data = request.data
+            first_name = data.get("first_name", "")
+            last_name = data.get("last_name", "")
+            email = data.get("email", "")
+            phone_number = data.get("phone_number", "")
+            pin = data.get("pin", "")
+
+            # You can add validation or checks here
+            if not first_name or not last_name or not email:
+                return JsonResponse({"error": "Required fields are missing."}, status=400)
+
+            # Ensure email is unique
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
+
+            # Create user
+            employee = User.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone_number=phone_number,
+                is_active=True,      # or set as needed
+                is_manager=False     # presumably a normal employee
+            )
+
+            # Optionally set the PIN (hashed)
+            if pin:
+                employee.set_pin(pin)
+
+            employee.save()
+
+            return JsonResponse(
+                {"message": "Employee created successfully", "id": employee.id},
+                status=201
+            )
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
