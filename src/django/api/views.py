@@ -514,6 +514,7 @@ def weekly_summary_view(request):
     employee_ids_str = request.query_params.get("employee_ids")
 
     try:
+        # Handle date range
         if start_date_str and end_date_str:
             try:
                 start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
@@ -556,7 +557,7 @@ def weekly_summary_view(request):
             if employee_ids:
                 activities = activities.filter(employee_id__in=employee_ids)
 
-        # Summation logic now uses shift_length_mins / 60.0
+        # Calculate hours by converting shift_length_mins to hours
         summary = (
             activities.annotate(day_of_week=ExtractWeekDay("login_time"))
             .values("employee_id", "employee_id__first_name", "employee_id__last_name")
@@ -601,7 +602,7 @@ def weekly_summary_view(request):
         return Response(data, status=status.HTTP_200_OK)
 
     except Exception as e:
-        # General exception catch as requested
+        # General exception catch
         return Response(
             {"error": f"An unexpected error occurred: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
