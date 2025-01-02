@@ -78,6 +78,11 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
+                # Calculate hours using shift_length_mins
+                hours_decimal = (
+                    act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
+                )
+
                 data.append(
                     {
                         "staff_name": staff_name,
@@ -103,12 +108,13 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        "hours_worked": str(act.hours_worked),
+                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
+                        "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-            # Log and return the JSON response
+
             json_response = json.dumps(data, indent=2)
-            print(json_response)  # Log to console for debugging
+            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
 
         else:
@@ -177,54 +183,6 @@ def employee_details_page(request):
     """
     get_token(request)
     return render(request, "auth_app/employee_details.html")
-
-
-@api_view(["GET"])
-@renderer_classes([JSONRenderer])
-def raw_data_logs_view(request):
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            activities = Activity.objects.all().select_related("employee_id")
-            data = []
-            for act in activities:
-                staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                data.append(
-                    {
-                        "staff_name": staff_name,
-                        "login_time": (
-                            act.login_time.strftime("%H:%M")
-                            if act.login_time
-                            else "N/A"
-                        ),
-                        "logout_time": (
-                            act.logout_time.strftime("%H:%M")
-                            if act.logout_time
-                            else "N/A"
-                        ),
-                        "is_public_holiday": act.is_public_holiday,
-                        "exact_login_timestamp": (
-                            act.login_timestamp.strftime("%d/%m/%Y %H:%M")
-                            if act.login_timestamp
-                            else "N/A"
-                        ),
-                        "exact_logout_timestamp": (
-                            act.logout_timestamp.strftime("%d/%m/%Y %H:%M")
-                            if act.logout_timestamp
-                            else "N/A"
-                        ),
-                        "deliveries": act.deliveries,
-                        "hours_worked": str(act.hours_worked),
-                    }
-                )
-            # Log and return the JSON response
-            json_response = json.dumps(data, indent=2)
-            print(json_response)  # Log to console for debugging
-            return JsonResponse(data, safe=False)
-
-        else:
-            # Return the template with CSRF token
-            get_token(request)
-            return render(request, "auth_app/raw_data_logs.html")
 
 
 @api_view(["GET", "PUT"])
