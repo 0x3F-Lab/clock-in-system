@@ -22,12 +22,21 @@ LOGIN_URL = "/manager_login/"
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7!xp6vs%4*%t5bqw*5a%l1@#0(8k-zjr14x0%c3^ey&k4qr@5c"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-7!xp6vs%4*%t5bqw*5a%l1@#0(8k-zjr14x0%c3^ey&k4qr@5c",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+# Get the BASE_URL from the environment
+BASE_URL = os.getenv(
+    "BASE_URL", "http://localhost:8000"
+)  # Default to localhost if not set
+
+# Parse ALLOWED_HOSTS from environment variable
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
 
 
 # Application definition
@@ -58,7 +67,7 @@ ROOT_URLCONF = "clock_in_system.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -66,6 +75,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "auth_app.base_url_context_processor.base_url",
             ],
         },
     },
@@ -80,7 +90,7 @@ WSGI_APPLICATION = "clock_in_system.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "default_db"),
+        "NAME": os.getenv("POSTGRES_DB", "clock_in_system"),
         "USER": os.getenv("POSTGRES_USER", "postgres"),
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "InsEcuR3Pa55w0Rd"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
@@ -122,7 +132,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 
 # Default primary key field type

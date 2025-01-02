@@ -1,0 +1,70 @@
+name: Deploy Django to AWS Lightsail
+
+on:
+  push:
+    branches:
+      - "production"
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.LIGHTSAIL_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Set up production environment
+        run: |
+          echo -e "\nBASE_URL=${{ vars.DJANGO_BASE_URL }}" >> ./src/.env.production
+          echo -e "\nPOSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> ./src/.env.production
+          echo -e "\nPOSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> ./src/.env.production
+          echo -e "\nPOSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./src/.env.production
+          echo -e "\nPOSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./src/.env.production
+          echo -e "\nDJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> ./src/.env.production
+
+      - name: Build Docker images
+        run: |
+          docker build -t django -f ./src/django/Dockerfile.production ./src/django
+
+      - name: Export Docker images
+        run: |
+          docker save django | gzip > django_image.tar.gz
+
+      - name: Transfer Docker Compose files and Docker image to Lightsail
+        run: |
+          scp -i ~/.ssh/id_rsa ./src/docker-compose.yml.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/docker-compose.yml
+          scp -i ~/.ssh/id_rsa ./src/../src/.env.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+          scp -i ~/.ssh/id_rsa django_image.tar.gz ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
+
+      - name: Transfer Nginx configuration to server
+        run: |
+          scp -i ~/.ssh/id_rsa ./src/nginx.conf ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+
+      # - name: Transfer SSL Certificate and Key Files
+      #   run: |
+      #     # Decode the SSL secrets and write them to files
+      #     echo "{{ secrets.SSL_PRIVATE_KEY }}" > private.key
+      #     echo "{{ secrets.SSL_CERTIFICATE }}" > certificate.crt
+      #     echo "{{ secrets.SSL_CA_BUNDLE }}" > ca-bundle.crt
+
+      #     # Ensure the /home/ubuntu/certs/ directory exists on the server
+      #     ssh -i ~/.ssh/id_rsa ubuntu@{{ secrets.LIGHTSAIL_HOST }} "mkdir -p /home/ubuntu/certs"
+
+      #     # Transfer these files to the server
+      #     scp -i ~/.ssh/id_rsa ./src/../src/tls.yml ubuntu@{{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/certs/tls.yml
+      #     scp -i ~/.ssh/id_rsa private.key ubuntu@{{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/certs/private.key
+      #     scp -i ~/.ssh/id_rsa certificate.crt ubuntu@{{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/certs/certificate.crt
+
+      - name: Load Docker image and run containers on Lightsail
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose down && docker load -i /home/ubuntu/django_image.tar.gz"
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker image prune -f"
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose up -d"

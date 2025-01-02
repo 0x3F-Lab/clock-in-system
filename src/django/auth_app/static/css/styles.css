@@ -100,8 +100,8 @@ body, html {
     flex-direction: column; /* Stack panels vertically */
     justify-content: center;
     align-items: center;
-    width: 90%; /* Make it slightly wider */
-    max-width: 800px; /* Limit the maximum width */
+    width: 100%; /* Make it slightly wider */
+    max-width: 1500px; /* Limit the maximum width */
     gap: 30px; /* Add spacing between the panels */
 }
 
@@ -157,30 +157,6 @@ body, html {
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.right-panel #timer {
-    font-size: 2rem;
-    margin-bottom: 20px;
-    color: #f4f4f9;
-}
-
-#clockButton {
-    display: block;
-    width: 200px;
-    padding: 15px;
-    font-size: 1.5rem;
-    color: white;
-    background-color: green; /* Default green for clock in */
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin: 20px auto;
-    transition: background-color 0.3s ease;
-}
-
-#clockButton:hover {
-    background-color: #228B22;
 }
 
 /* Deliveries section */
@@ -324,4 +300,27 @@ th {
     padding: 20px;
     border-radius: 5px;
     width: 50%;
+}
+
+
+
+/* Notification styling */
+#notification-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1050;
+  max-width: 300px;
+  width: 100%;
+}
+
+.alert {
+  margin-bottom: 10px;
+  border-radius: 5px;
+}
+
+.alert-dismissible .close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }

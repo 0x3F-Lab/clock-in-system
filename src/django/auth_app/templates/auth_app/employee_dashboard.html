@@ -1,40 +1,62 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Dashboard</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'auth_app/styles.css' %}">
-</head>
-<body>
-    <div class="employee-dashboard">
-        <!-- Left Panel -->
-        <div class="left-panel">
-            <label for="userDropdown">Select User:</label>
-            <select id="userDropdown">
-                <option value="" disabled selected>Select User</option>
-                <option value="Bob">Bob</option>
-                <option value="Akhil">Akhil</option>
-                <option value="Emily">Emily</option>
-            </select>
-            <p>Local Time: <span id="localTime">--:--</span></p>
-            <p>Total hours: <span id="totalTime">--:--</span></p>
-            <p>Total deliveries: <span id="totalDeliveries">0</span></p>
-        </div>
+{% extends "auth_app/base.html" %}
+{% block title %}Employee Dashboard{% endblock %}
+{% block content %}
 
-        <!-- Right Panel -->
-        <div class="right-panel">
-            <div id="timer">Worked: 0H 0M</div>
-            <button id="clockButton" disabled>Clock In</button>
-            <div class="deliveries">
-                Deliveries:
-                <button id="minusButton" disabled>-</button>
-                <span id="deliveriesCount">0</span>
-                <button id="plusButton" disabled>+</button>
+<div class="employee-dashboard">
+  <!-- Left Panel -->
+  <div class="left-panel">
+      <!-- Trigger Button for Modal -->
+      <div class="mb-3">
+        <h1 id="selectedEmployee">No Selected Employee</h1>
+        <button id="selectUserButton" class="btn btn-primary">Select Employee</button>
+      </div>
+      <p>Local Time: <span id="localTime">--:--</span></p>
+      <div id="shiftInfo"></div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+      <!-- <div id="timer">Worked: 0H 0M</div> -->
+      <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
+      <div class="deliveries flex">
+          Deliveries:
+          <button id="minusButton" class="btn" disabled>-</button>
+          <span id="deliveriesCount">0</span>
+          <button id="plusButton" class="btn" disabled>+</button>
+      </div>
+  </div>
+
+  <!-- User Selection Modal -->
+  <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalLabel">Select a User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user..." />
+                </div>
+                <ul id="userList" class="list-group"></ul>
             </div>
         </div>
     </div>
-    <script src="{% static 'auth_app/scripts.js' %}"></script>
-</body>
-</html>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block customscripts %}
+<script>
+  window.djangoUrls = {
+      listEmployees: "{{ BASE_URL }}{% url 'api:list_users_name_view' %}",
+      clockedState: "{{ BASE_URL }}{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
+      clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
+      clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2)
+  };
+</script>
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/scripts-clocking.js' %}"></script>
+{% endblock %}

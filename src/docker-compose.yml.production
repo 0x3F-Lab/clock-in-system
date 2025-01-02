@@ -1,0 +1,26 @@
+services:
+  django:
+    container_name: Django
+    image: django
+    build:
+      context: ./django  # Path to your Django directory
+    volumes:
+      - static_volume:/app/staticfiles  # Serve static files via a shared volume
+    env_file:
+      - .env.production
+    ports:
+      - "8000:8000"  # Expose Django development server
+
+  nginx:
+    container_name: nginx
+    image: nginx:perl
+    volumes:
+      - static_volume:/static  # Serve static files via a shared volume
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Nginx configuration file
+    ports:
+      - "80:80"  # Expose Nginx on port 80
+    depends_on:
+      - django
+
+volumes:
+  static_volume:  # Shared volume for serving static files
