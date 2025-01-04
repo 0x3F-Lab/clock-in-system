@@ -51,6 +51,68 @@ class MissingLocationDataError(Exception):
         super().__init__(self.message)
 
 
+class BadLocationDataError(Exception):
+    """
+    Raised when the location data (lat/long) is incorrectly given. I.e. not a float.
+    """
+
+    def __init__(
+        self, message="Location data is incorrectly formed. I.e. not a float."
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InvalidLocationError(Exception):
+    """
+    Raised when a clock in/out request is too far from the store's range.
+    """
+
+    def __init__(self, message="Request is made too far from the store."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class MissingPinError(Exception):
+    """
+    Raised when a clock in/out request is missing a hashed pin for authentication.
+    """
+
+    def __init__(self, message="Request is missing authentication pin."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class MissingPasswordError(Exception):
+    """
+    Raised when a manager authentication is missing the password.
+    """
+
+    def __init__(self, message="Request is missing a password."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InvalidPinError(Exception):
+    """
+    Raised when a clock in/out request is performed with an invalid pin for the employee.
+    """
+
+    def __init__(self, message="Employee pin is invalid."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InvalidPasswordError(Exception):
+    """
+    Raised when a login attempt is made with an invalid password.
+    """
+
+    def __init__(self, message="Employee password is invalid."):
+        self.message = message
+        super().__init__(self.message)
+
+
 class StartingShiftTooSoonError(Exception):
     """
     Raised when an attempt is made to start a shift toon soon after their last shift.

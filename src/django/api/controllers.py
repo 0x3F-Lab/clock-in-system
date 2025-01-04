@@ -113,15 +113,15 @@ def handle_clock_in(employee_id: int) -> Activity:
         err.InactiveUserError,
         User.DoesNotExist,
         err.AlreadyClockedInError,
-    ):
+    ) as e:
         # Re-raise common errors
-        raise
+        raise e
     except Exception as e:
         # Catch-all exception
         logger.error(
             f"Failed to clock in employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        raise
+        raise e
 
 
 def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
@@ -190,7 +190,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         err.StartingShiftTooSoonError,
     ) as e:
         # Re-raise common errors
-        raise
+        raise e
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
@@ -201,7 +201,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         logger.error(
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        raise
+        raise e
 
 
 def get_employee_clocked_info(employee_id: int) -> dict:
@@ -246,7 +246,7 @@ def get_employee_clocked_info(employee_id: int) -> dict:
         return info
 
     except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
-        raise  # Re-raise error to be caught in view
+        raise e  # Re-raise error to be caught in view
     except Exception as e:
         # Catch-all exception
         logger.error(
@@ -389,3 +389,32 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
         raise Exception(
             f"Error checking if employee {employee_id} is attempting to clock in/out too soon: {str(e)}"
         )
+
+
+def is_active_account(employee_id: int) -> bool:
+    """
+    Check if an account with the id is active or inactive.
+
+    Args:
+        employee_id (int): The ID of the employee.
+
+    Returns:
+        bool: True if the account is active, False otherwise.
+    """
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        # Check employee is not inactive
+        if employee.is_active:
+            return True
+
+        return False
+
+    except User.DoesNotExist as e:
+        raise e  # Re-raise error to be caught in view
+    except Exception as e:
+        # Catch-all exception
+        logger.error(
+            f"Failed to check if account is active with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        raise e  # Re-raise error to be caught in view
