@@ -24,8 +24,11 @@ $(document).ready(function() {
   handleDeliveryAdjustments();
 
   // Add listener for when clock in/out button is clicked
-  $("#clockButton").click(function() {
-    toggleClock(clockInUrl, clockOutUrl);
+  $("#clockButton").click(async function() {
+    const hashedPin = await requestPin(); // Get the PIN from the user
+    if (hashedPin) {
+      toggleClock(clockInUrl, clockOutUrl, hashedPin); // Pass the PIN to toggleClock
+    }
   });
 
   // Start Updating Local Time
@@ -159,7 +162,7 @@ function handleDeliveryAdjustments() {
 
 
 // Toggle Clock In/Clock Out
-async function toggleClock(clockInUrl, clockOutUrl) {
+async function toggleClock(clockInUrl, clockOutUrl, hashedPin) {
   // Ensure cant clock in/out until an employee is selected
   if (!userSelected) { return; }
 
@@ -188,6 +191,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
       data: JSON.stringify({
         location_latitude: userLat,
         location_longitude: userLon,
+        hashed_pin: hashedPin,
       }),
 
       success: function(data) {
@@ -224,6 +228,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
         location_latitude: userLat,
         location_longitude: userLon,
         deliveries: deliveries,
+        hashed_pin: hashedPin,
       }),
 
       success: function(data) {
@@ -248,6 +253,39 @@ async function toggleClock(clockInUrl, clockOutUrl) {
       }
     });
   }
+}
+
+
+// Request PIN from the user
+async function requestPin() {
+  return new Promise((resolve) => {
+      const pinModalElement = document.getElementById("authPinModal");
+      const pinModal = new bootstrap.Modal(pinModalElement);
+      pinModal.show();
+
+      // Handle PIN submission
+      $("#authPinSubmit").off("click").on("click", async function () {
+          const pin = $("#authPinInput").val().trim();
+
+          // Close the modal after the user enters a PIN
+          pinModal.hide();
+
+          // Clear the input field for future use
+          $("#authPinInput").val("");
+
+          if (pin) {
+            const hashedPin = await hashString(pin); // Hash the PIN before resolving
+            resolve(hashedPin); // Resolve the promise with the hashed PIN
+          } else {
+            resolve(null); // Resolve with null if no PIN was entered
+          }
+      });
+
+      // Optionally handle PIN modal dismissal without entering a PIN
+      $("#authPinModal").on("hidden.bs.modal", function () {
+          resolve(null); // Resolve with null if the modal is dismissed
+      });
+  });
 }
 
 

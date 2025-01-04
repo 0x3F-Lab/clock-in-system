@@ -16,6 +16,26 @@ function showNotification(message, type = "warning") {
   }, 5000);
 }
 
+
+// Function to hash a string for API calls (i.e. passwords)
+async function hashString(string) {
+  // Static salt to be appended to string for increased security
+  const salt = "ThZQssm2xst0K8yVCNHCtMiKUp9IJk6A";
+  const saltedString = string + salt;
+
+  // Perform SHA-256 hashing
+  const encoder = new TextEncoder();
+  const data = encoder.encode(saltedString);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert the hash to Base64
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const base64Hash = btoa(String.fromCharCode(...hashArray));
+
+  return base64Hash;
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
     // --- Employee Details Section ---
     const employeeTableElement = document.getElementById("employeeTable");
