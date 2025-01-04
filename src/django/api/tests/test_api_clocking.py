@@ -9,7 +9,11 @@ def test_clock_in_success(api_client, employee, store_location):
     Test successful clock-in for an employee.
     """
     url = reverse("api:clock_in", args=[employee.id])
-    payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 201  # HTTP 201 Created
@@ -26,7 +30,11 @@ def test_clock_in_already_clocked_in(api_client, clocked_in_employee, store_loca
     Test attempting to clock in an employee who is already clocked in.
     """
     url = reverse("api:clock_in", args=[clocked_in_employee.id])
-    payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 400  # HTTP 400 Bad Request
@@ -47,6 +55,7 @@ def test_clock_out_success_within_range(
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
+        "hashed_pin": "1234",
     }
     response = api_client.post(url, payload)
     print(Activity.objects.filter(employee_id=clocked_in_employee.id).last().login_time)
@@ -65,7 +74,11 @@ def test_clock_out_not_clocked_in(api_client, employee, store_location):
     Test attempting to clock out an employee who is not clocked in.
     """
     url = reverse("api:clock_out", args=[employee.id])
-    payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 400  # HTTP 400 Bad Request
@@ -80,7 +93,11 @@ def test_invalid_employee_id(api_client, store_location):
     Test using an invalid employee ID for clock in/out.
     """
     url = reverse("api:clock_in", args=[999])  # Nonexistent employee ID
-    payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 404  # HTTP 404 Not Found
@@ -98,7 +115,8 @@ def test_clock_in_success_within_range(api_client, employee, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-    }  # Exact store location
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 201  # HTTP 201 Created
@@ -118,7 +136,8 @@ def test_clock_in_out_of_range(api_client, employee, store_location):
     payload = {
         "location_latitude": 100.0,
         "location_longitude": 100.0,
-    }  # Far from store
+        "hashed_pin": "1234",
+    }
     response = api_client.post(url, payload)
 
     assert response.status_code == 406  # HTTP 406 Not Acceptable
@@ -137,6 +156,7 @@ def test_clock_out_out_of_range(api_client, clocked_in_employee, store_location)
         "location_latitude": 10.0,
         "location_longitude": 10.0,
         "deliveries": 5,
+        "hashed_pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -190,7 +210,11 @@ def test_clock_out_too_soon_after_clock_in(api_client, employee, store_location)
     """
     # Simulate clock-in
     clock_in_url = reverse("api:clock_in", args=[employee.id])
-    clock_in_payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    clock_in_payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     clock_in_response = api_client.post(clock_in_url, clock_in_payload)
     assert clock_in_response.status_code == 201  # HTTP 201 Created
 
@@ -200,6 +224,7 @@ def test_clock_out_too_soon_after_clock_in(api_client, employee, store_location)
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
+        "hashed_pin": "1234",
     }
     clock_out_response = api_client.post(clock_out_url, clock_out_payload)
 
@@ -223,13 +248,18 @@ def test_clock_in_too_soon_after_clock_out(
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
+        "hashed_pin": "1234",
     }
     clock_out_response = api_client.post(clock_out_url, clock_out_payload)
     assert clock_out_response.status_code == 200  # HTTP 200 OK
 
     # Attempt to clock in immediately
     clock_in_url = reverse("api:clock_in", args=[clocked_in_employee.id])
-    clock_in_payload = {"location_latitude": 1.0, "location_longitude": 1.0}
+    clock_in_payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "1234",
+    }
     clock_in_response = api_client.post(clock_in_url, clock_in_payload)
 
     # Expect failure due to clocking in too soon after clocking out
@@ -237,3 +267,79 @@ def test_clock_in_too_soon_after_clock_out(
     data = clock_in_response.json()
     assert "Error" in data
     assert data["Error"] == "Can't start a shift too soon after your last shift."
+
+
+@pytest.mark.django_db
+def test_clock_in_invalid_pin(api_client, employee, store_location):
+    """
+    Test clock-in attempt with an invalid PIN.
+    """
+    url = reverse("api:clock_in", args=[employee.id])
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "hashed_pin": "wrongpin",
+    }
+    response = api_client.post(url, payload)
+
+    assert response.status_code == 401  # HTTP 400 Bad Request
+    data = response.json()
+    assert "Error" in data
+    assert data["Error"] == "Invalid authentication pin."
+
+
+@pytest.mark.django_db
+def test_clock_in_missing_pin(api_client, employee, store_location):
+    """
+    Test clock-in attempt without providing a PIN.
+    """
+    url = reverse("api:clock_in", args=[employee.id])
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+    }
+    response = api_client.post(url, payload)
+
+    assert response.status_code == 400  # HTTP 400 Bad Request
+    data = response.json()
+    assert "Error" in data
+    assert data["Error"] == "Missing authentication pin in request."
+
+
+@pytest.mark.django_db
+def test_clock_out_invalid_pin(api_client, clocked_in_employee, store_location):
+    """
+    Test clock-out attempt with an invalid PIN.
+    """
+    url = reverse("api:clock_out", args=[clocked_in_employee.id])
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "deliveries": 5,
+        "hashed_pin": "wrongpin",
+    }
+    response = api_client.post(url, payload)
+
+    assert response.status_code == 401  # HTTP 400 Bad Request
+    data = response.json()
+    assert "Error" in data
+    assert data["Error"] == "Invalid authentication pin."
+
+
+@pytest.mark.django_db
+def test_clock_out_missing_pin(api_client, clocked_in_employee, store_location):
+    """
+    Test clock-out attempt without providing a PIN.
+    """
+    url = reverse("api:clock_out", args=[clocked_in_employee.id])
+    payload = {
+        "location_latitude": 1.0,
+        "location_longitude": 1.0,
+        "deliveries": 5,
+    }
+    response = api_client.post(url, payload)
+
+    assert response.status_code == 400  # HTTP 400 Bad Request
+    data = response.json()
+    assert "Error" in data
+    assert data["Error"] == "Missing authentication pin in request."

@@ -11,7 +11,7 @@ def employee(db):
     """
     Create a basic employee fixture.
     """
-    return User.objects.create(
+    employee = User.objects.create(
         first_name="John",
         last_name="Doe",
         email="john.doe@example.com",
@@ -20,6 +20,9 @@ def employee(db):
         is_active=True,
         is_manager=False,
     )
+    employee.set_pin("1234")  # Set the hashed pin
+    employee.save()
+    return employee
 
 
 @pytest.fixture
@@ -27,7 +30,7 @@ def inactive_employee(db):
     """
     Create a basic employee fixture that is INACTIVE.
     """
-    return User.objects.create(
+    employee = User.objects.create(
         first_name="Mary",
         last_name="Jane",
         email="mary.jane@example.com",
@@ -36,6 +39,9 @@ def inactive_employee(db):
         is_active=False,
         is_manager=False,
     )
+    employee.set_pin("1234")  # Set the hashed pin
+    employee.save()
+    return employee
 
 
 @pytest.fixture
@@ -52,6 +58,8 @@ def clocked_in_employee(db):
         is_active=True,
         is_manager=False,
     )
+    employee.set_pin("1234")  # Set the hashed pin
+    employee.save()
 
     login_time = now() - timedelta(hours=2)
 
@@ -73,7 +81,7 @@ def manager(db):
     """
     Creates a manager user for testing.
     """
-    return User.objects.create(
+    manager = User.objects.create(
         first_name="Manager",
         last_name="Test",
         email="manager.test@example.com",
@@ -82,6 +90,9 @@ def manager(db):
         is_active=True,
         is_manager=True,
     )
+    manager.set_pin("1234")  # Set the hashed pin
+    manager.save()
+    return manager
 
 
 @pytest.fixture
