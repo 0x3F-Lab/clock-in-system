@@ -46,7 +46,7 @@ class User(models.Model):
         """
         Sets the user's pin by hashing it.
         """
-        self.pin = make_password(raw_pin)
+        self.pin = raw_pin
         self.save(update_fields=["pin"])
 
     def check_pin(self, raw_pin: str) -> bool:
@@ -55,7 +55,7 @@ class User(models.Model):
         """
         if not self.pin:
             return False
-        return check_password(raw_pin, self.pin)
+        return self.pin == raw_pin
 
 
 class Activity(models.Model):
