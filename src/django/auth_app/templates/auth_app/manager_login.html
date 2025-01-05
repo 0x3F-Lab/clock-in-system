@@ -1,29 +1,20 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Manager Login</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-</head>
-<body>
-    <div class="login-container">
-        <h2>Manager Login</h2>
-        <form method="POST" action="{% url 'manager_login' %}" class="login-form">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="text" id="email" name="email" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-            </div>
-            <button type="submit" class="login-button">Login</button>
-        </form>
-        {% for message in messages %}
-            <p class="message">{{ message }}</p>
-        {% endfor %}
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Manager Login{% endblock %}
+{% block content %}
+
+<h2>Manager Login</h2>
+
+<form method="POST" action="{{ BASE_URL }}{% url 'manager_login' %}" class="login-form">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="text" id="email" name="email" required>
     </div>
-</body>
-</html>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+    </div>
+    <button type="submit" class="login-button">Login</button>
+</form>
+
+{% endblock %}

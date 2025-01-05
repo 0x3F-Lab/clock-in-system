@@ -37,7 +37,7 @@ def manager_login(request):
         try:
             user = User.objects.get(email=email)  # Look up the user by email
         except User.DoesNotExist:
-            messages.error(request, "Invalid email or password.")
+            messages.error(request, "Invalid details.")
             return render(request, "auth_app/manager_login.html")
 
         # Check password and if the user is a manager
