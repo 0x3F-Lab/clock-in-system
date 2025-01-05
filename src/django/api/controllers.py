@@ -3,7 +3,7 @@ import api.exceptions as err
 import api.utils as util
 from typing import List, Tuple
 from datetime import timedelta
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
 from django.db import transaction
 from auth_app.models import User, Activity, KeyValueStore
 
@@ -93,7 +93,7 @@ def handle_clock_in(employee_id: int) -> Activity:
             employee.clocked_in = True
             employee.save()
 
-            time = now()  # Consistent timestamp
+            time = localtime(now())  # Consistent timestamp
 
             # Create Activity record
             activity = Activity.objects.create(
@@ -170,7 +170,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             employee.clocked_in = False
             employee.save()
 
-            time = now()
+            time = localtime(now())
             activity.logout_timestamp = time
             activity.logout_time = util.round_datetime_minute(
                 time
@@ -339,7 +339,7 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
             return False
 
         # Calculate the time difference between the last clock-out and the attempted clock-in
-        time_diff = now() - last_activity.logout_timestamp
+        time_diff = localtime(now()) - last_activity.logout_timestamp
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):
@@ -378,7 +378,7 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 15) -> bool:
             return False
 
         # Calculate the time difference between the last clock-in/out and the attempted action
-        time_diff = now() - last_activity.login_timestamp
+        time_diff = localtime(now()) - last_activity.login_timestamp
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):
