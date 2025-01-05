@@ -1,33 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Dashboard</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-</head>
-<body>
-    <div class="dashboard-container">
-        <h1>Manager Dashboard</h1>
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Manager Dashboard{% endblock %}
+{% block content %}
 
-        <!-- Display Logged-in User Info -->
-        <p>Welcome, <strong>{{ user.username }}</strong>!</p>
+<h1>Manager Dashboard</h1>
 
-        <!-- Add Logout Button -->
-       
+<!-- Display Logged-in User Info -->
+<p>Welcome, <strong>{{ user.username }}</strong>!</p>
 
-        <div class="button-container">
-            <button onclick="location.href='/api/employees/'">Employee Details</button>
-            <button onclick="location.href='#'">Weekly Summary</button>
-            <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
-            <button onclick="location.href='#'">Date-Based Summary</button>
-            <form method="POST" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="logout-button">Logout</button>
-            </form>
-            <button onclick="location.href='/'">Back to Landing Page</button>
-        </div>
-    </div>
-</body>
-</html>
+<div class="button-container">
+    <button onclick="location.href='/api/employees/'">Employee Details</button>
+    <button onclick="location.href='#'">Weekly Summary</button>
+    <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
+    <button onclick="location.href='#'">Date-Based Summary</button>
+    <form method="POST" action="{{ BASE_URL }}{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="logout-button">Logout</button>
+    </form>
+    <button onclick="location.href='/'">Back to Landing Page</button>
+</div>
+
+{% endblock %}
+
