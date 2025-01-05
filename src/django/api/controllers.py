@@ -353,13 +353,14 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
         )
 
 
-def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
+def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 15) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.
 
     Args:
         employee_id (int): The ID of the employee.
-        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 10m)
+        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 15m)
+                          Ensure this value equals that of the rounding minutes for shift lengths.
 
     Returns:
         bool: Returns True if the employee is trying to clock out too soon, otherwise False.
