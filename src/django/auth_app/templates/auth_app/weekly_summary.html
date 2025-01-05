@@ -142,43 +142,66 @@
 </head>
 <body>
     <div class="container">
-        <h1>Weekly Summary</h1>
-
-        <!-- Date Range Filters -->
-        <div>
-            <label>Start Date:</label>
-            <input type="date" id="startDate">
-            <label>End Date:</label>
-            <input type="date" id="endDate">
-            <br><br>
-            <label>Employee IDs (comma-separated):</label>
-            <input type="text" id="employeeIds" placeholder="e.g. 1,2,3">
-            <br><br>
-            <button id="fetchButton">Fetch Summary for Date Range</button>
-            <button id="revertButton">Revert to Standard Summary</button>
+      <h1>Weekly Summary</h1>
+  
+      <!-- Date Range Section -->
+      <div class="filter-card">
+        <h2>Date Range Filter</h2>
+        <div class="filter-group-inline">
+          <!-- Start Date -->
+          <div class="inline-field">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" />
+          </div>
+          <!-- End Date -->
+          <div class="inline-field">
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" />
+          </div>
         </div>
-
-        <!-- Manual Reset Date Update -->
-        <div style="margin-top:20px;">
-            <label>Set New Reset Date:</label>
-            <input type="date" id="resetDate">
-            <button id="setResetButton">Set Reset Date</button>
+        <div class="filter-actions">
+          <button id="fetchButton">Fetch Summary for Date Range</button>
+          <button id="revertButton">Revert to Standard Summary</button>
         </div>
-
-        <table style="margin-top:20px;">
-            <thead>
-                <tr>
-                    <th>Employee Name</th>
-                    <th>Weekday Hours</th>
-                    <th>Weekend Hours</th>
-                    <th>Total Hours</th>
-                    <th>Total Deliveries</th>
-                </tr>
-            </thead>
-            <tbody id="summaryTableBody">
-                <!-- Data will be populated dynamically -->
-            </tbody>
-        </table>
+      </div>
+  
+      <!-- Employee IDs Section -->
+      <div class="filter-card">
+        <h2>Filter by Employee ID</h2>
+        <div class="filter-group">
+          <label for="employeeIds">Employee IDs (comma-separated):</label>
+          <input
+            type="text"
+            id="employeeIds"
+            placeholder="e.g. 1,2,3"
+          />
+        </div>
+      </div>
+  
+      <!-- Reset Date Section -->
+      <div class="filter-card">
+        <h2>Set New Reset Date</h2>
+        <div class="filter-group-inline">
+          <label for="resetDate">Reset Date:</label>
+          <input type="date" id="resetDate" />
+          <button id="setResetButton">Set Reset Date</button>
+        </div>
+      </div>
+  
+      <table style="margin-top:20px;">
+        <thead>
+          <tr>
+            <th>Employee Name</th>
+            <th>Weekday Hours</th>
+            <th>Weekend Hours</th>
+            <th>Total Hours</th>
+            <th>Total Deliveries</th>
+          </tr>
+        </thead>
+        <tbody id="summaryTableBody">
+          <!-- Data populated dynamically -->
+        </tbody>
+      </table>
     </div>
-</body>
+  </body>
 </html>
