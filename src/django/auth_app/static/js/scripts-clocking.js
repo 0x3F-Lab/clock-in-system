@@ -25,9 +25,9 @@ $(document).ready(function() {
 
   // Add listener for when clock in/out button is clicked
   $("#clockButton").click(async function() {
-    const hashedPin = await requestPin(); // Get the PIN from the user
-    if (hashedPin) {
-      toggleClock(clockInUrl, clockOutUrl, hashedPin); // Pass the PIN to toggleClock
+    const pin = await requestPin(); // Get the PIN from the user
+    if (pin) {
+      toggleClock(clockInUrl, clockOutUrl, pin); // Pass the PIN to toggleClock
     }
   });
 
@@ -162,7 +162,7 @@ function handleDeliveryAdjustments() {
 
 
 // Toggle Clock In/Clock Out
-async function toggleClock(clockInUrl, clockOutUrl, hashedPin) {
+async function toggleClock(clockInUrl, clockOutUrl, pin) {
   // Ensure cant clock in/out until an employee is selected
   if (!userSelected) { return; }
 
@@ -191,7 +191,7 @@ async function toggleClock(clockInUrl, clockOutUrl, hashedPin) {
       data: JSON.stringify({
         location_latitude: userLat,
         location_longitude: userLon,
-        hashed_pin: hashedPin,
+        pin: pin,
       }),
 
       success: function(data) {
@@ -228,7 +228,7 @@ async function toggleClock(clockInUrl, clockOutUrl, hashedPin) {
         location_latitude: userLat,
         location_longitude: userLon,
         deliveries: deliveries,
-        hashed_pin: hashedPin,
+        pin: pin,
       }),
 
       success: function(data) {
@@ -274,8 +274,8 @@ async function requestPin() {
           $("#authPinInput").val("");
 
           if (pin) {
-            const hashedPin = await hashString(pin); // Hash the PIN before resolving
-            resolve(hashedPin); // Resolve the promise with the hashed PIN
+            //const hashedPin = await hashString(pin);
+            resolve(pin); // Resolve the promise with the PIN
           } else {
             resolve(null); // Resolve with null if no PIN was entered
           }

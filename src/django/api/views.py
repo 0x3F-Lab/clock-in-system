@@ -297,10 +297,10 @@ def clock_in(request, id):
             raise err.InvalidLocationError
 
         # Get hashed pin to check they're authorised
-        hashed_pin = request.data.get("hashed_pin", None)
+        pin = request.data.get("pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=hashed_pin):
+        if not util.check_pin_hash(employee_id=id, pin=pin):
             raise err.InvalidPinError
 
         # Clock the user in
@@ -393,10 +393,10 @@ def clock_out(request, id):
             raise err.InvalidLocationError
 
         # Get hashed pin to check they're authorised
-        hashed_pin = request.data.get("hashed_pin", None)
+        pin = request.data.get("pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=hashed_pin):
+        if not util.check_pin_hash(employee_id=id, pin=pin):
             raise err.InvalidPinError
 
         # Clock the user out
@@ -520,25 +520,25 @@ def clocked_state_view(request, id):
 def change_pin(request, id):
     try:
         # Get new pin
-        new_hashed_pin = request.data.get("new_hashed_pin", None)
+        new_pin = request.data.get("new_pin", None)
 
         # Check if new pin exists
-        if new_hashed_pin is None:
+        if new_pin is None:
             return Response(
                 {"Error": "Missing new authentication pin."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         # Get hashed pin to check they're authorised
-        old_hashed_pin = request.data.get("old_hashed_pin", None)
+        old_pin = request.data.get("old_pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=old_hashed_pin):
+        if not util.check_pin_hash(employee_id=id, hashed_pin=old_pin):
             raise err.InvalidPinError
 
         # Update the pin
         employee = User.objects.get(id=id)
-        employee.set_pin(raw_pin=new_hashed_pin)
+        employee.set_pin(raw_pin=new_pin)
         employee.save()
 
         return Response(
@@ -582,10 +582,10 @@ def change_pin(request, id):
 def active_employee_account(request, id):
     try:
         # Get new pin
-        new_hashed_pin = request.data.get("new_hashed_pin", None)
+        new_pin = request.data.get("new_pin", None)
 
         # Check if new pin exists
-        if new_hashed_pin is None:
+        if new_pin is None:
             return Response(
                 {"Error": "Missing new authentication pin."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -600,7 +600,7 @@ def active_employee_account(request, id):
             )
 
         # Set their pin and activate account
-        employee.set_pin(raw_pin=new_hashed_pin)
+        employee.set_pin(raw_pin=new_pin)
         employee.is_active = True
         employee.save()
 

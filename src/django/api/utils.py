@@ -134,9 +134,9 @@ def check_location_data(location_lat, location_long) -> bool:
     return True
 
 
-def check_pin_hash(employee_id: bool, hashed_pin) -> bool:
+def check_pin_hash(employee_id: bool, pin) -> bool:
     # Check if pin was given
-    if hashed_pin is None:
+    if pin is None:
         raise err.MissingPinError
 
     # Get employee
@@ -147,7 +147,7 @@ def check_pin_hash(employee_id: bool, hashed_pin) -> bool:
         raise err.InactiveUserError
 
     # Check if pin is valid
-    if not employee.check_pin(raw_pin=hashed_pin):
+    if not employee.check_pin(raw_pin=pin):
         return False
 
     # Return True on successful pin check

@@ -12,7 +12,7 @@ def test_clock_in_success(api_client, employee, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -33,7 +33,7 @@ def test_clock_in_already_clocked_in(api_client, clocked_in_employee, store_loca
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -55,7 +55,7 @@ def test_clock_out_success_within_range(
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
     print(Activity.objects.filter(employee_id=clocked_in_employee.id).last().login_time)
@@ -77,7 +77,7 @@ def test_clock_out_not_clocked_in(api_client, employee, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -96,7 +96,7 @@ def test_invalid_employee_id(api_client, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -115,7 +115,7 @@ def test_clock_in_success_within_range(api_client, employee, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -136,7 +136,7 @@ def test_clock_in_out_of_range(api_client, employee, store_location):
     payload = {
         "location_latitude": 100.0,
         "location_longitude": 100.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -156,7 +156,7 @@ def test_clock_out_out_of_range(api_client, clocked_in_employee, store_location)
         "location_latitude": 10.0,
         "location_longitude": 10.0,
         "deliveries": 5,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     response = api_client.post(url, payload)
 
@@ -213,7 +213,7 @@ def test_clock_out_too_soon_after_clock_in(api_client, employee, store_location)
     clock_in_payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     clock_in_response = api_client.post(clock_in_url, clock_in_payload)
     assert clock_in_response.status_code == 201  # HTTP 201 Created
@@ -224,7 +224,7 @@ def test_clock_out_too_soon_after_clock_in(api_client, employee, store_location)
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     clock_out_response = api_client.post(clock_out_url, clock_out_payload)
 
@@ -248,7 +248,7 @@ def test_clock_in_too_soon_after_clock_out(
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     clock_out_response = api_client.post(clock_out_url, clock_out_payload)
     assert clock_out_response.status_code == 200  # HTTP 200 OK
@@ -258,7 +258,7 @@ def test_clock_in_too_soon_after_clock_out(
     clock_in_payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "1234",
+        "pin": "1234",
     }
     clock_in_response = api_client.post(clock_in_url, clock_in_payload)
 
@@ -278,7 +278,7 @@ def test_clock_in_invalid_pin(api_client, employee, store_location):
     payload = {
         "location_latitude": 1.0,
         "location_longitude": 1.0,
-        "hashed_pin": "wrongpin",
+        "pin": "wrongpin",
     }
     response = api_client.post(url, payload)
 
@@ -316,7 +316,7 @@ def test_clock_out_invalid_pin(api_client, clocked_in_employee, store_location):
         "location_latitude": 1.0,
         "location_longitude": 1.0,
         "deliveries": 5,
-        "hashed_pin": "wrongpin",
+        "pin": "wrongpin",
     }
     response = api_client.post(url, payload)
 
