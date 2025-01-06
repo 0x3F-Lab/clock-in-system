@@ -6,13 +6,16 @@ import api.exceptions as err
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
-from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from auth_app.models import User, Activity
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
+from auth_app.utils import manager_required
+from django.contrib.auth.decorators import login_required
+
 
 logger = logging.getLogger("api")
 
@@ -113,7 +116,9 @@ def raw_data_logs_view(request):
 
 @api_view(["GET", "PUT"])
 @renderer_classes([JSONRenderer])
+@manager_required
 def employee_details_view(request, id=None):
+    logger.error(f"test: {request.user}")
     if request.method == "GET":
         if request.headers.get("Accept") == "application/json":
             # JSON response logic here (unchanged)

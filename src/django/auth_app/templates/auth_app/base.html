@@ -29,19 +29,21 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
     <!-- Scripts -->
     <script src="{{ BASE_URL }}{% static 'js/scripts.js' %}"></script>
+    <script>
+        window.djangoURLs = {
+            rawDataLogs: "{{ BASE_URL }}{% url 'api:raw_data_logs' %}",
+            listEmployeeNames: "{{ BASE_URL }}{% url 'api:list_users_name_view' %}",
+            clockedState: "{{ BASE_URL }}{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
+            clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
+            clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
+            listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_list' %}",
+            listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_detail' 0 %}".slice(0, -2),
+          };
+    </script>
     <!-- Custom page scripts -->
     {% block customscripts %}{% endblock %}
     {% for message in messages %}
     <script>
-        window.djangoURLs = {
-          rawDataLogs: "{{ BASE_URL }}{% url 'api:raw_data_logs' %}",
-          listEmployeeNames: "{{ BASE_URL }}{% url 'api:list_users_name_view' %}",
-          clockedState: "{{ BASE_URL }}{% url 'api:clocked_state_view' 0 %}".slice(0, -2), // Removes the placeholder '0'
-          clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
-          clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
-          listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_list' %}",
-          listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_detail' 0 %}".slice(0, -2),
-        };
         showNotification("{{ message }}", "{{ message.tags }}"); // Notification script to piggyback server messages
     </script>
     {% endfor %}
