@@ -4,10 +4,10 @@ let userSelected = false; // Track when the user selects an employee
 
 $(document).ready(function() {
   // Access Django-generated URLs
-	const listEmployeesUrl = window.djangoUrls.listEmployees;
-	const clockedStateUrl = window.djangoUrls.clockedState;
-	const clockInUrl = window.djangoUrls.clockIn;
-	const clockOutUrl = window.djangoUrls.clockOut;
+	const listEmployeeNamesURL = window.djangoURLs.listEmployees;
+	const clockedStateURL = window.djangoURLs.clockedState;
+	const clockInURL = window.djangoURLs.clockIn;
+	const clockOutURL = window.djangoURLs.clockOut;
 
   // Disable buttons until they are required
   $("#clockButton").prop("disabled", true);
@@ -15,10 +15,10 @@ $(document).ready(function() {
   $("#plusButton").prop("disabled", true);
 
   // Populate the modal user list
-  populateModalUserList(listEmployeesUrl);
+  populateModalUserList(listEmployeeNamesURL);
 
   // Handle user selection modal
-  handleUserSelectionModal(clockedStateUrl);
+  handleUserSelectionModal(clockedStateURL);
 
   // Handle deliveries adjustment
   handleDeliveryAdjustments();
@@ -27,7 +27,7 @@ $(document).ready(function() {
   $("#clockButton").click(async function() {
     const pin = await requestPin(); // Get the PIN from the user
     if (pin) {
-      toggleClock(clockInUrl, clockOutUrl, pin); // Pass the PIN to toggleClock
+      toggleClock(clockInURL, clockOutURL, pin); // Pass the PIN to toggleClock
     }
   });
 
@@ -40,8 +40,8 @@ $(document).ready(function() {
 ////// FUNCTIONS //////
 
 // Populate the modal with the user list
-function populateModalUserList(listEmployeesUrl) {
-  $.get(listEmployeesUrl, function (data) {
+function populateModalUserList(listEmployeeNamesURL) {
+  $.get(listEmployeeNamesURL, function (data) {
       const $userList = $("#userList");
       data.forEach(employee => {
           $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
@@ -60,7 +60,7 @@ function populateModalUserList(listEmployeesUrl) {
 
 
 // Handle user selection from the modal
-function handleUserSelectionModal(clockedStateUrl) {
+function handleUserSelectionModal(clockedStateURL) {
   // Open modal on "Select User" button click
   $("#selectUserButton").click(function () {
       const userModal = new bootstrap.Modal(document.getElementById("userModal"));
@@ -79,7 +79,7 @@ function handleUserSelectionModal(clockedStateUrl) {
         .attr("data-id", userID); // Also add it to the DOM
 
       // Fetch clocked-in state for the selected user (and updates buttons)
-      fetchClockedState(clockedStateUrl, userID);
+      fetchClockedState(clockedStateURL, userID);
 
       // Update selected state
       userSelected = true
@@ -104,9 +104,9 @@ function handleUserSelectionModal(clockedStateUrl) {
 
 
 // Fetch clocked-in state for a user
-function fetchClockedState(clockedStateUrl, userID) {
+function fetchClockedState(clockedStateURL, userID) {
   if (userID) {
-      $.get(`${clockedStateUrl}${userID}/`, function (data) {
+      $.get(`${clockedStateURL}${userID}/`, function (data) {
           clockedIn = data.clocked_in;
 
           // Update buttons and info
@@ -162,7 +162,7 @@ function handleDeliveryAdjustments() {
 
 
 // Toggle Clock In/Clock Out
-async function toggleClock(clockInUrl, clockOutUrl, pin) {
+async function toggleClock(clockInURL, clockOutURL, pin) {
   // Ensure cant clock in/out until an employee is selected
   if (!userSelected) { return; }
 
@@ -182,7 +182,7 @@ async function toggleClock(clockInUrl, clockOutUrl, pin) {
   if (!clockedIn) {
     // Clocking in
     $.ajax({
-      url: `${clockInUrl}${userID}/`,
+      url: `${clockInURL}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {
@@ -218,7 +218,7 @@ async function toggleClock(clockInUrl, clockOutUrl, pin) {
   } else {
     // Clocking out
     $.ajax({
-      url: `${clockOutUrl}${userID}/`,
+      url: `${clockOutURL}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {

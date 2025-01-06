@@ -55,6 +55,11 @@ function getCookie(name) {
 
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Access Django-generated URLs
+    const listEveryEmployeeDetailsURL = window.djangoURLs.listEveryEmployeeDetails
+    const listSingularEmployeeDetailsURL = window.djangoURLs.listSingularEmployeeDetails
+    const rawDataLogsURL = window.djangoURLs.rawDataLogs
+
     // --- Employee Details Section ---
     const employeeTableElement = document.getElementById("employeeTable");
     const editModal = document.getElementById("editModal");
@@ -72,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Fetch and display employees
         const fetchEmployees = () => {
-            fetch("/api/employees/", {
+            fetch(listEveryEmployeeDetailsURL, {
                 headers: { "Accept": "application/json" },
             })
                 .then((res) => {
@@ -121,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Open the edit modal
         const openEditModal = (id) => {
-            fetch(`/api/employees/${id}/`, {
+            fetch(`${listSingularEmployeeDetailsURL}${id}/`, {
                 headers: { "Accept": "application/json" },
             })
                 .then((res) => {
@@ -158,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 pin: document.getElementById("editPin").value,
             };
             
-            fetch(`/api/employees/${id}/`, {
+            fetch(`${listSingularEmployeeDetailsURL}${id}/`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -191,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		const rawDataTbody = rawDataTableElement.querySelector("tbody");
 
 		const fetchRawDataLogs = () => {
-			fetch("/api/raw-data-logs/", {
+			fetch(rawDataLogsURL, {
 				headers: { "Accept": "application/json" },
 			})
 				.then((res) => {
