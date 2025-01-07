@@ -113,6 +113,7 @@ def handle_clock_in(employee_id: int) -> Activity:
         err.InactiveUserError,
         User.DoesNotExist,
         err.AlreadyClockedInError,
+        err.StartingShiftTooSoonError,
     ):
         # Re-raise common errors
         raise

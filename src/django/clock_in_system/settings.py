@@ -13,6 +13,12 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+
+def str_to_bool(value):
+    """Convert environment variable string to boolean."""
+    return value.lower() in ["true", "1", "yes"]
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -37,6 +43,21 @@ BASE_URL = os.getenv(
 
 # Parse ALLOWED_HOSTS from environment variable
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+
+# Cookies
+SESSION_COOKIE_AGE = 604800  # 7 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = (
+    False  # Set to True if you want the session to end on browser close
+)
+
+# Secure cookie settings
+CSRF_COOKIE_AGE = 604800
+CSRF_COOKIE_SECURE = str_to_bool(
+    os.getenv("CSRF_COOKIE_SECURE", "False")
+)  # Use True in production to send cookies over HTTPS only
+CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access --- Currently our JS access CSRF
+CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "localhost").split(",")
 
 
 # Application definition
