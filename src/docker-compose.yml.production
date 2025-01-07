@@ -9,7 +9,7 @@ services:
     env_file:
       - .env.production
     ports:
-      - "8000:8000"  # Expose Django development server
+      - "8000:8000"  # Expose Django server
 
   nginx:
     container_name: nginx
@@ -21,7 +21,8 @@ services:
       - /var/www/html:/var/www/html:ro # For certbot authentication
 
     ports:
-      - "80:80"  # Expose Nginx on port 80
+      - "80:80" # HTTP port for redirection to HTTPS port
+      - "443:443" # HTTPS port
     depends_on:
       - django
 
