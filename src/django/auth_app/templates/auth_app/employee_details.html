@@ -9,25 +9,32 @@
     <script src="{% static 'js/scripts.js' %}" defer></script>
 </head>
 <body>
-    <button id="openAddEmployeeModal">Add New Employee</button>
-    <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
-    <div class="container">
+  <div class="container">
+    <!-- Header area -->
+    <div class="employee-header">
         <h1>Employee Details</h1>
-        <table id="employeeTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Pin</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Rows will be populated dynamically -->
-            </tbody>
-        </table>
+        <div class="button-group">
+            <button id="openAddEmployeeModal">Add New Employee</button>
+            <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
+        </div>
     </div>
+
+    <!-- Table area -->
+    <table id="employeeTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Pin</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be populated dynamically -->
+        </tbody>
+    </table>
+</div>
 
     <!-- Edit Employee Modal -->
     <div id="editModal" class="modal">
