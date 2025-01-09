@@ -1,18 +1,24 @@
 import logging
-import json
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.response import Response
+from rest_framework import status
 import api.utils as util
 import api.controllers as controllers
 import api.exceptions as err
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-from auth_app.models import User, Activity
+
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
+
 from rest_framework.renderers import JSONRenderer
-from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+
+import json
+from django.db.models import Sum, F, Case, When, DecimalField
+from datetime import datetime, timezone, time
+from auth_app.models import Activity, User, KeyValueStore
+from django.db.models.functions import ExtractWeekDay
+
 
 logger = logging.getLogger("api")
 
@@ -72,6 +78,11 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
+                # Calculate hours using shift_length_mins
+                hours_decimal = (
+                    act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
+                )
+
                 data.append(
                     {
                         "staff_name": staff_name,
@@ -97,12 +108,13 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        "hours_worked": str(act.hours_worked),
+                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
+                        "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-            # Log and return the JSON response
+
             json_response = json.dumps(data, indent=2)
-            print(json_response)  # Log to console for debugging
+            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
 
         else:
@@ -477,3 +489,143 @@ def clocked_state_view(request, id):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def weekly_summary_view(request):
+    start_date_str = request.query_params.get("start_date")
+    end_date_str = request.query_params.get("end_date")
+    employee_ids_str = request.query_params.get("employee_ids")
+
+    try:
+        # Handle date range
+        if start_date_str and end_date_str:
+            try:
+                start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+                start_date = datetime.combine(start_day, time.min).replace(
+                    tzinfo=timezone.utc
+                )
+                end_date = datetime.combine(end_day, time.max).replace(
+                    tzinfo=timezone.utc
+                )
+
+                activities = Activity.objects.filter(
+                    login_time__gte=start_date, login_time__lte=end_date
+                )
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            # No date range provided, use last reset date
+            try:
+                kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
+                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
+            except KeyValueStore.DoesNotExist:
+                last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+
+            activities = Activity.objects.filter(login_time__gte=last_reset_date)
+
+        # Handle employee filter
+        if employee_ids_str:
+            employee_ids = [
+                int(e_id.strip())
+                for e_id in employee_ids_str.split(",")
+                if e_id.strip().isdigit()
+            ]
+            if employee_ids:
+                activities = activities.filter(employee_id__in=employee_ids)
+
+        # Calculate hours by converting shift_length_mins to hours
+        summary = (
+            activities.annotate(day_of_week=ExtractWeekDay("login_time"))
+            .values("employee_id", "employee_id__first_name", "employee_id__last_name")
+            .annotate(
+                weekday_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[2, 3, 4, 5, 6],
+                            then=F("shift_length_mins") / 60.0,
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                weekend_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[1, 7], then=F("shift_length_mins") / 60.0
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                total_hours=Sum(F("shift_length_mins") / 60.0),
+                total_deliveries=Sum("deliveries"),
+            )
+        )
+
+        data = [
+            {
+                "employee_id": item["employee_id"],
+                "first_name": item["employee_id__first_name"],
+                "last_name": item["employee_id__last_name"],
+                "weekday_hours": float(item["weekday_hours"] or 0.0),
+                "weekend_hours": float(item["weekend_hours"] or 0.0),
+                "total_hours": float(item["total_hours"] or 0.0),
+                "total_deliveries": item["total_deliveries"] or 0,
+            }
+            for item in summary
+        ]
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        # General exception catch
+        return Response(
+            {"error": f"An unexpected error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def reset_summary_view(request):
+    # If a new date is provided in the POST, use it, otherwise today
+    new_date_str = request.data.get("new_reset_date")
+    if new_date_str:
+        try:
+            # Validate the date format
+            datetime.strptime(new_date_str, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        today_str = new_date_str
+    else:
+        # Default to today if no date provided
+        today_str = datetime.now().date().isoformat()
+
+    kv, created = KeyValueStore.objects.get_or_create(
+        key="last_weekly_summary_reset", defaults={"value": today_str}
+    )
+    if not created:
+        kv.value = today_str
+        kv.save()
+
+    return Response(
+        {"message": "Weekly summary reset successfully", "reset_date": today_str},
+        status=status.HTTP_200_OK,
+    )
+
+
+def weekly_summary_page(request):
+    # Return the HTML template
+    return render(request, "auth_app/weekly_summary.html")
