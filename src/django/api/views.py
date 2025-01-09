@@ -123,7 +123,55 @@ def raw_data_logs_view(request):
             return render(request, "auth_app/raw_data_logs.html")
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def raw_data_logs_view(request):
+    if request.method == "GET":
+        if request.headers.get("Accept") == "application/json":
+            activities = Activity.objects.all().select_related("employee_id")
+            data = []
+            for act in activities:
+                staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
+                data.append(
+                    {
+                        "staff_name": staff_name,
+                        "login_time": (
+                            act.login_time.strftime("%H:%M")
+                            if act.login_time
+                            else "N/A"
+                        ),
+                        "logout_time": (
+                            act.logout_time.strftime("%H:%M")
+                            if act.logout_time
+                            else "N/A"
+                        ),
+                        "is_public_holiday": act.is_public_holiday,
+                        "exact_login_timestamp": (
+                            act.login_timestamp.strftime("%d/%m/%Y %H:%M")
+                            if act.login_timestamp
+                            else "N/A"
+                        ),
+                        "exact_logout_timestamp": (
+                            act.logout_timestamp.strftime("%d/%m/%Y %H:%M")
+                            if act.logout_timestamp
+                            else "N/A"
+                        ),
+                        "deliveries": act.deliveries,
+                        "hours_worked": str(act.hours_worked),
+                    }
+                )
+            # Log and return the JSON response
+            json_response = json.dumps(data, indent=2)
+            print(json_response)  # Log to console for debugging
+            return JsonResponse(data, safe=False)
+
+        else:
+            # Return the template with CSRF token
+            get_token(request)
+            return render(request, "auth_app/raw_data_logs.html")
+
+
+@api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 def employee_details_view(request, id=None):
     if request.method == "GET":
@@ -174,67 +222,46 @@ def employee_details_view(request, id=None):
         employee.save()
         return JsonResponse({"message": "Employee updated successfully"})
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    if request.method == "POST":
+        # Create a new employee
+        try:
+            # Parse data from request
+            data = request.data
+            first_name = data.get("first_name", "")
+            last_name = data.get("last_name", "")
+            email = data.get("email", "")
+            phone_number = data.get("phone_number", "")
+            pin = data.get("pin", "")
 
+            # You can add validation or checks here
+            if not first_name or not last_name or not email:
+                return JsonResponse(
+                    {"error": "Required fields are missing."}, status=400
+                )
 
-def employee_details_page(request):
-    """
-    View to render the employee details HTML page.
-    """
-    get_token(request)
-    return render(request, "auth_app/employee_details.html")
+            # Ensure email is unique
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
 
+            # Create user
+            employee = User.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone_number=phone_number,
+                pin=pin,
+                is_active=True,  # or set as needed
+                is_manager=False,  # presumably a normal employee
+            )
 
-@api_view(["GET", "PUT"])
-@renderer_classes([JSONRenderer])
-def employee_details_view(request, id=None):
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            # JSON response logic here (unchanged)
-            if id is not None:
-                employee = get_object_or_404(User, id=id, is_manager=False)
-                employee_data = {
-                    "id": employee.id,
-                    "first_name": employee.first_name,
-                    "last_name": employee.last_name,
-                    "email": employee.email,
-                    "phone_number": employee.phone_number,
-                    "pin": employee.pin,
-                }
-                return JsonResponse(employee_data, safe=False)
-            else:
-                employees = User.objects.filter(is_manager=False)
-                employee_data = [
-                    {
-                        "id": emp.id,
-                        "first_name": emp.first_name,
-                        "last_name": emp.last_name,
-                        "email": emp.email,
-                        "phone_number": emp.phone_number,
-                        "pin": emp.pin,
-                    }
-                    for emp in employees
-                ]
-                return JsonResponse(employee_data, safe=False)
-        else:
-            # Not JSON: Return the HTML and ensure CSRF cookie is set
-            get_token(request)  # This forces a CSRF cookie to be sent
-            return render(request, "auth_app/employee_details.html")
+            employee.save()
 
-    if request.method == "PUT" and id:
-        # PUT logic unchanged
-        employee = get_object_or_404(User, id=id)
-        data = request.data
-        employee.first_name = data.get("first_name", employee.first_name)
-        employee.last_name = data.get("last_name", employee.last_name)
-        employee.email = data.get("email", employee.email)
-        employee.phone_number = data.get("phone_number", employee.phone_number)
-
-        if "pin" in data:
-            employee.pin = data["pin"]
-
-        employee.save()
-        return JsonResponse({"message": "Employee updated successfully"})
+            return JsonResponse(
+                {"message": "Employee created successfully", "id": employee.id},
+                status=201,
+            )
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
