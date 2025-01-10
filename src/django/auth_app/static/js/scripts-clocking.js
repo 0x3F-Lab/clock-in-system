@@ -205,6 +205,7 @@ async function toggleClock(clockInURL, clockOutURL, pin) {
           updateShiftInfo(startTime=data.login_time);
 
           updateClockButtonState();
+          showNotification("Successfully clocked in.", "success");
       },
 
       error: function(jqXHR, textStatus, errorThrown) {
@@ -243,6 +244,7 @@ async function toggleClock(clockInURL, clockOutURL, pin) {
 
         $("#deliveriesCount").text("0"); // Reset deliveries after clock out
         updateClockButtonState();
+        showNotification("Successfully clocked out.", "success");
       },
 
       error: function(jqXHR, textStatus, errorThrown) {
