@@ -57,10 +57,9 @@ CSRF_COOKIE_SECURE = str_to_bool(
 )  # Use True in production to send cookies over HTTPS only
 CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access --- Currently our JS access CSRF
 CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
-CSRF_TRUSTED_ORIGINS = [
-    f"http://{origin}" if not origin.startswith(("http://", "https://")) else origin
-    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost").split(",")
-]
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "[localhost](http://localhost/)"
+).split(",")
 
 
 # Application definition
