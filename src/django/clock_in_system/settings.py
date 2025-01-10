@@ -186,18 +186,18 @@ LOGGING = {
             "level": "DEBUG",  # Minimum level this logger will process
             "propagate": False,
         },
-        "api": {  # Replace with your app name
+        "api": {
             "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
-        "auth_app": {  # Replace with your app name
+        "auth_app": {
             "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
     },
-    "root": {  # Add root logger for broader debugging
+    "root": {  # Root logger for broader debugging
         "handlers": ["console"],
         "level": "DEBUG",
     },
