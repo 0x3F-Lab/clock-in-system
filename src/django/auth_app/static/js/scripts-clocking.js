@@ -4,10 +4,14 @@ let userSelected = false; // Track when the user selects an employee
 
 $(document).ready(function() {
   // Access Django-generated URLs
-	const listEmployeeNamesURL = window.djangoURLs.listEmployees;
+	const listEmployeeNamesURL = window.djangoURLs.listEmployeeNames;
 	const clockedStateURL = window.djangoURLs.clockedState;
 	const clockInURL = window.djangoURLs.clockIn;
 	const clockOutURL = window.djangoURLs.clockOut;
+
+  if (listEmployeeNamesURL === undefined || clockedStateURL === undefined || clockInURL === undefined || clockOutURL === undefined) {
+    console.error("API URLs are not set correctly.");
+  }
 
   // Disable buttons until they are required
   $("#clockButton").prop("disabled", true);
