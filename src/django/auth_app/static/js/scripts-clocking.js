@@ -27,6 +27,16 @@ $(document).ready(function() {
   // Handle deliveries adjustment
   handleDeliveryAdjustments();
 
+  // Focus on PIN input when the PIN modal is shown
+  $("#authPinModal").on("shown.bs.modal", function () {
+    $("#authPinInput").trigger("focus");
+  });
+
+  // Remove focus from PIN input when the PIN modal is hidden
+  $("#authPinModal").on("hidden.bs.modal", function () {
+    $("#authPinInput").blur();
+  });
+
   // Add listener for when clock in/out button is clicked
   $("#clockButton").click(async function() {
     const pin = await requestPin(); // Get the PIN from the user
@@ -91,6 +101,16 @@ function handleUserSelectionModal(clockedStateURL) {
       // Close the modal
       const userModal = bootstrap.Modal.getInstance(document.getElementById("userModal"));
       userModal.hide();
+  });
+
+  // Focus on search input when the user selection modal is shown
+  $("#userModal").on("shown.bs.modal", function () {
+    $("#userSearchBar").trigger("focus");
+  });
+
+  // Remove focus from search input when the user selection modal is hidden
+  $("#userModal").on("hidden.bs.modal", function () {
+    $("#userSearchBar").blur();
   });
 
   // Search functionality in the modal
@@ -289,6 +309,7 @@ async function requestPin() {
 
       // Optionally handle PIN modal dismissal without entering a PIN
       $("#authPinModal").on("hidden.bs.modal", function () {
+          $("#authPinInput").blur(); // Take focus off PIN input
           resolve(null); // Resolve with null if the modal is dismissed
       });
   });
