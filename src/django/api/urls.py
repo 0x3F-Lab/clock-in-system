@@ -19,4 +19,9 @@ urlpatterns = [
     path("employees/", views.employee_details_view, name="employee_list"),
     path("employees/<int:id>/", views.employee_details_view, name="employee_detail"),
     path("raw-data-logs/", views.raw_data_logs_view, name="raw_data_logs"),
+    # JSON API endpoint for weekly summary data
+    path("weekly-summary/", views.weekly_summary_view, name="weekly_summary_view"),
+    # HTML page that uses JS to fetch from the above API
+    path("weekly-summary-page/", views.weekly_summary_page, name="weekly_summary_page"),
+    path("reset-summary/", views.reset_summary_view, name="reset_summary_view"),
 ]

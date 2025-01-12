@@ -1,21 +1,27 @@
 import logging
-import json
+from rest_framework.decorators import api_view, renderer_classes
+from rest_framework.response import Response
+from rest_framework import status
 import api.utils as util
 import api.controllers as controllers
 import api.exceptions as err
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from auth_app.models import User, Activity
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
-from rest_framework.decorators import renderer_classes
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
 
+import json
+from django.db.models import Sum, F, Case, When, DecimalField
+from datetime import datetime, timezone, time
+from auth_app.models import Activity, User, KeyValueStore
+from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
 
@@ -75,6 +81,11 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
+                # Calculate hours using shift_length_mins
+                hours_decimal = (
+                    act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
+                )
+
                 data.append(
                     {
                         "staff_name": staff_name,
@@ -100,12 +111,13 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        "hours_worked": str(act.hours_worked),
+                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
+                        "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-            # Log and return the JSON response
+
             json_response = json.dumps(data, indent=2)
-            print(json_response)  # Log to console for debugging
+            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
 
         else:
@@ -114,9 +126,9 @@ def raw_data_logs_view(request):
             return render(request, "auth_app/raw_data_logs.html")
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
-@manager_required
+# @manager_required
 def employee_details_view(request, id=None):
     logger.error(f"test: {request.user}")
     if request.method == "GET":
@@ -167,115 +179,46 @@ def employee_details_view(request, id=None):
         employee.save()
         return JsonResponse({"message": "Employee updated successfully"})
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    if request.method == "POST":
+        # Create a new employee
+        try:
+            # Parse data from request
+            data = request.data
+            first_name = data.get("first_name", "")
+            last_name = data.get("last_name", "")
+            email = data.get("email", "")
+            phone_number = data.get("phone_number", "")
+            pin = data.get("pin", "")
 
-
-def employee_details_page(request):
-    """
-    View to render the employee details HTML page.
-    """
-    get_token(request)
-    return render(request, "auth_app/employee_details.html")
-
-
-@api_view(["GET"])
-@renderer_classes([JSONRenderer])
-def raw_data_logs_view(request):
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            activities = Activity.objects.all().select_related("employee_id")
-            data = []
-            for act in activities:
-                staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                data.append(
-                    {
-                        "staff_name": staff_name,
-                        "login_time": (
-                            act.login_time.strftime("%H:%M")
-                            if act.login_time
-                            else "N/A"
-                        ),
-                        "logout_time": (
-                            act.logout_time.strftime("%H:%M")
-                            if act.logout_time
-                            else "N/A"
-                        ),
-                        "is_public_holiday": act.is_public_holiday,
-                        "exact_login_timestamp": (
-                            act.login_timestamp.strftime("%d/%m/%Y %H:%M")
-                            if act.login_timestamp
-                            else "N/A"
-                        ),
-                        "exact_logout_timestamp": (
-                            act.logout_timestamp.strftime("%d/%m/%Y %H:%M")
-                            if act.logout_timestamp
-                            else "N/A"
-                        ),
-                        "deliveries": act.deliveries,
-                        "hours_worked": str(act.hours_worked),
-                    }
+            # You can add validation or checks here
+            if not first_name or not last_name or not email:
+                return JsonResponse(
+                    {"error": "Required fields are missing."}, status=400
                 )
-            # Log and return the JSON response
-            json_response = json.dumps(data, indent=2)
-            print(json_response)  # Log to console for debugging
-            return JsonResponse(data, safe=False)
 
-        else:
-            # Return the template with CSRF token
-            get_token(request)
-            return render(request, "auth_app/raw_data_logs.html")
+            # Ensure email is unique
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({"error": "Email already exists"}, status=400)
 
+            # Create user
+            employee = User.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone_number=phone_number,
+                pin=pin,
+                is_active=True,  # or set as needed
+                is_manager=False,  # presumably a normal employee
+            )
 
-@api_view(["GET", "PUT"])
-@renderer_classes([JSONRenderer])
-def employee_details_view(request, id=None):
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            # JSON response logic here (unchanged)
-            if id is not None:
-                employee = get_object_or_404(User, id=id, is_manager=False)
-                employee_data = {
-                    "id": employee.id,
-                    "first_name": employee.first_name,
-                    "last_name": employee.last_name,
-                    "email": employee.email,
-                    "phone_number": employee.phone_number,
-                    "pin": employee.pin,
-                }
-                return JsonResponse(employee_data, safe=False)
-            else:
-                employees = User.objects.filter(is_manager=False)
-                employee_data = [
-                    {
-                        "id": emp.id,
-                        "first_name": emp.first_name,
-                        "last_name": emp.last_name,
-                        "email": emp.email,
-                        "phone_number": emp.phone_number,
-                        "pin": emp.pin,
-                    }
-                    for emp in employees
-                ]
-                return JsonResponse(employee_data, safe=False)
-        else:
-            # Not JSON: Return the HTML and ensure CSRF cookie is set
-            get_token(request)  # This forces a CSRF cookie to be sent
-            return render(request, "auth_app/employee_details.html")
+            employee.save()
 
-    if request.method == "PUT" and id:
-        # PUT logic unchanged
-        employee = get_object_or_404(User, id=id)
-        data = request.data
-        employee.first_name = data.get("first_name", employee.first_name)
-        employee.last_name = data.get("last_name", employee.last_name)
-        employee.email = data.get("email", employee.email)
-        employee.phone_number = data.get("phone_number", employee.phone_number)
-
-        if "pin" in data:
-            employee.pin = data["pin"]
-
-        employee.save()
-        return JsonResponse({"message": "Employee updated successfully"})
+            return JsonResponse(
+                {"message": "Employee created successfully", "id": employee.id},
+                status=201,
+            )
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
@@ -519,6 +462,146 @@ def clocked_state_view(request, id):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def weekly_summary_view(request):
+    start_date_str = request.query_params.get("start_date")
+    end_date_str = request.query_params.get("end_date")
+    employee_ids_str = request.query_params.get("employee_ids")
+
+    try:
+        # Handle date range
+        if start_date_str and end_date_str:
+            try:
+                start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+
+                start_date = datetime.combine(start_day, time.min).replace(
+                    tzinfo=timezone.utc
+                )
+                end_date = datetime.combine(end_day, time.max).replace(
+                    tzinfo=timezone.utc
+                )
+
+                activities = Activity.objects.filter(
+                    login_time__gte=start_date, login_time__lte=end_date
+                )
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            # No date range provided, use last reset date
+            try:
+                kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
+                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
+            except KeyValueStore.DoesNotExist:
+                last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+
+            activities = Activity.objects.filter(login_time__gte=last_reset_date)
+
+        # Handle employee filter
+        if employee_ids_str:
+            employee_ids = [
+                int(e_id.strip())
+                for e_id in employee_ids_str.split(",")
+                if e_id.strip().isdigit()
+            ]
+            if employee_ids:
+                activities = activities.filter(employee_id__in=employee_ids)
+
+        # Calculate hours by converting shift_length_mins to hours
+        summary = (
+            activities.annotate(day_of_week=ExtractWeekDay("login_time"))
+            .values("employee_id", "employee_id__first_name", "employee_id__last_name")
+            .annotate(
+                weekday_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[2, 3, 4, 5, 6],
+                            then=F("shift_length_mins") / 60.0,
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                weekend_hours=Sum(
+                    Case(
+                        When(
+                            day_of_week__in=[1, 7], then=F("shift_length_mins") / 60.0
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                total_hours=Sum(F("shift_length_mins") / 60.0),
+                total_deliveries=Sum("deliveries"),
+            )
+        )
+
+        data = [
+            {
+                "employee_id": item["employee_id"],
+                "first_name": item["employee_id__first_name"],
+                "last_name": item["employee_id__last_name"],
+                "weekday_hours": float(item["weekday_hours"] or 0.0),
+                "weekend_hours": float(item["weekend_hours"] or 0.0),
+                "total_hours": float(item["total_hours"] or 0.0),
+                "total_deliveries": item["total_deliveries"] or 0,
+            }
+            for item in summary
+        ]
+
+        return Response(data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        # General exception catch
+        return Response(
+            {"error": f"An unexpected error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def reset_summary_view(request):
+    # If a new date is provided in the POST, use it, otherwise today
+    new_date_str = request.data.get("new_reset_date")
+    if new_date_str:
+        try:
+            # Validate the date format
+            datetime.strptime(new_date_str, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        today_str = new_date_str
+    else:
+        # Default to today if no date provided
+        today_str = datetime.now().date().isoformat()
+
+    kv, created = KeyValueStore.objects.get_or_create(
+        key="last_weekly_summary_reset", defaults={"value": today_str}
+    )
+    if not created:
+        kv.value = today_str
+        kv.save()
+
+    return Response(
+        {"message": "Weekly summary reset successfully", "reset_date": today_str},
+        status=status.HTTP_200_OK,
+    )
+
+
+def weekly_summary_page(request):
+    # Return the HTML template
+    return render(request, "auth_app/weekly_summary.html")
 
 
 @api_view(["POST", "PUT"])

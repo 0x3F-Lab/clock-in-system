@@ -14,7 +14,7 @@ def login_view(request):
 
 
 def manager_login(request):
-    logger.error(f"testa: {request.user}")
+    logger.debug(f"manager login user: {request.user}")
     if request.method == "POST":
         email = request.POST.get("email")
         password = request.POST.get("password")
@@ -30,6 +30,7 @@ def manager_login(request):
             # Log the user in by setting session data
             request.session["user_id"] = user.id
             request.session["is_manager"] = user.is_manager
+            logger
             return redirect("manager_dashboard")
         else:
             messages.error(request, "Invalid Details")
@@ -42,7 +43,7 @@ def logout_view(request):
     return redirect("manager_login")
 
 
-@manager_required
+# @manager_required
 def manager_dashboard(request):
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
