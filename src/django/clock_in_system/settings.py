@@ -34,7 +34,7 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = str_to_bool(os.getenv("DEBUG", "False"))
 
 # Get the BASE_URL from the environment
 BASE_URL = os.getenv(
