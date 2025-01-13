@@ -50,6 +50,6 @@ jobs:
 
       - name: Load Docker image and run containers on Lightsail
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose down && docker load -i /home/ubuntu/django_image.tar.gz"
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose down --volumes && docker load -i /home/ubuntu/django_image.tar.gz"
           ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker image prune -f"
           ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "docker compose up -d"
