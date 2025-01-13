@@ -3,7 +3,7 @@ import api.exceptions as err
 import api.utils as util
 from typing import List, Tuple
 from datetime import timedelta
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
 from django.db import transaction
 from auth_app.models import User, Activity, KeyValueStore
 
@@ -93,7 +93,7 @@ def handle_clock_in(employee_id: int) -> Activity:
             employee.clocked_in = True
             employee.save()
 
-            time = now()  # Consistent timestamp
+            time = localtime(now())  # Consistent timestamp
 
             # Create Activity record
             activity = Activity.objects.create(
@@ -114,15 +114,15 @@ def handle_clock_in(employee_id: int) -> Activity:
         User.DoesNotExist,
         err.AlreadyClockedInError,
         err.StartingShiftTooSoonError,
-    ):
+    ) as e:
         # Re-raise common errors
-        raise
+        raise e
     except Exception as e:
         # Catch-all exception
         logger.error(
             f"Failed to clock in employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        raise
+        raise e
 
 
 def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
@@ -171,7 +171,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             employee.clocked_in = False
             employee.save()
 
-            time = now()
+            time = localtime(now())
             activity.logout_timestamp = time
             activity.logout_time = util.round_datetime_minute(
                 time
@@ -191,7 +191,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         err.StartingShiftTooSoonError,
     ) as e:
         # Re-raise common errors
-        raise
+        raise e
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
@@ -202,7 +202,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         logger.error(
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        raise
+        raise e
 
 
 def get_employee_clocked_info(employee_id: int) -> dict:
@@ -247,7 +247,7 @@ def get_employee_clocked_info(employee_id: int) -> dict:
         return info
 
     except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
-        raise  # Re-raise error to be caught in view
+        raise e  # Re-raise error to be caught in view
     except Exception as e:
         # Catch-all exception
         logger.error(
@@ -340,7 +340,7 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
             return False
 
         # Calculate the time difference between the last clock-out and the attempted clock-in
-        time_diff = now() - last_activity.logout_timestamp
+        time_diff = localtime(now()) - last_activity.logout_timestamp
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):
@@ -354,13 +354,14 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
         )
 
 
-def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
+def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 15) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.
 
     Args:
         employee_id (int): The ID of the employee.
-        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 10m)
+        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 15m)
+                          Ensure this value equals that of the rounding minutes for shift lengths.
 
     Returns:
         bool: Returns True if the employee is trying to clock out too soon, otherwise False.
@@ -378,7 +379,7 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
             return False
 
         # Calculate the time difference between the last clock-in/out and the attempted action
-        time_diff = now() - last_activity.login_timestamp
+        time_diff = localtime(now()) - last_activity.login_timestamp
 
         # Check if the time difference is less than the allowed time gap (x_minutes)
         if time_diff < timedelta(minutes=limit_mins):
@@ -390,3 +391,32 @@ def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 10) -> bool:
         raise Exception(
             f"Error checking if employee {employee_id} is attempting to clock in/out too soon: {str(e)}"
         )
+
+
+def is_active_account(employee_id: int) -> bool:
+    """
+    Check if an account with the id is active or inactive.
+
+    Args:
+        employee_id (int): The ID of the employee.
+
+    Returns:
+        bool: True if the account is active, False otherwise.
+    """
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        # Check employee is not inactive
+        if employee.is_active:
+            return True
+
+        return False
+
+    except User.DoesNotExist as e:
+        raise e  # Re-raise error to be caught in view
+    except Exception as e:
+        # Catch-all exception
+        logger.error(
+            f"Failed to check if account is active with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        raise e  # Re-raise error to be caught in view

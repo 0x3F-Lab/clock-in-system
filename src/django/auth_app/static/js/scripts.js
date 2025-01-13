@@ -16,7 +16,50 @@ function showNotification(message, type = "warning") {
   }, 5000);
 }
 
+
+// Function to hash a string for API calls (i.e. passwords)
+async function hashString(string) {
+  // Static salt to be appended to string for increased security
+  const salt = "ThZQssm2xst0K8yVCNHCtMiKUp9IJk6A";
+  const saltedString = string + salt;
+
+  // Perform SHA-256 hashing
+  const encoder = new TextEncoder();
+  const data = encoder.encode(saltedString);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  // Convert the hash to Base64
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const base64Hash = btoa(String.fromCharCode(...hashArray));
+
+  return base64Hash;
+}
+
+
+// Get the required cookie from document
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      // Does this cookie string begin with the name we want?
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+
 document.addEventListener("DOMContentLoaded", () => {
+    // Access Django-generated URLs
+    const listEveryEmployeeDetailsURL = window.djangoURLs.listEveryEmployeeDetails
+    const listSingularEmployeeDetailsURL = window.djangoURLs.listSingularEmployeeDetails
+    const rawDataLogsURL = window.djangoURLs.rawDataLogs
+
     // --- Employee Details Section ---
     const employeeTableElement = document.getElementById("employeeTable");
     const editModal = document.getElementById("editModal");
@@ -34,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Fetch and display employees
         const fetchEmployees = () => {
-            fetch("/api/employees/", {
+            fetch(listEveryEmployeeDetailsURL, {
                 headers: { "Accept": "application/json" },
             })
                 .then((res) => {
@@ -83,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Open the edit modal
         const openEditModal = (id) => {
-            fetch(`/api/employees/${id}/`, {
+            fetch(`${listSingularEmployeeDetailsURL}${id}/`, {
                 headers: { "Accept": "application/json" },
             })
                 .then((res) => {
@@ -120,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 pin: document.getElementById("editPin").value,
             };
             
-            fetch(`/api/employees/${id}/`, {
+            fetch(`${listSingularEmployeeDetailsURL}${id}/`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -153,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		const rawDataTbody = rawDataTableElement.querySelector("tbody");
 
 		const fetchRawDataLogs = () => {
-			fetch("/api/raw-data-logs/", {
+			fetch(rawDataLogsURL, {
 				headers: { "Accept": "application/json" },
 			})
 				.then((res) => {

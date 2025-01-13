@@ -5,20 +5,23 @@ from rest_framework import status
 import api.utils as util
 import api.controllers as controllers
 import api.exceptions as err
-
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from auth_app.models import User, Activity
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
-
 from rest_framework.renderers import JSONRenderer
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from auth_app.utils import manager_required
+from django.contrib.auth.decorators import login_required
 
 import json
 from django.db.models import Sum, F, Case, When, DecimalField
 from datetime import datetime, timezone, time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
-
 
 logger = logging.getLogger("api")
 
@@ -125,7 +128,9 @@ def raw_data_logs_view(request):
 
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
+# @manager_required
 def employee_details_view(request, id=None):
+    logger.error(f"test: {request.user}")
     if request.method == "GET":
         if request.headers.get("Accept") == "application/json":
             # JSON response logic here (unchanged)
@@ -233,34 +238,18 @@ def clock_in(request, id):
         location_lat = request.data.get("location_latitude", None)
         location_long = request.data.get("location_longitude", None)
 
-        # Check to see they exist
-        if (location_lat is None) or (location_long is None):
-            raise err.MissingLocationDataError
+        # Perform general checks on location data (and if its close to store)
+        if not util.check_location_data(
+            location_lat=location_lat, location_long=location_long
+        ):
+            raise err.InvalidLocationError
 
-        # Convert to floats
-        try:
-            location_lat = float(location_lat)
-            location_long = float(location_long)
-        except ValueError:
-            return Response(
-                {"Error": "Invalid location values."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Get hashed pin to check they're authorised
+        pin = request.data.get("pin", None)
 
-        # Get store location and allowable distance
-        (store_lat, store_long) = controllers.get_store_location()
-        allowable_dist = controllers.get_clocking_range_limit()
-
-        # Obtain distance of user from store
-        dist = util.get_distance_from_lat_lon_in_m(
-            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
-        )
-
-        if dist > allowable_dist:
-            return Response(
-                {"Error": "Not close enough to the store to clock in."},
-                status=status.HTTP_406_NOT_ACCEPTABLE,
-            )
+        # Perform checks against pin in database
+        if not util.check_pin_hash(employee_id=id, pin=pin):
+            raise err.InvalidPinError
 
         # Clock the user in
         activity = controllers.handle_clock_in(employee_id=id)
@@ -275,6 +264,30 @@ def clock_in(request, id):
         return Response(
             {"Error": "Missing location data in request."},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.BadLocationDataError:
+        # If the location data is incorrectly formed (not a float)
+        return Response(
+            {"Error": "Invalid location values."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidLocationError:
+        # If the request was performed outside the store's range
+        return Response(
+            {"Error": "Not close enough to the store to clock in."},
+            status=status.HTTP_406_NOT_ACCEPTABLE,
+        )
+    except err.MissingPinError:
+        # If the request is missing the authentication pin
+        return Response(
+            {"Error": "Missing authentication pin in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidPinError:
+        # If the authentication pin is invalid
+        return Response(
+            {"Error": "Invalid authentication pin."},
+            status=status.HTTP_401_UNAUTHORIZED,
         )
     except err.AlreadyClockedInError:
         # If the user is already clocked in
@@ -321,34 +334,18 @@ def clock_out(request, id):
         location_lat = request.data.get("location_latitude", None)
         location_long = request.data.get("location_longitude", None)
 
-        # Check to see they exist
-        if (location_lat is None) or (location_long is None):
-            raise err.MissingLocationDataError
+        # Perform general checks on location data (and if its close to store)
+        if not util.check_location_data(
+            location_lat=location_lat, location_long=location_long
+        ):
+            raise err.InvalidLocationError
 
-        # Convert to floats
-        try:
-            location_lat = float(location_lat)
-            location_long = float(location_long)
-        except ValueError:
-            return Response(
-                {"Error": "Invalid location values."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Get hashed pin to check they're authorised
+        pin = request.data.get("pin", None)
 
-        # Get store location and allowable distance
-        (store_lat, store_long) = controllers.get_store_location()
-        allowable_dist = controllers.get_clocking_range_limit()
-
-        # Obtain distance of user from store
-        dist = util.get_distance_from_lat_lon_in_m(
-            lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
-        )
-
-        if dist > allowable_dist:
-            return Response(
-                {"Error": "Not close enough to the store to clock out."},
-                status=status.HTTP_406_NOT_ACCEPTABLE,
-            )
+        # Perform checks against pin in database
+        if not util.check_pin_hash(employee_id=id, pin=pin):
+            raise err.InvalidPinError
 
         # Clock the user out
         activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
@@ -361,6 +358,30 @@ def clock_out(request, id):
         return Response(
             {"Error": "Missing location data in request."},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.BadLocationDataError:
+        # If the location data is incorrectly formed (not a float)
+        return Response(
+            {"Error": "Invalid location values."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidLocationError:
+        # If the request was performed outside the store's range
+        return Response(
+            {"Error": "Not close enough to the store to clock out."},
+            status=status.HTTP_406_NOT_ACCEPTABLE,
+        )
+    except err.MissingPinError:
+        # If the request is missing the authentication pin
+        return Response(
+            {"Error": "Missing authentication pin in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidPinError:
+        # If the authentication pin is invalid
+        return Response(
+            {"Error": "Invalid authentication pin."},
+            status=status.HTTP_401_UNAUTHORIZED,
         )
     except err.AlreadyClockedOutError:
         # If the user is already clocked out.
@@ -581,3 +602,110 @@ def reset_summary_view(request):
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
+
+
+@api_view(["POST", "PUT"])
+def change_pin(request, id):
+    try:
+        # Get new pin
+        new_pin = request.data.get("new_pin", None)
+
+        # Check if new pin exists
+        if new_pin is None:
+            return Response(
+                {"Error": "Missing new authentication pin."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get hashed pin to check they're authorised
+        old_pin = request.data.get("old_pin", None)
+
+        # Perform checks against pin in database
+        if not util.check_pin_hash(employee_id=id, hashed_pin=old_pin):
+            raise err.InvalidPinError
+
+        # Update the pin
+        employee = User.objects.get(id=id)
+        employee.set_pin(raw_pin=new_pin)
+        employee.save()
+
+        return Response(
+            {"Success": f"Pin for account ID {id} has been updated."},
+            status=status.HTTP_200_OK,
+        )
+
+    except err.MissingPinError:
+        # If the request is missing the authentication pin
+        return Response(
+            {"Error": "Missing authentication pin in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidPinError:
+        # If the authentication pin is invalid
+        return Response(
+            {"Error": "Invalid authentication pin."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveUserError:
+        # If the user is trying to change pin of an inactive account
+        return Response(
+            {"Error": "Cannot change the pin of an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        # General error capture
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST", "PUT"])
+def active_employee_account(request, id):
+    try:
+        # Get new pin
+        new_pin = request.data.get("new_pin", None)
+
+        # Check if new pin exists
+        if new_pin is None:
+            return Response(
+                {"Error": "Missing new authentication pin."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check employee is already active
+        employee = User.objects.get(id=id)
+        if employee.is_active:
+            return Response(
+                {"Error": "Account is already active."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Set their pin and activate account
+        employee.set_pin(raw_pin=new_pin)
+        employee.is_active = True
+        employee.save()
+
+        return Response(
+            {"Success": f"Account ID {id} has been activated with a new pin."},
+            status=status.HTTP_200_OK,
+        )
+
+    except User.DoesNotExist:
+        # If the user is not found, return 404
+        return Response(
+            {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # General error capture
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

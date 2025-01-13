@@ -4,10 +4,14 @@ let userSelected = false; // Track when the user selects an employee
 
 $(document).ready(function() {
   // Access Django-generated URLs
-	const listEmployeesUrl = window.djangoUrls.listEmployees;
-	const clockedStateUrl = window.djangoUrls.clockedState;
-	const clockInUrl = window.djangoUrls.clockIn;
-	const clockOutUrl = window.djangoUrls.clockOut;
+	const listEmployeeNamesURL = window.djangoURLs.listEmployeeNames;
+	const clockedStateURL = window.djangoURLs.clockedState;
+	const clockInURL = window.djangoURLs.clockIn;
+	const clockOutURL = window.djangoURLs.clockOut;
+
+  if (listEmployeeNamesURL === undefined || clockedStateURL === undefined || clockInURL === undefined || clockOutURL === undefined) {
+    console.error("API URLs are not set correctly.");
+  }
 
   // Disable buttons until they are required
   $("#clockButton").prop("disabled", true);
@@ -15,17 +19,30 @@ $(document).ready(function() {
   $("#plusButton").prop("disabled", true);
 
   // Populate the modal user list
-  populateModalUserList(listEmployeesUrl);
+  populateModalUserList(listEmployeeNamesURL);
 
   // Handle user selection modal
-  handleUserSelectionModal(clockedStateUrl);
+  handleUserSelectionModal(clockedStateURL);
 
   // Handle deliveries adjustment
   handleDeliveryAdjustments();
 
+  // Focus on PIN input when the PIN modal is shown
+  $("#authPinModal").on("shown.bs.modal", function () {
+    $("#authPinInput").trigger("focus");
+  });
+
+  // Remove focus from PIN input when the PIN modal is hidden
+  $("#authPinModal").on("hidden.bs.modal", function () {
+    $("#authPinInput").blur();
+  });
+
   // Add listener for when clock in/out button is clicked
-  $("#clockButton").click(function() {
-    toggleClock(clockInUrl, clockOutUrl);
+  $("#clockButton").click(async function() {
+    const pin = await requestPin(); // Get the PIN from the user
+    if (pin) {
+      toggleClock(clockInURL, clockOutURL, pin); // Pass the PIN to toggleClock
+    }
   });
 
   // Start Updating Local Time
@@ -37,8 +54,8 @@ $(document).ready(function() {
 ////// FUNCTIONS //////
 
 // Populate the modal with the user list
-function populateModalUserList(listEmployeesUrl) {
-  $.get(listEmployeesUrl, function (data) {
+function populateModalUserList(listEmployeeNamesURL) {
+  $.get(listEmployeeNamesURL, function (data) {
       const $userList = $("#userList");
       data.forEach(employee => {
           $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
@@ -57,7 +74,7 @@ function populateModalUserList(listEmployeesUrl) {
 
 
 // Handle user selection from the modal
-function handleUserSelectionModal(clockedStateUrl) {
+function handleUserSelectionModal(clockedStateURL) {
   // Open modal on "Select User" button click
   $("#selectUserButton").click(function () {
       const userModal = new bootstrap.Modal(document.getElementById("userModal"));
@@ -76,7 +93,7 @@ function handleUserSelectionModal(clockedStateUrl) {
         .attr("data-id", userID); // Also add it to the DOM
 
       // Fetch clocked-in state for the selected user (and updates buttons)
-      fetchClockedState(clockedStateUrl, userID);
+      fetchClockedState(clockedStateURL, userID);
 
       // Update selected state
       userSelected = true
@@ -84,6 +101,16 @@ function handleUserSelectionModal(clockedStateUrl) {
       // Close the modal
       const userModal = bootstrap.Modal.getInstance(document.getElementById("userModal"));
       userModal.hide();
+  });
+
+  // Focus on search input when the user selection modal is shown
+  $("#userModal").on("shown.bs.modal", function () {
+    $("#userSearchBar").trigger("focus");
+  });
+
+  // Remove focus from search input when the user selection modal is hidden
+  $("#userModal").on("hidden.bs.modal", function () {
+    $("#userSearchBar").blur();
   });
 
   // Search functionality in the modal
@@ -101,9 +128,9 @@ function handleUserSelectionModal(clockedStateUrl) {
 
 
 // Fetch clocked-in state for a user
-function fetchClockedState(clockedStateUrl, userID) {
+function fetchClockedState(clockedStateURL, userID) {
   if (userID) {
-      $.get(`${clockedStateUrl}${userID}/`, function (data) {
+      $.get(`${clockedStateURL}${userID}/`, function (data) {
           clockedIn = data.clocked_in;
 
           // Update buttons and info
@@ -159,7 +186,7 @@ function handleDeliveryAdjustments() {
 
 
 // Toggle Clock In/Clock Out
-async function toggleClock(clockInUrl, clockOutUrl) {
+async function toggleClock(clockInURL, clockOutURL, pin) {
   // Ensure cant clock in/out until an employee is selected
   if (!userSelected) { return; }
 
@@ -179,7 +206,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
   if (!clockedIn) {
     // Clocking in
     $.ajax({
-      url: `${clockInUrl}${userID}/`,
+      url: `${clockInURL}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {
@@ -188,6 +215,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
       data: JSON.stringify({
         location_latitude: userLat,
         location_longitude: userLon,
+        pin: pin,
       }),
 
       success: function(data) {
@@ -197,6 +225,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
           updateShiftInfo(startTime=data.login_time);
 
           updateClockButtonState();
+          showNotification("Successfully clocked in.", "success");
       },
 
       error: function(jqXHR, textStatus, errorThrown) {
@@ -214,7 +243,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
   } else {
     // Clocking out
     $.ajax({
-      url: `${clockOutUrl}${userID}/`,
+      url: `${clockOutURL}${userID}/`,
       type: "PUT",
       contentType: "application/json",
       headers: {
@@ -224,6 +253,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
         location_latitude: userLat,
         location_longitude: userLon,
         deliveries: deliveries,
+        pin: pin,
       }),
 
       success: function(data) {
@@ -234,6 +264,7 @@ async function toggleClock(clockInUrl, clockOutUrl) {
 
         $("#deliveriesCount").text("0"); // Reset deliveries after clock out
         updateClockButtonState();
+        showNotification("Successfully clocked out.", "success");
       },
 
       error: function(jqXHR, textStatus, errorThrown) {
@@ -248,6 +279,40 @@ async function toggleClock(clockInUrl, clockOutUrl) {
       }
     });
   }
+}
+
+
+// Request PIN from the user
+async function requestPin() {
+  return new Promise((resolve) => {
+      const pinModalElement = document.getElementById("authPinModal");
+      const pinModal = new bootstrap.Modal(pinModalElement);
+      pinModal.show();
+
+      // Handle PIN submission
+      $("#authPinSubmit").off("click").on("click", async function () {
+          const pin = $("#authPinInput").val().trim();
+
+          // Close the modal after the user enters a PIN
+          pinModal.hide();
+
+          // Clear the input field for future use
+          $("#authPinInput").val("");
+
+          if (pin) {
+            //const hashedPin = await hashString(pin);
+            resolve(pin); // Resolve the promise with the PIN
+          } else {
+            resolve(null); // Resolve with null if no PIN was entered
+          }
+      });
+
+      // Optionally handle PIN modal dismissal without entering a PIN
+      $("#authPinModal").on("hidden.bs.modal", function () {
+          $("#authPinInput").blur(); // Take focus off PIN input
+          resolve(null); // Resolve with null if the modal is dismissed
+      });
+  });
 }
 
 
@@ -306,24 +371,6 @@ function formatTime(text) {
   const options = { hour: 'numeric', minute: 'numeric', hour12: true };
   
   return new Intl.DateTimeFormat('en-US', options).format(date);
-}
-
-
-// Get the required cookie from document
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      // Does this cookie string begin with the name we want?
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
 }
 
 
