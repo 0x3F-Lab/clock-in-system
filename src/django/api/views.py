@@ -725,10 +725,12 @@ def verify_employee_pin(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Fetch the stored PIN from KeyValueStore
         stored_pin_entry = KeyValueStore.objects.filter(key="employee_pin").first()
 
         if stored_pin_entry and entered_pin == stored_pin_entry.value:
-            # PIN is correct
+            # Set session flag to indicate PIN has been validated
+            request.session["pin_verified"] = True
             return Response({"success": True}, status=status.HTTP_200_OK)
         else:
             # PIN is incorrect

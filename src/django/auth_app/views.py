@@ -5,6 +5,7 @@ from django.db import IntegrityError
 from django.contrib import messages
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
+from django.urls import reverse
 
 logger = logging.getLogger("auth_app")
 
@@ -55,6 +56,18 @@ def employee_login(request):
     return redirect("employee_dashboard")
 
 
+def pin_required(view_func):
+    def wrapper(request, *args, **kwargs):
+        # Check if the PIN has been validated in the session
+        if not request.session.get("pin_verified", False):
+            # Redirect to the login page if PIN is not verified
+            return redirect(reverse("login"))
+        return view_func(request, *args, **kwargs)
+
+    return wrapper
+
+
+@pin_required
 def employee_dashboard(request):
     # Render employee dashboard
     return render(request, "auth_app/employee_dashboard.html")
