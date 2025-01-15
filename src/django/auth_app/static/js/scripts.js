@@ -240,3 +240,31 @@ document.addEventListener("DOMContentLoaded", () => {
     fetchRawDataLogs();
 	}
 });
+
+$(document).ready(function() {
+    const pinModal = new bootstrap.Modal($('#pinModal'));
+
+    $("#employee-login-btn").click(function() {
+        pinModal.show();
+    });
+
+    $("#submit-pin").click(function() {
+        const enteredPin = $("#pin-input").val();
+
+        $.ajax({
+            url: '/api/verify_pin/',
+            type: 'POST',
+            data: {
+                pin: enteredPin,
+                csrfmiddlewaretoken: getCookie('csrftoken')
+            },
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = "/employee_dashboard/";
+                } else {
+                    $("#pin-error").show();
+                }
+            }
+        });
+    });
+});

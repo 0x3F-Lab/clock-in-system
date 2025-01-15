@@ -6,7 +6,26 @@
 
 <div class="login-box">
     <button onclick="location.href='/manager_login/'">Login as Manager</button>
-    <button onclick="location.href='/employee_login/'">Login as Employee</button>
+    <button id="employee-login-btn">Login as Employee</button>
+</div>
+
+<!-- PIN Modal -->
+<div class="modal fade" id="pinModal" tabindex="-1" aria-labelledby="pinModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pinModalLabel">Enter Employee PIN</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="password" id="pin-input" class="form-control" placeholder="Enter PIN">
+        <div id="pin-error" class="text-danger mt-2" style="display: none;">Invalid PIN. Please try again.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="submit-pin">Submit</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
