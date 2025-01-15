@@ -710,6 +710,7 @@ def active_employee_account(request, id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
 @api_view(["POST"])
 def verify_employee_pin(request):
     """
@@ -721,7 +722,7 @@ def verify_employee_pin(request):
         if not entered_pin:
             return Response(
                 {"success": False, "error": "PIN is required."},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         stored_pin_entry = KeyValueStore.objects.filter(key="employee_pin").first()
@@ -733,12 +734,12 @@ def verify_employee_pin(request):
             # PIN is incorrect
             return Response(
                 {"success": False, "error": "Invalid PIN."},
-                status=status.HTTP_401_UNAUTHORIZED
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
     except Exception as e:
         logger.error(f"Error verifying PIN: {str(e)}")
         return Response(
             {"success": False, "error": "Internal server error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

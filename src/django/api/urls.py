@@ -24,5 +24,5 @@ urlpatterns = [
     # HTML page that uses JS to fetch from the above API
     path("weekly-summary-page/", views.weekly_summary_page, name="weekly_summary_page"),
     path("reset-summary/", views.reset_summary_view, name="reset_summary_view"),
-    path('verify_pin/', views.verify_employee_pin, name='verify_pin')
+    path("verify_pin/", views.verify_employee_pin, name="verify_pin"),
 ]
