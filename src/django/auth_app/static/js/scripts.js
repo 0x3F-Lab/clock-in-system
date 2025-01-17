@@ -259,11 +259,16 @@ $(document).ready(function() {
                 csrfmiddlewaretoken: getCookie('csrftoken')
             },
             success: function(response) {
-                if (response.success) {
-                    window.location.href = "/employee_dashboard/";
-                } else {
-                    $("#pin-error").show();
-                }
+                window.location.href = "/employee_dashboard/";
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+              let errorMessage;
+              if (jqXHR.status == 500) {
+                errorMessage = "Failed to authorise due to internal errors. Please try again.";
+              } else {
+                errorMessage = jqXHR.responseJSON?.Error || "Failed to authorise. Please try again.";
+              }
+              showNotification(errorMessage, "danger");
             }
         });
     });

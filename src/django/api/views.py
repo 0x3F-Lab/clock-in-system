@@ -720,13 +720,20 @@ def verify_employee_pin(request):
         entered_pin = request.data.get("pin")
 
         if not entered_pin:
-            return Response(
-                {"success": False, "error": "PIN is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise err.MissingPinError
 
         # Fetch the stored PIN from KeyValueStore
         stored_pin_entry = KeyValueStore.objects.filter(key="employee_pin").first()
+
+        # Check it exists
+        if stored_pin_entry is None:
+            logger.critical(
+                "Database is missing `employee_pin` from the key-value store. Please run the database script."
+            )
+            return Response(
+                {"Error": "Internal error."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         if stored_pin_entry and entered_pin == stored_pin_entry.value:
             # Set session flag to indicate PIN has been validated
@@ -734,14 +741,21 @@ def verify_employee_pin(request):
             return Response({"success": True}, status=status.HTTP_200_OK)
         else:
             # PIN is incorrect
-            return Response(
-                {"success": False, "error": "Invalid PIN."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            raise err.InvalidPinError
 
+    except err.MissingPinError:
+        return Response(
+            {"Error": "Missing authentication pin in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.InvalidPinError:
+        return Response(
+            {"Error": "Invalid PIN."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
     except Exception as e:
         logger.error(f"Error verifying PIN: {str(e)}")
         return Response(
-            {"success": False, "error": "Internal server error."},
+            {"Error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
