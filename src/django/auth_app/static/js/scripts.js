@@ -254,9 +254,11 @@ $(document).ready(function() {
         $.ajax({
             url: '/api/verify_pin/',
             type: 'POST',
+            headers: {
+              'X-CSRFToken': getCookie('csrftoken') // Include CSRF token
+            },
             data: {
                 pin: enteredPin,
-                csrfmiddlewaretoken: getCookie('csrftoken')
             },
             success: function(response) {
                 window.location.href = "/employee_dashboard/";
