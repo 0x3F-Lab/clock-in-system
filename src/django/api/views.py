@@ -712,7 +712,7 @@ def active_employee_account(request, id):
 
 
 @api_view(["POST"])
-def verify_employee_pin(request):
+def verify_global_employee_pin(request):
     """
     Verifies the employee PIN against the stored PIN in KeyValueStore.
     """

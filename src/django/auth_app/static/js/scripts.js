@@ -252,7 +252,7 @@ $(document).ready(function() {
         const enteredPin = $("#pin-input").val();
 
         $.ajax({
-            url: '/api/verify_pin/',
+            url: window.djangoURLs.verifyGlobalPin,
             type: 'POST',
             headers: {
               'X-CSRFToken': getCookie('csrftoken') // Include CSRF token

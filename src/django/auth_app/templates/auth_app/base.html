@@ -38,6 +38,7 @@
             clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
             listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_list' %}",
             listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_detail' 0 %}".slice(0, -2),
+            verifyGlobalPin: "{{ BASE_URL }}{% url 'api:verify_global_pin' %}",
           };
     </script>
     <!-- Custom page scripts -->
