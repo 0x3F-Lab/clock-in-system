@@ -1,28 +1,50 @@
 {% extends "auth_app/base.html" %}
 {% block title %}Pizza Clock-in || Raw Data Logs{% endblock %}
+
 {% block content %}
-
 <h1>Raw Data Logs</h1>
-
 <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
 
 <table id="rawDataTable">
-    <thead>
-        <tr>
-            <th>Staff Name</th>
-            <th>Rounded Login Time</th>
-            <th>Rounded Logout Time</th>
-            <th>Is Public Holiday</th>
-            <th>Exact Login Timestamp</th>
-            <th>Exact Logout Timestamp</th>
-            <th>Deliveries</th>
-            <th>Hours Worked</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Rows will be populated dynamically -->
-    </tbody>
+  <thead>
+    <tr>
+      <th>Staff Name</th>
+      <th>Rounded Login Time</th>
+      <th>Rounded Logout Time</th>
+      <th>Is Public Holiday</th>
+      <th>Exact Login Timestamp</th>
+      <th>Exact Logout Timestamp</th>
+      <th>Deliveries</th>
+      <th>Hours Worked</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
 </table>
 
-{% endblock %}
+<!-- EDIT Activity Modal -->
+<div id="editActivityModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <h2>Edit Activity</h2>
+    <form id="editActivityForm">
+      {% csrf_token %}
+      <input type="hidden" id="editActivityId">
 
+      <label for="editLoginTime">Login Time (rounded):</label>
+      <input type="datetime-local" id="editLoginTime">
+
+      <label for="editLogoutTime">Logout Time (rounded):</label>
+      <input type="datetime-local" id="editLogoutTime">
+
+      <label for="editIsPublicHoliday">Is Public Holiday?</label>
+      <input type="checkbox" id="editIsPublicHoliday" value="true">
+
+      <label for="editDeliveries">Deliveries:</label>
+      <input type="number" id="editDeliveries" min="0">
+
+      <button type="submit">Save Changes</button>
+      <button type="button" id="closeEditModal">Cancel</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
