@@ -1,6 +1,9 @@
 import math
+import api.exceptions as err
+import api.controllers as controllers
 from datetime import datetime, timedelta
 from django.utils.timezone import now
+from auth_app.models import User
 
 
 # Function to check if a given date is a public holiday
@@ -91,3 +94,61 @@ def get_distance_from_lat_lon_in_m(
 
     # Return the distance
     return R * c
+
+
+def check_location_data(location_lat, location_long) -> bool:
+    """
+    Check the location data given is close enough to the store
+
+    Args:
+        lat: Latitude of the user.
+        lon: Longitude of the user.
+
+    Returns:
+        bool: True if the user is close enough to the store, False otherwise.
+    """
+    # Check to see they exist
+    if (location_lat is None) or (location_long is None):
+        raise err.MissingLocationDataError
+
+    # Convert to location floats
+    try:
+        location_lat = float(location_lat)
+        location_long = float(location_long)
+    except ValueError:
+        raise err.BadLocationDataError
+
+    # Get store location and allowable distance
+    (store_lat, store_long) = controllers.get_store_location()
+    allowable_dist = controllers.get_clocking_range_limit()
+
+    # Obtain distance of user from store
+    dist = get_distance_from_lat_lon_in_m(
+        lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+    )
+
+    if dist > allowable_dist:
+        return False
+
+    # Return True on successful location data check
+    return True
+
+
+def check_pin_hash(employee_id: bool, pin) -> bool:
+    # Check if pin was given
+    if pin is None:
+        raise err.MissingPinError
+
+    # Get employee
+    employee = User.objects.get(id=employee_id)
+
+    # Check that they aren't inactive
+    if not employee.is_active:
+        raise err.InactiveUserError
+
+    # Check if pin is valid
+    if not employee.check_pin(raw_pin=pin):
+        return False
+
+    # Return True on successful pin check
+    return True
