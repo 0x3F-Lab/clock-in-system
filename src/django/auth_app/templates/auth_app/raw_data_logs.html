@@ -26,3 +26,8 @@
 
 {% endblock %}
 
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/raw_data_logs.js' %}"></script>
+{% endblock %}

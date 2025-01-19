@@ -10,11 +10,11 @@
 </div>
 
 <!-- PIN Modal -->
-<div class="modal fade" id="pinModal" tabindex="-1" aria-labelledby="pinModalLabel" aria-hidden="true">
+<div class="modal fade" id="globalPinModal" tabindex="-1" aria-labelledby="globalPinModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="pinModalLabel">Enter Employee PIN</h5>
+        <h5 class="modal-title" id="globalPinModalLabel">Enter Employee PIN</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -28,4 +28,10 @@
   </div>
 </div>
 
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/general_login.js' %}"></script>
 {% endblock %}
