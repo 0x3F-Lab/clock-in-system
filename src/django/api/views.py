@@ -14,7 +14,7 @@ from rest_framework.renderers import JSONRenderer
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
-from django.utils.timezone import now, localtime, make_aware, utc
+from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
 
