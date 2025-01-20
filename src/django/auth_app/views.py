@@ -59,4 +59,3 @@ def employee_login(request):
 def employee_dashboard(request):
     # Render employee dashboard
     return render(request, "auth_app/employee_dashboard.html")
-

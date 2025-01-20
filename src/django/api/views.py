@@ -241,6 +241,7 @@ def employee_details_view(request, id=None):
         {"Error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
     )
 
+
 @manager_required
 def employee_details_page(request):
     """
@@ -623,6 +624,7 @@ def reset_summary_view(request):
         {"message": "Weekly summary reset successfully", "reset_date": today_str},
         status=status.HTTP_200_OK,
     )
+
 
 @manager_required
 def weekly_summary_page(request):
