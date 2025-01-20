@@ -51,10 +51,17 @@
             -->
           </ul>
           
-          <!-- Login button (Top Right) -->
+          <!-- Right side of the navbar -->
           <div class="d-flex">
-            <a href="/manager_login/" class="btn btn-outline-light">Login</a>
+            {% if request.session.user_id %}
+                <!-- If the user is in session, show Logout -->
+                <a href="{% url 'logout' %}" class="btn btn-outline-light">Logout</a>
+            {% else %}
+                <!-- Otherwise, show Login -->
+                <a href="{% url 'manager_login' %}" class="btn btn-outline-light">Login</a>
+            {% endif %}
           </div>
+
         </div>
       </div>
     </nav>
