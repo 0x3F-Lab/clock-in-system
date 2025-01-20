@@ -78,7 +78,11 @@ def list_users_name_view(request):
 def raw_data_logs_view(request):
     if request.method == "GET":
         if request.headers.get("Accept") == "application/json":
-            activities = Activity.objects.all().select_related("employee_id")
+            activities = (
+                Activity.objects.all()
+                .select_related("employee_id")
+                .order_by("-login_timestamp")
+            )
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
