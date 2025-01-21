@@ -1,0 +1,421 @@
+/* Center the login box on the page */
+body, html {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #1a202c; /* Dark background */
+    color: #f4f4f9; /* Light text color */
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Container for login box */
+.login-container {
+    text-align: center;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Login title */
+.login-container h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #333;
+}
+
+/* Login buttons */
+.login-box button {
+    width: 200px;
+    padding: 12px;
+    margin: 10px;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    color: white;
+    background-color: #4CAF50;
+    transition: background-color 0.3s ease;
+}
+
+.login-box button:hover {
+    background-color: #45a049;
+}
+
+.login-box button:focus {
+    outline: none;
+}
+
+/* Manager Dashboard Styles */
+.dashboard-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: transparent; /* Remove the black background */
+}
+
+.dashboard-container h1 {
+    font-size: 3rem;
+    color: #333;
+    margin-bottom: 40px;
+}
+
+/* Buttons for manager dashboard */
+.button-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Adds vertical spacing between buttons */
+}
+
+.button-container button {
+    width: 400px;
+    padding: 20px;
+    font-size: 1.8rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.button-container button:hover {
+    background-color: #45a049;
+}
+
+.button-container button:focus {
+    outline: none;
+}
+
+/* Employee Dashboard container */
+.employee-dashboard {
+    display: flex;
+    flex-direction: column; /* Stack panels vertically */
+    justify-content: center;
+    align-items: center;
+    width: 100%; /* Make it slightly wider */
+    max-width: 1500px; /* Limit the maximum width */
+    gap: 30px; /* Add spacing between the panels */
+}
+
+/* Left panel styling */
+.left-panel {
+    text-align: center; /* Center align text for stacked layout */
+    width: 100%; /* Make it stretch across the container */
+    padding: 20px;
+}
+
+.left-panel h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: #f4f4f9;
+}
+
+.left-panel p {
+    font-size: 1.2rem;
+    margin: 10px 0;
+}
+
+/* Dropdown Styling */
+.left-panel label {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    display: block;
+    color: #f4f4f9;
+}
+
+.left-panel select {
+    width: 100%;
+    padding: 10px;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: #2d3748;
+    color: white;
+    appearance: none;
+    cursor: pointer;
+}
+
+.left-panel select:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+/* Right panel styling */
+.right-panel {
+    text-align: center;
+    width: 100%; /* Make it stretch across the container */
+    background-color: #2d3748; /* Card-like background */
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Deliveries section */
+.deliveries {
+    font-size: 1.5rem;
+    margin-top: 20px;
+    color: #f4f4f9;
+}
+
+.deliveries button {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    margin: 0 10px;
+    background-color: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.deliveries button:hover {
+    background-color: #718096;
+}
+
+.deliveries button:disabled {
+    background-color: #2d3748;
+    cursor: not-allowed;
+}
+
+.deliveries span {
+    font-size: 1.8rem;
+    margin: 0 10px;
+    display: inline-block;
+}
+
+/* Styling for the login form */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Form group styling */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.form-group label {
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.form-group input {
+    width: 90%;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+/* Login button styling */
+.login-button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1.2rem;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+    background-color: #45a049;
+}
+
+.login-button:focus {
+    outline: none;
+}
+
+/* Styling for messages */
+.message {
+    margin-top: 20px;
+    font-size: 1rem;
+    color: #e53e3e;
+    text-align: center;
+}
+
+
+.container {
+    margin: 20px auto;
+    width: 80%;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+thead {
+    background-color: #4CAF50;
+    color: white;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+
+th {
+    cursor: pointer;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 5px;
+    width: 50%;
+}
+
+
+
+/* Notification styling */
+#notification-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1050;
+  max-width: 300px;
+  width: 100%;
+}
+
+.alert {
+  margin-bottom: 10px;
+  border-radius: 5px;
+}
+
+.alert-dismissible .close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+/* 
+  =====================================
+    Styling the weekly summary filtering options
+  =====================================
+*/
+.filter-card {
+    margin-bottom: 30px;
+    padding: 25px;
+    border: 2px solid #ccc;
+    border-radius: 12px;
+    background-color: #2d3748;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+  
+  .filter-card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #f4f4f9;
+    text-align: left;
+  }
+  
+
+  .filter-group-inline {
+    display: flex;
+    gap: 30px;            
+    margin-bottom: 20px;    
+    flex-wrap: wrap;       
+  }
+  
+  .inline-field {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+  
+  .filter-group label,
+  .inline-field label,
+  .filter-group-inline label {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #f4f4f9;
+    margin-bottom: 10px;
+  }
+  
+  .filter-group input[type="date"],
+  .filter-group input[type="text"],
+  .inline-field input[type="date"] {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1.1rem;
+    background-color: #f4f4f9;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .filter-group input[type="text"]::placeholder {
+    color: #888;
+  }
+  
+
+  .filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; 
+    margin-top: 10px;
+  }
+  
+  .filter-card button {
+    padding: 14px 28px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .filter-card button:hover {
+    background-color: #45a049;
+  }
+  
+  .filter-card button:focus {
+    outline: none;
+  }

@@ -1,13 +1,11 @@
-from typing import List, Tuple
 import logging
-from django.shortcuts import get_object_or_404
-from django.utils.timezone import now
-from django.db import transaction
-from rest_framework.response import Response
-from rest_framework import status
-from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer
+import api.exceptions as err
 import api.utils as util
+from typing import List, Tuple
+from datetime import timedelta
+from django.utils.timezone import now, localtime
+from django.db import transaction
+from auth_app.models import User, Activity, KeyValueStore
 
 
 logger = logging.getLogger("api")
@@ -63,7 +61,7 @@ def get_users_name(
     return users_list
 
 
-def handle_clock_in(employee_id: int) -> Response:
+def handle_clock_in(employee_id: int) -> Activity:
     """
     Handles clocking in an employee by ID.
 
@@ -71,7 +69,7 @@ def handle_clock_in(employee_id: int) -> Response:
         employee_id (int): The employee's ID.
 
     Returns:
-        Response: Serialized Activity object or error message.
+        Activity: An activity object containing the information about the clock in.
     """
     try:
         # Start a database transaction (rolls back on error)
@@ -81,50 +79,53 @@ def handle_clock_in(employee_id: int) -> Response:
 
             # Check if already clocked in
             if employee.clocked_in:
-                return Response(
-                    {"Error": "Employee is already clocked in."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise err.AlreadyClockedInError
+
+            # Check if user is inactive
+            elif not employee.is_active:
+                raise err.InactiveUserError
+
+            # Check if the employee is trying to clock in too soon after their last shift (default=30m)
+            if check_new_shift_too_soon(employee_id=employee_id):
+                raise err.StartingShiftTooSoonError
 
             # Update employee clocked-in status
             employee.clocked_in = True
             employee.save()
 
-            time = now()  # Consistent timestamp
+            time = localtime(now())  # Consistent timestamp
 
             # Create Activity record
             activity = Activity.objects.create(
                 employee_id=employee,
                 login_timestamp=time,
                 login_time=util.round_datetime_minute(
-                    time, rounding_mins=1
-                ),  ####################### FOR TESTING SET TO 1MINUTE -- CHANGE BACK LATER
+                    time
+                ),  # Default to round to nearest 15m
                 is_public_holiday=util.is_public_holiday(time),
                 deliveries=0,
             )
 
-            return Response(
-                ActivitySerializer(activity).data, status=status.HTTP_201_CREATED
-            )
+            return activity
 
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {employee_id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+    except (
+        err.AlreadyClockedInError,
+        err.InactiveUserError,
+        User.DoesNotExist,
+        err.AlreadyClockedInError,
+        err.StartingShiftTooSoonError,
+    ) as e:
+        # Re-raise common errors
+        raise e
     except Exception as e:
         # Catch-all exception
         logger.error(
             f"Failed to clock in employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        raise e
 
 
-def handle_clock_out(employee_id: int, deliveries: int) -> Response:
+def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
     """
     Handles clocking out an employee by ID.
 
@@ -133,7 +134,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
         deliveries (int): Number of deliveries made during the shift.
 
     Returns:
-        Response: Serialized Activity object or error message.
+        Activity: An activity object containing the information about the clock out.
     """
     try:
         # Start a database transaction (rolls back on error)
@@ -143,10 +144,11 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
 
             # Check if not clocked in
             if not employee.clocked_in:
-                return Response(
-                    {"Error": "Employee is not clocked in."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                raise err.AlreadyClockedOutError
+
+            # Check if user is inactive
+            elif not employee.is_active:
+                raise err.InactiveUserError
 
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
@@ -154,44 +156,53 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Response:
             ).last()
 
             if not activity:
-                return Response(
-                    {"Error": "No active clock-in record found."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                # Manually update user's state to ensure they dont remain bugged
+                employee.clocked_in = False
+                employee.save()
+
+                # Raise error to inform user
+                raise err.NoActiveClockingRecordError
+
+            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
+            if check_clocking_out_too_soon(employee_id=employee_id):
+                raise err.ClockingOutTooSoonError
 
             # Update employee clocked-out status and Activity record
             employee.clocked_in = False
             employee.save()
 
-            time = now()
+            time = localtime(now())
             activity.logout_timestamp = time
             activity.logout_time = util.round_datetime_minute(
-                time, rounding_mins=1
-            )  ####################### FOR TESTING SET TO 1MINUTE -- CHANGE BACK LATER
+                time
+            )  # Default to round to nearest 15m
             activity.deliveries = deliveries
             activity.shift_length_mins = util.calculate_shift_length_mins(
                 start=activity.login_time, end=activity.logout_time
             )
             activity.save()
 
-            return Response(
-                ActivitySerializer(activity).data, status=status.HTTP_200_OK
-            )
+            return activity
 
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {employee_id}."},
-            status=status.HTTP_404_NOT_FOUND,
+    except (
+        err.AlreadyClockedOutError,
+        User.DoesNotExist,
+        err.InactiveUserError,
+        err.StartingShiftTooSoonError,
+    ) as e:
+        # Re-raise common errors
+        raise e
+    except err.NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        logger.error(
+            f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity). Their clocked state has been reset to ensure they don't remain bugged."
         )
+        raise
     except Exception as e:
         logger.error(
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        raise e
 
 
 def get_employee_clocked_info(employee_id: int) -> dict:
@@ -206,6 +217,10 @@ def get_employee_clocked_info(employee_id: int) -> dict:
     """
     try:
         employee = User.objects.get(id=employee_id)
+
+        # Check employee is not inactive
+        if not employee.is_active:
+            raise err.InactiveUserError
 
         # Form the basic info
         full_name = f"{employee.first_name} {employee.last_name}"
@@ -231,12 +246,177 @@ def get_employee_clocked_info(employee_id: int) -> dict:
 
         return info
 
-    except User.DoesNotExist or Activity.DoesNotExist:
-        # Handle user not existing
-        raise  # Re-raise error to be caught in view
+    except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
+        raise e  # Re-raise error to be caught in view
     except Exception as e:
         # Catch-all exception
         logger.error(
             f"Failed to get clocked information of employee with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        raise e  # Re-raise error to be caught in view
+
+
+def get_store_location() -> tuple[float, float]:
+    """
+    Gets the store's latitude and longitude from the database to be used to check
+    the employee's distance from the store before clocking them in/out.
+
+    Returns:
+        (float, float): The latitude and longitude of the store.
+    """
+    try:
+        # Query the values for the specific keys
+        store_lat = KeyValueStore.objects.get(key="store_latitude").value
+        store_long = KeyValueStore.objects.get(key="store_longitude").value
+
+        # Convert the values to floats (if stored as strings)
+        latitude = float(store_lat)
+        longitude = float(store_long)
+
+        return latitude, longitude
+
+    except KeyValueStore.DoesNotExist:
+        # If the lat or long keys dont exist in the database
+        logger.critical(
+            "Store latitude or longitude does not exist within database. Please run the setup script."
+        )
+        raise
+    except ValueError as e:
+        # If the value stored in the database for the location is not valid
+        logger.critical(
+            "Store latitude or longitude values in the database are not valid. Please run the setup script to correct."
+        )
+        raise ValueError(f"Invalid value for store location: {e}")
+
+
+def get_clocking_range_limit() -> float:
+    """
+    Gets the maximum allowable distance a user can be from the store's location
+    for them to be able to clock in/out.
+
+    Returns:
+        float: The distance in meters the user can be from the store.
+    """
+    try:
+        # Query the value for the allowable distance
+        dist = KeyValueStore.objects.get(key="allowable_clocking_dist_m").value
+
+        # Convert the value to floats (if stored as strings)
+        return float(dist)
+
+    except KeyValueStore.DoesNotExist:
+        # If the lat or long keys dont exist in the database
+        logger.critical(
+            "Allowable distance limit for clocking does not exist within database. Please run the setup script."
+        )
+        raise
+    except ValueError as e:
+        # If the value stored in the database for the location is not valid
+        logger.critical(
+            "Allowable distance limit for clocking in the database is not valid. Please run the setup script to correct."
+        )
+        raise ValueError(f"Invalid value for store location: {e}")
+
+
+def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
+    """
+    Check if the user attempts to start a new shift within time limits of their last clock-out.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        limit_mins (int): The minimum interval in minutes required between clock-out and clock-in. (Default = 30m)
+
+    Returns:
+        bool: Returns True if the employee is trying to clock in too soon after their last clock-out, otherwise False.
+    """
+    try:
+        # Get the last clock-out activity for the employee
+        last_activity = Activity.objects.filter(
+            employee_id=employee_id, logout_timestamp__isnull=False
+        ).last()
+
+        if not last_activity:
+            # No previous clock-out record found, allow clock-in
+            return False
+
+        # Calculate the time difference between the last clock-out and the attempted clock-in
+        time_diff = localtime(now()) - last_activity.logout_timestamp
+
+        # Check if the time difference is less than the allowed time gap (x_minutes)
+        if time_diff < timedelta(minutes=limit_mins):
+            return True
+
+        return False
+
+    except Exception as e:
+        raise Exception(
+            f"Error checking if employee {employee_id} is attempting to start a shift too soon: {str(e)}"
+        )
+
+
+def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 15) -> bool:
+    """
+    Check if the user attempts to clock out within time limits after their last clock-in.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 15m)
+                          Ensure this value equals that of the rounding minutes for shift lengths.
+
+    Returns:
+        bool: Returns True if the employee is trying to clock out too soon, otherwise False.
+    """
+    try:
+        # Get the last activity for the employee
+        last_activity = (
+            Activity.objects.filter(employee_id=employee_id)
+            .order_by("-login_timestamp")
+            .first()
+        )  # Order by latest clock-in/out
+
+        if not last_activity:
+            # No previous clock-in or clock-out record found, allow clock-in
+            return False
+
+        # Calculate the time difference between the last clock-in/out and the attempted action
+        time_diff = localtime(now()) - last_activity.login_timestamp
+
+        # Check if the time difference is less than the allowed time gap (x_minutes)
+        if time_diff < timedelta(minutes=limit_mins):
+            return True
+
+        return False
+
+    except Exception as e:
+        raise Exception(
+            f"Error checking if employee {employee_id} is attempting to clock in/out too soon: {str(e)}"
+        )
+
+
+def is_active_account(employee_id: int) -> bool:
+    """
+    Check if an account with the id is active or inactive.
+
+    Args:
+        employee_id (int): The ID of the employee.
+
+    Returns:
+        bool: True if the account is active, False otherwise.
+    """
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        # Check employee is not inactive
+        if employee.is_active:
+            return True
+
+        return False
+
+    except User.DoesNotExist as e:
+        raise e  # Re-raise error to be caught in view
+    except Exception as e:
+        # Catch-all exception
+        logger.error(
+            f"Failed to check if account is active with ID {employee_id}, resulting in the error: {str(e)}"
         )
         raise e  # Re-raise error to be caught in view

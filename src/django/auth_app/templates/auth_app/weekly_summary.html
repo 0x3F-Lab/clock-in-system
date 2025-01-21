@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weekly Summary</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const summaryTableBody = document.getElementById("summaryTableBody");
+            const startDateInput = document.getElementById("startDate");
+            const endDateInput = document.getElementById("endDate");
+            const fetchButton = document.getElementById("fetchButton");
+            const revertButton = document.getElementById("revertButton");
+            const resetDateInput = document.getElementById("resetDate");
+            const setResetButton = document.getElementById("setResetButton");
+            const employeeIdsInput = document.getElementById("employeeIds");
+
+            function fetchSummary(startDate = null, endDate = null, employeeIds = null) {
+                let url = "/api/weekly-summary/";
+                const params = [];
+                if (startDate && endDate) {
+                    params.push(`start_date=${startDate}`);
+                    params.push(`end_date=${endDate}`);
+                }
+                if (employeeIds) {
+                    params.push(`employee_ids=${employeeIds}`);
+                }
+                if (params.length > 0) {
+                    url += "?" + params.join("&");
+                }
+
+                fetch(url, { headers: { "Accept": "application/json" }})
+                .then(response => response.json())
+                .then(data => {
+                    summaryTableBody.innerHTML = "";
+                    if (data.length === 0) {
+                        const noDataRow = document.createElement("tr");
+                        const noDataCell = document.createElement("td");
+                        noDataCell.colSpan = 5; 
+                        noDataCell.textContent = "No summary data available.";
+                        noDataCell.style.textAlign = "center";
+                        noDataRow.appendChild(noDataCell);
+                        summaryTableBody.appendChild(noDataRow);
+                    } else {
+                        data.forEach(item => {
+                            const row = document.createElement("tr");
+
+                            const nameCell = document.createElement("td");
+                            nameCell.textContent = `${item.first_name} ${item.last_name}`;
+                            row.appendChild(nameCell);
+
+                            const weekdayHoursCell = document.createElement("td");
+                            weekdayHoursCell.textContent = `${item.weekday_hours} hours`;
+                            row.appendChild(weekdayHoursCell);
+
+                            const weekendHoursCell = document.createElement("td");
+                            weekendHoursCell.textContent = `${item.weekend_hours} hours`;
+                            row.appendChild(weekendHoursCell);
+
+                            const totalHoursCell = document.createElement("td");
+                            totalHoursCell.textContent = `${item.total_hours} hours`;
+                            row.appendChild(totalHoursCell);
+
+                            const deliveriesCell = document.createElement("td");
+                            deliveriesCell.textContent = item.total_deliveries;
+                            row.appendChild(deliveriesCell);
+
+                            summaryTableBody.appendChild(row);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error("Failed to fetch weekly summary:", error);
+                    summaryTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align:center;">
+                                Failed to load weekly summary. Please try again later.
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Initially fetch the default summary (based on reset date)
+            fetchSummary();
+
+            // Fetch data for the chosen date range and employees
+            fetchButton.addEventListener("click", () => {
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
+                const employeeIds = employeeIdsInput.value.trim(); // comma-separated IDs
+
+                if (startDate && endDate) {
+                    fetchSummary(startDate, endDate, employeeIds);
+                } else {
+                    alert("Please select both start and end dates.");
+                }
+            });
+
+            // Revert back to standard summary
+            revertButton.addEventListener("click", () => {
+                startDateInput.value = "";
+                endDateInput.value = "";
+                employeeIdsInput.value = "";
+                fetchSummary(); // No date or employee params, uses reset date
+            });
+
+            // Set a new reset date
+            setResetButton.addEventListener("click", () => {
+                const newDate = resetDateInput.value;
+                if (!newDate) {
+                    alert("Please select a date to set as new reset date.");
+                    return;
+                }
+
+                fetch("/api/reset-summary/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({new_reset_date: newDate})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        alert(`Reset date set to: ${data.reset_date}`);
+                        // After setting reset date, revert to standard summary
+                        revertButton.click();
+                    }
+                })
+                .catch(error => {
+                    console.error("Failed to set reset date:", error);
+                    alert("Failed to set reset date. Please try again later.");
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+      <h1>Weekly Summary</h1>
+  
+      <!-- Date Range Section -->
+      <div class="filter-card">
+        <h2>Date Range Filter</h2>
+        <div class="filter-group-inline">
+          <!-- Start Date -->
+          <div class="inline-field">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" />
+          </div>
+          <!-- End Date -->
+          <div class="inline-field">
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" />
+          </div>
+        </div>
+        <div class="filter-actions">
+          <button id="fetchButton">Fetch Summary for Date Range</button>
+          <button id="revertButton">Revert to Standard Summary</button>
+        </div>
+      </div>
+  
+      <!-- Employee IDs Section -->
+      <div class="filter-card">
+        <h2>Filter by Employee ID</h2>
+        <div class="filter-group">
+          <label for="employeeIds">Employee IDs (comma-separated):</label>
+          <input
+            type="text"
+            id="employeeIds"
+            placeholder="e.g. 1,2,3"
+          />
+        </div>
+      </div>
+  
+      <!-- Reset Date Section -->
+      <div class="filter-card">
+        <h2>Set New Reset Date</h2>
+        <div class="filter-group-inline">
+          <label for="resetDate">Reset Date:</label>
+          <input type="date" id="resetDate" />
+          <button id="setResetButton">Set Reset Date</button>
+        </div>
+      </div>
+  
+      <table style="margin-top:20px;">
+        <thead>
+          <tr>
+            <th>Employee Name</th>
+            <th>Weekday Hours</th>
+            <th>Weekend Hours</th>
+            <th>Total Hours</th>
+            <th>Total Deliveries</th>
+          </tr>
+        </thead>
+        <tbody id="summaryTableBody">
+          <!-- Data populated dynamically -->
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>

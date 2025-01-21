@@ -13,20 +13,66 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+
+def str_to_bool(value):
+    """Convert environment variable string to boolean."""
+    return value.lower() in ["true", "1", "yes"]
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+LOGIN_URL = "/manager_login/"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7!xp6vs%4*%t5bqw*5a%l1@#0(8k-zjr14x0%c3^ey&k4qr@5c"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-7!xp6vs%4*%t5bqw*5a%l1@#0(8k-zjr14x0%c3^ey&k4qr@5c",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = []
+# Get the BASE_URL from the environment
+BASE_URL = os.getenv(
+    "BASE_URL", "http://localhost:8000"
+)  # Default to localhost if not set
+
+# Parse ALLOWED_HOSTS from environment variable
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+
+# Cookies
+SESSION_COOKIE_AGE = 604800  # 7 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = (
+    False  # Set to True if you want the session to end on browser close
+)
+
+# Secure cookie settings
+CSRF_COOKIE_AGE = 604800
+CSRF_COOKIE_SECURE = str_to_bool(
+    os.getenv("CSRF_COOKIE_SECURE", "False")
+)  # Use True in production to send cookies over HTTPS only
+CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access --- Currently our JS access CSRF
+CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "CSRF_TRUSTED_ORIGINS", "[localhost](http://localhost/)"
+).split(",")
+
+
+# Cookies
+CSRF_COOKIE_AGE = 604800
+SESSION_COOKIE_AGE = 604800  # 7 days
+SESSION_EXPIRE_AT_BROWSER_CLOSE = (
+    False  # Set to True if you want the session to end on browser close
+)
+
+# Secure cookie settings
+CSRF_COOKIE_SECURE = False  # Use True in production to send cookies over HTTPS only
+CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
+CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
 
 
 # Application definition
@@ -57,7 +103,7 @@ ROOT_URLCONF = "clock_in_system.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -65,6 +111,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "auth_app.base_url_context_processor.base_url",
             ],
         },
     },
@@ -79,9 +126,9 @@ WSGI_APPLICATION = "clock_in_system.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "default_db"),
+        "NAME": os.getenv("POSTGRES_DB", "clock_in_system"),
         "USER": os.getenv("POSTGRES_USER", "postgres"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "password"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "InsEcuR3Pa55w0Rd"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
@@ -121,7 +168,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage" # Disabled for the time being
 
 
 # Default primary key field type
@@ -134,11 +183,11 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
+            "format": "[{levelname}] [{module}] {asctime}: {message}",
             "style": "{",
         },
         "simple": {
-            "format": "{levelname} {message}",
+            "format": "[{levelname}] {message}",
             "style": "{",
         },
     },
@@ -148,6 +197,12 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/app/debug.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
@@ -155,15 +210,19 @@ LOGGING = {
             "level": "DEBUG",  # Minimum level this logger will process
             "propagate": False,
         },
-        "api": {  # Replace with your app name
-            "handlers": ["console"],
+        "api": {
+            "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
-        "auth_app": {  # Replace with your app name
-            "handlers": ["console"],
+        "auth_app": {
+            "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
+    },
+    "root": {  # Root logger for broader debugging
+        "handlers": ["console"],
+        "level": "DEBUG",
     },
 }

@@ -1,0 +1,154 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Employee Details{% endblock %}
+{% block content %}
+
+<div class="employee-header">
+  <h1>Employee Details</h1>
+  <div class="button-group">
+      <button id="openAddEmployeeModal">Add New Employee</button>
+      <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
+  </div>
+</div>
+
+<table id="employeeTable">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Pin</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be populated dynamically -->
+    </tbody>
+</table>
+
+<!-- Edit Employee Modal -->
+<div id="editModal" class="modal">
+  <div class="modal-content">
+      <h2>Edit Employee</h2>
+      <form id="editForm">
+          {% csrf_token %}
+          <input type="hidden" id="editEmployeeId">
+          <label for="editFirstName">First Name:</label>
+          <input type="text" id="editFirstName">
+          <label for="editLastName">Last Name:</label>
+          <input type="text" id="editLastName">
+          <label for="editEmail">Email:</label>
+          <input type="email" id="editEmail">
+          <label for="editPhone">Phone:</label>
+          <input type="text" id="editPhone">
+          <label for="editPin">Pin:</label>
+          <input type="text" id="editPin">
+          <button type="submit">Save Changes</button>
+          <button type="button" id="closeModal">Cancel</button>
+      </form>
+  </div>
+</div>
+
+<!-- Add Employee Modal -->
+<div id="addEmployeeModal" class="modal">
+  <div class="modal-content">
+  <h2>Add New Employee</h2>
+  <form id="addEmployeeForm">
+      {% csrf_token %}
+      <label for="addFirstName">First Name:</label>
+      <input type="text" id="addFirstName" required>
+
+      <label for="addLastName">Last Name:</label>
+      <input type="text" id="addLastName" required>
+
+      <label for="addEmail">Email:</label>
+      <input type="email" id="addEmail" required>
+
+      <label for="addPhone">Phone:</label>
+      <input type="text" id="addPhone">
+
+      <label for="addPin">Pin:</label>
+      <input type="text" id="addPin">
+
+      <button type="submit">Add Employee</button>
+      <button type="button" id="closeAddEmployeeModal">Cancel</button>
+  </form>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block customscripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // --- OPEN/CLOSE ADD EMPLOYEE MODAL ---
+    const openAddEmployeeModalBtn = document.getElementById("openAddEmployeeModal");
+    const addEmployeeModal = document.getElementById("addEmployeeModal");
+    const closeAddEmployeeModalBtn = document.getElementById("closeAddEmployeeModal");
+
+    if (openAddEmployeeModalBtn && addEmployeeModal && closeAddEmployeeModalBtn) {
+      // Show the modal when clicking "Add New Employee"
+      openAddEmployeeModalBtn.addEventListener("click", () => {
+        addEmployeeModal.style.display = "block";
+      });
+
+      // Hide the modal when clicking "Cancel"
+      closeAddEmployeeModalBtn.addEventListener("click", () => {
+        addEmployeeModal.style.display = "none";
+      });
+    }
+
+    // --- SUBMIT NEW EMPLOYEE FORM ---
+    const addEmployeeForm = document.getElementById("addEmployeeForm");
+    if (addEmployeeForm) {
+      addEmployeeForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        // Grab the CSRF token from the form
+        const csrftoken = document.querySelector('#addEmployeeForm input[name="csrfmiddlewaretoken"]').value;
+        
+        // Build the payload from the form fields
+        const payload = {
+          first_name: document.getElementById("addFirstName").value,
+          last_name: document.getElementById("addLastName").value,
+          email: document.getElementById("addEmail").value,
+          phone_number: document.getElementById("addPhone").value,
+          pin: document.getElementById("addPin").value
+        };
+
+        // POST to your /api/employees/ endpoint
+        fetch("/api/employees/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+          },
+          body: JSON.stringify(payload),
+        })
+        .then((res) => {
+          // If server responded with error, parse JSON & throw
+          if (!res.ok) {
+            return res.json().then((data) => {
+              throw new Error(data.error || "Failed to create employee.");
+            });
+          }
+          return res.json();
+        })
+        .then((data) => {
+          console.log("Employee created successfully:", data);
+          alert("Employee created successfully!");
+          
+          // Close modal
+          addEmployeeModal.style.display = "none"; 
+
+        })
+        .catch((error) => {
+          console.error("Error creating employee:", error);
+          alert(`Error: ${error.message}`);
+        });
+      });
+    }
+
+  });
+</script>
+{% endblock %}

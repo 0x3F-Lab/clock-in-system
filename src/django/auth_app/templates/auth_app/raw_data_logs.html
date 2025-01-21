@@ -1,0 +1,28 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Raw Data Logs{% endblock %}
+{% block content %}
+
+<h1>Raw Data Logs</h1>
+
+<button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
+
+<table id="rawDataTable">
+    <thead>
+        <tr>
+            <th>Staff Name</th>
+            <th>Rounded Login Time</th>
+            <th>Rounded Logout Time</th>
+            <th>Is Public Holiday</th>
+            <th>Exact Login Timestamp</th>
+            <th>Exact Logout Timestamp</th>
+            <th>Deliveries</th>
+            <th>Hours Worked</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be populated dynamically -->
+    </tbody>
+</table>
+
+{% endblock %}
+

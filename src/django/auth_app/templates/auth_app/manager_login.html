@@ -1,23 +1,20 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Manager Login</title>
-</head>
-<body>
-    <h2>Manager Login</h2>
-    <form method="POST" action="{% url 'manager_login' %}">
-        {% csrf_token %}
-        <label>Email:</label>
-        <input type="email" name="email" required>
-        <br>
-        <label>Password:</label>
-        <input type="password" name="password" required>
-        <br>
-        <button type="submit">Login</button>
-    </form>
-    {% for message in messages %}
-        <p>{{ message }}</p>
-    {% endfor %}
-</body>
-</html>
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Manager Login{% endblock %}
+{% block content %}
+
+<h2>Manager Login</h2>
+
+<form method="POST" action="{{ BASE_URL }}{% url 'manager_login' %}" class="login-form">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="text" id="email" name="email" required>
+    </div>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+    </div>
+    <button type="submit" class="login-button">Login</button>
+</form>
+
+{% endblock %}

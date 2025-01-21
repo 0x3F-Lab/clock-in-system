@@ -25,7 +25,7 @@ This is a Django-based web application for managing employee clock-in and clock-
 
 2. **Duplicate env for use**:
     ```bash
-    cp src/.env.example src/.env
+    cp src/.env.development src/.env
     ```
     **NOTE:** Please modify the database password in the `.env` file!
 
@@ -37,7 +37,21 @@ This is a Django-based web application for managing employee clock-in and clock-
     The site is hosted at `http://localhost:8000` while the database is located at `http://localhost:5432`.
     **NOTE:** This will automatically apply all migrations to the database on all startups.
 
-4. **Setting up pre-commit (Developing)**
+4. **Setting up virtual environment**
+    ```bash
+    python -m venv venv
+    source ./venv/bin/activate
+    pip install -r ./src/django/requirements.txt
+    ```
+    This is not strictly needed, it is purely for inserting the required values into the database.
+
+5. **Inserting the constants into the database**
+    ```bash
+    python ./src/setup_db.py
+    ```
+    Note: This can be performed using the django admin panel.
+
+6. **Setting up pre-commit (Developing)**
    
     This will setup the linting process client side before pushes are made to the remote repo. This ensures ease of use for all users without having to re-push with updated linting.
     ```bash
@@ -73,7 +87,7 @@ For proper testing, the requirements are required to be installed, preferably wi
 ```bash
 python -m venv venv
 source ./venv/bin/activate
-pip install ./src/django/requirements.txt
+pip install -r ./src/django/requirements.txt
 ```
 
 The tests conducted will use a dummy database as a substitute for the Postgres database. Specifically, it will use an in-memory SQLite3 database.
