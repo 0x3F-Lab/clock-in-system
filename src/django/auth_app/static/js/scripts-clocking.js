@@ -395,7 +395,7 @@ async function getLocationData() {
         },
         {
           enableHighAccuracy: true,  // Request high accuracy
-          timeout: 5000,             // Timeout after 5 seconds
+          timeout: 10000,            // Timeout after 5 seconds
           maximumAge: 0              // Do not use cached location
         }
       );
