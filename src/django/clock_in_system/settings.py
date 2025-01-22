@@ -55,24 +55,11 @@ CSRF_COOKIE_AGE = 604800
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
 )  # Use True in production to send cookies over HTTPS only
-CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access --- Currently our JS access CSRF
-CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
+CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
+CSRF_COOKIE_SAMESITE = "Lax"  # Can be 'Lax', 'Strict', or 'None'
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS", "[localhost](http://localhost/)"
 ).split(",")
-
-
-# Cookies
-CSRF_COOKIE_AGE = 604800
-SESSION_COOKIE_AGE = 604800  # 7 days
-SESSION_EXPIRE_AT_BROWSER_CLOSE = (
-    False  # Set to True if you want the session to end on browser close
-)
-
-# Secure cookie settings
-CSRF_COOKIE_SECURE = False  # Use True in production to send cookies over HTTPS only
-CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
-CSRF_COOKIE_SAMESITE = "Strict"  # Can be 'Lax', 'Strict', or 'None'
 
 
 # Application definition
