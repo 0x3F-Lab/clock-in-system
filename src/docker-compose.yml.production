@@ -1,6 +1,6 @@
 services:
   django:
-    container_name: Django
+    container_name: django
     image: django
     build:
       context: ./django  # Path to your Django directory
@@ -22,6 +22,8 @@ services:
     ports:
       - "80:80" # HTTP port for redirection to HTTPS port
       - "443:443" # HTTPS port
+    environment:
+      - TZ=Australia/Perth
     depends_on:
       - django
 
