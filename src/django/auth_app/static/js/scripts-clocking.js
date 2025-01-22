@@ -56,15 +56,12 @@ $(document).ready(function() {
 // Populate the modal with the user list
 function populateModalUserList(listEmployeeNamesURL) {
   $.get(listEmployeeNamesURL, function (data) {
-      $("#logs").append(`<p>Successfully Loaded users<p>`)
       const $userList = $("#userList");
       data.forEach(employee => {
           $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
       });
 
   }).fail(function (jqXHR) {
-      $("#logs").append(`<p>Failed to load users in list. Status: ${jqXHR.status}<p>`)
-      $("#logs").append(`<p>Resonse: ${jqXHR.responseJSON}<p>`)
       let errorMessage;
       if (jqXHR.status == 500) {
         errorMessage = "Failed to load employee list due to internal server error. Please try again.";
@@ -134,7 +131,6 @@ function handleUserSelectionModal(clockedStateURL) {
 function fetchClockedState(clockedStateURL, userID) {
   if (userID) {
       $.get(`${clockedStateURL}${userID}/`, function (data) {
-          $("#logs").append(`<p>Successfully Loaded clocked state<p>`)
           clockedIn = data.clocked_in;
 
           // Update buttons and info
@@ -142,8 +138,6 @@ function fetchClockedState(clockedStateURL, userID) {
           updateShiftInfo(data.login_time);
 
       }).fail(function (jqXHR) {
-        $("#logs").append(`<p>Failed to load clocked state of ${userID}. Status: ${jqXHR.status}<p>`)
-        $("#logs").append(`<p>Resonse: ${jqXHR.responseJSON}<p>`)
           // Extract the error message from the API response if available
           let errorMessage;
           if (jqXHR.status == 500) {
@@ -393,7 +387,10 @@ async function getLocationData() {
         },
         (error) => {
           console.error("Geolocation error:", error);
-          alert("Unable to get your location. Cannot clock in.");
+          $("#logs").append(`<p>Error code: ${error.code}<p>`)
+          $("#logs").append(`<p>PD: ${error.PERMISSION_DENIED}.. PU: ${error.POSITION_UNAVAILABLE}.. TO: ${error.TIMEOUT}<p>`)
+          $("#logs").append(`<p>Error getting location: ${error.message}<p>`)
+          showNotification("Unable to get your location. Cannot clock in.");
           reject(null);
         },
         {
@@ -404,7 +401,7 @@ async function getLocationData() {
       );
     });
   } else {
-    alert("Geolocation is not supported by your browser. Cannot clock in.");
+    showNotification("Geolocation is not supported by your browser. Cannot clock in/out.");
     return null;
   }
 }
