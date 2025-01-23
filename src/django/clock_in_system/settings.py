@@ -51,6 +51,7 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = (
 )
 
 # Secure cookie settings
+CSRF_USE_SESSIONS = False  # Disabled as it can break for some users who disable presistent sessions/cookies.
 CSRF_COOKIE_AGE = 604800
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
@@ -60,8 +61,35 @@ CSRF_COOKIE_SAMESITE = os.getenv(
     "CSRF_COOKIE_SAMESITE", "Lax"
 )  # Can be 'Lax', 'Strict', or 'None'
 CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS", "[localhost](http://localhost/)"
+    "CSRF_TRUSTED_ORIGINS",
+    "http://localhost:8000,http://localhost,http://127.0.0.1:8000,http://127.0.0.1",
 ).split(",")
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http://localhost:8000,http://localhost,http://127.0.0.1:8000,http://127.0.0.1",
+).split(",")
+CORS_TRUSTED_ORIGINS = os.getenv(
+    "CORS_TRUSTED_ORIGINS",
+    "http://localhost:8000,http://localhost,http://127.0.0.1:8000,http://127.0.0.1",
+).split(",")
+CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site
+CORS_PREFLIGHT_MAX_AGE = 43200  # Cache for 12 hours
+CORS_REPLACE_HTTPS_REFERER = (
+    True  # Modifies the `Referer` header in requests to work with CSRF validation.
+)
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 
 # Application definition
@@ -73,6 +101,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "api",
     "auth_app",
 ]
@@ -80,6 +109,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
