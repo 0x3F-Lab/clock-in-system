@@ -76,9 +76,6 @@ CORS_TRUSTED_ORIGINS = os.getenv(
 ).split(",")
 CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site
 CORS_PREFLIGHT_MAX_AGE = 43200  # Cache for 12 hours
-CORS_REPLACE_HTTPS_REFERER = (
-    True  # Modifies the `Referer` header in requests to work with CSRF validation.
-)
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
