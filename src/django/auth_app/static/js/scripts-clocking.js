@@ -56,15 +56,12 @@ $(document).ready(function() {
 // Populate the modal with the user list
 function populateModalUserList(listEmployeeNamesURL) {
   $.get(listEmployeeNamesURL, function (data) {
-      $("#logs").append(`<p>Successfully Loaded users<p>`)
       const $userList = $("#userList");
       data.forEach(employee => {
           $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
       });
 
   }).fail(function (jqXHR) {
-      $("#logs").append(`<p>Failed to load users in list. Status: ${jqXHR.status}<p>`)
-      $("#logs").append(`<p>Resonse: ${jqXHR.responseJSON}<p>`)
       let errorMessage;
       if (jqXHR.status == 500) {
         errorMessage = "Failed to load employee list due to internal server error. Please try again.";
@@ -134,7 +131,6 @@ function handleUserSelectionModal(clockedStateURL) {
 function fetchClockedState(clockedStateURL, userID) {
   if (userID) {
       $.get(`${clockedStateURL}${userID}/`, function (data) {
-          $("#logs").append(`<p>Successfully Loaded clocked state<p>`)
           clockedIn = data.clocked_in;
 
           // Update buttons and info
@@ -142,8 +138,6 @@ function fetchClockedState(clockedStateURL, userID) {
           updateShiftInfo(data.login_time);
 
       }).fail(function (jqXHR) {
-          $("#logs").append(`<p>Failed to load clocked state of ${userID}. Status: ${jqXHR.status}<p>`)
-          $("#logs").append(`<p>Resonse: ${jqXHR.responseJSON}<p>`)
           // Extract the error message from the API response if available
           let errorMessage;
           if (jqXHR.status == 500) {
@@ -383,6 +377,14 @@ function formatTime(text) {
 // Get the location data of the user
 async function getLocationData() {
   if ('geolocation' in navigator) {
+    // Check geolocation permissions proactively
+    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+    
+    if (permissionStatus.state === 'denied') {
+      showNotification("Location access is denied. Please enable it in your browser settings.");
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -392,17 +394,26 @@ async function getLocationData() {
           resolve([userLat, userLon]);
         },
         (error) => {
-          console.error("Geolocation error:", error);
-          $("#logs").append(`<p>Error code: ${error.code}<p>`)
-          $("#logs").append(`<p>PD: ${error.PERMISSION_DENIED}.. PU: ${error.POSITION_UNAVAILABLE}.. TO: ${error.TIMEOUT}<p>`)
-          $("#logs").append(`<p>Error getting location: ${error.message}<p>`)
-          showNotification("Unable to get your location. Cannot clock in.");
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              showNotification("Location access is denied. Please enable it in your browser settings.");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              showNotification("Location is unavailable. Please try again later.");
+              break;
+            case error.TIMEOUT:
+              showNotification("Unable to get your location. Please ensure you have a good signal and try again.");
+              break;
+            default:
+              showNotification("An unknown error occurred while retrieving your location.");
+          }
+
           reject(null);
         },
         {
-          enableHighAccuracy: false,  // Request high accuracy
-          timeout: 10000,            // Timeout after 10 seconds
-          maximumAge: 0              // Do not use cached location
+          enableHighAccuracy: true,  // Request high accuracy for mobile users
+          timeout: 30000,            // Timeout after 30 seconds
+          maximumAge: 45000          // Allow cached location up to 45s old
         }
       );
     });
