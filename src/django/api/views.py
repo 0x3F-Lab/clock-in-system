@@ -179,7 +179,7 @@ def raw_data_logs_detail_view(request, id):
         return JsonResponse(data, safe=False)
 
     if request.method == "PUT":
-        required_fields = ["employee_id", "clock_in_time", "clock_out_time"]
+        required_fields = ["login_time", "logout_time"]
         # Update the Activity
         data = request.data
         missing_fields = [field for field in required_fields if field not in data]
