@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 import api.utils as util
+from api.utils import round_datetime_minute
 import api.controllers as controllers
 import api.exceptions as err
 from rest_framework.decorators import api_view
@@ -178,8 +179,15 @@ def raw_data_logs_detail_view(request, id):
         return JsonResponse(data, safe=False)
 
     if request.method == "PUT":
+        required_fields = ["employee_id", "clock_in_time", "clock_out_time"]
         # Update the Activity
         data = request.data
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return JsonResponse(
+                {"Error": f"Missing required fields: {', '.join(missing_fields)}"},
+                status=400,
+            )
 
         # For example, if you decide to let the manager update the rounded times:
         login_time_str = data.get("login_time")
@@ -189,9 +197,10 @@ def raw_data_logs_detail_view(request, id):
         if login_time_str:
             activity.login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
         if logout_time_str:
-            activity.logout_time = datetime.strptime(
-                logout_time_str, "%Y-%m-%dT%H:%M:%S"
-            )
+            logout_time = datetime.strptime(logout_time_str, "%Y-%m-%dT%H:%M:%S")
+            activity.logout_time = round_datetime_minute(
+                logout_time
+            )  # Apply rounding function
 
         # is_public_holiday, deliveries, etc.
         if "is_public_holiday" in data:
@@ -212,7 +221,7 @@ def raw_data_logs_detail_view(request, id):
         return JsonResponse({"message": "Activity updated successfully"})
 
     # Fallback
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return JsonResponse({"Error": "Invalid request"}, status=400)
 
 
 @api_view(["GET", "PUT", "POST"])
