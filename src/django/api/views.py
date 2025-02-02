@@ -37,22 +37,15 @@ def change_pin_view(request):
         new_pin = request.POST.get("new_pin")
 
         if not user_id or not current_pin or not new_pin:
-            return JsonResponse(
-                {"success": False, "message": "Missing required fields."}
-            )
-
+            return JsonResponse({"Error": "Missing required fields."}, status=400)
         try:
             user = User.objects.get(id=user_id, is_active=True)
         except User.DoesNotExist:
-            return JsonResponse(
-                {"success": False, "message": "User not found or inactive."}
-            )
+            return JsonResponse({"Error": "User not found or inactive."}, status=404)
 
         # Check the current pin
         if not user.check_pin(current_pin):
-            return JsonResponse(
-                {"success": False, "message": "Current pin is incorrect."}
-            )
+            return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
 
         # If OK, update
         user.set_pin(new_pin)
