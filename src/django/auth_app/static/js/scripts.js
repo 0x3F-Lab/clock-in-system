@@ -188,55 +188,174 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
         console.log("Employee details elements not found on this page.");
     }
-
     // --- Raw Data Logs Section ---
-	const rawDataTableElement = document.getElementById("rawDataTable");
+    const rawDataTableElement = document.getElementById("rawDataTable");
+    
+    if (rawDataTableElement) {
+      // 1) Grab references
+      const rawDataTbody = rawDataTableElement.querySelector("tbody");
+      const editModal = document.getElementById("editActivityModal");
+      const editActivityForm = document.getElementById("editActivityForm");
+      const closeEditModalBtn = document.getElementById("closeEditModal");
+    
+      // Adjust URL if needed:
+      const rawDataLogsURL = "/api/raw-data-logs/";
+    
+      // 2) Fetch and display logs
+      const fetchRawDataLogs = () => {
+        fetch(rawDataLogsURL, { headers: { Accept: "application/json" } })
+          .then((res) => {
+            if (!res.ok) {
+              throw new Error("Failed to fetch raw data logs.");
+            }
+            return res.json();
+          })
+          .then((data) => {
+            // Clear table
+            rawDataTbody.innerHTML = "";
+        
+            if (!data.length) {
+              // "colspan=9" because we have 9 columns in the <thead>
+              rawDataTbody.innerHTML = `
+                <tr><td colspan="9">No logs found.</td></tr>
+              `;
+              return;
+            }
+        
+            data.forEach((log) => {
+              // Build a row with 9 <td>
+              // 8 columns for the data + 1 column for "Actions"
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                <td>${log.staff_name}</td>
+                <td>${log.login_time || "N/A"}</td>
+                <td>${log.logout_time || "N/A"}</td>
+                <td>${log.is_public_holiday ? "Yes" : "No"}</td>
+                <td>${log.exact_login_timestamp || "N/A"}</td>
+                <td>${log.exact_logout_timestamp || "N/A"}</td>
+                <td>${log.deliveries}</td>
+                <td>${log.hours_worked || "0"}</td>
+                <td>
+                  <button class="editBtn" data-id="${log.id}">Edit</button>
+                </td>
+              `;
+              rawDataTbody.appendChild(row);
+            });
+        
+            // Add click listeners to newly created Edit buttons
+            const editButtons = rawDataTbody.querySelectorAll(".editBtn");
+            editButtons.forEach((btn) => {
+              btn.addEventListener("click", () => {
+                const logId = btn.getAttribute("data-id");
+                openEditModal(logId);
+              });
+            });
+          })
+          .catch((err) => {
+            console.error("Error fetching raw data logs:", err);
+            rawDataTbody.innerHTML = `
+              <tr><td colspan="9">Failed to load logs. Please try again later.</td></tr>
+            `;
+          });
+      };
+  
+      // 3) Open the modal and fetch details for a single record
+      const openEditModal = (logId) => {
+        editModal.style.display = "block";
+        document.getElementById("editActivityId").value = logId;
+    
+        // GET single record to fill form fields
+        fetch(`${rawDataLogsURL}${logId}/`, {
+          headers: { Accept: "application/json" },
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Failed to fetch single activity");
+            return res.json();
+          })
+          .then((activityData) => {
+            const editLoginTime = document.getElementById("editLoginTime");
+            const editLogoutTime = document.getElementById("editLogoutTime");
+            const editIsPublicHoliday = document.getElementById("editIsPublicHoliday");
+            const editDeliveries = document.getElementById("editDeliveries");
+        
+            // If you have ISO timestamps like "2025-01-01T14:30:00",
+            // datetime-local wants "YYYY-MM-DDThh:mm"
+            editLoginTime.value = activityData.login_time
+              ? activityData.login_time.slice(0, 16)
+              : "";
+            editLogoutTime.value = activityData.logout_time
+              ? activityData.logout_time.slice(0, 16)
+              : "";
+            editIsPublicHoliday.checked = activityData.is_public_holiday;
+            editDeliveries.value = activityData.deliveries || 0;
+          })
+          .catch((err) => {
+            console.error("Error fetching detail:", err);
+            alert("Failed to open edit modal");
+          });
+      };
+  
+      // 4) Close modal on Cancel
+      closeEditModalBtn.addEventListener("click", () => {
+        editModal.style.display = "none";
+      });
+  
+      // 5) Handle Edit Form submission (PUT to update)
+      editActivityForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+    
+        // Get CSRF token from the hidden input
+        const csrftoken = document.querySelector(
+          '#editActivityForm input[name="csrfmiddlewaretoken"]'
+        ).value;
+    
+        // Collect fields
+        const activityId = document.getElementById("editActivityId").value;
+        const loginTime = document.getElementById("editLoginTime").value;
+        const logoutTime = document.getElementById("editLogoutTime").value;
+        const isPublicHoliday = document.getElementById("editIsPublicHoliday").checked;
+        const deliveries = document.getElementById("editDeliveries").value;
+    
+        // Build payload
+        const payload = {
+          login_time: loginTime ? loginTime + ":00" : null,
+          logout_time: logoutTime ? logoutTime + ":00" : null,
+          is_public_holiday: isPublicHoliday,
+          deliveries: parseInt(deliveries, 10),
+        };
+    
+        // PUT request
+        fetch(`${rawDataLogsURL}${activityId}/`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken,
+          },
+          body: JSON.stringify(payload),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              return res.json().then((data) => {
+                throw new Error(data.error || "Failed to update activity");
+              });
+            }
+            return res.json();
+          })
+          .then((data) => {
+            console.log("Update success:", data);
+            alert("Activity updated successfully!");
+            editModal.style.display = "none";
+            // Refresh the table
+            fetchRawDataLogs();
+          })
+          .catch((err) => {
+            console.error("Error updating activity:", err);
+            alert("Error updating activity: " + err.message);
+          });
+      });
+  
+      // 6) Initial fetch when page loads
+      fetchRawDataLogs();
+    }
 
-	if (rawDataTableElement) {
-		const rawDataTbody = rawDataTableElement.querySelector("tbody");
-
-		const fetchRawDataLogs = () => {
-			fetch(rawDataLogsURL, {
-				headers: { "Accept": "application/json" },
-			})
-				.then((res) => {
-					if (!res.ok) throw new Error("Failed to fetch raw data logs.");
-					return res.json();
-				})
-				.then((data) => {
-					console.log("Fetched raw data logs:", data);
-
-					// Clear table
-					rawDataTbody.innerHTML = "";
-					if (data.length === 0) {
-						rawDataTbody.innerHTML = `<tr><td colspan="7">No logs found.</td></tr>`;
-					} else {
-						data.forEach((log) => {
-							console.log("Log being processed:", log); // Debugging line
-						
-							const row = document.createElement("tr");
-							row.innerHTML = `
-								<td>${log.staff_name}</td>
-								<td>${log.login_time || "N/A"}</td> <!-- Add fallback just in case -->
-								<td>${log.logout_time || "N/A"}</td> <!-- Add fallback just in case -->
-								<td>${log.is_public_holiday ? "Yes" : "No"}</td>
-								<td>${log.exact_login_timestamp}</td>
-								<td>${log.exact_logout_timestamp || "N/A"}</td>
-								<td>${log.deliveries}</td>
-								<td>${log.hours_worked}</td>
-							`;
-							rawDataTbody.appendChild(row);
-						});
-						
-					}
-				})
-				.catch((error) => {
-					console.error("Error fetching raw data logs:", error);
-					rawDataTbody.innerHTML = `<tr><td colspan="7">Failed to load logs. Please try again later.</td></tr>`;
-				});
-		};
-
-    // Initial fetch of raw data logs
-    fetchRawDataLogs();
-	}
 });
