@@ -246,7 +246,9 @@ def employee_details_view(request, id=None):
                 }
                 return JsonResponse(employee_data, safe=False)
             else:
-                employees = User.objects.filter(is_manager=False)
+                employees = User.objects.filter(is_manager=False).order_by(
+                    "first_name", "last_name"
+                )
                 employee_data = [
                     {
                         "id": emp.id,
