@@ -18,6 +18,7 @@ from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 
 import json
 from django.db.models import Sum, F, Case, When, DecimalField
@@ -26,6 +27,38 @@ from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
+
+
+@csrf_exempt
+def change_pin_view(request):
+    if request.method == "POST":
+        user_id = request.POST.get("user_id")
+        current_pin = request.POST.get("current_pin")
+        new_pin = request.POST.get("new_pin")
+
+        if not user_id or not current_pin or not new_pin:
+            return JsonResponse(
+                {"success": False, "message": "Missing required fields."}
+            )
+
+        try:
+            user = User.objects.get(id=user_id, is_active=True)
+        except User.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "message": "User not found or inactive."}
+            )
+
+        # Check the current pin
+        if not user.check_pin(current_pin):
+            return JsonResponse(
+                {"success": False, "message": "Current pin is incorrect."}
+            )
+
+        # If OK, update
+        user.set_pin(new_pin)
+        return JsonResponse({"success": True, "message": "Pin changed successfully."})
+
+    return JsonResponse({"success": False, "message": "Invalid request method."})
 
 
 @api_view(["GET"])
