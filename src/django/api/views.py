@@ -660,6 +660,7 @@ def weekly_summary_view(request):
                 total_hours=Sum(F("shift_length_mins") / 60.0),
                 total_deliveries=Sum("deliveries"),
             )
+            .order_by("employee_id__first_name", "employee_id__last_name")
         )
 
         data = [
