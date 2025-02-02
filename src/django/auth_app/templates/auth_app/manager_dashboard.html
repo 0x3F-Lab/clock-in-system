@@ -1,23 +1,26 @@
 {% extends "auth_app/base.html" %}
+
 {% block title %}Pizza Clock-in || Manager Dashboard{% endblock %}
+
 {% block content %}
+<div class="centered-container">
+    <h1>Manager Dashboard</h1>
 
-<h1>Manager Dashboard</h1>
+    <!-- Display Logged-in User Info -->
+    <p>Welcome, <strong>{{ user.username }}</strong>!</p>
 
-<!-- Display Logged-in User Info -->
-<p>Welcome, <strong>{{ user.username }}</strong>!</p>
+    <div class="button-container">
+        <button onclick="location.href='/api/employees/'">Employee Details</button>
+        <button onclick="location.href='/api/weekly-summary-page/'">Weekly Summary</button>
+        <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
+        <button onclick="location.href='#'">Date-Based Summary</button>
 
-<div class="button-container">
-    <button onclick="location.href='/api/employees/'">Employee Details</button>
-    <button onclick="location.href='/api/weekly-summary-page/'">Weekly Summary</button>
-    <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
-    <button onclick="location.href='#'">Date-Based Summary</button>
-    <form method="POST" action="{{ BASE_URL }}{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit" class="logout-button">Logout</button>
-    </form>
-    <button onclick="location.href='/'">Back to Landing Page</button>
+        <form method="POST" action="{{ BASE_URL }}{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="logout-button">Logout</button>
+        </form>
+
+        <button onclick="location.href='/'">Back to Landing Page</button>
+    </div>
 </div>
-
 {% endblock %}
-
