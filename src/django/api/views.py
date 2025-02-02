@@ -152,16 +152,13 @@ def raw_data_logs_detail_view(request, id):
         )
 
         data = {
-            "id": activity.id,
-            "employee_id": activity.employee_id.id,  # optional if you need
-            "staff_name": staff_name,
             "login_time": (
-                activity.login_time.strftime("%Y-%m-%dT%H:%M:%S")
+                localtime(activity.login_time).strftime("%Y-%m-%dT%H:%M:%S")
                 if activity.login_time
                 else None
             ),
             "logout_time": (
-                activity.logout_time.strftime("%Y-%m-%dT%H:%M:%S")
+                localtime(activity.logout_time).strftime("%Y-%m-%dT%H:%M:%S")
                 if activity.logout_time
                 else None
             ),
