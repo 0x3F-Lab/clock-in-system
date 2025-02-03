@@ -29,29 +29,26 @@ from django.db.models.functions import ExtractWeekDay
 logger = logging.getLogger("api")
 
 
-@csrf_exempt
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
 def change_pin_view(request):
-    if request.method == "POST":
-        user_id = request.POST.get("user_id")
-        current_pin = request.POST.get("current_pin")
-        new_pin = request.POST.get("new_pin")
+    user_id = request.data.get("user_id")
+    current_pin = request.data.get("current_pin")
+    new_pin = request.data.get("new_pin")
 
-        if not user_id or not current_pin or not new_pin:
-            return JsonResponse({"Error": "Missing required fields."}, status=400)
-        try:
-            user = User.objects.get(id=user_id, is_active=True)
-        except User.DoesNotExist:
-            return JsonResponse({"Error": "User not found or inactive."}, status=404)
+    if not user_id or not current_pin or not new_pin:
+        return JsonResponse({"Error": "Missing required fields."}, status=400)
 
-        # Check the current pin
-        if not user.check_pin(current_pin):
-            return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
+    try:
+        user = User.objects.get(id=user_id, is_active=True)
+    except User.DoesNotExist:
+        return JsonResponse({"Error": "User not found or inactive."}, status=404)
 
-        # If OK, update
-        user.set_pin(new_pin)
-        return JsonResponse({"success": True, "message": "Pin changed successfully."})
+    if not user.check_pin(current_pin):
+        return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
 
-    return JsonResponse({"success": False, "message": "Invalid request method."})
+    user.set_pin(new_pin)
+    return JsonResponse({"success": True, "message": "Pin changed successfully."})
 
 
 @api_view(["GET"])

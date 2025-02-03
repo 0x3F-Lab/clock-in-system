@@ -438,13 +438,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // POST to your "change pin" endpoint
         $.ajax({
-          url: window.djangoURLs.changePin,  // e.g. /api/change_pin/
+          url: window.djangoURLs.changePin,
           method: "POST",
+          headers: {
+            "X-CSRFToken": csrftoken
+          },
           data: {
             user_id: userID,
             current_pin: currentPin,
-            new_pin: newPin,
-            csrfmiddlewaretoken: csrftoken
+            new_pin: newPin
           },
           success: function(response) {
             if (response.success) {
