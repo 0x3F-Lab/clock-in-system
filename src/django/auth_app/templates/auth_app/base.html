@@ -175,7 +175,7 @@
           clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
           listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_list' %}",
           listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_detail' 0 %}".slice(0, -2),
-          changePin: "{% url 'api:change_pin' %}",
+          changePin: "{{ BASE_URL }}{% url 'api:change_pin' %}",
       };
     </script>
 
