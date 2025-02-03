@@ -302,7 +302,8 @@ th {
 }
 
 .modal-content {
-    background-color: white;
+    background-color: #2d3748 !important;
+    color: #f4f4f9 !important;
     margin: 15% auto;
     padding: 20px;
     border-radius: 5px;
