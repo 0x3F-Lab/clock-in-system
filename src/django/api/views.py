@@ -18,7 +18,6 @@ from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
 
 import json
 from django.db.models import Sum, F, Case, When, DecimalField
