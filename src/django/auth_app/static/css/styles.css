@@ -177,6 +177,9 @@ body, html {
     margin-top: 20px;
     font-size: 16px;
     color: #f4f4f9;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .deliveries button {
@@ -190,6 +193,9 @@ body, html {
     border-radius: 50%;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .deliveries button:hover {
