@@ -14,6 +14,7 @@ from rest_framework.renderers import JSONRenderer
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
 
@@ -65,7 +66,7 @@ def list_users_name_view(request):
         )
     except Exception as e:
         # Handle any unexpected exceptions
-        logger.error(f"Failed to list all users, resulting in the error: {str(e)}")
+        logger.critical(f"Failed to list all users, resulting in the error: {str(e)}")
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -77,7 +78,11 @@ def list_users_name_view(request):
 def raw_data_logs_view(request):
     if request.method == "GET":
         if request.headers.get("Accept") == "application/json":
-            activities = Activity.objects.all().select_related("employee_id")
+            activities = (
+                Activity.objects.all()
+                .select_related("employee_id")
+                .order_by("-login_timestamp")
+            )
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
@@ -90,23 +95,23 @@ def raw_data_logs_view(request):
                     {
                         "staff_name": staff_name,
                         "login_time": (
-                            act.login_time.strftime("%H:%M")
+                            localtime(act.login_time).strftime("%H:%M")
                             if act.login_time
                             else "N/A"
                         ),
                         "logout_time": (
-                            act.logout_time.strftime("%H:%M")
+                            localtime(act.logout_time).strftime("%H:%M")
                             if act.logout_time
                             else "N/A"
                         ),
                         "is_public_holiday": act.is_public_holiday,
                         "exact_login_timestamp": (
-                            act.login_timestamp.strftime("%d/%m/%Y %H:%M")
+                            localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
                             if act.login_timestamp
                             else "N/A"
                         ),
                         "exact_logout_timestamp": (
-                            act.logout_timestamp.strftime("%d/%m/%Y %H:%M")
+                            localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
                             if act.logout_timestamp
                             else "N/A"
                         ),
@@ -193,12 +198,16 @@ def employee_details_view(request, id=None):
             # You can add validation or checks here
             if not first_name or not last_name or not email:
                 return JsonResponse(
-                    {"error": "Required fields are missing."}, status=400
+                    {"Error": "Required fields are missing."},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Ensure email is unique
             if User.objects.filter(email=email).exists():
-                return JsonResponse({"error": "Email already exists"}, status=400)
+                return JsonResponse(
+                    {"Error": "Email already exists"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             # Create user
             employee = User.objects.create(
@@ -215,12 +224,20 @@ def employee_details_view(request, id=None):
 
             return JsonResponse(
                 {"message": "Employee created successfully", "id": employee.id},
-                status=201,
+                status=status.HTTP_201_CREATED,
             )
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            logger.critical(
+                f"An error occured when generating employee details view for ID '{id}': {e}"
+            )
+            return JsonResponse(
+                {"Error": "Internal error."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return JsonResponse(
+        {"Error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 def employee_details_page(request):
@@ -315,6 +332,7 @@ def clock_in(request, id):
         )
     except Exception as e:
         # General error capture -- including database location errors
+        logger.critical(f"An error occured when clocking in employee ID '{id}': {e}")
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -417,6 +435,9 @@ def clock_out(request, id):
         )
     except Exception as e:
         # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when trying to clock out employee ID '{id}': {e}"
+        )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -458,6 +479,9 @@ def clocked_state_view(request, id):
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
     except Exception as e:
+        logger.critical(
+            f"An error occured when trying to get the clocked state of employee ID '{id}': {e}"
+        )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -478,12 +502,8 @@ def weekly_summary_view(request):
                 start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
                 end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
 
-                start_date = datetime.combine(start_day, time.min).replace(
-                    tzinfo=timezone.utc
-                )
-                end_date = datetime.combine(end_day, time.max).replace(
-                    tzinfo=timezone.utc
-                )
+                start_date = make_aware(datetime.combine(start_day, time.min))
+                end_date = make_aware(datetime.combine(end_day, time.max))
 
                 activities = Activity.objects.filter(
                     login_time__gte=start_date, login_time__lte=end_date
@@ -497,11 +517,12 @@ def weekly_summary_view(request):
             # No date range provided, use last reset date
             try:
                 kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
-                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").replace(
-                    tzinfo=timezone.utc
+                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").date()
+                last_reset_date = make_aware(
+                    datetime.combine(last_reset_date, time.min)
                 )
             except KeyValueStore.DoesNotExist:
-                last_reset_date = datetime(2023, 3, 15, tzinfo=timezone.utc)
+                last_reset_date = make_aware(datetime(2023, 3, 15))
 
             activities = Activity.objects.filter(login_time__gte=last_reset_date)
 
@@ -561,8 +582,9 @@ def weekly_summary_view(request):
 
     except Exception as e:
         # General exception catch
+        logger.critical(f"An error occured when generating weekly summary: {e}")
         return Response(
-            {"error": f"An unexpected error occurred: {str(e)}"},
+            {"Error": f"Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -584,7 +606,7 @@ def reset_summary_view(request):
         today_str = new_date_str
     else:
         # Default to today if no date provided
-        today_str = datetime.now().date().isoformat()
+        today_str = now().date().isoformat()
 
     kv, created = KeyValueStore.objects.get_or_create(
         key="last_weekly_summary_reset", defaults={"value": today_str}
@@ -660,6 +682,7 @@ def change_pin(request, id):
         )
     except Exception as e:
         # General error capture
+        logger.critical(f"An error occured when changing employee pin: {e}")
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -705,6 +728,7 @@ def active_employee_account(request, id):
         )
     except Exception as e:
         # General error capture
+        logger.critical(f"An error occured when activating an employee account: {e}")
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
