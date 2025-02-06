@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 import api.utils as util
+from api.utils import round_datetime_minute
 import api.controllers as controllers
 import api.exceptions as err
 from rest_framework.decorators import api_view
@@ -25,6 +26,28 @@ from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
+
+
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def change_pin_view(request):
+    user_id = request.data.get("user_id")
+    current_pin = request.data.get("current_pin")
+    new_pin = request.data.get("new_pin")
+
+    if not user_id or not current_pin or not new_pin:
+        return JsonResponse({"Error": "Missing required fields."}, status=400)
+
+    try:
+        user = User.objects.get(id=user_id, is_active=True)
+    except User.DoesNotExist:
+        return JsonResponse({"Error": "User not found or inactive."}, status=404)
+
+    if not user.check_pin(current_pin):
+        return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
+
+    user.set_pin(new_pin)
+    return JsonResponse({"success": True, "message": "Pin changed successfully."})
 
 
 @api_view(["GET"])
@@ -93,6 +116,7 @@ def raw_data_logs_view(request):
 
                 data.append(
                     {
+                        "id": act.id,
                         "staff_name": staff_name,
                         "login_time": (
                             localtime(act.login_time).strftime("%H:%M")
@@ -131,6 +155,99 @@ def raw_data_logs_view(request):
             return render(request, "auth_app/raw_data_logs.html")
 
 
+@api_view(["GET", "PUT"])
+@renderer_classes([JSONRenderer])
+def raw_data_logs_detail_view(request, id):
+    """
+    Handle retrieval (GET) and updates (PUT) for a single Activity record.
+    """
+    # Attempt to fetch the activity by ID
+    activity = get_object_or_404(Activity, id=id)
+
+    if request.method == "GET":
+        # Return JSON data for a single Activity
+        staff_name = (
+            f"{activity.employee_id.first_name} {activity.employee_id.last_name}"
+        )
+        hours_decimal = (
+            activity.shift_length_mins / 60.0 if activity.shift_length_mins else 0.0
+        )
+
+        data = {
+            "login_time": (
+                localtime(activity.login_time).strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.login_time
+                else None
+            ),
+            "logout_time": (
+                localtime(activity.logout_time).strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.logout_time
+                else None
+            ),
+            "is_public_holiday": activity.is_public_holiday,
+            "login_timestamp": (
+                activity.login_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.login_timestamp
+                else None
+            ),
+            "logout_timestamp": (
+                activity.logout_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.logout_timestamp
+                else None
+            ),
+            "deliveries": activity.deliveries,
+            "shift_length_mins": activity.shift_length_mins,
+            "hours_worked": f"{hours_decimal:.2f}",
+        }
+
+        return JsonResponse(data, safe=False)
+
+    if request.method == "PUT":
+        required_fields = ["login_time", "logout_time"]
+        # Update the Activity
+        data = request.data
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return JsonResponse(
+                {"Error": f"Missing required fields: {', '.join(missing_fields)}"},
+                status=400,
+            )
+
+        # For example, if you decide to let the manager update the rounded times:
+        login_time_str = data.get("login_time")
+        logout_time_str = data.get("logout_time")
+
+        # Parse the string times if provided (assuming they come in as ISO8601, e.g. "2025-01-01T14:30:00")
+        if login_time_str:
+            activity.login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
+        if logout_time_str:
+            logout_time = datetime.strptime(logout_time_str, "%Y-%m-%dT%H:%M:%S")
+            activity.logout_time = round_datetime_minute(
+                logout_time
+            )  # Apply rounding function
+
+        # is_public_holiday, deliveries, etc.
+        if "is_public_holiday" in data:
+            activity.is_public_holiday = data["is_public_holiday"]
+
+        if "deliveries" in data:
+            activity.deliveries = data["deliveries"]
+
+        # Optionally, recalc shift_length_mins (if you want to do that automatically)
+        # Only if both login_time and logout_time exist:
+        if activity.login_time and activity.logout_time:
+            delta = activity.logout_time - activity.login_time
+            activity.shift_length_mins = int(delta.total_seconds() // 60)
+
+        # Save the changes
+        activity.save()
+
+        return JsonResponse({"message": "Activity updated successfully"})
+
+    # Fallback
+    return JsonResponse({"Error": "Invalid request"}, status=400)
+
+
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 # @manager_required
@@ -151,7 +268,9 @@ def employee_details_view(request, id=None):
                 }
                 return JsonResponse(employee_data, safe=False)
             else:
-                employees = User.objects.filter(is_manager=False)
+                employees = User.objects.filter(is_manager=False).order_by(
+                    "first_name", "last_name"
+                )
                 employee_data = [
                     {
                         "id": emp.id,
@@ -563,6 +682,7 @@ def weekly_summary_view(request):
                 total_hours=Sum(F("shift_length_mins") / 60.0),
                 total_deliveries=Sum("deliveries"),
             )
+            .order_by("employee_id__first_name", "employee_id__last_name")
         )
 
         data = [
