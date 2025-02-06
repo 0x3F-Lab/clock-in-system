@@ -13,7 +13,19 @@ function showNotification(message, type = "warning") {
   // Automatically remove notification after 5 seconds
   setTimeout(() => {
       notification.alert('close');  // Close the notification
-  }, 5000);
+  }, 5500);
+
+  // Log warning message to console
+  switch (type.toLowerCase()) {
+    case "warning":
+      console.warn(message);
+      break;
+    case "danger":
+      console.error(message);
+      break;
+    default:
+      break;
+  }
 }
 
 
@@ -60,6 +72,115 @@ function getCSRFToken() {
 }
 
 
+///////////////////////
+
+
 // General loader function that runs when page loads
 $(document).ready(function() {
+  handleChangePin();
 });
+
+function handleChangePin() {
+  // When modal is about to be shown, populate employee list
+  $("#changePinModal").on("show.bs.modal", function() {
+    // Clear any previous data
+    $("#changePinUserList").empty();
+    $("#changePinSearchBar").val("");
+    $("#changePinSelectedUserID").val("");
+    $("#currentPin").val("");
+    $("#newPin").val("");
+    $("#confirmNewPin").val("");
+
+    // Fetch the employees listEmployeeNames endpoint
+    $.get(window.djangoURLs.listEmployeeNames, function(data) {
+      // data might be [[1, "John Smith"], [2, "Jane Doe"]], etc.
+      data.forEach(emp => {
+        const userId = emp[0];
+        const fullName = emp[1];
+        $("#changePinUserList").append(`
+          <li
+            class="list-group-item"
+            data-id="${userId}"
+            style="cursor: pointer;"
+          >
+            ${fullName}
+          </li>
+        `);
+      });
+    })
+    .fail(function(xhr) {
+      showNotification("Failed to load employee list.", "danger");
+      console.error(xhr);
+    });
+  });
+
+  // Filter list on input
+  $("#changePinSearchBar").on("input", function() {
+    const term = $(this).val().toLowerCase();
+    $("#changePinUserList").children("li").each(function() {
+      $(this).toggle($(this).text().toLowerCase().includes(term));
+    });
+  });
+
+  // Click on an employee name to select
+  $("#changePinUserList").on("click", "li", function() {
+    $("#changePinUserList li").removeClass("active");
+    $(this).addClass("active");
+    const userId = $(this).data("id");
+    $("#changePinSelectedUserID").val(userId);
+  });
+
+  // Submit button
+  $("#submitChangePin").on("click", function() {
+    const userID = $("#changePinSelectedUserID").val();
+    const currentPin = $("#currentPin").val().trim();
+    const newPin = $("#newPin").val().trim();
+    const confirmNewPin = $("#confirmNewPin").val().trim();
+
+    if (!userID) {
+      showNotification("Please select your name from the list.", "danger");
+      return;
+    }
+    if (!currentPin || !newPin || !confirmNewPin) {
+      showNotification("All pin fields are required.", "danger");
+      return;
+    }
+    if (newPin !== confirmNewPin) {
+      showNotification("New pin and confirmation do not match.", "danger");
+      return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    // POST to your "change pin" endpoint
+    $.ajax({
+      url: window.djangoURLs.changePin,
+      method: "POST",
+      headers: {
+        "X-CSRFToken": csrftoken
+      },
+      data: {
+        user_id: userID,
+        current_pin: currentPin,
+        new_pin: newPin
+      },
+      success: function(response) {
+        if (response.success) {
+          showNotification(response.message, "success");
+          $("#changePinModal").modal("hide");
+        } else {
+          showNotification(response.message, "danger");
+        }
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to change pin due to internal error. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to change pin. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
+      }
+    });
+  });
+}
