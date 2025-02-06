@@ -96,7 +96,7 @@ def list_users_name_view(request):
         )
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
     if request.method == "GET":
@@ -109,11 +109,9 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                # Calculate hours using shift_length_mins
                 hours_decimal = (
                     act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
                 )
-
                 data.append(
                     {
                         "id": act.id,
@@ -140,22 +138,80 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
                         "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-
-            json_response = json.dumps(data, indent=2)
-            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
-
         else:
-            # Return the template with CSRF token
-            get_token(request)
+            # Render HTML template
+            get_token(request)  # ensure CSRF token
             return render(request, "auth_app/raw_data_logs.html")
 
+    elif request.method == "POST":
+        """
+        Create a new Activity record.
+        exact_login_timestamp & exact_logout_timestamp remain None to show as N/A.
+        """
+        data = request.data
 
-@api_view(["GET", "PUT"])
+        required_fields = ["employee_id", "login_time", "logout_time"]
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            return JsonResponse(
+                {"Error": f"Missing field(s): {', '.join(missing)}"},
+                status=400,
+            )
+
+        try:
+            employee_id = data.get("employee_id")
+            login_str = data.get("login_time")  # e.g. "2025-01-01T14:30:00"
+            logout_str = data.get("logout_time")  # e.g. "2025-01-01T17:45:00"
+            is_public_holiday = data.get("is_public_holiday", False)
+            deliveries = data.get("deliveries", 0)
+
+            # Parse naive datetimes (no time zone)
+            login_dt = datetime.strptime(login_str, "%Y-%m-%dT%H:%M:%S")
+            logout_dt = datetime.strptime(logout_str, "%Y-%m-%dT%H:%M:%S")
+
+            emp = get_object_or_404(User, id=employee_id)
+
+            # Create the new activity record
+            activity = Activity.objects.create(
+                employee_id=emp,
+                login_time=login_dt,
+                logout_time=logout_dt,
+                # No exact timestamps -> remain None => "N/A" in UI
+                login_timestamp=None,
+                logout_timestamp=None,
+                is_public_holiday=is_public_holiday,
+                deliveries=deliveries,
+            )
+
+            # Calculate shift length if both times exist
+            if activity.login_time and activity.logout_time:
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
+                activity.save()
+
+            return JsonResponse(
+                {"message": "Activity created successfully", "id": activity.id},
+                status=201,
+            )
+
+        except ValueError as ve:
+            # e.g., datetime parsing error
+            logger.error(f"Date parse error: {ve}")
+            return JsonResponse(
+                {"Error": f"Invalid date/time format: {ve}"}, status=400
+            )
+        except User.DoesNotExist:
+            return JsonResponse({"Error": "Invalid employee_id"}, status=404)
+        except Exception as e:
+            logger.error(f"Error creating Activity: {e}")
+            return JsonResponse({"Error": "Internal error."}, status=500)
+
+
+@api_view(["GET", "PUT", "DELETE"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_detail_view(request, id):
     """
@@ -233,8 +289,6 @@ def raw_data_logs_detail_view(request, id):
         if "deliveries" in data:
             activity.deliveries = data["deliveries"]
 
-        # Optionally, recalc shift_length_mins (if you want to do that automatically)
-        # Only if both login_time and logout_time exist:
         if activity.login_time and activity.logout_time:
             delta = activity.logout_time - activity.login_time
             activity.shift_length_mins = int(delta.total_seconds() // 60)
@@ -243,6 +297,10 @@ def raw_data_logs_detail_view(request, id):
         activity.save()
 
         return JsonResponse({"message": "Activity updated successfully"})
+
+    elif request.method == "DELETE":
+        activity.delete()
+        return JsonResponse({"message": "Activity deleted successfully"}, status=204)
 
     # Fallback
     return JsonResponse({"Error": "Invalid request"}, status=400)
