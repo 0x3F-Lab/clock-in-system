@@ -31,7 +31,7 @@ def manager_login(request):
             # Log the user in by setting session data
             request.session["user_id"] = user.id
             request.session["is_manager"] = user.is_manager
-            logger
+            logger.debug(f"Session data: {request.session.items()}")
             return redirect("manager_dashboard")
         else:
             messages.error(request, "Invalid Details")
@@ -44,8 +44,9 @@ def logout_view(request):
     return redirect("/")
 
 
-# @manager_required
+@manager_required
 def manager_dashboard(request):
+    logger.debug(f"Session data: {request.session.items()}")
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
     return render(request, "auth_app/manager_dashboard.html", {"user": user})
