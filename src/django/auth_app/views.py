@@ -40,7 +40,7 @@ def manager_login(request):
 
 def logout_view(request):
     request.session.flush()  # Clear all session data
-    return redirect("manager_login")
+    return redirect("/")
 
 
 @manager_required

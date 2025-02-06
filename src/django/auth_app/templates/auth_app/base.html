@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="{{ BASE_URL }}{% static 'img/favicon/android-chrome-192x192.png' %}" />
     <link rel="icon" type="image/png" sizes="512x512" href="{{ BASE_URL }}{% static 'img/favicon/android-chrome-512x512.png' %}" />
     <link rel="shortcut icon" href="{{ BASE_URL }}{% static 'img/favicon/favicon.ico' %}" />
-    <link rel="manifest" href="{{ BASE_URL }}{% static 'img/favicon/site.webmanifest' %}" />
+    <!-- <link rel="manifest" href="{{ BASE_URL }}{% static 'img/favicon/site.webmanifest' %}" /> DISABLED FOR TIME BEING -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
           crossorigin="anonymous">
@@ -51,10 +51,17 @@
             -->
           </ul>
           
-          <!-- Login button (Top Right) -->
+          <!-- Right side of the navbar -->
           <div class="d-flex">
-            <a href="#" class="btn btn-outline-light">Login</a>
+            {% if request.session.user_id %}
+                <!-- If the user is in session, show Logout -->
+                <a href="{% url 'logout' %}" class="btn btn-outline-light">Logout</a>
+            {% else %}
+                <!-- Otherwise, show Login -->
+                <a href="{% url 'manager_login' %}" class="btn btn-outline-light">Login</a>
+            {% endif %}
           </div>
+
         </div>
       </div>
     </nav>
