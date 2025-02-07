@@ -156,12 +156,12 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             ).last()
 
             if not activity:
-                # Manually update user's state to ensure they dont remain bugged
-                employee.clocked_in = False
-                employee.save()
-
-                # Raise error to inform user
-                raise err.NoActiveClockingRecordError
+                force_fix_user_bugged_clocked_state(
+                    employee=employee, employee_id=employee_id
+                )
+                raise err.NoActiveClockingRecordError(
+                    "No active clock-in activity found. Resetting user's clocked state."
+                )
 
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
             if check_clocking_out_too_soon(employee_id=employee_id):
@@ -194,7 +194,7 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
         raise e
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
-        logger.error(
+        logger.warning(
             f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity). Their clocked state has been reset to ensure they don't remain bugged."
         )
         raise
@@ -203,6 +203,39 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
         raise e
+
+
+def force_fix_user_bugged_clocked_state(employee: User, employee_id: int) -> bool:
+    """
+    Forcefully fixes a user's bugged clocked state due to missing activity records.
+
+    Args:
+        employee (User): The User instance whose clocked-in state needs correction.
+        employee_id (int): The ID of the user whpse clocked-in state needs correction.
+        BOTH MUST BE GIVEN!
+
+    Returns:
+        bool: Whether the user's state has been reset or not
+    """
+    try:
+        # Ensure they dont have an active activity record before resetting state
+        activity = Activity.objects.filter(
+            employee_id=employee_id, logout_time__isnull=True
+        ).last()
+
+        if activity:
+            return False
+
+        # Reset user's clocked state
+        employee.clocked_in = False
+        employee.save()
+        return True
+
+    except Exception as e:
+        logger.critical(f"Failed to fix clocked state for {employee.id}: {str(e)}")
+        raise Exception(
+            f"Failed to fix clocked state for {employee.id} by resetting their state."
+        )
 
 
 def get_employee_clocked_info(employee_id: int) -> dict:
@@ -238,7 +271,12 @@ def get_employee_clocked_info(employee_id: int) -> dict:
             ).last()
 
             if not activity:
-                raise Activity.DoesNotExist("No active clock-in activity found.")
+                force_fix_user_bugged_clocked_state(
+                    employee=employee, employee_id=employee_id
+                )
+                raise err.NoActiveClockingRecordError(
+                    "No active clock-in activity found. Resetting user's clocked state."
+                )
 
             # Add the clock-in time to the info
             info["login_time"] = activity.login_time
@@ -248,6 +286,12 @@ def get_employee_clocked_info(employee_id: int) -> dict:
 
     except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
         raise e  # Re-raise error to be caught in view
+    except err.NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        logger.warning(
+            f"Failed to get clocked status for employee with ID {employee_id} due to a missing active clocking record (activity). Their clocked state has been reset to ensure they don't remain bugged."
+        )
+        raise
     except Exception as e:
         # Catch-all exception
         logger.error(

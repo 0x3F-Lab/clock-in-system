@@ -645,6 +645,14 @@ def clocked_state_view(request, id):
             {"Error": "Cannot view information from an inactive account."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
+        return Response(
+            {
+                "Error": "No active clock-in record found. The account's state has been reset."
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
     except Activity.DoesNotExist:
         # Return a 417 if the user's state is bugged
         logger.error(
