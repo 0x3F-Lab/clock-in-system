@@ -51,7 +51,6 @@ def change_pin_view(request):
 
 
 @api_view(["GET"])
-@manager_required
 def list_users_name_view(request):
     """
     API view to fetch a list of users with their IDs and full names.
@@ -98,7 +97,6 @@ def list_users_name_view(request):
 
 
 @api_view(["GET"])
-@manager_required
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
     if request.method == "GET":
@@ -252,7 +250,7 @@ def raw_data_logs_detail_view(request, id):
 
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
-@manager_required
+# @manager_required
 def employee_details_view(request, id=None):
     logger.error(f"test: {request.user}")
     if request.method == "GET":
@@ -361,7 +359,6 @@ def employee_details_view(request, id=None):
     )
 
 
-@manager_required
 def employee_details_page(request):
     """
     View to render the employee details HTML page.
@@ -612,7 +609,6 @@ def clocked_state_view(request, id):
 
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-@manager_required
 def weekly_summary_view(request):
     start_date_str = request.query_params.get("start_date")
     end_date_str = request.query_params.get("end_date")
@@ -715,7 +711,6 @@ def weekly_summary_view(request):
 
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
-@manager_required
 def reset_summary_view(request):
     # If a new date is provided in the POST, use it, otherwise today
     new_date_str = request.data.get("new_reset_date")
@@ -746,14 +741,12 @@ def reset_summary_view(request):
     )
 
 
-@manager_required
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
 
 
 @api_view(["POST", "PUT"])
-@manager_required
 def change_pin(request, id):
     try:
         # Get new pin
@@ -817,7 +810,6 @@ def change_pin(request, id):
 
 
 @api_view(["POST", "PUT"])
-@manager_required
 def active_employee_account(request, id):
     try:
         # Get new pin
