@@ -58,8 +58,8 @@
     <form id="addActivityForm">
       {% csrf_token %}
 
-      <label for="addStaffId">Staff (User) ID:</label>
-      <input type="number" id="addStaffId" min="1" required>
+      <label for="addStaffSelect">Staff (User):</label>
+      <select id="addStaffSelect" required></select>
 
       <label for="addLoginTime">Login Time (rounded):</label>
       <input type="datetime-local" id="addLoginTime" required>
