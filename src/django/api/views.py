@@ -175,14 +175,15 @@ def raw_data_logs_view(request):
 
             emp = get_object_or_404(User, id=employee_id)
 
+            now_ts = datetime.now()
+
             # Create the new activity record
             activity = Activity.objects.create(
                 employee_id=emp,
                 login_time=login_dt,
                 logout_time=logout_dt,
-                # No exact timestamps -> remain None => "N/A" in UI
-                login_timestamp=None,
-                logout_timestamp=None,
+                login_timestamp=now_ts,
+                logout_timestamp=now_ts,
                 is_public_holiday=is_public_holiday,
                 deliveries=deliveries,
             )
