@@ -651,20 +651,12 @@ def clocked_state_view(request, id):
         )
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
+        logger.error(
+            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record. Their state has been reset"
+        )
         return Response(
             {
                 "Error": "No active clock-in record found. The account's state has been reset."
-            },
-            status=status.HTTP_409_CONFLICT,
-        )
-    except Activity.DoesNotExist:
-        # Return a 417 if the user's state is bugged
-        logger.error(
-            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record."
-        )
-        return Response(
-            {
-                "Error": f"User state is bugged due to missing activity records. Please contact an admin."
             },
             status=status.HTTP_417_EXPECTATION_FAILED,
         )

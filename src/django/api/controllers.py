@@ -229,6 +229,10 @@ def force_fix_user_bugged_clocked_state(employee: User, employee_id: int) -> boo
         # Reset user's clocked state
         employee.clocked_in = False
         employee.save()
+        logger.info(
+            f"Fixed clocked state for ID {employee.id} by resetting to 'False'."
+        )
+
         return True
 
     except Exception as e:
