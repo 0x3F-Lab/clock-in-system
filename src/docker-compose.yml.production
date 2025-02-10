@@ -1,6 +1,7 @@
 services:
   django:
     container_name: django
+    restart: always
     image: django
     build:
       context: ./django  # Path to your Django directory
@@ -13,12 +14,13 @@ services:
 
   nginx:
     container_name: nginx
+    restart: always
     image: nginx:perl
     volumes:
       - static_volume:/static:ro  # Serve static files via a shared volume
       - /etc/letsencrypt:/etc/letsencrypt:ro # For SSL encryption keys
       - ./nginx.conf:/etc/nginx/nginx.conf:ro # Nginx configuration file
-      - /var/www/html:/var/www/html:ro # For certbot authentication
+      - /var/www/html/:/var/www/html/:ro # For certbot authentication
     ports:
       - "80:80" # HTTP port for redirection to HTTPS port
       - "443:443" # HTTPS port
