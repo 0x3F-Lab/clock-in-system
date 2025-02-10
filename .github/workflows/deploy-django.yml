@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - "production"
+      - "40-Bug_user_states"
   workflow_dispatch:
 
 jobs:
