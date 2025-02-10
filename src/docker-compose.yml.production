@@ -1,6 +1,7 @@
 services:
   django:
     container_name: django
+    restart: always
     image: django
     build:
       context: ./django  # Path to your Django directory
@@ -13,6 +14,7 @@ services:
 
   nginx:
     container_name: nginx
+    restart: always
     image: nginx:perl
     volumes:
       - static_volume:/static:ro  # Serve static files via a shared volume
