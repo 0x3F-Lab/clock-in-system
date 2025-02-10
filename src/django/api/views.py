@@ -96,6 +96,7 @@ def list_users_name_view(request):
         )
 
 
+@manager_required
 @api_view(["GET", "POST"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
@@ -212,6 +213,7 @@ def raw_data_logs_view(request):
             return JsonResponse({"Error": "Internal error."}, status=500)
 
 
+@manager_required
 @api_view(["GET", "PUT", "DELETE"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_detail_view(request, id):
@@ -307,6 +309,7 @@ def raw_data_logs_detail_view(request, id):
     return JsonResponse({"Error": "Invalid request"}, status=400)
 
 
+@manager_required
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 # @manager_required
@@ -418,6 +421,7 @@ def employee_details_view(request, id=None):
     )
 
 
+@manager_required
 def employee_details_page(request):
     """
     View to render the employee details HTML page.
@@ -674,6 +678,7 @@ def clocked_state_view(request, id):
         )
 
 
+@manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
@@ -776,6 +781,7 @@ def weekly_summary_view(request):
         )
 
 
+@manager_required
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
@@ -808,6 +814,7 @@ def reset_summary_view(request):
     )
 
 
+@manager_required
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
