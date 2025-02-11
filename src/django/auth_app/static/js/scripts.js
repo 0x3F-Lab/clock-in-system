@@ -188,55 +188,415 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
         console.log("Employee details elements not found on this page.");
     }
+  // --- Raw Data Logs Section ---
+const rawDataTableElement = document.getElementById("rawDataTable");
 
-    // --- Raw Data Logs Section ---
-	const rawDataTableElement = document.getElementById("rawDataTable");
+if (rawDataTableElement) {
+  // 1) Grab references
+  const rawDataTbody = rawDataTableElement.querySelector("tbody");
+  const editModal = document.getElementById("editActivityModal");
+  const editActivityForm = document.getElementById("editActivityForm");
+  const closeEditModalBtn = document.getElementById("closeEditModal");
+  const deleteActivityBtn = document.getElementById("deleteActivityBtn");
 
-	if (rawDataTableElement) {
-		const rawDataTbody = rawDataTableElement.querySelector("tbody");
+  const addModal = document.getElementById("addActivityModal");
+  const addNewLogBtn = document.getElementById("addNewLogBtn");
+  const closeAddModalBtn = document.getElementById("closeAddModal");
+  const addActivityForm = document.getElementById("addActivityForm");
 
-		const fetchRawDataLogs = () => {
-			fetch(rawDataLogsURL, {
-				headers: { "Accept": "application/json" },
-			})
-				.then((res) => {
-					if (!res.ok) throw new Error("Failed to fetch raw data logs.");
-					return res.json();
-				})
-				.then((data) => {
-					console.log("Fetched raw data logs:", data);
+  // The dropdown for selecting staff
+  const addStaffSelect = document.getElementById("addStaffSelect");
 
-					// Clear table
-					rawDataTbody.innerHTML = "";
-					if (data.length === 0) {
-						rawDataTbody.innerHTML = `<tr><td colspan="7">No logs found.</td></tr>`;
-					} else {
-						data.forEach((log) => {
-							console.log("Log being processed:", log); // Debugging line
-						
-							const row = document.createElement("tr");
-							row.innerHTML = `
-								<td>${log.staff_name}</td>
-								<td>${log.login_time || "N/A"}</td> <!-- Add fallback just in case -->
-								<td>${log.logout_time || "N/A"}</td> <!-- Add fallback just in case -->
-								<td>${log.is_public_holiday ? "Yes" : "No"}</td>
-								<td>${log.exact_login_timestamp}</td>
-								<td>${log.exact_logout_timestamp || "N/A"}</td>
-								<td>${log.deliveries}</td>
-								<td>${log.hours_worked}</td>
-							`;
-							rawDataTbody.appendChild(row);
-						});
-						
-					}
-				})
-				.catch((error) => {
-					console.error("Error fetching raw data logs:", error);
-					rawDataTbody.innerHTML = `<tr><td colspan="7">Failed to load logs. Please try again later.</td></tr>`;
-				});
-		};
+  // API endpoints
+  const rawDataLogsURL = "/api/raw-data-logs/";
+  const listUsersURL = "/api/list-employees/";
 
-    // Initial fetch of raw data logs
-    fetchRawDataLogs();
-	}
+  // 2) Fetch employees for the Add form's dropdown
+  const populateStaffDropdown = () => {
+    fetch(listUsersURL)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch users for dropdown.");
+        }
+        return res.json();
+      })
+      .then((users) => {
+        // Clear existing <option>s
+        addStaffSelect.innerHTML = "";
+
+        const placeholderOption = document.createElement("option");
+        placeholderOption.value = "";
+        placeholderOption.textContent = "Choose an Employee...";
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        addStaffSelect.appendChild(placeholderOption);
+
+        users.forEach((userArray) => {
+          const option = document.createElement("option");
+        
+          const userId = userArray[0];
+          const userName = userArray[1];
+        
+          option.value = userId;          
+          option.textContent = userName;   
+        
+          addStaffSelect.appendChild(option);
+        });
+      })
+      .catch((err) => {
+        console.error("Error fetching user list:", err);
+        alert("Could not load staff list. Please refresh or try again.");
+      });
+  };
+
+  // 3) Fetch and display logs 
+  const fetchRawDataLogs = () => {
+    fetch(rawDataLogsURL, { headers: { Accept: "application/json" } })
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch raw data logs.");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        // Clear table
+        rawDataTbody.innerHTML = "";
+
+        if (!data.length) {
+          rawDataTbody.innerHTML = `
+            <tr><td colspan="9">No logs found.</td></tr>
+          `;
+          return;
+        }
+
+        data.forEach((log) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${log.staff_name}</td>
+            <td>${log.login_time || "N/A"}</td>
+            <td>${log.logout_time || "N/A"}</td>
+            <td>${log.is_public_holiday ? "Yes" : "No"}</td>
+            <td>${log.exact_login_timestamp || "N/A"}</td>
+            <td>${log.exact_logout_timestamp || "N/A"}</td>
+            <td>${log.deliveries}</td>
+            <td>${log.hours_worked || "0"}</td>
+            <td>
+              <button class="editBtn" data-id="${log.id}">Edit</button>
+            </td>
+          `;
+          rawDataTbody.appendChild(row);
+        });
+
+        // Add click listeners to newly created Edit buttons
+        const editButtons = rawDataTbody.querySelectorAll(".editBtn");
+        editButtons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const logId = btn.getAttribute("data-id");
+            openEditModal(logId);
+          });
+        });
+      })
+      .catch((err) => {
+        console.error("Error fetching raw data logs:", err);
+        rawDataTbody.innerHTML = `
+          <tr><td colspan="9">Failed to load logs. Please try again later.</td></tr>
+        `;
+      });
+  };
+
+  // 4) Open edit modal  
+  const openEditModal = (logId) => {
+    editModal.style.display = "block";
+    document.getElementById("editActivityId").value = logId;
+
+    // GET single record to fill form fields
+    fetch(`${rawDataLogsURL}${logId}/`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch single activity");
+        return res.json();
+      })
+      .then((activityData) => {
+        const editLoginTime = document.getElementById("editLoginTime");
+        const editLogoutTime = document.getElementById("editLogoutTime");
+        const editIsPublicHoliday = document.getElementById("editIsPublicHoliday");
+        const editDeliveries = document.getElementById("editDeliveries");
+
+        editLoginTime.value = activityData.login_time
+          ? activityData.login_time.slice(0, 16)
+          : "";
+        editLogoutTime.value = activityData.logout_time
+          ? activityData.logout_time.slice(0, 16)
+          : "";
+        editIsPublicHoliday.checked = activityData.is_public_holiday;
+        editDeliveries.value = activityData.deliveries || 0;
+      })
+      .catch((err) => {
+        console.error("Error fetching detail:", err);
+        alert("Failed to open edit modal");
+      });
+  };
+
+  // 5) Close edit modal 
+  closeEditModalBtn.addEventListener("click", () => {
+    editModal.style.display = "none";
+  });
+
+  // 6) Handle Edit Form submission 
+  editActivityForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const csrftoken = document.querySelector(
+      '#editActivityForm input[name="csrfmiddlewaretoken"]'
+    ).value;
+
+    const activityId = document.getElementById("editActivityId").value;
+    const loginTime = document.getElementById("editLoginTime").value;
+    const logoutTime = document.getElementById("editLogoutTime").value;
+    const isPublicHoliday = document.getElementById("editIsPublicHoliday").checked;
+    const deliveries = document.getElementById("editDeliveries").value;
+
+    const payload = {
+      login_time: loginTime ? loginTime + ":00" : null,
+      logout_time: logoutTime ? logoutTime + ":00" : null,
+      is_public_holiday: isPublicHoliday,
+      deliveries: parseInt(deliveries, 10),
+    };
+
+    fetch(`${rawDataLogsURL}${activityId}/`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((data) => {
+            throw new Error(data.error || "Failed to update activity");
+          });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Update success:", data);
+        alert("Activity updated successfully!");
+        editModal.style.display = "none";
+        fetchRawDataLogs();
+      })
+      .catch((err) => {
+        console.error("Error updating activity:", err);
+        alert("Error updating activity: " + err.message);
+      });
+  });
+
+  // 7) Delete an Activity  
+  deleteActivityBtn.addEventListener("click", () => {
+    if (!confirm("Are you sure you want to delete this activity?")) {
+      return;
+    }
+
+    const activityId = document.getElementById("editActivityId").value;
+    const csrftoken = document.querySelector(
+      '#editActivityForm input[name="csrfmiddlewaretoken"]'
+    ).value;
+
+    fetch(`${rawDataLogsURL}${activityId}/`, {
+      method: "DELETE",
+      headers: {
+        "X-CSRFToken": csrftoken,
+      },
+    })
+      .then((res) => {
+        if (!res.ok && res.status !== 204) {
+          return res.json().then((data) => {
+            throw new Error(data.error || "Failed to delete activity");
+          });
+        }
+        return { message: "Activity deleted successfully" };
+      })
+      .then((data) => {
+        console.log(data.message);
+        alert("Activity deleted successfully!");
+        editModal.style.display = "none";
+        fetchRawDataLogs();
+      })
+      .catch((err) => {
+        console.error("Error deleting activity:", err);
+        alert("Error deleting activity: " + err.message);
+      });
+  });
+
+  // 8) "Add New Log" button -> open the add modal 
+  addNewLogBtn.addEventListener("click", () => {
+    addModal.style.display = "block";
+  });
+
+  // 9) Close add modal 
+  closeAddModalBtn.addEventListener("click", () => {
+    addModal.style.display = "none";
+  });
+
+  // 10) Handle Add Form submission
+  addActivityForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const csrftoken = document.querySelector(
+      '#addActivityForm input[name="csrfmiddlewaretoken"]'
+    ).value;
+
+    const employeeId = addStaffSelect.value;  // get the selected <option> value
+    const loginTime = document.getElementById("addLoginTime").value;
+    const logoutTime = document.getElementById("addLogoutTime").value;
+    const isPublicHoliday = document.getElementById("addIsPublicHoliday").checked;
+    const deliveries = document.getElementById("addDeliveries").value;
+
+    const payload = {
+      employee_id: parseInt(employeeId, 10),
+      login_time: loginTime ? loginTime + ":00" : null,
+      logout_time: logoutTime ? logoutTime + ":00" : null,
+      is_public_holiday: isPublicHoliday,
+      deliveries: parseInt(deliveries, 10),
+    };
+
+    fetch(rawDataLogsURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": csrftoken,
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((data) => {
+            throw new Error(data.Error || "Failed to create new activity");
+          });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        console.log("Create success:", data);
+        alert("New activity created successfully!");
+        addModal.style.display = "none";
+        addActivityForm.reset();
+        fetchRawDataLogs();
+      })
+      .catch((err) => {
+        console.error("Error creating new activity:", err);
+        alert("Error creating activity: " + err.message);
+      });
+  });
+
+  // 11) On page load, populate the staff dropdown & fetch logs
+  populateStaffDropdown();
+  fetchRawDataLogs();
+}
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // CHANGE PIN SECTION 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    // Only run if the "Change Pin" modal is on the page
+    const changePinModal = document.getElementById("changePinModal");
+    if (changePinModal) {
+      // When modal is about to be shown, populate employee list
+      $("#changePinModal").on("show.bs.modal", function() {
+        // Clear any previous data
+        $("#changePinUserList").empty();
+        $("#changePinSearchBar").val("");
+        $("#changePinSelectedUserID").val("");
+        $("#currentPin").val("");
+        $("#newPin").val("");
+        $("#confirmNewPin").val("");
+
+        // Fetch the employees listEmployeeNames endpoint
+        $.get(window.djangoURLs.listEmployeeNames, function(data) {
+          // data might be [[1, "John Smith"], [2, "Jane Doe"]], etc.
+          data.forEach(emp => {
+            const userId = emp[0];
+            const fullName = emp[1];
+            $("#changePinUserList").append(`
+              <li
+                class="list-group-item"
+                data-id="${userId}"
+                style="cursor: pointer;"
+              >
+                ${fullName}
+              </li>
+            `);
+          });
+        })
+        .fail(function(xhr) {
+          showNotification("Failed to load employee list.", "danger");
+          console.error(xhr);
+        });
+      });
+
+      // Filter list on input
+      $("#changePinSearchBar").on("input", function() {
+        const term = $(this).val().toLowerCase();
+        $("#changePinUserList").children("li").each(function() {
+          $(this).toggle($(this).text().toLowerCase().includes(term));
+        });
+      });
+
+      // Click on an employee name to select
+      $("#changePinUserList").on("click", "li", function() {
+        $("#changePinUserList li").removeClass("active");
+        $(this).addClass("active");
+        const userId = $(this).data("id");
+        $("#changePinSelectedUserID").val(userId);
+      });
+
+      // Submit button
+      $("#submitChangePin").on("click", function() {
+        const userID = $("#changePinSelectedUserID").val();
+        const currentPin = $("#currentPin").val().trim();
+        const newPin = $("#newPin").val().trim();
+        const confirmNewPin = $("#confirmNewPin").val().trim();
+
+        if (!userID) {
+          showNotification("Please select your name from the list.", "danger");
+          return;
+        }
+        if (!currentPin || !newPin || !confirmNewPin) {
+          showNotification("All pin fields are required.", "danger");
+          return;
+        }
+        if (newPin !== confirmNewPin) {
+          showNotification("New pin and confirmation do not match.", "danger");
+          return;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
+        // POST to your "change pin" endpoint
+        $.ajax({
+          url: window.djangoURLs.changePin,
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrftoken
+          },
+          data: {
+            user_id: userID,
+            current_pin: currentPin,
+            new_pin: newPin
+          },
+          success: function(response) {
+            if (response.success) {
+              showNotification(response.message, "success");
+              $("#changePinModal").modal("hide");
+            } else {
+              showNotification(response.message, "danger");
+            }
+          },
+          error: function(xhr) {
+            showNotification("An unexpected error occurred.", "danger");
+            console.error(xhr);
+          }
+        });
+      });
+    }
+
 });

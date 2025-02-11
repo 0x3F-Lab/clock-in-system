@@ -67,9 +67,7 @@ class Activity(models.Model):
     shift_length_mins = models.IntegerField(default=0, null=False)
     is_public_holiday = models.BooleanField(default=False, null=False)
     deliveries = models.IntegerField(default=0, null=False)
-    login_timestamp = models.DateTimeField(
-        auto_now_add=True, null=False
-    )  # Track the specific time
+    login_timestamp = models.DateTimeField(null=True)
     logout_timestamp = models.DateTimeField(null=True)
     last_updated_at = models.DateTimeField(
         auto_now=True, null=False

@@ -1,12 +1,12 @@
 {% extends "auth_app/base.html" %}
 {% block title %}Pizza Clock-in || Login{% endblock %}
+
 {% block content %}
-
-<h2>Login</h2>
-
-<div class="login-box">
-    <button onclick="location.href='/manager_login/'">Login as Manager</button>
-    <button onclick="location.href='/employee_login/'">Login as Employee</button>
+<div class="full-page-center">
+  <h2>Login</h2>
+  <div class="login-box">
+      <button onclick="location.href='/manager_login/'">Login as Manager</button>
+      <button onclick="location.href='/employee_login/'">Login as Employee</button>
+  </div>
 </div>
-
 {% endblock %}

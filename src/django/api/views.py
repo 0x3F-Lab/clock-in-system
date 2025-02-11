@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 import api.utils as util
+from api.utils import round_datetime_minute
 import api.controllers as controllers
 import api.exceptions as err
 from rest_framework.decorators import api_view
@@ -25,6 +26,28 @@ from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
+
+
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def change_pin_view(request):
+    user_id = request.data.get("user_id")
+    current_pin = request.data.get("current_pin")
+    new_pin = request.data.get("new_pin")
+
+    if not user_id or not current_pin or not new_pin:
+        return JsonResponse({"Error": "Missing required fields."}, status=400)
+
+    try:
+        user = User.objects.get(id=user_id, is_active=True)
+    except User.DoesNotExist:
+        return JsonResponse({"Error": "User not found or inactive."}, status=404)
+
+    if not user.check_pin(current_pin):
+        return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
+
+    user.set_pin(new_pin)
+    return JsonResponse({"success": True, "message": "Pin changed successfully."})
 
 
 @api_view(["GET"])
@@ -73,7 +96,8 @@ def list_users_name_view(request):
         )
 
 
-@api_view(["GET"])
+@manager_required
+@api_view(["GET", "POST"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
     if request.method == "GET":
@@ -86,13 +110,12 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                # Calculate hours using shift_length_mins
                 hours_decimal = (
                     act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
                 )
-
                 data.append(
                     {
+                        "id": act.id,
                         "staff_name": staff_name,
                         "login_time": (
                             localtime(act.login_time).strftime("%H:%M")
@@ -116,21 +139,177 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
                         "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-
-            json_response = json.dumps(data, indent=2)
-            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
-
         else:
-            # Return the template with CSRF token
-            get_token(request)
+            # Render HTML template
+            get_token(request)  # ensure CSRF token
             return render(request, "auth_app/raw_data_logs.html")
 
+    elif request.method == "POST":
+        """
+        Create a new Activity record.
+        exact_login_timestamp & exact_logout_timestamp remain None to show as N/A.
+        """
+        data = request.data
 
+        required_fields = ["employee_id", "login_time", "logout_time"]
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            return JsonResponse(
+                {"Error": f"Missing field(s): {', '.join(missing)}"},
+                status=400,
+            )
+
+        try:
+            employee_id = data.get("employee_id")
+            login_str = data.get("login_time")  # e.g. "2025-01-01T14:30:00"
+            logout_str = data.get("logout_time")  # e.g. "2025-01-01T17:45:00"
+            is_public_holiday = data.get("is_public_holiday", False)
+            deliveries = data.get("deliveries", 0)
+
+            # Parse naive datetimes (no time zone)
+            login_dt = datetime.strptime(login_str, "%Y-%m-%dT%H:%M:%S")
+            logout_dt = datetime.strptime(logout_str, "%Y-%m-%dT%H:%M:%S")
+
+            emp = get_object_or_404(User, id=employee_id)
+
+            now_ts = datetime.now()
+
+            # Create the new activity record
+            activity = Activity.objects.create(
+                employee_id=emp,
+                login_time=login_dt,
+                logout_time=logout_dt,
+                login_timestamp=now_ts,
+                logout_timestamp=now_ts,
+                is_public_holiday=is_public_holiday,
+                deliveries=deliveries,
+            )
+
+            # Calculate shift length if both times exist
+            if activity.login_time and activity.logout_time:
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
+                activity.save()
+
+            return JsonResponse(
+                {"message": "Activity created successfully", "id": activity.id},
+                status=201,
+            )
+
+        except ValueError as ve:
+            # e.g., datetime parsing error
+            logger.error(f"Date parse error: {ve}")
+            return JsonResponse(
+                {"Error": f"Invalid date/time format: {ve}"}, status=400
+            )
+        except User.DoesNotExist:
+            return JsonResponse({"Error": "Invalid employee_id"}, status=404)
+        except Exception as e:
+            logger.error(f"Error creating Activity: {e}")
+            return JsonResponse({"Error": "Internal error."}, status=500)
+
+
+@manager_required
+@api_view(["GET", "PUT", "DELETE"])
+@renderer_classes([JSONRenderer])
+def raw_data_logs_detail_view(request, id):
+    """
+    Handle retrieval (GET) and updates (PUT) for a single Activity record.
+    """
+    # Attempt to fetch the activity by ID
+    activity = get_object_or_404(Activity, id=id)
+
+    if request.method == "GET":
+        # Return JSON data for a single Activity
+        staff_name = (
+            f"{activity.employee_id.first_name} {activity.employee_id.last_name}"
+        )
+        hours_decimal = (
+            activity.shift_length_mins / 60.0 if activity.shift_length_mins else 0.0
+        )
+
+        data = {
+            "login_time": (
+                localtime(activity.login_time).strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.login_time
+                else None
+            ),
+            "logout_time": (
+                localtime(activity.logout_time).strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.logout_time
+                else None
+            ),
+            "is_public_holiday": activity.is_public_holiday,
+            "login_timestamp": (
+                activity.login_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.login_timestamp
+                else None
+            ),
+            "logout_timestamp": (
+                activity.logout_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
+                if activity.logout_timestamp
+                else None
+            ),
+            "deliveries": activity.deliveries,
+            "shift_length_mins": activity.shift_length_mins,
+            "hours_worked": f"{hours_decimal:.2f}",
+        }
+
+        return JsonResponse(data, safe=False)
+
+    if request.method == "PUT":
+        required_fields = ["login_time", "logout_time"]
+        # Update the Activity
+        data = request.data
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return JsonResponse(
+                {"Error": f"Missing required fields: {', '.join(missing_fields)}"},
+                status=400,
+            )
+
+        # For example, if you decide to let the manager update the rounded times:
+        login_time_str = data.get("login_time")
+        logout_time_str = data.get("logout_time")
+
+        # Parse the string times if provided (assuming they come in as ISO8601, e.g. "2025-01-01T14:30:00")
+        if login_time_str:
+            activity.login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
+        if logout_time_str:
+            logout_time = datetime.strptime(logout_time_str, "%Y-%m-%dT%H:%M:%S")
+            activity.logout_time = round_datetime_minute(
+                logout_time
+            )  # Apply rounding function
+
+        # is_public_holiday, deliveries, etc.
+        if "is_public_holiday" in data:
+            activity.is_public_holiday = data["is_public_holiday"]
+
+        if "deliveries" in data:
+            activity.deliveries = data["deliveries"]
+
+        if activity.login_time and activity.logout_time:
+            delta = activity.logout_time - activity.login_time
+            activity.shift_length_mins = int(delta.total_seconds() // 60)
+
+        # Save the changes
+        activity.save()
+
+        return JsonResponse({"message": "Activity updated successfully"})
+
+    elif request.method == "DELETE":
+        activity.delete()
+        return JsonResponse({"message": "Activity deleted successfully"}, status=204)
+
+    # Fallback
+    return JsonResponse({"Error": "Invalid request"}, status=400)
+
+
+@manager_required
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 # @manager_required
@@ -151,7 +330,9 @@ def employee_details_view(request, id=None):
                 }
                 return JsonResponse(employee_data, safe=False)
             else:
-                employees = User.objects.filter(is_manager=False)
+                employees = User.objects.filter(is_manager=False).order_by(
+                    "first_name", "last_name"
+                )
                 employee_data = [
                     {
                         "id": emp.id,
@@ -240,6 +421,7 @@ def employee_details_view(request, id=None):
     )
 
 
+@manager_required
 def employee_details_page(request):
     """
     View to render the employee details HTML page.
@@ -488,6 +670,7 @@ def clocked_state_view(request, id):
         )
 
 
+@manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
@@ -563,6 +746,7 @@ def weekly_summary_view(request):
                 total_hours=Sum(F("shift_length_mins") / 60.0),
                 total_deliveries=Sum("deliveries"),
             )
+            .order_by("employee_id__first_name", "employee_id__last_name")
         )
 
         data = [
@@ -589,6 +773,7 @@ def weekly_summary_view(request):
         )
 
 
+@manager_required
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
@@ -621,6 +806,7 @@ def reset_summary_view(request):
     )
 
 
+@manager_required
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")

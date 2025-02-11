@@ -377,6 +377,14 @@ function formatTime(text) {
 // Get the location data of the user
 async function getLocationData() {
   if ('geolocation' in navigator) {
+    // Check geolocation permissions proactively
+    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+    
+    if (permissionStatus.state === 'denied') {
+      showNotification("Location access is denied. Please enable it in your browser settings.");
+      return null;
+    }
+
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -386,19 +394,31 @@ async function getLocationData() {
           resolve([userLat, userLon]);
         },
         (error) => {
-          console.error("Geolocation error:", error);
-          alert("Unable to get your location. Cannot clock in.");
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              showNotification("Location access is denied. Please enable it in your browser settings.");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              showNotification("Location is unavailable. Please try again later.");
+              break;
+            case error.TIMEOUT:
+              showNotification("Unable to get your location. Please ensure you have a good signal and try again.");
+              break;
+            default:
+              showNotification("An unknown error occurred while retrieving your location.");
+          }
+
           reject(null);
         },
         {
-          enableHighAccuracy: true,  // Request high accuracy
-          timeout: 5000,             // Timeout after 5 seconds
-          maximumAge: 0              // Do not use cached location
+          enableHighAccuracy: true,  // Request high accuracy for mobile users
+          timeout: 30000,            // Timeout after 30 seconds
+          maximumAge: 45000          // Allow cached location up to 45s old
         }
       );
     });
   } else {
-    alert("Geolocation is not supported by your browser. Cannot clock in.");
+    showNotification("Geolocation is not supported by your browser. Cannot clock in/out.");
     return null;
   }
 }
