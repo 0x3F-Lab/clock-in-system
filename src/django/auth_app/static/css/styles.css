@@ -23,23 +23,6 @@ body, html {
 /* ===========================
    LOGIN PAGE  
 =========================== */
-.login-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: white;
-    color: #333;
-    padding: 30px;
-    border-radius: 8px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-}
-
-.login-container h2 {
-    margin-bottom: 20px;
-    font-size: 24px;
-    color: #333;
-}
 
 .login-box button {
     width: 200px;
