@@ -21,9 +21,19 @@ body, html {
 }
 
 /* ===========================
+   NAVBAR 
+=========================== */
+.navbar {
+    background-color: var(--base-layer);
+}
+
+.navbar-toggler {
+    border: none;
+}
+
+/* ===========================
    LOGIN PAGE  
 =========================== */
-
 .login-box button {
     width: 200px;
     padding: 12px;
