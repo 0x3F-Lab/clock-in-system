@@ -1,4 +1,14 @@
 /* ===========================
+   CSS VARIABLES
+=========================== */
+:root {
+    --backdrop-color: #041325;
+    --base-layer: #061C37;
+    --secondary-layer: #082649;
+    --tertiary-layer: #152F4F;
+}
+
+/* ===========================
    GLOBAL STYLES
 =========================== */
 body, html {
