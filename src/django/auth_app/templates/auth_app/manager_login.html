@@ -2,21 +2,19 @@
 {% block title %}Pizza Clock-in || Manager Login{% endblock %}
 
 {% block content %}
-<div class="full-page-center">
-  <div class="form-container">
-    <h2>Manager Login</h2>
-    <form method="POST" action="{{ BASE_URL }}{% url 'manager_login' %}" class="login-form">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="text" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit" class="login-button">Login</button>
-    </form>
-  </div>
+<div class="form-container">
+  <h2>Manager Login</h2>
+  <form method="POST" action="{{ BASE_URL }}{% url 'manager_login' %}" class="login-form">
+      {% csrf_token %}
+      <div class="form-group">
+          <label for="email">Email:</label>
+          <input type="text" id="email" name="email" required>
+      </div>
+      <div class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required>
+      </div>
+      <button type="submit" class="login-button">Login</button>
+  </form>
 </div>
 {% endblock %}

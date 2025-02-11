@@ -2,10 +2,11 @@
    CSS VARIABLES
 =========================== */
 :root {
-    --backdrop-color: #041325;
-    --base-layer: #061C37;
-    --secondary-layer: #082649;
-    --tertiary-layer: #152F4F;
+    --backdrop-color: red;
+    --base-layer: blue;
+    --secondary-layer: green;
+    --tertiary-layer: purple;
+    --text-colour: white;
 }
 
 /* ===========================
@@ -15,9 +16,36 @@ body, html {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
+    background-color: var(--backdrop-color);
+    color: var(--text-colour);
+    min-height: 100vh;
+}
+
+/* ===========================
+   CENTERING CONTAINERS
+=========================== */
+.form-container {
+    max-width: 600px;
+    width: 100%;
+    height: auto;
+    padding: 10px;
+    box-sizing: border-box;
+    background-color: var(--base-layer);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.centered-container {
+    max-width: 1000px;
+    text-align: center;
+    margin: 0 auto;
+    padding: 20px;
     background-color: #1a202c;
     color: #f4f4f9;
-    min-height: 100vh;
+    box-sizing: border-box;
 }
 
 /* ===========================
@@ -31,11 +59,24 @@ body, html {
     border: none;
 }
 
+.navbar-toggler-icon {
+    padding: 0.75rem 1rem;
+    font-size: 1.75rem;
+}
+
 /* ===========================
    LOGIN PAGE  
 =========================== */
-.login-box button {
-    width: 200px;
+.login-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.form-container button {
+    width: 100%;
     padding: 12px;
     margin: 10px;
     border: none;
@@ -43,16 +84,7 @@ body, html {
     font-size: 16px;
     cursor: pointer;
     color: white;
-    background-color: #4CAF50;
-    transition: background-color 0.3s ease;
-}
-
-.login-box button:hover {
-    background-color: #45a049;
-}
-
-.login-box button:focus {
-    outline: none;
+    background-color: var(--tertiary-layer);
 }
 
 /* ===========================
@@ -429,40 +461,4 @@ th {
 
 .filter-card button:focus {
     outline: none;
-}
-
-/* ===========================
-   CENTERING CONTAINERS
-=========================== */
-.full-page-center {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    background-color: #1a202c;
-}
-
-.centered-container {
-    max-width: 1000px;
-    text-align: center;
-    margin: 0 auto;
-    padding: 20px;
-    background-color: #1a202c;
-    color: #f4f4f9;
-    box-sizing: border-box;
-}
-
-.form-container {
-    max-width: 400px;
-    width: 100%;
-    padding: 20px;
-    box-sizing: border-box;
-    background-color: #fff;
-    color: #333;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
