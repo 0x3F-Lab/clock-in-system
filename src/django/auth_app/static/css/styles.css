@@ -34,31 +34,39 @@ html, body {
    CENTERING CONTAINERS
 =========================== */
 .full-page-center {
+    /* Box Model */
+    width: 100%;
     min-height: calc(100vh - 100px);
+
+    /* Flexbox Layout */
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 }
 
+
 .form-container {
     /* Box Model */
     box-sizing: border-box;
     width: 100%;
-    max-width: 600px;
+    max-width: 400px;
     height: auto;
     padding: 10px;
     margin-top: -100px;
 
+    /* Aspect Ratio */
+    aspect-ratio: 1 / 1;
+
     /* Visual Styles */
     background-color: var(--base-layer);
-    border-radius: 20px;
+    border-radius: 30px;
 
     /* Flexbox Layout */
     display: flex;
     flex-direction: column;
+    justify-content: center;
     align-items: center;
-    gap: 20px;
 }
 
 .centered-container {
@@ -90,16 +98,39 @@ html, body {
 /* ===========================
    LOGIN PAGE  
 =========================== */
-.form-container button {
+
+.login-box {
+    /*Box Model*/
     width: 100%;
+    height: 100%;
+
+    /*Flexbox Layout*/
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.login-box button {
+    /* Box Model */
+    width: 100%;
+    height: 30%;
     padding: 12px;
     margin: 10px;
     border: none;
-    border-radius: 5px;
-    font-size: 16px;
-    cursor: pointer;
+    border-radius: 40px;
+    box-sizing: border-box;
+
+    /* Typography */
+    font-size: 30px;
     color: white;
+
+    /* Visual Styles */
     background-color: var(--tertiary-layer);
+    
+    /* Interactivity */
+    cursor: pointer;
 }
 
 /* ===========================
@@ -314,11 +345,6 @@ html, body {
 /* ===========================
    TABLES
 =========================== */
-.container {
-    margin: 20px auto;
-    width: 80%;
-}
-
 table {
     width: 100%;
     border-collapse: collapse;
