@@ -2,36 +2,59 @@
    CSS VARIABLES
 =========================== */
 :root {
-    --backdrop-color: red;
+    /* --backdrop-color: red;
     --base-layer: blue;
     --secondary-layer: green;
     --tertiary-layer: purple;
-    --text-colour: white;
+    --text-colour: white; */
+
+    /* Figma colour scheme: */
+
+    --backdrop-color: #041325;
+    --base-layer: #061C37;
+    --secondary-layer: #082649;
+    --tertiary-layer: #152F4F;
+    --text-colour: #FFFFFF;
+
 }
 
 /* ===========================
    GLOBAL STYLES
 =========================== */
-body, html {
+html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
     background-color: var(--backdrop-color);
     color: var(--text-colour);
-    min-height: 100vh;
+    min-height: calc(100vh - 100px); /* This is to take into account the 100px top margin applied to the overall content container*/
 }
 
 /* ===========================
    CENTERING CONTAINERS
 =========================== */
+.full-page-center {
+    min-height: calc(100vh - 100px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
 .form-container {
-    max-width: 600px;
+    /* Box Model */
+    box-sizing: border-box;
     width: 100%;
+    max-width: 600px;
     height: auto;
     padding: 10px;
-    box-sizing: border-box;
+    margin-top: -100px;
+
+    /* Visual Styles */
     background-color: var(--base-layer);
     border-radius: 20px;
+
+    /* Flexbox Layout */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -67,14 +90,6 @@ body, html {
 /* ===========================
    LOGIN PAGE  
 =========================== */
-.login-page {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-}
-
 .form-container button {
     width: 100%;
     padding: 12px;
