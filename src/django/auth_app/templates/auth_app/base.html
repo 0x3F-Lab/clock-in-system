@@ -35,11 +35,11 @@
             <div class="collapse navbar-collapse" id="navbarContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0"></ul>
                 <div class="d-flex justify-content-end">
-                    <button type="button" class="btn btn-outline-light me-2" data-bs-toggle="modal" data-bs-target="#changePinModal">Change Pin</button>
+                    <button type="button" class="btn me-2" data-bs-toggle="modal" data-bs-target="#changePinModal">Change Pin</button>
                     {% if request.session.user_id %}
-                        <a href="{% url 'logout' %}" class="btn btn-outline-light">Logout</a>
+                        <a href="{% url 'logout' %}" class="btn">Logout</a>
                     {% else %}
-                        <a href="{% url 'manager_login' %}" class="btn btn-outline-light">Login</a>
+                        <a href="{% url 'manager_login' %}" class="btn">Login</a>
                     {% endif %}
                 </div>
             </div>
