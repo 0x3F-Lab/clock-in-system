@@ -59,33 +59,28 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="changePinModalLabel">Change Pin</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  <h5 class="modal-title" id="changePinModalLabel">Change Pin</h5>
                 </div>
                 <div class="modal-body">
                     <form id="changePinForm">
                         <div class="mb-3">
-                            <label for="changePinSearchBar" class="form-label">Search Your Name</label>
-                            <input type="text" class="form-control" id="changePinSearchBar" placeholder="Type to filter your name...">
+                            <input type="text" class="form-control" id="changePinSearchBar" placeholder="Search name...">
                         </div>
                         <ul id="changePinUserList" class="list-group mb-3" style="max-height: 200px; overflow-y: auto;"></ul>
                         <input type="hidden" id="changePinSelectedUserID" name="changePinSelectedUserID" value="">
                         <div class="mb-3">
-                            <label for="currentPin" class="form-label">Current Pin</label>
-                            <input type="password" class="form-control" id="currentPin" name="currentPin" required>
+                            <input type="password" class="form-control" id="currentPin" name="currentPin" placeholder="Enter current PIN" required>
                         </div>
                         <div class="mb-3">
-                            <label for="newPin" class="form-label">New Pin</label>
-                            <input type="password" class="form-control" id="newPin" name="newPin" required>
+                            <input type="password" class="form-control" id="newPin" name="newPin" placeholder="Enter new PIN" required>
                         </div>
                         <div class="mb-3">
-                            <label for="confirmNewPin" class="form-label">Confirm New Pin</label>
-                            <input type="password" class="form-control" id="confirmNewPin" name="confirmNewPin" required>
+                            <input type="password" class="form-control" id="confirmNewPin" name="confirmNewPin" placeholder="Confirm new PIN" required>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                     <button id="submitChangePin" type="button" class="btn btn-primary">Submit</button>
                 </div>
             </div>
