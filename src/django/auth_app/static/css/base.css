@@ -14,8 +14,10 @@
     --base-layer: #061C37;
     --secondary-layer: #082649;
     --tertiary-layer: #152F4F;
+    
     --text-colour: #FFFFFF;
     --success-colour : #33CA7F;
+    --placeholder-colour: #b0b3b8;
 
     --default-border-radius: 30px;
 
