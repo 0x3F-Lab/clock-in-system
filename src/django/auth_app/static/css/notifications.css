@@ -1,0 +1,16 @@
+/* ===========================
+   NOTIFICATIONS
+=========================== */
+#notification-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    max-width: 300px;
+    width: 100%;
+}
+
+.alert {
+    margin-bottom: 10px;
+    border-radius: 5px;
+}

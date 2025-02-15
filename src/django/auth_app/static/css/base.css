@@ -1,0 +1,31 @@
+/* ===========================
+   GLOBAL STYLES & VARIABLES
+=========================== */
+:root {
+    --backdrop-color: #041325;
+    --base-layer: #061C37;
+    --secondary-layer: #082649;
+    --tertiary-layer: #152F4F;
+    --text-colour: #FFFFFF;
+    --default-border-radius: 30px;
+}
+
+/* General Layout */
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: var(--backdrop-color);
+    color: var(--text-colour);
+    min-height: 100vh;
+}
+
+/* Containers */
+.full-page-center {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}

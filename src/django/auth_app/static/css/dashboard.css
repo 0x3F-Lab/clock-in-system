@@ -1,0 +1,26 @@
+/* ===========================
+   DASHBOARD
+=========================== */
+.employee-dashboard {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 1500px;
+    gap: 30px;
+}
+
+.left-panel {
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+}
+
+.right-panel {
+    max-width: 600px;
+    width: 100%;
+    background-color: #2d3748;
+    border-radius: var(--default-border-radius);
+    padding: 20px;
+}

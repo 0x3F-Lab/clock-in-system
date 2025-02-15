@@ -1,0 +1,23 @@
+/* ===========================
+   NAVBAR 
+=========================== */
+.navbar {
+    background-color: var(--base-layer);
+}
+
+.navbar-toggler,
+.navbar-toggler:focus,
+.navbar-toggler:active {
+    border: none;
+    outline: none;
+    box-shadow: none;
+}
+
+.navbar .btn {
+    --bs-btn-color: var(--text-colour);
+    --bs-btn-padding-x: 16px;
+    --bs-btn-padding-y: 8px;
+    --bs-btn-font-size: 1rem;
+    --bs-btn-border-radius: var(--default-border-radius);
+    --bs-btn-bg: var(--secondary-layer);
+}
