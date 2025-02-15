@@ -1,31 +1,81 @@
 /* ===========================
-   GLOBAL STYLES & VARIABLES
+   CSS VARIABLES
 =========================== */
 :root {
+    /* --backdrop-color: red;
+    --base-layer: blue;
+    --secondary-layer: green;
+    --tertiary-layer: purple;
+    --text-colour: white; */
+
+    /* Figma colour scheme: */
+
     --backdrop-color: #041325;
     --base-layer: #061C37;
     --secondary-layer: #082649;
     --tertiary-layer: #152F4F;
     --text-colour: #FFFFFF;
+
     --default-border-radius: 30px;
+
 }
 
-/* General Layout */
+/* ===========================
+   GLOBAL STYLES
+=========================== */
 html, body {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
     background-color: var(--backdrop-color);
     color: var(--text-colour);
-    min-height: 100vh;
+    min-height: calc(100vh - 100px);
 }
 
-/* Containers */
+/* ===========================
+   CENTERING CONTAINERS
+=========================== */
 .full-page-center {
+    /* Box Model */
     width: 100%;
-    min-height: 100vh;
+    min-height: calc(100vh - 100px);
+
+    /* Flexbox Layout */
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
+}
+
+.form-container {
+    /* Box Model */
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    padding: 10px;
+    margin-top: -100px;
+
+    /* Aspect Ratio */
+    aspect-ratio: 1 / 1;
+
+    /* Visual Styles */
+    background-color: var(--base-layer);
+    border-radius: var(--default-border-radius);
+
+    /* Flexbox Layout */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.centered-container {
+    max-width: 1000px;
+    text-align: center;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #1a202c;
+    color: #f4f4f9;
+    box-sizing: border-box;
 }

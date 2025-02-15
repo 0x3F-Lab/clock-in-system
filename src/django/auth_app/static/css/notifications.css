@@ -14,3 +14,9 @@
     margin-bottom: 10px;
     border-radius: 5px;
 }
+
+.alert-dismissible .close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}

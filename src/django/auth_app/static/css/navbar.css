@@ -13,11 +13,16 @@
     box-shadow: none;
 }
 
+.navbar-toggler-icon {
+    padding: 0.75rem 1rem;
+    font-size: 1.75rem;
+}
+
 .navbar .btn {
-    --bs-btn-color: var(--text-colour);
-    --bs-btn-padding-x: 16px;
-    --bs-btn-padding-y: 8px;
-    --bs-btn-font-size: 1rem;
-    --bs-btn-border-radius: var(--default-border-radius);
+    --bs-btn-color: var(--text-colour)            
+    --bs-btn-padding-x: 16px;         
+    --bs-btn-padding-y: 8px;          
+    --bs-btn-font-size: 1rem;        
+    --bs-btn-border-radius: var(--default-border-radius);     
     --bs-btn-bg: var(--secondary-layer);
 }
