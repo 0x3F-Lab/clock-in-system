@@ -48,13 +48,13 @@
 }
 
 #changePinModal .btn-close {
-    filter: invert(1);
+    color: white;
 }
 
 #changePinModal .form-control {
     background-color: var(--secondary-layer);
     color: white;
-    border: none;
+    border: 1px solid var(--backdrop-colour);
     border-radius: var(--default-border-radius);
     padding: 12px;
     font-size: 1rem;
@@ -77,17 +77,17 @@
 
 #submitChangePin {
     background-color: var(--secondary-layer);
-    border: none;
+    color: var(--success-colour);
+    border: 2px solid var(--success-colour);
     font-size: 1.5rem;
     padding: 12px;
     border-radius: var(--default-border-radius);
     width: 100%;
-    margin-top: 10px;
 }
 
 #changePinModal .modal-footer {
     display: flex;
     justify-content: center;
-    padding: 15px;
+    padding: 5px;
     border-top: none;
 }

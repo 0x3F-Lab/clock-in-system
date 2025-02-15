@@ -7,14 +7,9 @@ button, .btn {
     border-radius: var(--default-border-radius);
     font-size: 1rem;
     cursor: pointer;
-    transition: background-color 0.3s ease;
 }
 
 .btn-primary {
     background-color: var(--secondary-layer);
     color: white;
-}
-
-.btn-primary:hover {
-    background-color: #0a2f5a;
 }
