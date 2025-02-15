@@ -31,7 +31,6 @@
     padding: 20px;
 }
 
-/* Modal Header */
 #changePinModal .modal-header {
     display: flex;
     flex-direction: column;
@@ -52,7 +51,6 @@
     color: white;
 }
 
-/* Form Inputs */
 #changePinModal .form-control {
     background-color: var(--secondary-layer);
     color: white;
@@ -67,24 +65,18 @@
     font-style: italic;
 }
 
-/* Spacing for Form Groups */
 #changePinModal .mb-3 {
     margin-bottom: 15px;
 }
 
-/* User List Styling */
 #changePinUserList {
     max-height: 200px;
     overflow-y: auto;
-    padding: 5px;
-    background-color: var(--secondary-layer);
-    border: 1px solid var(--backdrop-color);
     border-radius: var(--default-border-radius);
 }
 
-/* Individual List Items */
 #changePinUserList .list-group-item {
-    background-color: var(--tertiary-layer);
+    background-color: var(--secondary-layer);
     color: var(--text-colour);
     border: none;
     padding: 10px 15px;
@@ -92,21 +84,18 @@
     cursor: pointer;
 }
 
-/* Hover Effect */
 #changePinUserList .list-group-item:hover {
     background-color: var(--success-colour);
     color: white;
     transform: scale(1.02);
 }
 
-/* Selected (Active) User */
 #changePinUserList .list-group-item.active {
     background-color: var(--success-colour);
     color: white;
     font-weight: bold;
 }
 
-/* Submit Button */
 #submitChangePin {
     background-color: var(--secondary-layer);
     color: var(--success-colour);
@@ -117,7 +106,6 @@
     width: 100%;
 }
 
-/* Modal Footer */
 #changePinModal .modal-footer {
     display: flex;
     justify-content: center;
