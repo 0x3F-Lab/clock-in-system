@@ -83,25 +83,25 @@ function handleUserSelectionModal(clockedStateURL) {
 
   // Handle user selection from the list
   $("#userList").on("click", "li", function () {
-      const userID = $(this).data("id");
-      const userName = $(this).text();
+    const userID = $(this).data("id");
+    const userName = $(this).text();
 
-      // Update UI with selected user
-      $("#selectedEmployee")
-        .text(userName)
-        .data("id", userID)
-        .attr("data-id", userID); // Also add it to the DOM
+    // Update the button text
+    $("#selectUserButton")
+        .text(userName)  
+        .data("id", userID)  
+        .attr("data-id", userID);
 
-      // Fetch clocked-in state for the selected user (and updates buttons)
-      fetchClockedState(clockedStateURL, userID);
+    // Fetch clocked-in state for the selected user (and updates buttons)
+    fetchClockedState(clockedStateURL, userID);
 
-      // Update selected state
-      userSelected = true
+    // Update selected state
+    userSelected = true;
 
-      // Close the modal
-      const userModal = bootstrap.Modal.getInstance(document.getElementById("userModal"));
-      userModal.hide();
-  });
+    // Close the modal
+    const userModal = bootstrap.Modal.getInstance(document.getElementById("userModal"));
+    userModal.hide();
+});
 
   // Focus on search input when the user selection modal is shown
   $("#userModal").on("shown.bs.modal", function () {
@@ -153,7 +153,7 @@ function fetchClockedState(clockedStateURL, userID) {
 
 // Update clock button state based on clockedIn
 function updateClockButtonState() {
-  // Assume starting from disabled state going into enabled state (cant go backwards)
+  // Assume starting from disabled state going into enabled state (can't go backwards)
   $("#clockButton").prop("disabled", false);
 
   if (clockedIn) {
@@ -174,7 +174,7 @@ function updateClockButtonState() {
 }
 
 
-// Handle updates to 
+// Handle updates
 function handleDeliveryAdjustments() {
 	$("#minusButton").click(function() {
     adjustDeliveries(-1)}
@@ -188,9 +188,13 @@ function handleDeliveryAdjustments() {
 // Toggle Clock In/Clock Out
 async function toggleClock(clockInURL, clockOutURL, pin) {
   // Ensure cant clock in/out until an employee is selected
-  if (!userSelected) { return; }
+  const userID = $("#selectUserButton").data("id");
+  
+  if (!userID) { 
+    showNotification("Please select an employee first.", "warning");
+    return;
+}
 
-  const userID = $("#selectedEmployee").data("id");
   const deliveries = parseInt(deliveriesCount.textContent, 10);
   const csrftoken = getCookie('csrftoken');
 

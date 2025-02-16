@@ -36,6 +36,7 @@
 
     /* Styling & Colors */
     border-radius: var(--outer-border-radius); 
+    border-color: var(--secondary-layer);
     background-color: var(--base-layer); 
     color: var(--text-colour); 
 }
