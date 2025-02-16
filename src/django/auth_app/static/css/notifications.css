@@ -37,7 +37,6 @@
     /* Styling & Colors */
     border-radius: var(--outer-border-radius); 
     background-color: var(--base-layer); 
-    border: 2px solid var(--error-colour); 
     color: var(--text-colour); 
 }
 
