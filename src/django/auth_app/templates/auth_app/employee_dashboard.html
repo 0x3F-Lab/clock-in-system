@@ -3,26 +3,31 @@
 {% block content %}
 
 <div class="employee-dashboard">
-  <div class="left-panel">
-      <div class="mb-3">
+    <!-- Left Panel -->
+    <div class="panel left-panel">
         <button id="selectUserButton" class="btn btn-primary">Select Employee</button>
-      </div>
-      <p>Local Time: <span id="localTime">--:--</span></p>
-      <div id="shiftInfo"></div>
-  </div>
+        <div id="shiftInfo"></div>
+    </div>
 
-  <div class="right-panel">
-      <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
-      <div class="deliveries flex">
-          Deliveries:
-          <button id="minusButton" class="btn" disabled>-</button>
-          <span id="deliveriesCount">0</span>
-          <button id="plusButton" class="btn" disabled>+</button>
-      </div>
-  </div>
+    <!-- Right Panel -->
+    <div class="panel right-panel">
+        <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
+        <div class="deliveries">
+            Deliveries:
+            <button id="minusButton" class="btn" disabled>-</button>
+            <span id="deliveriesCount">0</span>
+            <button id="plusButton" class="btn" disabled>+</button>
+        </div>
+    </div>
 
-  <!-- User Selection Modal -->
-  <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <!-- Bottom Panel for Time -->
+    <div class="panel bottom-panel">
+        <p>Local Time: <span id="localTime">--:--</span></p>
+    </div>
+</div>
+
+<!-- User Selection Modal -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -30,40 +35,34 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user..." />
-                </div>
-                <ul id="userList" class="list-group"></ul>
+                <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user...">
+                <ul id="userList" class="list-group mt-3"></ul>
             </div>
         </div>
     </div>
-  </div>
 </div>
 
 <!-- Authentication PIN Modal -->
 <div class="modal fade" id="authPinModal" tabindex="-1" aria-labelledby="authPinModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="authPinModalLabel">Enter Your PIN</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Please confirm your identity by entering your PIN.</p>
-        <div class="mb-3">
-          <input type="password" id="authPinInput" class="form-control" placeholder="Enter PIN" maxlength="32" required>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="authPinModalLabel">Enter Your PIN</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Please confirm your identity by entering your PIN.</p>
+                <input type="password" id="authPinInput" class="form-control" placeholder="Enter PIN" maxlength="32" required>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="authPinSubmit" class="btn btn-primary">Submit</button>
+            </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" id="authPinSubmit" class="btn btn-primary">Submit</button>
-      </div>
     </div>
-  </div>
 </div>
 
 {% endblock %}
-
 
 {% block customscripts %}
 {% load static %}
