@@ -36,7 +36,7 @@
 }
 
 /* ===========================
-   FORMS
+   MANAGER LOGIN
 =========================== */
 .login-form {
     display: flex;
@@ -81,12 +81,4 @@
     color: white;
     cursor: pointer;
     transition: background-color 0.3s ease;
-}
-
-.login-button:hover {
-    background-color: #45a049;
-}
-
-.login-button:focus {
-    outline: none;
 }

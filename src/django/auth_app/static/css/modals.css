@@ -26,7 +26,7 @@
 =========================== */
 #changePinModal .modal-content {
     background-color: var(--base-layer);
-    color: white;
+    color: var(--text-colour);
     border-radius: var(--default-border-radius);
     padding: 20px;
 }
@@ -48,7 +48,7 @@
 }
 
 #changePinModal .btn-close {
-    color: white;
+    filter: invert(1);
 }
 
 #changePinModal .form-control {
