@@ -2,21 +2,53 @@
    NOTIFICATIONS
 =========================== */
 #notification-container {
+    /* Layout */
     position: fixed;
     bottom: 20px;
-    right: 20px;
+    left: 50%;
+    transform: translate(-50%);
     z-index: 1050;
-    max-width: 300px;
+
+    /* Sizing */
+    max-width: 400px;
     width: 100%;
+
+    /* Spacing & Alignment */
+    margin: 10px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-.alert {
-    margin-bottom: 10px;
-    border-radius: 5px;
+/* Custom notification styling */
+.custom-alert {
+    /* Layout */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    /* Sizing */
+    width: 90%;
+
+    /* Spacing & Alignment */
+    padding: 0 16px;
+    text-align: center;
+
+    /* Styling & Colors */
+    border-radius: var(--outer-border-radius); 
+    background-color: var(--base-layer); 
+    border: 2px solid var(--error-colour); 
+    color: var(--text-colour); 
 }
 
-.alert-dismissible .close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+.custom-alert .btn-close {
+    /* Layout */
+    position: relative;
+    flex-shrink: 0;
+
+    /* Spacing & Alignment */
+    margin-left: 10px;
+
+    /* Styling & Colors */
+    filter: invert(1);
 }

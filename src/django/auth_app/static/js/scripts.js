@@ -1,20 +1,22 @@
 // Function to show notifications
 function showNotification(message, type = "warning") {
   // Create notification HTML element
-  const notification = $('<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert"></div>');
-  notification.text(message);
-  
-  // Add close button to the notification
-  notification.append('<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>');
+  const notification = $(`
+    <div class="alert alert-${type} alert-dismissible fade show custom-alert" role="alert">
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  `);
   
   // Append notification to the notification container
   $('#notification-container').append(notification);
   
   // Automatically remove notification after 5 seconds
   setTimeout(() => {
-      notification.alert('close');  // Close the notification
-  }, 5000);
+      notification.alert('close');
+  }, 8000);
 }
+
 
 
 // Function to hash a string for API calls (i.e. passwords)

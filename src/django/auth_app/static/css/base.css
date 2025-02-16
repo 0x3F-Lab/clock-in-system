@@ -14,12 +14,14 @@
     --base-layer: #061C37;
     --secondary-layer: #082649;
     --tertiary-layer: #152F4F;
-    
+
     --text-colour: #FFFFFF;
-    --success-colour : #33CA7F;
+    --success-colour: #33CA7F;
+    --error-colour: #912F40;
     --placeholder-colour: #b0b3b8;
 
-    --default-border-radius: 30px;
+    --outer-border-radius: 30px;
+    --inner-border-radius: 25px;
 
 }
 
@@ -67,7 +69,7 @@ html, body {
 
     /* Visual Styles */
     background-color: var(--base-layer);
-    border-radius: var(--default-border-radius);
+    border-radius: var(--outer-border-radius);
 
     /* Flexbox Layout */
     display: flex;

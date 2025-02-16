@@ -55,7 +55,7 @@
     width: 100%;
     gap: 20px;
     background-color: var(--base-layer);
-    border-radius: var(--default-border-radius);
+    border-radius: var(--outer-border-radius);
     max-width: 400px;
     margin: auto;
     padding: 20px;
@@ -84,7 +84,7 @@
     padding: 12px;
     font-size: 1rem;
     border: 1px solid var(--backdrop-colour);
-    border-radius: var(--default-border-radius);
+    border-radius: var(--outer-border-radius);
     background-color: var(--secondary-layer);
     color: var(--text-colour);
 }
@@ -100,7 +100,7 @@
     border: 2px solid var(--success-colour);
     font-size: 1.5rem;
     padding: 12px;
-    border-radius: var(--default-border-radius);
+    border-radius: var(--outer-border-radius);
     width: 100%;
     cursor: pointer;
 }
