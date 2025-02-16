@@ -4,7 +4,7 @@
 {% block content %}
 <div class="full-page-center">
     <div class="form-container">
-      <h2>Manager Login</h2>
+      <div class="manager-login-title"><h2>Manager Login</h2></div>
       <form method="POST" action="{{ BASE_URL }}{% url 'manager_login' %}" class="login-form">
           {% csrf_token %}
           <div class="form-group">
