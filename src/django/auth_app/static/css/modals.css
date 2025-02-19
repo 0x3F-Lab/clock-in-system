@@ -181,9 +181,3 @@
     color: white;
     transform: scale(1.02);
 }
-
-#userList .list-group-item.active {
-    background-color: var(--success-colour);
-    color: white;
-    font-weight: bold;
-}

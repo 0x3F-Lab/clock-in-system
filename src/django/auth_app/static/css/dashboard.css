@@ -81,6 +81,17 @@
     font-weight: bold;
 }
 
+/* Buttons */
+#selectUserButton {
+    background-color: var(--secondary-layer);
+    border: 1px solid var(--backdrop-colour);
+    border-radius: var(--outer-border-radius);
+    padding: 10px;
+    font-size: 1.75rem;
+    font-weight: bold;
+    width: 100%;
+}
+
 /* Deliveries Section */
 .deliveries {
     display: flex;
