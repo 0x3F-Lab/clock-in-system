@@ -51,12 +51,14 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="authPinModalLabel">Enter Your PIN</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="authPinModalLabel">Enter Your PIN</h5>
             </div>
             <div class="modal-body">
-                <p>Please confirm your identity by entering your PIN.</p>
-                <input type="password" id="authPinInput" class="form-control" placeholder="Enter PIN" maxlength="32" required>
+                <p class="text-center">Please confirm your identity by entering your PIN.</p>
+                <div class="mb-3">
+                    <input type="password" id="authPinInput" class="form-control" autocomplete="new-password" placeholder="Enter PIN" maxlength="32" required>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" id="authPinSubmit" class="btn btn-primary">Submit</button>
@@ -64,6 +66,7 @@
         </div>
     </div>
 </div>
+
 
 {% endblock %}
 

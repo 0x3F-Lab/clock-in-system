@@ -181,3 +181,64 @@
     color: white;
     transform: scale(1.02);
 }
+
+/* ===========================
+   AUTHENTICATION PIN MODAL
+=========================== */
+#authPinModal .modal-content {
+    background-color: var(--base-layer);
+    color: var(--text-colour);
+    border-radius: var(--outer-border-radius);
+    padding: 20px;
+}
+
+#authPinModal .modal-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    border-bottom: none;
+}
+
+#authPinModalLabel {
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-align: center;
+    flex-grow: 1;
+}
+
+#authPinModal .btn-close {
+    filter: invert(1);
+}
+
+#authPinModal .form-control {
+    background-color: var(--secondary-layer);
+    color: white;
+    border: 1px solid var(--backdrop-colour);
+    border-radius: var(--outer-border-radius);
+    padding: 12px;
+    font-size: 1rem;
+}
+
+#authPinModal .form-control::placeholder {
+    color: var(--placeholder-colour);
+    font-style: italic;
+}
+
+#authPinModal .modal-footer {
+    display: flex;
+    justify-content: center;
+    padding: 5px;
+    border-top: none;
+}
+
+#authPinSubmit {
+    background-color: var(--secondary-layer);
+    color: var(--success-colour);
+    border: 2px solid var(--success-colour);
+    font-size: 1.5rem;
+    padding: 12px;
+    border-radius: var(--outer-border-radius);
+    width: 100%;
+}
