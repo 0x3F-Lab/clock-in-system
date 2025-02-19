@@ -57,6 +57,7 @@
     align-items: center;
     gap: 20px;
     width: 100%;
+    height: calc(100vh - 100px);
     max-width: 1200px;
 }
 
@@ -71,6 +72,10 @@
     text-align: center;
 }
 
+.top-panel {
+    flex-grow: 1;
+}
+
 .top-panel, .middle-panel {
     min-height: 200px;
 }
@@ -79,6 +84,13 @@
     background-color: var(--base-layer);
     font-size: 1.5rem;
     font-weight: bold;
+    margin-bottom: 20px;
+    aspect-ratio: 7 / 1;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
 }
 
 /* Buttons */
@@ -96,6 +108,7 @@
     font-size: 2rem;
     border-radius: var(--outer-border-radius);
     width: 100%;
+    aspect-ratio: 7 / 2;
 }
 
 #clockButton.btn-success {
@@ -111,23 +124,36 @@
 /* Deliveries Section */
 .deliveries {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 8px;
     margin-top: 20px;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     touch-action: manipulation;
     user-select: none;
 }
 
+.deliveries-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+}
+
 .deliveries button {
-    width: 40px;
-    height: 40px;
-    font-size: 16px;
-    background-color: var(--secondary-layer);
+    width: 45% !important;
+    aspect-ratio: 5 / 2;
+    font-size: 3rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--secondary-layer) !important;
     color: white;
     border: none;
-    border-radius: 50%;
+    border-radius: var(--outer-border-radius);
     cursor: pointer;
 }
 

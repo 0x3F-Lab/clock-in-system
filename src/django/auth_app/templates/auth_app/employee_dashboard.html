@@ -13,16 +13,17 @@
     <div class="panel middle-panel">
         <button id="clockButton" type="button" class="btn btn-success" disabled>Clock In</button>
         <div class="deliveries">
-            Deliveries:
-            <button id="minusButton" class="btn" disabled>-</button>
-            <span id="deliveriesCount">0</span>
-            <button id="plusButton" class="btn" disabled>+</button>
+            <div class="deliveries-title">Deliveries: <span id="deliveriesCount">0</span></div>
+            <div class="deliveries-buttons">
+                <button id="minusButton" class="btn" disabled>-</button>
+                <button id="plusButton" class="btn" disabled>+</button>
+            </div>
         </div>
     </div>
 
     <!-- Bottom Panel for Time -->
     <div class="panel bottom-panel">
-        <i class="bi bi-clock"><span id="localTime">--:--</span></i>
+        <i class="bi bi-clock"></i><span id="localTime">--:--</span>
     </div>
 </div>
 
