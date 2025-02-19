@@ -3,14 +3,14 @@
 {% block content %}
 
 <div class="employee-dashboard">
-    <!-- Left Panel -->
-    <div class="panel left-panel">
+    <!-- Top Panel -->
+    <div class="panel top-panel">
         <button id="selectUserButton" class="btn btn-primary">Select Employee</button>
         <div id="shiftInfo"></div>
     </div>
 
-    <!-- Right Panel -->
-    <div class="panel right-panel">
+    <!-- Middle Panel -->
+    <div class="panel middle-panel">
         <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
         <div class="deliveries">
             Deliveries:
@@ -22,7 +22,7 @@
 
     <!-- Bottom Panel for Time -->
     <div class="panel bottom-panel">
-        <p>Local Time: <span id="localTime">--:--</span></p>
+        <i class="bi bi-clock"><span id="localTime">--:--</span></i>
     </div>
 </div>
 

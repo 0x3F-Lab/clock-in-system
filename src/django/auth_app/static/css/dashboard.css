@@ -64,20 +64,19 @@
 .panel {
     width: 100%;
     max-width: 600px;
-    background-color: var(--secondary-layer);
+    background-color: var(--base-layer);
     color: var(--text-colour);
     padding: 20px;
     border-radius: var(--outer-border-radius);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     text-align: center;
 }
 
-.left-panel, .right-panel {
+.top-panel, .middle-panel {
     min-height: 200px;
 }
 
 .bottom-panel {
-    background-color: var(--tertiary-layer);
+    background-color: var(--base-layer);
     font-size: 1.5rem;
     font-weight: bold;
 }
@@ -98,20 +97,10 @@
     width: 40px;
     height: 40px;
     font-size: 16px;
-    background-color: #4a5568;
+    background-color: var(--secondary-layer);
     color: white;
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.deliveries button:hover {
-    background-color: #718096;
-}
-
-.deliveries button:disabled {
-    background-color: #2d3748;
-    cursor: not-allowed;
 }
 
