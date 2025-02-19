@@ -87,8 +87,16 @@
     border: 1px solid var(--backdrop-colour);
     border-radius: var(--outer-border-radius);
     padding: 10px;
-    font-size: 1.75rem;
-    font-weight: bold;
+    font-size: 1.5rem;
+    width: 100%;
+}
+
+#clockButton {
+    background-color: var(--secondary-layer);
+    color: var(--success-colour);
+    border: 3px solid var(--success-colour);
+    font-size: 2rem;
+    border-radius: var(--outer-border-radius);
     width: 100%;
 }
 
