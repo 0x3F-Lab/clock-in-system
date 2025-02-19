@@ -61,6 +61,16 @@
     max-width: 1200px;
 }
 
+#shiftInfo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    font-weight: light;
+    font-size: 1.5rem;
+}
+
 /* Panel Styling */
 .panel {
     width: 100%;
