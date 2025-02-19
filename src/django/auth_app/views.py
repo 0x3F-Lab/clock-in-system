@@ -44,11 +44,19 @@ def logout_view(request):
     return redirect("/")
 
 
-# @manager_required
 def manager_dashboard(request):
     user_id = request.session.get("user_id")
-    user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
-    return render(request, "auth_app/manager_dashboard.html", {"user": user})
+
+    if not user_id:
+        return redirect("manager_login")  # Redirect to login if session is missing
+
+    user = User.objects.get(id=user_id)  # Fetch user using session ID
+
+    return render(
+        request,
+        "auth_app/manager_dashboard.html",
+        {"username": f"{user.first_name} {user.last_name}"},
+    )
 
 
 def employee_login(request):
