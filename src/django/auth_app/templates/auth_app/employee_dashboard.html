@@ -31,16 +31,19 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="userModalLabel">Select a User</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="userModalLabel">Select a User</h5>
             </div>
             <div class="modal-body">
-                <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user...">
-                <ul id="userList" class="list-group mt-3"></ul>
+                <div class="mb-3">
+                    <input type="text" id="userSearchBar" class="form-control" placeholder="Search name..." />
+                </div>
+                <ul id="userList" class="list-group"></ul>
             </div>
         </div>
     </div>
 </div>
+
 
 <!-- Authentication PIN Modal -->
 <div class="modal fade" id="authPinModal" tabindex="-1" aria-labelledby="authPinModalLabel" aria-hidden="true">
