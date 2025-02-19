@@ -93,11 +93,19 @@
 
 #clockButton {
     background-color: var(--secondary-layer);
-    color: var(--success-colour);
-    border: 3px solid var(--success-colour);
     font-size: 2rem;
     border-radius: var(--outer-border-radius);
     width: 100%;
+}
+
+#clockButton.btn-success {
+    color: var(--success-colour);
+    border: 3px solid var(--success-colour);
+}
+
+#clockButton.btn-danger {
+    color: var(--error-colour);
+    border: 3px solid var(--error-colour);
 }
 
 /* Deliveries Section */
