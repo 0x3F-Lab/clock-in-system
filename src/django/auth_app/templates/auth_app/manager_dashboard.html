@@ -3,17 +3,16 @@
 {% block title %}Pizza Clock-in || Manager Dashboard{% endblock %}
 
 {% block content %}
-<div class="centered-container">
-    <h1>Manager Dashboard</h1>
-
-    <!-- Display Logged-in User Info -->
-    <p>Welcome, <strong>{{ username }}</strong>!</p>
-
-    <div class="button-container">
-        <button onclick="location.href='/api/employees/'">Employee Details</button>
-        <button onclick="location.href='/api/weekly-summary-page/'">Weekly Summary</button>
-        <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
-        <button onclick="location.href='/'">Back to Landing Page</button>
+<div class="full-page-center">
+    <div class="manager-dashboard">
+        <h2>Welcome, <strong>{{ username }}</strong>!</h2>
+    
+        <div class="button-container">
+            <button onclick="location.href='/api/employees/'">Employee Details</button>
+            <button onclick="location.href='/api/weekly-summary-page/'">Weekly Summary</button>
+            <button onclick="location.href='/api/raw-data-logs/'">Raw Data</button>
+            <button onclick="location.href='/'">Back to Landing Page</button>
+        </div>
     </div>
 </div>
 {% endblock %}

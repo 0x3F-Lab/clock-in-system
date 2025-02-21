@@ -1,22 +1,16 @@
 /* ===========================
    MANAGER DASHBOARD
 =========================== */
-.dashboard-container {
+.manager-dashboard {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    margin: 0;
-    font-family: Arial, sans-serif;
-    text-align: center;
-    background-color: transparent;
-}
-
-.dashboard-container h1 {
-    font-size: 3rem;
-    color: #333;
-    margin-bottom: 40px;
+    gap: 20px;
+    background-color: var(--base-layer);
+    border-radius: var(--outer-border-radius);
+    width: 100%;
+    padding: 20px;
 }
 
 .button-container {
@@ -27,24 +21,16 @@
 }
 
 .button-container button {
-    width: 400px;
+    color: var(--success-colour);
+    max-width: 400px;
     padding: 20px;
     font-size: 1.8rem;
-    border: none;
     border-radius: 8px;
-    background-color: #4CAF50;
-    color: white;
+    border: 2px solid var(--success-colour);
+    background-color: var(--secondary-layer);
+    border-radius: var(--outer-border-radius);
     cursor: pointer;
-    transition: background-color 0.3s ease;
     text-align: center;
-}
-
-.button-container button:hover {
-    background-color: #45a049;
-}
-
-.button-container button:focus {
-    outline: none;
 }
 
 /* ===========================
