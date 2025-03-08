@@ -20,7 +20,7 @@ from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
 
 import json
-from django.db.models import Sum, F, Case, When, DecimalField
+from django.db.models import Sum, F, Q, Case, When, DecimalField
 from datetime import datetime, timezone, time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
@@ -705,6 +705,7 @@ def weekly_summary_view(request):
                     datetime.combine(last_reset_date, time.min)
                 )
             except KeyValueStore.DoesNotExist:
+                # Fallback date
                 last_reset_date = make_aware(datetime(2023, 3, 15))
 
             activities = Activity.objects.filter(login_time__gte=last_reset_date)
@@ -720,6 +721,7 @@ def weekly_summary_view(request):
                 activities = activities.filter(employee_id__in=employee_ids)
 
         # Calculate hours by converting shift_length_mins to hours
+        # Note: Exclude public holiday hours from weekday/weekend columns
         summary = (
             activities.annotate(day_of_week=ExtractWeekDay("login_time"))
             .values("employee_id", "employee_id__first_name", "employee_id__last_name")
@@ -727,7 +729,8 @@ def weekly_summary_view(request):
                 weekday_hours=Sum(
                     Case(
                         When(
-                            day_of_week__in=[2, 3, 4, 5, 6],
+                            Q(day_of_week__in=[2, 3, 4, 5, 6])
+                            & Q(is_public_holiday=False),
                             then=F("shift_length_mins") / 60.0,
                         ),
                         default=0,
@@ -737,7 +740,17 @@ def weekly_summary_view(request):
                 weekend_hours=Sum(
                     Case(
                         When(
-                            day_of_week__in=[1, 7], then=F("shift_length_mins") / 60.0
+                            Q(day_of_week__in=[1, 7]) & Q(is_public_holiday=False),
+                            then=F("shift_length_mins") / 60.0,
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                public_holiday_hours=Sum(
+                    Case(
+                        When(
+                            is_public_holiday=True, then=F("shift_length_mins") / 60.0
                         ),
                         default=0,
                         output_field=DecimalField(decimal_places=2, max_digits=6),
@@ -756,6 +769,7 @@ def weekly_summary_view(request):
                 "last_name": item["employee_id__last_name"],
                 "weekday_hours": float(item["weekday_hours"] or 0.0),
                 "weekend_hours": float(item["weekend_hours"] or 0.0),
+                "public_holiday_hours": float(item["public_holiday_hours"] or 0.0),
                 "total_hours": float(item["total_hours"] or 0.0),
                 "total_deliveries": item["total_deliveries"] or 0,
             }
@@ -765,10 +779,9 @@ def weekly_summary_view(request):
         return Response(data, status=status.HTTP_200_OK)
 
     except Exception as e:
-        # General exception catch
-        logger.critical(f"An error occured when generating weekly summary: {e}")
+        logger.critical(f"An error occurred when generating weekly summary: {e}")
         return Response(
-            {"Error": f"Internal error."},
+            {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

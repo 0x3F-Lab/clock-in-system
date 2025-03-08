@@ -50,6 +50,8 @@
                 <th>Employee Name</th>
                 <th>Weekday Hours</th>
                 <th>Weekend Hours</th>
+                <!-- New column -->
+                <th>Public Holiday Hours</th>
                 <th>Total Hours</th>
                 <th>Total Deliveries</th>
             </tr>
@@ -94,7 +96,7 @@
                 if (data.length === 0) {
                     summaryTableBody.innerHTML = `
                         <tr>
-                            <td colspan="5" style="text-align:center;">
+                            <td colspan="6" style="text-align:center;">
                                 No summary data available.
                             </td>
                         </tr>
@@ -115,6 +117,11 @@
                         weekendHoursCell.textContent = `${item.weekend_hours} hours`;
                         row.appendChild(weekendHoursCell);
 
+                        // New Public Holiday Hours cell
+                        const publicHolidayHoursCell = document.createElement("td");
+                        publicHolidayHoursCell.textContent = `${item.public_holiday_hours} hours`;
+                        row.appendChild(publicHolidayHoursCell);
+
                         const totalHoursCell = document.createElement("td");
                         totalHoursCell.textContent = `${item.total_hours} hours`;
                         row.appendChild(totalHoursCell);
@@ -131,7 +138,7 @@
                 console.error("Failed to fetch weekly summary:", error);
                 summaryTableBody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align:center;">
+                        <td colspan="6" style="text-align:center;">
                             Failed to load weekly summary. Please try again later.
                         </td>
                     </tr>
@@ -146,7 +153,7 @@
         fetchButton.addEventListener("click", () => {
             const startDate = startDateInput.value;
             const endDate = endDateInput.value;
-            const employeeIds = employeeIdsInput.value.trim(); 
+            const employeeIds = employeeIdsInput.value.trim();
 
             if (startDate && endDate) {
                 fetchSummary(startDate, endDate, employeeIds);
