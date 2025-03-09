@@ -44,20 +44,15 @@
         </div>
     </div>
 
+    <!-- Single-column table style -->
     <table style="margin-top:20px;">
         <thead>
             <tr>
-                <th>Employee Name</th>
-                <th>Weekday Hours</th>
-                <th>Weekend Hours</th>
-                <!-- New column -->
-                <th>Public Holiday Hours</th>
-                <th>Total Hours</th>
-                <th>Total Deliveries</th>
+                <th>Summary</th>
             </tr>
         </thead>
         <tbody id="summaryTableBody">
-            <!-- Data populated dynamically -->
+            <!-- Data populated dynamically below -->
         </tbody>
     </table>
 </div>
@@ -93,10 +88,11 @@
             .then(response => response.json())
             .then(data => {
                 summaryTableBody.innerHTML = "";
+
                 if (data.length === 0) {
                     summaryTableBody.innerHTML = `
                         <tr>
-                            <td colspan="6" style="text-align:center;">
+                            <td style="text-align:center;">
                                 No summary data available.
                             </td>
                         </tr>
@@ -104,32 +100,20 @@
                 } else {
                     data.forEach(item => {
                         const row = document.createElement("tr");
+                        const cell = document.createElement("td");
 
-                        const nameCell = document.createElement("td");
-                        nameCell.textContent = `${item.first_name} ${item.last_name}`;
-                        row.appendChild(nameCell);
+                        // Build up text with line breaks
+                        // "just like above" in your example
+                        cell.innerHTML = `
+                            <strong>${item.first_name} ${item.last_name}</strong><br>
+                            Weekday Hours: ${item.weekday_hours}<br>
+                            Weekend Hours: ${item.weekend_hours}<br>
+                            Public Holiday Hours: ${item.public_holiday_hours}<br>
+                            Total Hours: ${item.total_hours}<br>
+                            Deliveries: ${item.total_deliveries}
+                        `;
 
-                        const weekdayHoursCell = document.createElement("td");
-                        weekdayHoursCell.textContent = `${item.weekday_hours} hours`;
-                        row.appendChild(weekdayHoursCell);
-
-                        const weekendHoursCell = document.createElement("td");
-                        weekendHoursCell.textContent = `${item.weekend_hours} hours`;
-                        row.appendChild(weekendHoursCell);
-
-                        // New Public Holiday Hours cell
-                        const publicHolidayHoursCell = document.createElement("td");
-                        publicHolidayHoursCell.textContent = `${item.public_holiday_hours} hours`;
-                        row.appendChild(publicHolidayHoursCell);
-
-                        const totalHoursCell = document.createElement("td");
-                        totalHoursCell.textContent = `${item.total_hours} hours`;
-                        row.appendChild(totalHoursCell);
-
-                        const deliveriesCell = document.createElement("td");
-                        deliveriesCell.textContent = item.total_deliveries;
-                        row.appendChild(deliveriesCell);
-
+                        row.appendChild(cell);
                         summaryTableBody.appendChild(row);
                     });
                 }
@@ -138,7 +122,7 @@
                 console.error("Failed to fetch weekly summary:", error);
                 summaryTableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" style="text-align:center;">
+                        <td style="text-align:center;">
                             Failed to load weekly summary. Please try again later.
                         </td>
                     </tr>
