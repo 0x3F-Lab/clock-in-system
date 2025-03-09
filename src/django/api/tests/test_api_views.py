@@ -167,5 +167,5 @@ def test_clocked_state_view_bugged_state(api_client, employee):
     data = response.json()
     assert (
         data["Error"]
-        == "User state is bugged due to missing activity records. Please contact an admin."
+        == "No active clock-in record found. The account's state has been reset."
     )
