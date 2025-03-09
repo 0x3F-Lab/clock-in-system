@@ -1,23 +1,66 @@
 import math
+import requests
+import logging
+import holidays
 import api.exceptions as err
 import api.controllers as controllers
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 from auth_app.models import User
+from clock_in_system.settings import COUNTRY_CODE, COUNTRY_SUBDIV_CODE, UTC_OFFSET
+
+logger = logging.getLogger("api")
 
 
 # Function to check if a given date is a public holiday
-def is_public_holiday(time):
+def is_public_holiday(
+    time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, UTC_offset=UTC_OFFSET
+):
     date = time.date()
 
-    ### USE API CALLS TO CHECK FOR PUBLIC HOLIDAYS!!!
+    # Check using offline library
+    try:
+        country_holidays = holidays.country_holidays(country=country, subdiv=subdiv)
+        if date in country_holidays:
+            return True
+    except Exception as e:
+        logger.error(f"Error checking local holidays for date `{date}`: {str(e)}")
 
-    public_holidays = [
-        datetime(2024, 12, 25).date(),  # Example: Christmas Day
-        datetime(2024, 1, 1).date(),  # Example: New Year's Day
-    ]
+    # Else, double check API to ensure its up to date with current affairs.
+    if subdiv:  # If there is a further country subdivision code
+        url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}?countyCode={country}-{subdiv}&offset={UTC_offset}"
+    else:
+        url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}?offset={UTC_offset}"
 
-    return date in public_holidays
+    # Check API
+    try:
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            return True
+        elif response.status_code == 204:
+            return False
+        elif response.status_code == 503:
+            logger.error(
+                f"Error checking public holiday via API gave code `{response.status_code}`: Server is currently down."
+            )
+        else:
+            logger.error(
+                f"Error checking public holiday via API gave code `{response.status_code}`: {response.json().get('error', 'Unknown error.')}"
+            )
+
+    except requests.exceptions.Timeout:
+        logger.error(
+            "Error checking public holiday via API as request timed out. Is the API up?"
+        )
+    except requests.exceptions.ConnectionError:
+        logger.error(
+            "Error checking public holiday via API as it failed to connect to API."
+        )
+    except requests.RequestException as e:
+        logger.error(f"Unexpected error when checking public holiday via API: {str(e)}")
+
+    # Ensure something returns
+    return False
 
 
 # Function to round the time to the nearest specified minute
