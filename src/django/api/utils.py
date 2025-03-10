@@ -4,6 +4,7 @@ import logging
 import holidays
 import api.exceptions as err
 import api.controllers as controllers
+from urllib.parse import urlencode
 from datetime import datetime, timedelta
 from django.utils.timezone import now
 from auth_app.models import User
@@ -14,7 +15,7 @@ logger = logging.getLogger("api")
 
 # Function to check if a given date is a public holiday
 def is_public_holiday(
-    time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, UTC_offset=UTC_OFFSET
+    time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, utc_offset=UTC_OFFSET
 ):
     date = time.date()
 
@@ -27,10 +28,18 @@ def is_public_holiday(
         logger.error(f"Error checking local holidays for date `{date}`: {str(e)}")
 
     # Else, double check API to ensure its up to date with current affairs.
+    url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}"
+
+    # Create query parameters
+    query_params = {}
     if subdiv:  # If there is a further country subdivision code
-        url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}?countyCode={country}-{subdiv}&offset={UTC_offset}"
-    else:
-        url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}?offset={UTC_offset}"
+        query_params["countyCode"] = f"{country}-{subdiv}"
+    if utc_offset:
+        query_params["offset"] = utc_offset
+
+    # Append query params if any exist
+    if query_params:
+        url += "?" + urlencode(query_params)
 
     # Check API
     try:
