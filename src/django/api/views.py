@@ -20,7 +20,7 @@ from auth_app.utils import manager_required
 from django.contrib.auth.decorators import login_required
 
 import json
-from django.db.models import Sum, F, Case, When, DecimalField
+from django.db.models import Sum, F, Q, Case, When, DecimalField
 from datetime import datetime, timezone, time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
@@ -96,7 +96,8 @@ def list_users_name_view(request):
         )
 
 
-@api_view(["GET"])
+@manager_required
+@api_view(["GET", "POST"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
     if request.method == "GET":
@@ -109,11 +110,9 @@ def raw_data_logs_view(request):
             data = []
             for act in activities:
                 staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                # Calculate hours using shift_length_mins
                 hours_decimal = (
                     act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
                 )
-
                 data.append(
                     {
                         "id": act.id,
@@ -140,22 +139,82 @@ def raw_data_logs_view(request):
                             else "N/A"
                         ),
                         "deliveries": act.deliveries,
-                        # Convert shift_length_mins to a string of hours, e.g. "3.50"
                         "hours_worked": f"{hours_decimal:.2f}",
                     }
                 )
-
-            json_response = json.dumps(data, indent=2)
-            print(json_response)  # Debug log
             return JsonResponse(data, safe=False)
-
         else:
-            # Return the template with CSRF token
-            get_token(request)
+            # Render HTML template
+            get_token(request)  # ensure CSRF token
             return render(request, "auth_app/raw_data_logs.html")
 
+    elif request.method == "POST":
+        """
+        Create a new Activity record.
+        exact_login_timestamp & exact_logout_timestamp remain None to show as N/A.
+        """
+        data = request.data
 
-@api_view(["GET", "PUT"])
+        required_fields = ["employee_id", "login_time", "logout_time"]
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            return JsonResponse(
+                {"Error": f"Missing field(s): {', '.join(missing)}"},
+                status=400,
+            )
+
+        try:
+            employee_id = data.get("employee_id")
+            login_str = data.get("login_time")  # e.g. "2025-01-01T14:30:00"
+            logout_str = data.get("logout_time")  # e.g. "2025-01-01T17:45:00"
+            is_public_holiday = data.get("is_public_holiday", False)
+            deliveries = data.get("deliveries", 0)
+
+            # Parse naive datetimes (no time zone)
+            login_dt = datetime.strptime(login_str, "%Y-%m-%dT%H:%M:%S")
+            logout_dt = datetime.strptime(logout_str, "%Y-%m-%dT%H:%M:%S")
+
+            emp = get_object_or_404(User, id=employee_id)
+
+            now_ts = datetime.now()
+
+            # Create the new activity record
+            activity = Activity.objects.create(
+                employee_id=emp,
+                login_time=login_dt,
+                logout_time=logout_dt,
+                login_timestamp=now_ts,
+                logout_timestamp=now_ts,
+                is_public_holiday=is_public_holiday,
+                deliveries=deliveries,
+            )
+
+            # Calculate shift length if both times exist
+            if activity.login_time and activity.logout_time:
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
+                activity.save()
+
+            return JsonResponse(
+                {"message": "Activity created successfully", "id": activity.id},
+                status=201,
+            )
+
+        except ValueError as ve:
+            # e.g., datetime parsing error
+            logger.error(f"Date parse error: {ve}")
+            return JsonResponse(
+                {"Error": f"Invalid date/time format: {ve}"}, status=400
+            )
+        except User.DoesNotExist:
+            return JsonResponse({"Error": "Invalid employee_id"}, status=404)
+        except Exception as e:
+            logger.error(f"Error creating Activity: {e}")
+            return JsonResponse({"Error": "Internal error."}, status=500)
+
+
+@manager_required
+@api_view(["GET", "PUT", "DELETE"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_detail_view(request, id):
     """
@@ -233,8 +292,6 @@ def raw_data_logs_detail_view(request, id):
         if "deliveries" in data:
             activity.deliveries = data["deliveries"]
 
-        # Optionally, recalc shift_length_mins (if you want to do that automatically)
-        # Only if both login_time and logout_time exist:
         if activity.login_time and activity.logout_time:
             delta = activity.logout_time - activity.login_time
             activity.shift_length_mins = int(delta.total_seconds() // 60)
@@ -244,10 +301,15 @@ def raw_data_logs_detail_view(request, id):
 
         return JsonResponse({"message": "Activity updated successfully"})
 
+    elif request.method == "DELETE":
+        activity.delete()
+        return JsonResponse({"message": "Activity deleted successfully"}, status=204)
+
     # Fallback
     return JsonResponse({"Error": "Invalid request"}, status=400)
 
 
+@manager_required
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 # @manager_required
@@ -359,6 +421,7 @@ def employee_details_view(request, id=None):
     )
 
 
+@manager_required
 def employee_details_page(request):
     """
     View to render the employee details HTML page.
@@ -607,6 +670,7 @@ def clocked_state_view(request, id):
         )
 
 
+@manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
@@ -641,6 +705,7 @@ def weekly_summary_view(request):
                     datetime.combine(last_reset_date, time.min)
                 )
             except KeyValueStore.DoesNotExist:
+                # Fallback date
                 last_reset_date = make_aware(datetime(2023, 3, 15))
 
             activities = Activity.objects.filter(login_time__gte=last_reset_date)
@@ -656,6 +721,7 @@ def weekly_summary_view(request):
                 activities = activities.filter(employee_id__in=employee_ids)
 
         # Calculate hours by converting shift_length_mins to hours
+        # Note: Exclude public holiday hours from weekday/weekend columns
         summary = (
             activities.annotate(day_of_week=ExtractWeekDay("login_time"))
             .values("employee_id", "employee_id__first_name", "employee_id__last_name")
@@ -663,7 +729,8 @@ def weekly_summary_view(request):
                 weekday_hours=Sum(
                     Case(
                         When(
-                            day_of_week__in=[2, 3, 4, 5, 6],
+                            Q(day_of_week__in=[2, 3, 4, 5, 6])
+                            & Q(is_public_holiday=False),
                             then=F("shift_length_mins") / 60.0,
                         ),
                         default=0,
@@ -673,7 +740,17 @@ def weekly_summary_view(request):
                 weekend_hours=Sum(
                     Case(
                         When(
-                            day_of_week__in=[1, 7], then=F("shift_length_mins") / 60.0
+                            Q(day_of_week__in=[1, 7]) & Q(is_public_holiday=False),
+                            then=F("shift_length_mins") / 60.0,
+                        ),
+                        default=0,
+                        output_field=DecimalField(decimal_places=2, max_digits=6),
+                    )
+                ),
+                public_holiday_hours=Sum(
+                    Case(
+                        When(
+                            is_public_holiday=True, then=F("shift_length_mins") / 60.0
                         ),
                         default=0,
                         output_field=DecimalField(decimal_places=2, max_digits=6),
@@ -692,6 +769,7 @@ def weekly_summary_view(request):
                 "last_name": item["employee_id__last_name"],
                 "weekday_hours": float(item["weekday_hours"] or 0.0),
                 "weekend_hours": float(item["weekend_hours"] or 0.0),
+                "public_holiday_hours": float(item["public_holiday_hours"] or 0.0),
                 "total_hours": float(item["total_hours"] or 0.0),
                 "total_deliveries": item["total_deliveries"] or 0,
             }
@@ -701,14 +779,14 @@ def weekly_summary_view(request):
         return Response(data, status=status.HTTP_200_OK)
 
     except Exception as e:
-        # General exception catch
-        logger.critical(f"An error occured when generating weekly summary: {e}")
+        logger.critical(f"An error occurred when generating weekly summary: {e}")
         return Response(
-            {"Error": f"Internal error."},
+            {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
+@manager_required
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
@@ -741,6 +819,7 @@ def reset_summary_view(request):
     )
 
 
+@manager_required
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
