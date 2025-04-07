@@ -4,18 +4,20 @@ from django.urls import reverse
 from auth_app.models import User, Activity
 from unittest.mock import patch
 
+
 @pytest.fixture
 def manager(db):
-    
-    # Generate user with manager permisions 
+
+    # Generate user with manager permisions
     return User.objects.create(
         first_name="Manager",
         last_name="McBoss",
         email="manager@example.com",
         is_active=True,
         is_manager=True,
-        password="testpassword123", 
+        password="testpassword123",
     )
+
 
 @pytest.mark.django_db
 def test_list_users_name_success(api_client, employee):
@@ -23,7 +25,9 @@ def test_list_users_name_success(api_client, employee):
     Test successful fetching of a list of active users with their IDs and full names.
     """
 
-    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+    api_client.force_authenticate(
+        user=manager
+    )  # Forcefully auth as Manager to bypass missing authentication
 
     url = reverse("api:list_users_name_view")
     response = api_client.get(
@@ -57,8 +61,10 @@ def test_list_users_name_no_results(api_client):
     Test when no users match the criteria (e.g., no active users).
     """
 
-    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
-    
+    api_client.force_authenticate(
+        user=manager
+    )  # Forcefully auth as Manager to bypass missing authentication
+
     url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
@@ -82,7 +88,9 @@ def test_list_users_name_with_filters(api_client, employee, manager):
     """
     Test fetching users with specific filters, e.g., only active users and excluding managers.
     """
-    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+    api_client.force_authenticate(
+        user=manager
+    )  # Forcefully auth as Manager to bypass missing authentication
 
     url = reverse("api:list_users_name_view")
     response = api_client.get(
@@ -112,7 +120,9 @@ def test_list_users_name_invalid_query_param(api_client, employee):
     Test invalid query parameters.
     """
 
-    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+    api_client.force_authenticate(
+        user=manager
+    )  # Forcefully auth as Manager to bypass missing authentication
 
     url = reverse("api:list_users_name_view")
     response = api_client.get(url, {"invalid_param": "some_value"})
