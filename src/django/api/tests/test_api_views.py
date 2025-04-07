@@ -10,6 +10,9 @@ def test_list_users_name_success(api_client, employee):
     """
     Test successful fetching of a list of active users with their IDs and full names.
     """
+
+    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+
     url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
@@ -41,6 +44,9 @@ def test_list_users_name_no_results(api_client):
     """
     Test when no users match the criteria (e.g., no active users).
     """
+
+    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+    
     url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
@@ -64,6 +70,8 @@ def test_list_users_name_with_filters(api_client, employee, manager):
     """
     Test fetching users with specific filters, e.g., only active users and excluding managers.
     """
+    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+
     url = reverse("api:list_users_name_view")
     response = api_client.get(
         url,
@@ -91,6 +99,9 @@ def test_list_users_name_invalid_query_param(api_client, employee):
     """
     Test invalid query parameters.
     """
+
+    api_client.force_authenticate(user=manager) # Forcefully auth as Manager to bypass missing authentication
+    
     url = reverse("api:list_users_name_view")
     response = api_client.get(url, {"invalid_param": "some_value"})
 
