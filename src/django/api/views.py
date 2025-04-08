@@ -276,14 +276,25 @@ def raw_data_logs_detail_view(request, id):
         login_time_str = data.get("login_time")
         logout_time_str = data.get("logout_time")
 
+        # Check if manually logging out a user
+        employee = get_object_or_404(User, id=activity.employee_id)
+
         # Parse the string times if provided (assuming they come in as ISO8601, e.g. "2025-01-01T14:30:00")
         if login_time_str:
-            activity.login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
+            login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
+            activity.login_time = round_datetime_minute(login_time)
+            activity.login_timestamp = login_time
         if logout_time_str:
             logout_time = datetime.strptime(logout_time_str, "%Y-%m-%dT%H:%M:%S")
             activity.logout_time = round_datetime_minute(
                 logout_time
             )  # Apply rounding function
+            activity.logout_timestamp = logout_time
+
+            # Clock out user if they were clocked in
+            if employee.clocked_in:
+                employee.clocked_in = False
+                employee.save()
 
         # is_public_holiday, deliveries, etc.
         if "is_public_holiday" in data:
@@ -302,6 +313,13 @@ def raw_data_logs_detail_view(request, id):
         return JsonResponse({"message": "Activity updated successfully"})
 
     elif request.method == "DELETE":
+
+        # Check user isn't clocked in from this activity
+        if not activity.logout_time:
+            employee = get_object_or_404(User, id=activity.employee_id)
+            employee.clocked_in = False
+            employee.save()
+
         activity.delete()
         return JsonResponse({"message": "Activity deleted successfully"}, status=204)
 
@@ -649,14 +667,14 @@ def clocked_state_view(request, id):
             {"Error": "Cannot view information from an inactive account."},
             status=status.HTTP_403_FORBIDDEN,
         )
-    except Activity.DoesNotExist:
-        # Return a 417 if the user's state is bugged
+    except err.NoActiveClockingRecordError:
+        # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
-            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record."
+            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record. Their state has been reset"
         )
         return Response(
             {
-                "Error": f"User state is bugged due to missing activity records. Please contact an admin."
+                "Error": "No active clock-in record found. The account's state has been reset."
             },
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
