@@ -81,6 +81,7 @@ def get_user_input():
         "store_latitude": "Enter the latitude of the store as a float (e.g. for 5.1°N enter 5.1): ",
         "store_longitude": "Enter the longitude of the store as a float (e.g. for -2.2°W enter -2.2): ",
         "allowable_clocking_dist_m": "Enter the allowable clocking distance in meters as an integer (e.g., 5): ",
+        "employee_pin": "Enter the pin used by every employee to access clock-in page (e.g., 1234): ",
     }
 
     for key, prompt in preset_keys.items():
