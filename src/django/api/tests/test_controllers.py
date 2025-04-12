@@ -204,7 +204,10 @@ def test_handle_clock_out_no_active_record(mock_now, clocked_in_employee):
         controllers.handle_clock_out(clocked_in_employee.id, deliveries=5)
 
     # Check the exception message
-    assert str(excinfo.value) == "Employee is missing an active clocking record."
+    assert (
+        str(excinfo.value)
+        == "No active clock-in activity found. Resetting user's clocked state."
+    )
 
 
 @pytest.mark.django_db
@@ -271,7 +274,8 @@ def test_get_employee_clocked_info_bugged_state(employee):
     employee.save()
 
     with pytest.raises(
-        Activity.DoesNotExist, match="No active clock-in activity found."
+        err.NoActiveClockingRecordError,
+        match="No active clock-in activity found. Resetting user's clocked state.",
     ):
         controllers.get_employee_clocked_info(employee_id=employee.id)
 
