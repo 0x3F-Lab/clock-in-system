@@ -40,7 +40,8 @@ def logout_view(request):
     return redirect("/")
 
 
-# @manager_required
+@manager_required
+@ensure_csrf_cookie
 def manager_dashboard(request):
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details

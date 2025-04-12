@@ -17,11 +17,10 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required
-from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie
 
-import json
 from django.db.models import Sum, F, Q, Case, When, DecimalField
-from datetime import datetime, timezone, time
+from datetime import datetime, time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
@@ -75,6 +74,7 @@ def list_users_name_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["GET", "POST"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_view(request):
@@ -192,6 +192,7 @@ def raw_data_logs_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["GET", "PUT", "DELETE"])
 @renderer_classes([JSONRenderer])
 def raw_data_logs_detail_view(request, id):
@@ -306,6 +307,7 @@ def raw_data_logs_detail_view(request, id):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
 # @manager_required
@@ -418,6 +420,7 @@ def employee_details_view(request, id=None):
 
 
 @manager_required
+@ensure_csrf_cookie
 def employee_details_page(request):
     """
     View to render the employee details HTML page.
@@ -667,6 +670,7 @@ def clocked_state_view(request, id):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
@@ -783,6 +787,7 @@ def weekly_summary_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
@@ -816,6 +821,7 @@ def reset_summary_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
@@ -878,52 +884,6 @@ def change_pin(request, id):
     except Exception as e:
         # General error capture
         logger.critical(f"An error occured when changing employee pin: {e}")
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_view(["POST", "PUT"])
-def active_employee_account(request, id):
-    try:
-        # Get new pin
-        new_pin = request.data.get("new_pin", None)
-
-        # Check if new pin exists
-        if new_pin is None:
-            return Response(
-                {"Error": "Missing new authentication pin."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Check employee is already active
-        employee = User.objects.get(id=id)
-        if employee.is_active:
-            return Response(
-                {"Error": "Account is already active."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Set their pin and activate account
-        employee.set_pin(raw_pin=new_pin)
-        employee.is_active = True
-        employee.save()
-
-        return Response(
-            {"Success": f"Account ID {id} has been activated with a new pin."},
-            status=status.HTTP_200_OK,
-        )
-
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    except Exception as e:
-        # General error capture
-        logger.critical(f"An error occured when activating an employee account: {e}")
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

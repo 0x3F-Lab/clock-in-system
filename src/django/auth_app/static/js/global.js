@@ -51,5 +51,11 @@ function getCookie(name) {
 
 // Get CSRF Token (allow for the method to change when using secure cookies...)
 function getCSRFToken() {
- return getCookie('csrftoken');
+  const $token = $('meta[name="csrf-token"]').attr('content')
+  if (!$token) {
+    console.error("CSRF token was not loaded on this page correctly. Please contact an admin for further assistance.")
+  }
+
+  // Return regardless
+  return $token
 }
