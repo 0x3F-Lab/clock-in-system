@@ -28,28 +28,6 @@ from django.db.models.functions import ExtractWeekDay
 logger = logging.getLogger("api")
 
 
-@api_view(["POST"])
-@renderer_classes([JSONRenderer])
-def change_pin_view(request):
-    user_id = request.data.get("user_id")
-    current_pin = request.data.get("current_pin")
-    new_pin = request.data.get("new_pin")
-
-    if not user_id or not current_pin or not new_pin:
-        return JsonResponse({"Error": "Missing required fields."}, status=400)
-
-    try:
-        user = User.objects.get(id=user_id, is_active=True)
-    except User.DoesNotExist:
-        return JsonResponse({"Error": "User not found or inactive."}, status=404)
-
-    if not user.check_pin(current_pin):
-        return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
-
-    user.set_pin(new_pin)
-    return JsonResponse({"success": True, "message": "Pin changed successfully."})
-
-
 @api_view(["GET"])
 def list_users_name_view(request):
     """
@@ -857,10 +835,10 @@ def change_pin(request, id):
             )
 
         # Get hashed pin to check they're authorised
-        old_pin = request.data.get("old_pin", None)
+        current_pin = request.data.get("current_pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=old_pin):
+        if not util.check_pin_hash(employee_id=id, hashed_pin=current_pin):
             raise err.InvalidPinError
 
         # Update the pin

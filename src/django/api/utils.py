@@ -199,8 +199,8 @@ def check_pin_hash(employee_id: bool, pin) -> bool:
         raise err.InactiveUserError
 
     # Check if pin is valid
-    if not employee.check_pin(raw_pin=pin):
-        return False
+    if employee.check_pin(raw_pin=pin):
+        return True
 
-    # Return True on successful pin check
-    return True
+    # Return False by default on failing check
+    return False
