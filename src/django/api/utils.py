@@ -5,10 +5,16 @@ import holidays
 import api.exceptions as err
 import api.controllers as controllers
 from urllib.parse import urlencode
-from datetime import datetime, timedelta
-from django.utils.timezone import now
+from datetime import timedelta
+from django.core.cache import cache
+from django.utils import timezone
 from auth_app.models import User
-from clock_in_system.settings import COUNTRY_CODE, COUNTRY_SUBDIV_CODE, UTC_OFFSET
+from clock_in_system.settings import (
+    COUNTRY_CODE,
+    COUNTRY_SUBDIV_CODE,
+    UTC_OFFSET,
+    SHIFT_ROUNDING_MINS,
+)
 
 logger = logging.getLogger("api")
 
@@ -17,13 +23,32 @@ logger = logging.getLogger("api")
 def is_public_holiday(
     time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, utc_offset=UTC_OFFSET
 ):
+    # Ensure 'time' is timezone-aware
+    if time.tzinfo is None:
+        # If naive datetime, convert it to a timezone-aware datetime based on the default timezone
+        time = timezone.make_aware(time, timezone.get_current_timezone())
+
+    time = timezone.localtime(
+        time
+    )  # Ensure time is in the local timezone of django settings
     date = time.date()
+
+    # Check cache if public holiday status has already been checked (saves computing)
+    cache_key = f"public_holiday_{date.isoformat()}"
+
+    status = cache.get(cache_key)
+    if status is not None:
+        # If the status is already cached, return the status
+        return status
 
     # Check using offline library
     try:
         country_holidays = holidays.country_holidays(country=country, subdiv=subdiv)
         if date in country_holidays:
+            # Set the cache before returning
+            cache.set(cache_key, True, timeout=86400)  # Cache it for 24 hours
             return True
+
     except Exception as e:
         logger.error(f"Error checking local holidays for date `{date}`: {str(e)}")
 
@@ -45,13 +70,19 @@ def is_public_holiday(
     try:
         response = requests.get(url, timeout=3)
         if response.status_code == 200:
+            # Set the cache before returning
+            cache.set(cache_key, True, timeout=86400)
             return True
+
         elif response.status_code == 204:
+            cache.set(cache_key, False, timeout=86400)
             return False
+
         elif response.status_code == 503:
             logger.error(
                 f"Error checking public holiday via API gave code `{response.status_code}`: Server is currently down."
             )
+
         else:
             logger.error(
                 f"Error checking public holiday via API gave code `{response.status_code}`: {response.json().get('error', 'Unknown error.')}"
@@ -68,12 +99,12 @@ def is_public_holiday(
     except requests.RequestException as e:
         logger.error(f"Unexpected error when checking public holiday via API: {str(e)}")
 
-    # Ensure something returns
+    # Ensure something returns (DONT SET CACHE AS API CALL FAILED)
     return False
 
 
 # Function to round the time to the nearest specified minute
-def round_datetime_minute(dt, rounding_mins=15):
+def round_datetime_minute(dt, rounding_mins=SHIFT_ROUNDING_MINS):
     # Calculate the total number of minutes since midnight
     total_minutes = dt.hour * 60 + dt.minute
 

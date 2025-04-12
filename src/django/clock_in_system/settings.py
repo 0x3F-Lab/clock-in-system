@@ -150,6 +150,14 @@ DATABASES = {
     }
 }
 
+# Django cache to store the more temporary info (i.e. public holiday checks)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": "/app/django_cache",
+    }
+}
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -181,10 +189,14 @@ USE_I18N = True
 USE_TZ = True
 
 
-# This is used for public holiday information:
-COUNTRY_CODE = "AUS"
+# This is used for public holiday information: (https://date.nager.at/)
+COUNTRY_CODE = "AU"
 COUNTRY_SUBDIV_CODE = "WA"
 UTC_OFFSET = "8"  # For UTC+8
+
+
+# Rounding amount for calculating true shift length
+SHIFT_ROUNDING_MINS = 15  # Default is 15min
 
 
 # Static files (CSS, JavaScript, Images)
