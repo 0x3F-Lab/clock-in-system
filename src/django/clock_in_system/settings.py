@@ -56,7 +56,7 @@ CSRF_COOKIE_AGE = 604800
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
 )  # Use True in production to send cookies over HTTPS only
-CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
+CSRF_COOKIE_HTTPONLY = True  # Default is False; True prevents JavaScript access
 CSRF_COOKIE_SAMESITE = os.getenv(
     "CSRF_COOKIE_SAMESITE", "Lax"
 )  # Can be 'Lax', 'Strict', or 'None'
