@@ -198,6 +198,12 @@ UTC_OFFSET = "8"  # For UTC+8
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min
 
+# How long a user must wait between finishing a shift and starting a new one
+START_NEW_SHIFT_TIME_DELTA_THRESHOLD = 30  # Default is 30m
+
+# How long a user must wait between starting a shift and finishing it
+FINISH_SHIFT_TIME_DELTA_THRESHOLD = 15  # Default is 15m
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

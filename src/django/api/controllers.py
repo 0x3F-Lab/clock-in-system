@@ -6,6 +6,10 @@ from datetime import timedelta
 from django.utils.timezone import now, localtime
 from django.db import transaction
 from auth_app.models import User, Activity, KeyValueStore
+from clock_in_system.settings import (
+    START_NEW_SHIFT_TIME_DELTA_THRESHOLD,
+    FINISH_SHIFT_TIME_DELTA_THRESHOLD,
+)
 
 
 logger = logging.getLogger("api")
@@ -366,7 +370,9 @@ def get_clocking_range_limit() -> float:
         raise ValueError(f"Invalid value for store location: {e}")
 
 
-def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
+def check_new_shift_too_soon(
+    employee_id: int, limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD
+) -> bool:
     """
     Check if the user attempts to start a new shift within time limits of their last clock-out.
 
@@ -402,7 +408,9 @@ def check_new_shift_too_soon(employee_id: int, limit_mins: int = 30) -> bool:
         )
 
 
-def check_clocking_out_too_soon(employee_id: int, limit_mins: int = 15) -> bool:
+def check_clocking_out_too_soon(
+    employee_id: int, limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD
+) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.
 
