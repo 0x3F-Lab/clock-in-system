@@ -838,7 +838,7 @@ def change_pin(request, id):
         current_pin = request.data.get("current_pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=current_pin):
+        if not util.check_pin_hash(employee_id=id, pin=current_pin):
             raise err.InvalidPinError
 
         # Update the pin
@@ -847,7 +847,7 @@ def change_pin(request, id):
         employee.save()
 
         return Response(
-            {"Success": f"Pin for account ID {id} has been updated."},
+            {"message": f"Pin for account ID {id} has been updated."},
             status=status.HTTP_200_OK,
         )
 

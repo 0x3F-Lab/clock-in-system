@@ -8,6 +8,10 @@ body, html {
     min-height: 100vh;         /* Let the document grow taller than the viewport */
 }
 
+.z-top {
+  z-index: 2000 !important;
+}
+
 /* If you still want the login box centered, apply flex styling only to the login container */
 .login-container {
     display: flex;

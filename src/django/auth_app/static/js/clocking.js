@@ -448,12 +448,8 @@ function handleChangePin(listEmployeeNamesURL, changePinURL) {
         new_pin: newPin
       },
       success: function(response) {
-        if (response.success) {
-          showNotification(response.message, "success");
-          $("#changePinModal").modal("hide");
-        } else {
-          showNotification(response.message, "danger");
-        }
+        showNotification("Successfully changed the pin.", "success");
+        $("#changePinModal").modal("hide");
       },
       error: function(jqXHR, textStatus, errorThrown) {
         let errorMessage;

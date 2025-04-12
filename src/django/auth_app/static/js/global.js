@@ -1,18 +1,19 @@
 // Function to show notifications
 function showNotification(message, type = "warning") {
   // Create notification HTML element
-  const notification = $('<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert"></div>');
+  const notification = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert" aria-live="assertive" aria-atomic="true"></div>`);
   notification.text(message);
   
   // Add close button to the notification
-  notification.append('<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>');
+  notification.append('<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>');
   
   // Append notification to the notification container
   $('#notification-container').append(notification);
   
-  // Automatically remove notification after 5 seconds
+  // Automatically remove notification after 5.5 seconds
   setTimeout(() => {
-      notification.alert('close');  // Close the notification
+    const bsAlert = bootstrap.Alert.getOrCreateInstance(notification[0]);
+    bsAlert.close();
   }, 5500);
 
   // Log warning message to console
