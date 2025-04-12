@@ -181,6 +181,12 @@ USE_I18N = True
 USE_TZ = True
 
 
+# This is used for public holiday information:
+COUNTRY_CODE = "AUS"
+COUNTRY_SUBDIV_CODE = "WA"
+UTC_OFFSET = "8"  # For UTC+8
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
