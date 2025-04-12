@@ -10,10 +10,6 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 logger = logging.getLogger("auth_app")
 
 
-def login_view(request):
-    return render(request, "auth_app/login.html")
-
-
 def manager_login(request):
     logger.debug(f"manager login user: {request.user}")
     if request.method == "POST":
@@ -49,11 +45,6 @@ def manager_dashboard(request):
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
     return render(request, "auth_app/manager_dashboard.html", {"user": user})
-
-
-def employee_login(request):
-    # Redirect to employee page (skip login for now)
-    return redirect("employee_dashboard")
 
 
 @ensure_csrf_cookie
