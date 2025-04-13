@@ -1,4 +1,5 @@
 {% extends "auth_app/base.html" %}
+{% load static %}
 {% block title %}Pizza Clock-in || Raw Data Logs{% endblock %}
 
 {% block content %}
@@ -78,4 +79,8 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block customscripts %}
+  <script src="{{ BASE_URL }}{% static 'js/raw_data_logs.js' %}"></script>
 {% endblock %}
