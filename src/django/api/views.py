@@ -277,7 +277,7 @@ def raw_data_logs_detail_view(request, id):
         logout_time_str = data.get("logout_time")
 
         # Check if manually logging out a user
-        employee = get_object_or_404(User, id=activity.employee_id)
+        employee = activity.employee_id
 
         # Parse the string times if provided (assuming they come in as ISO8601, e.g. "2025-01-01T14:30:00")
         if login_time_str:
@@ -316,7 +316,7 @@ def raw_data_logs_detail_view(request, id):
 
         # Check user isn't clocked in from this activity
         if not activity.logout_time:
-            employee = get_object_or_404(User, id=activity.employee_id)
+            employee = activity.employee_id
             employee.clocked_in = False
             employee.save()
 
