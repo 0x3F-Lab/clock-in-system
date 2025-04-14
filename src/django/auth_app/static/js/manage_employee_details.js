@@ -31,11 +31,44 @@ function handleActionButtons() {
   // When clicking activate button on employee row in table
   $(document).on('click', '.activateEmployeeBtn', function(e) {
     const employeeId = $(this).data('id');
+    updateEmployeeActivationStatus(employeeId, "activation");
   });
 
   // When clicking deactivate button on employee row in table
   $(document).on('click', '.deactivateEmployeeBtn', function(e) {
     const employeeId = $(this).data('id');
+    updateEmployeeActivationStatus(employeeId, "deactivation");
+  });
+}
+
+
+function updateEmployeeActivationStatus(id, type) {
+  $.ajax({
+    url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
+    type: "PUT",
+    contentType: "application/json",
+    headers: {
+      'X-CSRFToken': `${getCookie('csrftoken')}`, // Include CSRF token
+    },
+    data: JSON.stringify({
+      status_type: type
+    }),
+
+    success: function(req) {
+      updateEmployeeDetailsTable();
+      showNotification("Successfully updated employee activation status.", "success");
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to update employee status due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to update employee status. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
   });
 }
 
@@ -69,6 +102,10 @@ function updateEmployeeDetailsTable() {
       } else {
         $employeeTable.html(""); // Reset inner HTML
         $.each(req, function(index, employee) {
+          const activationButton = employee.is_active
+            ? `<button class="deactivateEmployeeBtn" data-id="${employee.id}" data-type="deactivate">Deactivate</button>`
+            : `<button class="activateEmployeeBtn" data-id="${employee.id}" data-type="activate">Activate</button>`;
+
           const row = `
             <tr>
               <td>${employee.first_name} ${employee.last_name}</td>
@@ -77,7 +114,7 @@ function updateEmployeeDetailsTable() {
               <td>${employee.pin}</td>
               <td>
                 <button class="editBtn" data-id="${employee.id}">Edit</button>
-                <button class="activateEmployeeBtn" data-id="${employee.id}">Activate</button>
+                ${activationButton}
               </td>
             </tr>
           `;

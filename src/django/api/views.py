@@ -320,6 +320,7 @@ def list_all_employee_details(request):
                 "email": emp.email,
                 "phone_number": emp.phone_number,
                 "pin": emp.pin,
+                "is_active": emp.is_active,
             }
             for emp in employees
         ]
@@ -349,6 +350,7 @@ def list_singular_employee_details(request, id):
             "email": employee.email,
             "phone_number": employee.phone_number,
             "pin": employee.pin,
+            "is_active": employee.is_active,
         }
 
         return JsonResponse(employee_data, safe=False)
@@ -373,18 +375,21 @@ def update_employee_details(request, id):
 
         # Parse data from request
         data = json.loads(request.body)
-        employee.first_name = data.get("first_name", employee.first_name)
-        employee.last_name = data.get("last_name", employee.last_name)
-        employee.email = data.get("email", employee.email)
-        employee.phone_number = data.get("phone", employee.phone_number)
+        employee.first_name = str(data.get("first_name", employee.first_name))
+        employee.last_name = str(data.get("last_name", employee.last_name))
+        employee.email = str(data.get("email", employee.email))
+        employee.phone_number = str(data.get("phone", employee.phone_number))
 
         if "pin" in data:
-            employee.set_pin(data["pin"])
+            employee.set_pin(str(data["pin"]))
 
         ########## CHECKS ON THIS IS NEEDED!!!
 
         employee.save()
-        return JsonResponse({"message": "Employee updated successfully"})
+        return JsonResponse(
+            {"message": "Employee updated successfully"},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
     except Exception as e:
         # Handle any unexpected exceptions
@@ -404,11 +409,11 @@ def create_new_employee(request):
     try:
         # Parse data from request
         data = json.loads(request.body)
-        first_name = data.get("first_name", "")
-        last_name = data.get("last_name", "")
-        email = data.get("email", "")
-        phone_number = data.get("phone", "")
-        pin = data.get("pin", "")
+        first_name = str(data.get("first_name", ""))
+        last_name = str(data.get("last_name", ""))
+        email = str(data.get("email", ""))
+        phone_number = str(data.get("phone", ""))
+        pin = str(data.get("pin", ""))
 
         ########## CHECKS ON THIS IS NEEDED!!!
 
@@ -416,14 +421,14 @@ def create_new_employee(request):
         if not first_name or not last_name or not email:
             return JsonResponse(
                 {"Error": "Required fields are missing."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         # Ensure email is unique
         if User.objects.filter(email=email).exists():
             return JsonResponse(
                 {"Error": "Email already exists"},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_409_CONFLICT,
             )
 
         # Create user
@@ -456,13 +461,55 @@ def create_new_employee(request):
 
 
 @manager_required
-@ensure_csrf_cookie
-def employee_details_page(request):
-    """
-    View to render the employee details HTML page.
-    """
-    get_token(request)
-    return render(request, "auth_app/employee_details.html")
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_status(request, id):
+    try:
+        # Parse data from request
+        data = json.loads(request.body)
+        status_type = str(data.get("status_type", ""))
+
+        ########## CHECKS ON THIS IS NEEDED!!!
+
+        # You can add validation or checks here
+        if not status_type:
+            return JsonResponse(
+                {"Error": "Required status type field missing."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Get employee
+        employee = User.objects.get(id=id)
+
+        # If account deactivation
+        if status_type.lower() == "deactivation":
+            employee.is_active = False
+
+        elif status_type.lower() == "activation":
+            employee.is_active = True
+
+        else:
+            return JsonResponse(
+                {"Error": "Invalid status type to modify.", "id": employee.id},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        employee.save()
+
+        return JsonResponse(
+            {"message": "Employee status updated successfully.", "id": employee.id},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee status of type '{status_type}' for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST", "PUT"])

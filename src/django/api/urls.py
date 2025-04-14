@@ -11,8 +11,6 @@ urlpatterns = [
     path(
         "clocked_state/<int:id>/", views.clocked_state_view, name="clocked_state_view"
     ),
-    # path("employees/", views.employee_details_view, name="employee_list"),
-    path("employees/<int:id>/", views.employee_details_view, name="employee_detail"),
     path("raw-data-logs/", views.raw_data_logs_view, name="raw_data_logs"),
     path(
         "raw-data-logs/<int:id>/",
@@ -40,4 +38,9 @@ urlpatterns = [
         name="update_employee_details",
     ),
     path("create-employee/", views.create_new_employee, name="create_new_employee"),
+    path(
+        "modify-account-status/<int:id>/",
+        views.modify_account_status,
+        name="modify_account_status",
+    ),
 ]

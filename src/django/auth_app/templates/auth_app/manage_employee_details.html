@@ -86,6 +86,7 @@
     listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_all_employee_details' %}",
     updateEmployeeDetails: "{{ BASE_URL }}{% url 'api:update_employee_details' 0 %}".slice(0, -2),
     createEmployeeAccount: "{{ BASE_URL }}{% url 'api:create_new_employee' %}",
+    modifyAccountStatus: "{{ BASE_URL }}{% url 'api:modify_account_status' 0 %}".slice(0, -2),
 {% endblock %}
 
 {% block customscripts %}
