@@ -11,7 +11,7 @@ urlpatterns = [
     path(
         "clocked_state/<int:id>/", views.clocked_state_view, name="clocked_state_view"
     ),
-    path("employees/", views.employee_details_view, name="employee_list"),
+    # path("employees/", views.employee_details_view, name="employee_list"),
     path("employees/<int:id>/", views.employee_details_view, name="employee_detail"),
     path("raw-data-logs/", views.raw_data_logs_view, name="raw_data_logs"),
     path(
@@ -24,4 +24,20 @@ urlpatterns = [
     # HTML page that uses JS to fetch from the above API
     path("weekly-summary-page/", views.weekly_summary_page, name="weekly_summary_page"),
     path("reset-summary/", views.reset_summary_view, name="reset_summary_view"),
+    path(
+        "list-employee-details/",
+        views.list_all_employee_details,
+        name="list_all_employee_details",
+    ),
+    path(
+        "list-employee-details/<int:id>/",
+        views.list_singular_employee_details,
+        name="list_singular_employee_details",
+    ),
+    path(
+        "update-employee-details/<int:id>/",
+        views.update_employee_details,
+        name="update_employee_details",
+    ),
+    path("create-employee/", views.create_new_employee, name="create_new_employee"),
 ]

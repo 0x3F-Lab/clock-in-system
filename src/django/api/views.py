@@ -1,12 +1,10 @@
 import logging
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.response import Response
-from rest_framework import status
+import json
 import api.utils as util
 from api.utils import round_datetime_minute
 import api.controllers as controllers
 import api.exceptions as err
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 from auth_app.models import User, Activity
@@ -16,7 +14,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import manager_required
+from auth_app.utils import manager_required, api_manager_required
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
@@ -28,6 +26,7 @@ logger = logging.getLogger("api")
 
 
 @api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def list_users_name_view(request):
     """
     API view to fetch a list of users with their IDs and full names.
@@ -307,10 +306,159 @@ def raw_data_logs_detail_view(request, id):
 
 
 @manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_all_employee_details(request):
+    try:
+        employees = User.objects.order_by("first_name", "last_name")
+
+        employee_data = [
+            {
+                "id": emp.id,
+                "first_name": emp.first_name,
+                "last_name": emp.last_name,
+                "email": emp.email,
+                "phone_number": emp.phone_number,
+                "pin": emp.pin,
+            }
+            for emp in employees
+        ]
+        return JsonResponse(employee_data, safe=False)
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list all employee data (full dump), resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@manager_required
+@api_view(["GET"])
+def list_singular_employee_details(request, id):
+    try:
+        employee = User.objects.get(id=id)
+
+        employee_data = {
+            "id": id,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "email": employee.email,
+            "phone_number": employee.phone_number,
+            "pin": employee.pin,
+        }
+
+        return JsonResponse(employee_data, safe=False)
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@manager_required
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def update_employee_details(request, id):
+    try:
+        employee = User.objects.get(id=id)
+
+        # Parse data from request
+        data = json.loads(request.body)
+        employee.first_name = data.get("first_name", employee.first_name)
+        employee.last_name = data.get("last_name", employee.last_name)
+        employee.email = data.get("email", employee.email)
+        employee.phone_number = data.get("phone", employee.phone_number)
+
+        if "pin" in data:
+            employee.set_pin(data["pin"])
+
+        ########## CHECKS ON THIS IS NEEDED!!!
+
+        employee.save()
+        return JsonResponse({"message": "Employee updated successfully"})
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def create_new_employee(request):
+    try:
+        # Parse data from request
+        data = json.loads(request.body)
+        first_name = data.get("first_name", "")
+        last_name = data.get("last_name", "")
+        email = data.get("email", "")
+        phone_number = data.get("phone", "")
+        pin = data.get("pin", "")
+
+        ########## CHECKS ON THIS IS NEEDED!!!
+
+        # You can add validation or checks here
+        if not first_name or not last_name or not email:
+            return JsonResponse(
+                {"Error": "Required fields are missing."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ensure email is unique
+        if User.objects.filter(email=email).exists():
+            return JsonResponse(
+                {"Error": "Email already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Create user
+        employee = User.objects.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone_number=phone_number,
+            pin=pin,
+            is_active=True,  # or set as needed
+            is_manager=False,  # presumably a normal employee
+        )
+
+        employee.save()
+
+        return JsonResponse(
+            {"message": "Employee created successfully", "id": employee.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@manager_required
 @ensure_csrf_cookie
 @api_view(["GET", "PUT", "POST"])
 @renderer_classes([JSONRenderer])
-# @manager_required
 def employee_details_view(request, id=None):
     logger.error(f"test: {request.user}")
     if request.method == "GET":
@@ -346,7 +494,7 @@ def employee_details_view(request, id=None):
         else:
             # Not JSON: Return the HTML and ensure CSRF cookie is set
             get_token(request)  # This forces a CSRF cookie to be sent
-            return render(request, "auth_app/employee_details.html")
+            return render(request, "auth_app/manage_employee_details.html")
 
     if request.method == "PUT" and id:
         # PUT logic unchanged
@@ -822,6 +970,7 @@ def reset_summary_view(request):
 
 @manager_required
 @ensure_csrf_cookie
+@renderer_classes([JSONRenderer])
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")

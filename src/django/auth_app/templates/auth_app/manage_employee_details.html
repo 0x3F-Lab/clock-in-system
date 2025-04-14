@@ -1,0 +1,94 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Employee Details{% endblock %}
+{% block content %}
+
+<div class="employee-header">
+  <h1>Employee Details</h1>
+  <div class="button-group">
+      <button id="addNewEmployeeButton">Add New Employee</button>
+      <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
+  </div>
+</div>
+
+<table id="employeeTable" class="text-wrap text-break">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Pin</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be populated dynamically -->
+    </tbody>
+</table>
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+    
+      <div class="modal-header">
+        <h5 class="modal-title" id="editModalLabel">Edit Employee</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <div class="modal-body">
+        <form id="editForm">
+          <input type="hidden" id="editEmployeeId" name="editEmployeeId">
+          
+          <div class="mb-3">
+            <label for="editFirstName" class="form-label">First Name</label>
+            <input type="text" class="form-control" id="editFirstName" name="editFirstName" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editLastName" class="form-label">Last Name</label>
+            <input type="text" class="form-control" id="editLastName" name="editLastName" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editEmail" class="form-label">Email</label>
+            <input type="email" class="form-control" id="editEmail" name="editEmail" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editPhone" class="form-label">Phone</label>
+            <input type="text" class="form-control" id="editPhone" name="editPhone">
+          </div>
+          
+          <div class="mb-3">
+            <label for="editPin" class="form-label">Pin</label>
+            <input type="text" class="form-control" id="editPin" name="editPin" required>
+          </div>
+        </form>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="editModalSubmit">
+          Save Changes
+        </button>
+      </div>
+      
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_urls %}
+    listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_singular_employee_details' 0 %}".slice(0, -2),
+    listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_all_employee_details' %}",
+    updateEmployeeDetails: "{{ BASE_URL }}{% url 'api:update_employee_details' 0 %}".slice(0, -2),
+    createEmployeeAccount: "{{ BASE_URL }}{% url 'api:create_new_employee' %}",
+{% endblock %}
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/manage_employee_details.js' %}"></script>
+{% endblock %}

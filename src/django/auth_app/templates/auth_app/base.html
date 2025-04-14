@@ -92,14 +92,14 @@
           clockedState: "{{ BASE_URL }}{% url 'api:clocked_state_view' 0 %}".slice(0, -2),
           clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
           clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
-          listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_list' %}",
-          listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:employee_detail' 0 %}".slice(0, -2),
           changePin: "{{ BASE_URL }}{% url 'api:change_pin' 0 %}".slice(0, -2),
+          {% block extra_urls %}{% endblock %}
       };
     </script>
     <script src="{{ BASE_URL }}{% static 'js/global.js' %}"></script>
 
     {% block customscripts %}{% endblock %}
+
     {% for message in messages %}
       <script>
           showNotification("{{ message }}", "{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}");
