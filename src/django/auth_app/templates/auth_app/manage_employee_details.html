@@ -6,7 +6,7 @@
   <h1>Employee Details</h1>
   <div class="button-group">
       <button id="addNewEmployeeButton">Add New Employee</button>
-      <button onclick="location.href='/manager_dashboard/'">Back to Dashboard</button>
+      <button onclick="location.href=`{% url 'manager_dashboard' %}`">Back to Dashboard</button>
   </div>
 </div>
 
@@ -24,6 +24,8 @@
         <!-- Rows will be populated dynamically -->
     </tbody>
 </table>
+
+{% include "components/pagination_controller.html" %}
 
 <!-- Edit Employee Modal -->
 <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">

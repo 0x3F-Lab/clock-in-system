@@ -212,6 +212,9 @@ START_NEW_SHIFT_TIME_DELTA_THRESHOLD = 30  # Default is 30m
 # How long a user must wait between starting a shift and finishing it
 FINISH_SHIFT_TIME_DELTA_THRESHOLD = 15  # Default is 15m
 
+# Determine maximum possible dump size for db queries (i.e. employee details list)
+MAX_DATABASE_DUMP_LIMIT = 150
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/

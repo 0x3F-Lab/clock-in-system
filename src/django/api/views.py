@@ -16,6 +16,7 @@ from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required, api_manager_required
 from django.views.decorators.csrf import ensure_csrf_cookie
+from clock_in_system.settings import MAX_DATABASE_DUMP_LIMIT
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
 from datetime import datetime, time
@@ -310,7 +311,27 @@ def raw_data_logs_detail_view(request, id):
 @renderer_classes([JSONRenderer])
 def list_all_employee_details(request):
     try:
-        employees = User.objects.order_by("first_name", "last_name")
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
+
+        try:
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            )
+        except ValueError:
+            limit = 25
+
+        # Apply slicing (converted to SQL level by django)
+        employees = User.objects.order_by("first_name", "last_name")[
+            offset : offset + limit
+        ]
+
+        # Get total
+        total = User.objects.count()
 
         employee_data = [
             {
@@ -324,7 +345,15 @@ def list_all_employee_details(request):
             }
             for emp in employees
         ]
-        return JsonResponse(employee_data, safe=False)
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": employee_data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
     except Exception as e:
         # Handle any unexpected exceptions
@@ -353,7 +382,7 @@ def list_singular_employee_details(request, id):
             "is_active": employee.is_active,
         }
 
-        return JsonResponse(employee_data, safe=False)
+        return JsonResponse(employee_data)
 
     except Exception as e:
         # Handle any unexpected exceptions
@@ -367,11 +396,14 @@ def list_singular_employee_details(request, id):
 
 
 @manager_required
-@api_view(["POST"])
+@api_view(["POST", "PATCH"])
 @renderer_classes([JSONRenderer])
 def update_employee_details(request, id):
     try:
         employee = User.objects.get(id=id)
+
+        if not employee.is_active:
+            raise err.InactiveUserError
 
         # Parse data from request
         data = json.loads(request.body)
@@ -380,7 +412,7 @@ def update_employee_details(request, id):
         employee.email = str(data.get("email", employee.email))
         employee.phone_number = str(data.get("phone", employee.phone_number))
 
-        if "pin" in data:
+        if data.get("pin") is not None:
             employee.set_pin(str(data["pin"]))
 
         ########## CHECKS ON THIS IS NEEDED!!!
@@ -391,10 +423,15 @@ def update_employee_details(request, id):
             status=status.HTTP_202_ACCEPTED,
         )
 
+    except err.InactiveUserError as e:
+        return Response(
+            {"Error": "Cannot update an incative employee's details."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -452,7 +489,7 @@ def create_new_employee(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

@@ -10,32 +10,34 @@ $(document).ready(function() {
 
   // Handle edit modal to create/edit user data
   handleEmployeeDetailsEdit();
-});
 
+  // Handle Pagination (set the update function)
+  handlePagination({updateFunc: updateEmployeeDetailsTable});
+});
 
 
 function handleActionButtons() {
   // When clicking edit button on an employee row in the table -> populate the ID section as well
-  $(document).on('click', '.editBtn', function(e) {
+  $(document).on('click', '.editBtn', function () {
     const employeeId = $(this).data('id');
     $('#editEmployeeId').val(employeeId);
     openEditModal();
   });
 
   // When clicking on button to make new employee
-  $('#addNewEmployeeButton').on('click', function(e) {
+  $('#addNewEmployeeButton').on('click', () => {
     $('#editEmployeeId').val("");
     openEditModal();
   });
 
   // When clicking activate button on employee row in table
-  $(document).on('click', '.activateEmployeeBtn', function(e) {
+  $(document).on('click', '.activateEmployeeBtn', function () {
     const employeeId = $(this).data('id');
     updateEmployeeActivationStatus(employeeId, "activation");
   });
 
   // When clicking deactivate button on employee row in table
-  $(document).on('click', '.deactivateEmployeeBtn', function(e) {
+  $(document).on('click', '.deactivateEmployeeBtn', function () {
     const employeeId = $(this).data('id');
     updateEmployeeActivationStatus(employeeId, "deactivation");
   });
@@ -43,6 +45,9 @@ function handleActionButtons() {
 
 
 function updateEmployeeActivationStatus(id, type) {
+  // Show spinner before the request
+  showSpinner();
+
   $.ajax({
     url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
     type: "PUT",
@@ -55,11 +60,17 @@ function updateEmployeeActivationStatus(id, type) {
     }),
 
     success: function(req) {
+      // Hide spinner once data comes in
+      hideSpinner();
+      
       updateEmployeeDetailsTable();
       showNotification("Successfully updated employee activation status.", "success");
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
+      // Hide spinner on error too
+      hideSpinner();
+
       // Extract the error message from the API response if available
       let errorMessage;
       if (jqXHR.status == 500) {
@@ -80,8 +91,10 @@ function openEditModal() {
 
 
 function updateEmployeeDetailsTable() {
+  showSpinner();
+
   $.ajax({
-    url: window.djangoURLs.listEveryEmployeeDetails,
+    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     type: "GET",
     contentType: "application/json",
     headers: {
@@ -89,9 +102,13 @@ function updateEmployeeDetailsTable() {
     },
 
     success: function(req) {
+      hideSpinner();
+
       const $employeeTable = $('#employeeTable tbody');
+      const employees = req.results || [];
+
       // If there are no users returned
-      if (req.length <= 0) {
+      if (employees.length <= 0) {
         if ($employeeTable.html().length > 0) {
           showNotification("Obtained no employees when updating table.... Keeping table.", "danger");
         } else {
@@ -101,7 +118,7 @@ function updateEmployeeDetailsTable() {
 
       } else {
         $employeeTable.html(""); // Reset inner HTML
-        $.each(req, function(index, employee) {
+        $.each(employees, function(index, employee) {
           const activationButton = employee.is_active
             ? `<button class="deactivateEmployeeBtn" data-id="${employee.id}" data-type="deactivate">Deactivate</button>`
             : `<button class="activateEmployeeBtn" data-id="${employee.id}" data-type="activate">Activate</button>`;
@@ -121,10 +138,14 @@ function updateEmployeeDetailsTable() {
           $employeeTable.append(row)
         });
         // No need to update edit buttons as that is done dynamically
+        // Set pagination values
+        setPaginationValues(req.offset, req.total);
       }
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
+      hideSpinner();
+
       // Extract the error message from the API response if available
       let errorMessage;
       if (jqXHR.status == 500) {
@@ -139,11 +160,8 @@ function updateEmployeeDetailsTable() {
 
 
 function handleEmployeeDetailsEdit() {
-  const editModalElement = document.getElementById("editModal");
-  const editModal = new bootstrap.Modal(editModalElement);
-
   // When modal is about to be shown, populate employee list
-  $("#editModal").on("show.bs.modal", function() {
+  $("#editModal").on("show.bs.modal", () => {
     // Remove old content
     $('#editFirstName').val("");
     $('#editLastName').val("");
@@ -199,6 +217,8 @@ function handleEmployeeDetailsEdit() {
       return;
     }
 
+    showSpinner();
+
     // If updating EXISTING USER
     if (id && id != -1) {
       $.ajax({
@@ -216,12 +236,14 @@ function handleEmployeeDetailsEdit() {
         }),
     
         success: function(req) {
+          hideSpinner();
           $("#editModal").modal("hide");
           updateEmployeeDetailsTable();
           showNotification("Successfully updated employee details.", "success");
         },
     
         error: function(jqXHR, textStatus, errorThrown) {
+          hideSpinner();
           let errorMessage;
           if (jqXHR.status == 500) {
             errorMessage = "Failed to update existing employee details due to internal server errors. Please try again.";
@@ -249,12 +271,14 @@ function handleEmployeeDetailsEdit() {
         }),
     
         success: function(req) {
+          hideSpinner();
           $("#editModal").modal("hide");
           updateEmployeeDetailsTable();
           showNotification("Successfully created new employee.", "success");
         },
     
         error: function(jqXHR, textStatus, errorThrown) {
+          hideSpinner();
           let errorMessage;
           if (jqXHR.status == 500) {
             errorMessage = "Failed to create new employee due to internal server errors. Please try again.";
