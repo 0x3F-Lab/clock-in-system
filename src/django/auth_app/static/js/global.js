@@ -79,6 +79,15 @@ function ensureSafeInt(val, min, max) {
 }
 
 
+function formatToDatetimeLocal(dateStr) {
+  if (!dateStr) return "";
+  // Expecting "DD/MM/YYYY HH:MM"
+  const [datePart, timePart] = dateStr.split(" ");
+  const [day, month, year] = datePart.split("/");
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
+}
+
+
 // Hide / show progress spinner
 function showSpinner(delay = 150) {
   // Start a timer but don’t show the spinner yet

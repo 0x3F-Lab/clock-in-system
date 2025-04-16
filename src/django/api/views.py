@@ -224,19 +224,27 @@ def update_shift_details(request, id):
             # Parse data from request
             data = json.loads(request.body)
 
-            if data.get("login_timestamp") is not None:
-                login_timestamp = datetime.strptime(
-                    data.get("login_timestamp"), "%Y-%m-%dT%H:%M:%S"
-                )
-                activity.login_time = round_datetime_minute(login_timestamp)
-                activity.login_timestamp = login_timestamp
+            try:
+                if data.get("login_timestamp") is not None:
+                    login_timestamp = datetime.strptime(
+                        data.get("login_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                    )
+                    activity.login_time = round_datetime_minute(login_timestamp)
+                    activity.login_timestamp = login_timestamp
 
-            if data.get("logout_timestamp") is not None:
-                logout_timestamp = datetime.strptime(
-                    data.get("logout_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                if data.get("logout_timestamp") is not None:
+                    logout_timestamp = datetime.strptime(
+                        data.get("logout_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                    )
+                    activity.logout_time = round_datetime_minute(logout_timestamp)
+                    activity.logout_timestamp = logout_timestamp
+            except ValueError as e:
+                return Response(
+                    {
+                        "Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-                activity.logout_time = round_datetime_minute(logout_timestamp)
-                activity.logout_timestamp = logout_timestamp
 
             # If finishing a shift manually, check that the user doesnt need to be clocked out
             if activity.logout_time is not None:

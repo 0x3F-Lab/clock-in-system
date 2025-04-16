@@ -180,7 +180,7 @@ function handleShiftDetailsEdit() {
     // Attempt to populate the fields by requesting info ONLY IF an ID is supplied. (i.e. not making new user)
     if (id && id != -1) {
       // Ensure not changing user
-      $('editModalEmployeeListContainer').addClass('d-none');
+      $('#editModalEmployeeListContainer').addClass('d-none');
 
       $.ajax({
         url: `${window.djangoURLs.listSingularShiftDetails}${id}/`,
@@ -191,8 +191,8 @@ function handleShiftDetailsEdit() {
     
         success: function(req) {
           $('#editActivityId').val(req.id);
-          $('#editLoginTimestamp').val(req.login_timestamp.replace(' ', 'T').replace('/','-'));
-          $('#editLogoutTimestamp').val(req.logout_timestamp.replace(' ', 'T').replace('/','-'));
+          $('#editLoginTimestamp').val(formatToDatetimeLocal(req.login_timestamp));
+          $('#editLogoutTimestamp').val(formatToDatetimeLocal(req.logout_timestamp));
           $('#editIsPublicHoliday').prop('checked', req.is_public_holiday === true);
           $('#editDeliveries').val(req.deliveries || 0);
         },
@@ -291,8 +291,8 @@ function handleShiftDetailsEdit() {
           'X-CSRFToken': `${getCookie('csrftoken')}`,
         },
         data: JSON.stringify({
-          login_timestamp: loginTimestamp,
-          logout_timestamp: logoutTimestamp,
+          login_timestamp: correctAPITimestamps(loginTimestamp),
+          logout_timestamp: correctAPITimestamps(logoutTimestamp),
           is_public_holiday: isPublicHoliday,
           deliveries: deliveries,
         }),
@@ -328,8 +328,8 @@ function handleShiftDetailsEdit() {
         },
         data: JSON.stringify({
           employee_id: selectedID,
-          login_timestamp: loginTimestamp,
-          logout_timestamp: logoutTimestamp,
+          login_timestamp: correctAPITimestamps(loginTimestamp),
+          logout_timestamp: correctAPITimestamps(logoutTimestamp),
           is_public_holiday: isPublicHoliday,
           deliveries: deliveries,
         }),
@@ -354,4 +354,11 @@ function handleShiftDetailsEdit() {
       });
     }
   });
+}
+
+
+// HELPER FUNCTIONS
+
+function correctAPITimestamps(time) {
+  return (time + ":00")
 }
