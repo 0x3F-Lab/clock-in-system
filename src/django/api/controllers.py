@@ -46,7 +46,7 @@ def get_users_name(
     users = User.objects.filter(**filters)
 
     if not users:
-        raise User.DoesNotExist("No active users found.")
+        raise User.DoesNotExist("No employees found.")
 
     # Determine ordering
     if order:

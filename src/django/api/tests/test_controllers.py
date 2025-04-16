@@ -69,7 +69,7 @@ def test_get_users_name_no_results(inactive_employee):
     """
     Test the scenario where no users match the given criteria (should return None).
     """
-    with pytest.raises(User.DoesNotExist, match="No active clock-in activity found."):
+    with pytest.raises(User.DoesNotExist, match="No employees found."):
         controllers.get_users_name(only_active=True)
 
 
