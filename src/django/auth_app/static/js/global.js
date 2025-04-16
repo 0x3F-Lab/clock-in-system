@@ -149,14 +149,8 @@ function handlePagination(config) {
   });
 
   $('#pageLimitInput').on('change', () => {
-    const newPageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-    const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-
-    // Only update the page if the new limit causes pagination (save API requests)
-    if (newPageLimit < totCount) {
       $('#paginationOffset').attr('data-future-offset', 0); // Reset offset to start
       updateFunc(); // Refresh the table with new limit
-    }
   });
 }
 

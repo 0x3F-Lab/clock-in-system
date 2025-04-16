@@ -663,7 +663,7 @@ def create_new_shift(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
+            f"Failed to create new shift for employee ID {employee_id}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
