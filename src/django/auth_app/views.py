@@ -62,3 +62,10 @@ def employee_dashboard(request):
 @require_GET
 def manage_employee_details(request):
     return render(request, "auth_app/manage_employee_details.html")
+
+
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def manage_shift_logs(request):
+    return render(request, "auth_app/shift_logs.html")

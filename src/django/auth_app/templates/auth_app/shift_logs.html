@@ -1,0 +1,167 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Shift Logs{% endblock %}
+
+{% block content %}
+<h1>Shift Logs</h1>
+<button onclick="location.href=`{% url 'manager_dashboard' %}`">Back to Dashboard</button>
+<!-- Add New Raw Data Log Button -->
+<button id="addNewShiftBtn">Add New Shift</button>
+
+<table id="shiftLogsTable">
+  <thead>
+    <tr>
+      <th>Staff Name</th>
+      <th>Rounded Login Time</th>
+      <th>Rounded Logout Time</th>
+      <th>Is Public Holiday</th>
+      <th>Exact Login Timestamp</th>
+      <th>Exact Logout Timestamp</th>
+      <th>Deliveries</th>
+      <th>Hours Worked</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+{% include "components/pagination_controller.html" %}
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+    
+      <div class="modal-header">
+        <h5 class="modal-title" id="editModalLabel">Edit Activity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      
+      <div class="modal-body">
+        <form id="editForm">
+          <input type="hidden" id="editActivityId" name="editActivityId">
+
+          <div id="editModalEmployeeListContainer" class="d-none">
+            <div class="mb-3">
+              <label for="editModalEmployeeSearchBar" class="form-label">Search Employees</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editModalEmployeeSearchBar"
+                placeholder="Type to filter employees..."
+              >
+            </div>
+            <ul
+              id="editModalEmployeeList"
+              class="list-group mb-3"
+              style="max-height: 200px; overflow-y: auto;"
+            >
+            </ul>
+            <input
+              type="hidden"
+              id="editModalListSelectedEmployeeID"
+              name="editModalListSelectedEmployeeID"
+              value=""
+            >
+          </div>
+          
+          <div class="mb-3">
+            <label for="editLoginTime" class="form-label">Login Timestamp</label>
+            <input type="datetime-local" class="form-control" id="editLoginTime" name="editLoginTimestamp" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editLogoutTime" class="form-label">Logout Timestamp</label>
+            <input type="datetime-local" class="form-control" id="editLogoutTime" name="editLogoutTimestamp" required>
+          </div>
+          
+          <div class="mb-3">
+            <input type="checkbox" class="form-check-input" id="editIsPublicHoliday" name="editIsPublicHoliday">
+            <label class="form-check-label" for="editIsPublicHoliday">Is Public Holiday?</label>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editDeliveries" class="form-label">Deliveries</label>
+            <input type="number" min="0" class="form-control" id="editDeliveries" name="editDeliveries">
+          </div>
+        </form>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="editModalSubmit">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT Activity Modal -->
+<div id="editActivityModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <h2>Edit Activity</h2>
+    <form id="editActivityForm">
+      {% csrf_token %}
+      <input type="hidden" id="editActivityId">
+
+      <label for="editLoginTime">Login Time (rounded):</label>
+      <input type="datetime-local" id="editLoginTime">
+
+      <label for="editLogoutTime">Logout Time (rounded):</label>
+      <input type="datetime-local" id="editLogoutTime">
+
+      <label for="editIsPublicHoliday">Is Public Holiday?</label>
+      <input type="checkbox" id="editIsPublicHoliday" value="false">
+
+      <label for="editDeliveries">Deliveries:</label>
+      <input type="number" id="editDeliveries" min="0">
+
+      <button type="submit">Save Changes</button>
+      <button type="button" id="deleteActivityBtn" style="background-color: red; color: white;">Delete</button>
+      <button type="button" id="closeEditModal">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- ADD Activity Modal -->
+<div id="addActivityModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <h2>Add New Activity</h2>
+    <form id="addActivityForm">
+      {% csrf_token %}
+
+      <label for="addStaffSelect">Staff (User):</label>
+      <select id="addStaffSelect" required></select>
+
+      <label for="addLoginTime">Login Time (rounded):</label>
+      <input type="datetime-local" id="addLoginTime" required>
+
+      <label for="addLogoutTime">Logout Time (rounded):</label>
+      <input type="datetime-local" id="addLogoutTime" required>
+
+      <label for="addIsPublicHoliday">Is Public Holiday?</label>
+      <input type="checkbox" id="addIsPublicHoliday" value="true">
+
+      <label for="addDeliveries">Deliveries:</label>
+      <input type="number" id="addDeliveries" min="0" value="0">
+
+      <button type="submit">Create Activity</button>
+      <button type="button" id="closeAddModal">Cancel</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_urls %}
+    listSingularShiftDetails: "{{ BASE_URL }}{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
+    listEveryShiftDetails: "{{ BASE_URL }}{% url 'api:list_all_shift_details' %}",
+    updateShiftDetails: "{{ BASE_URL }}{% url 'api:update_shift_details' 0 %}".slice(0, -2),
+    createShift: "{{ BASE_URL }}{% url 'api:create_new_shift' %}",
+{% endblock %}
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/shift_logs.js' %}"></script>
+{% endblock %}

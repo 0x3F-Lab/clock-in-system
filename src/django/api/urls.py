@@ -43,4 +43,20 @@ urlpatterns = [
         views.modify_account_status,
         name="modify_account_status",
     ),
+    path(
+        "list-shift-details/",
+        views.list_all_shift_details,
+        name="list_all_shift_details",
+    ),
+    path(
+        "list-shift-details/<int:id>/",
+        views.list_singular_shift_details,
+        name="list_singular_shift_details",
+    ),
+    path(
+        "update-shift-details/<int:id>/",
+        views.update_shift_details,
+        name="update_shift_details",
+    ),
+    path("create-shift/", views.create_new_shift, name="create_new_shift"),
 ]

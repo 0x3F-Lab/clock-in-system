@@ -1,7 +1,7 @@
 import logging
 import json
 import api.utils as util
-from api.utils import round_datetime_minute
+from api.utils import round_datetime_minute, str_to_bool
 import api.controllers as controllers
 import api.exceptions as err
 from rest_framework.decorators import api_view, renderer_classes
@@ -16,7 +16,10 @@ from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required, api_manager_required
 from django.views.decorators.csrf import ensure_csrf_cookie
-from clock_in_system.settings import MAX_DATABASE_DUMP_LIMIT
+from clock_in_system.settings import (
+    MAX_DATABASE_DUMP_LIMIT,
+    FINISH_SHIFT_TIME_DELTA_THRESHOLD,
+)
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
 from datetime import datetime, time
@@ -289,7 +292,7 @@ def raw_data_logs_detail_view(request, id):
         # Save the changes
         activity.save()
 
-        return JsonResponse({"message": "Activity updated successfully"})
+        return JsonResponse({"message": "Activity updated successfully."})
 
     elif request.method == "DELETE":
 
@@ -300,13 +303,375 @@ def raw_data_logs_detail_view(request, id):
             employee.save()
 
         activity.delete()
-        return JsonResponse({"message": "Activity deleted successfully"}, status=204)
+        return JsonResponse({"message": "Activity deleted successfully."}, status=204)
 
     # Fallback
     return JsonResponse({"Error": "Invalid request"}, status=400)
 
 
-@manager_required
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_all_shift_details(request):
+    try:
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
+
+        try:
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            )
+        except ValueError:
+            limit = 25
+
+        # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
+        activities_query = Activity.objects.select_related("employee_id").order_by(
+            "-login_timestamp", "employee_id__first_name", "employee_id__last_name"
+        )
+
+        # Get total
+        total = activities_query.count()
+
+        # Ensure slicing happens on DB level for most performance
+        activities = activities_query[offset : offset + limit]
+
+        data = []
+        for act in activities:
+            hours_decimal = (
+                (act.shift_length_mins / 60.0) if act.shift_length_mins else 0.0
+            )
+
+            data.append(
+                {
+                    "id": act.id,
+                    "employee_first_name": act.employee_id.first_name,
+                    "employee_last_name": act.employee_id.last_name,
+                    "login_time": (
+                        localtime(act.login_time).strftime("%H:%M")
+                        if act.login_time
+                        else "N/A"
+                    ),
+                    "logout_time": (
+                        localtime(act.logout_time).strftime("%H:%M")
+                        if act.logout_time
+                        else "N/A"
+                    ),
+                    "is_public_holiday": act.is_public_holiday,
+                    "login_timestamp": (
+                        localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                        if act.login_timestamp
+                        else "N/A"
+                    ),
+                    "logout_timestamp": (
+                        localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                        if act.logout_timestamp
+                        else "N/A"
+                    ),
+                    "deliveries": act.deliveries,
+                    "hours_worked": f"{hours_decimal:.2f}",
+                }
+            )
+
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list all shift details (full dump), resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+def list_singular_shift_details(request, id):
+    try:
+        act = Activity.objects.get(id=id)
+
+        activity_data = {
+            "id": id,
+            "login_timestamp": (
+                localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                if act.login_timestamp
+                else "N/A"
+            ),
+            "logout_timestamp": (
+                localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                if act.logout_timestamp
+                else "N/A"
+            ),
+            "is_public_holiday": act.is_public_holiday,
+            "deliveries": act.deliveries,
+        }
+
+        return JsonResponse(activity_data, status=status.HTTP_200_OK)
+
+    except Activity.DoesNotExist as e:
+        return Response(
+            {"Error": f"Shift with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list activity details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST", "PATCH", "DELETE"])
+@renderer_classes([JSONRenderer])
+def update_shift_details(request, id):
+    try:
+        activity = Activity.objects.get(id=id)
+
+        # If DELETING the activity
+        if request.method == "DELETE":
+            activity.delete()
+
+            return JsonResponse(
+                {"message": "Employee deleted successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        elif (request.method == "POST") or (request.method == "PATCH"):
+            # Parse data from request
+            data = json.loads(request.body)
+
+            if data.get("login_timestamp") is not None:
+                login_timestamp = datetime.strptime(
+                    data.get("login_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                )
+                activity.login_time = round_datetime_minute(login_timestamp)
+                activity.login_timestamp = login_timestamp
+
+            if data.get("logout_timestamp") is not None:
+                logout_timestamp = datetime.strptime(
+                    data.get("logout_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                )
+                activity.logout_time = round_datetime_minute(logout_timestamp)
+                activity.logout_timestamp = logout_timestamp
+
+            # If finishing a shift manually, check that the user doesnt need to be clocked out
+            if activity.logout_time is not None:
+                user_latest_activity = (
+                    Activity.objects.filter(employee_id=activity.employee_id)
+                    .order_by("-login_timestamp")
+                    .first()
+                )
+                user = activity.employee_id  # Get the user from the activity
+
+                # If the user's latest activity is the current one being edited and they're clocked in (manually being clocked out) their state needs to be manually modified
+                if (activity.id == user_latest_activity.id) and (user.clocked_in):
+                    user.clocked_in = False
+                    user.save()
+
+            # Set public holiday state (keep same if not given)
+            activity.is_public_holiday = str_to_bool(
+                data.get("is_public_holiday", activity.is_public_holiday)
+            )
+
+            # Set deliveries (keep same if not given)
+            try:
+                activity.deliveries = int(data.get("deliveries", activity.deliveries))
+            except ValueError:
+                return JsonResponse(
+                    {"Error": "Deliveries must be an integer."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Update shift length if both login and logout time exist
+            if activity.login_time and activity.logout_time:
+                # Check that logout time is not before login time
+                if activity.logout_time < activity.login_time:
+                    return JsonResponse(
+                        {"Error": "Logout time cannot be before login time."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Update shift length
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
+
+                # Check that shift length reaches minimum required shift length
+                if activity.shift_length_mins < FINISH_SHIFT_TIME_DELTA_THRESHOLD:
+                    return JsonResponse(
+                        {
+                            "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD.total_seconds() // 60:.0f} minutes."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            activity.save()
+            return JsonResponse(
+                {"message": "Shift updated successfully."},
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        else:
+            return Response(
+                {"Error": "Invalid method."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+
+    except ValueError as e:
+        return Response(
+            {"Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."},
+            status=status.HTTP_412_PRECONDITION_FAILED,
+        )
+    except Activity.DoesNotExist as e:
+        return Response(
+            {"Error": f"Shift with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update activity details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def create_new_shift(request):
+    try:
+        # Parse data from request
+        data = json.loads(request.body)
+        employee_id = str(data.get("employee_id", ""))
+        login_timestamp = data.get(
+            "login_timestamp", None
+        )  # Type checking done when checking their form
+        logout_timestamp = data.get("logout_timestamp", None)
+        is_public_holiday = str_to_bool(data.get("is_public_holiday", False))
+
+        try:
+            deliveries = int(data.get("deliveries", 0))
+        except ValueError as e:
+            return Response(
+                {"Error": "Deliveries must be an integer."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check that the request is not missing the employee ID or the login timestamp (REQUIRED)
+        if not employee_id or not login_timestamp:
+            return JsonResponse(
+                {"Error": "Required fields are missing. (Employee and Login time)"},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Ensure the timestamps are in the correct form
+        try:
+            login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
+            if logout_timestamp:
+                logout_timestamp = datetime.strptime(
+                    logout_timestamp, "%Y-%m-%dT%H:%M:%S"
+                )
+        except ValueError as e:
+            return Response(
+                {
+                    "Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        # Check if login_timestamp is in the future
+        if login_timestamp > now():
+            return JsonResponse(
+                {"Error": "Login time cannot be in the future."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check if logout_timestamp is in the future
+        if (logout_timestamp) and (login_timestamp > now()):
+            return JsonResponse(
+                {"Error": "Logout time cannot be in the future."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Get the rounded login/logout times
+        login_time = round_datetime_minute(login_timestamp)
+        logout_time = None
+        if logout_timestamp:
+            logout_time = round_datetime_minute(logout_timestamp)
+
+        # Ensure minimum shift length is achieve between login and logout
+        if logout_timestamp:
+            if logout_time < login_time:
+                return JsonResponse(
+                    {"Error": "Logout time cannot be before login time."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if (logout_timestamp - login_time) < FINISH_SHIFT_TIME_DELTA_THRESHOLD:
+                return JsonResponse(
+                    {
+                        "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD.total_seconds() // 60:.0f} minutes."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Get the employee
+        employee = User.objects.get(id=employee_id)
+
+        # Create the new activity record
+        activity = Activity.objects.create(
+            employee_id=employee,
+            login_time=login_time,
+            logout_time=logout_time,
+            login_timestamp=login_timestamp,
+            logout_timestamp=logout_timestamp,
+            is_public_holiday=is_public_holiday,
+            deliveries=deliveries,
+        )
+
+        activity.save()
+
+        return JsonResponse(
+            {"message": "Shift created successfully.", "id": activity.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def list_all_employee_details(request):
@@ -366,7 +731,7 @@ def list_all_employee_details(request):
         )
 
 
-@manager_required
+@api_manager_required
 @api_view(["GET"])
 def list_singular_employee_details(request, id):
     try:
@@ -384,6 +749,11 @@ def list_singular_employee_details(request, id):
 
         return JsonResponse(employee_data)
 
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -395,7 +765,7 @@ def list_singular_employee_details(request, id):
         )
 
 
-@manager_required
+@api_manager_required
 @api_view(["POST", "PATCH"])
 @renderer_classes([JSONRenderer])
 def update_employee_details(request, id):
@@ -419,14 +789,19 @@ def update_employee_details(request, id):
 
         employee.save()
         return JsonResponse(
-            {"message": "Employee updated successfully"},
+            {"message": "Employee updated successfully."},
             status=status.HTTP_202_ACCEPTED,
         )
 
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     except err.InactiveUserError as e:
         return Response(
             {"Error": "Cannot update an incative employee's details."},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -439,7 +814,7 @@ def update_employee_details(request, id):
         )
 
 
-@manager_required
+@api_manager_required
 @api_view(["PUT"])
 @renderer_classes([JSONRenderer])
 def create_new_employee(request):
@@ -464,7 +839,7 @@ def create_new_employee(request):
         # Ensure email is unique
         if User.objects.filter(email=email).exists():
             return JsonResponse(
-                {"Error": "Email already exists"},
+                {"Error": "Email already exists."},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -482,7 +857,7 @@ def create_new_employee(request):
         employee.save()
 
         return JsonResponse(
-            {"message": "Employee created successfully", "id": employee.id},
+            {"message": "Employee created successfully.", "id": employee.id},
             status=status.HTTP_201_CREATED,
         )
 
@@ -497,7 +872,7 @@ def create_new_employee(request):
         )
 
 
-@manager_required
+@api_manager_required
 @api_view(["PUT"])
 @renderer_classes([JSONRenderer])
 def modify_account_status(request, id):
@@ -538,6 +913,11 @@ def modify_account_status(request, id):
             status=status.HTTP_202_ACCEPTED,
         )
 
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(

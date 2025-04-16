@@ -235,3 +235,8 @@ def check_pin_hash(employee_id: bool, pin) -> bool:
 
     # Return False by default on failing check
     return False
+
+
+def str_to_bool(val):
+    # Ensure the value is a boolean by converting properly
+    return str(val).lower() in ["true", "1", "yes"]

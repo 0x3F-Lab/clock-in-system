@@ -13,4 +13,5 @@ urlpatterns = [
         views.manage_employee_details,
         name="manage_employee_details",
     ),
+    path("manage_shift_logs/", views.manage_shift_logs, name="manage_shift_logs"),
 ]

@@ -1,17 +1,14 @@
 $(document).ready(function() {
-  // All required URLs
-  const listEveryEmployeeDetailsURL = window.djangoURLs.listEveryEmployeeDetails
-
   // Populate the table with all users once the page has loaded
-  updateEmployeeDetailsTable(listEveryEmployeeDetailsURL);
+  updateEmployeeDetailsTable();
 
-  // Handle edit and create employee buttons on the table
+  // Handle actionable buttons on the page (i.e., edit, create, delete)
   handleActionButtons();
 
   // Handle edit modal to create/edit user data
   handleEmployeeDetailsEdit();
 
-  // Handle Pagination (set the update function)
+  // Activate the pagination system (set the update function)
   handlePagination({updateFunc: updateEmployeeDetailsTable});
 });
 
@@ -94,7 +91,7 @@ function updateEmployeeDetailsTable() {
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     type: "GET",
     contentType: "application/json",
     headers: {
