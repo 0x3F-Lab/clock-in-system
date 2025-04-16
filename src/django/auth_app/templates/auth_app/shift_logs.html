@@ -97,61 +97,6 @@
     </div>
   </div>
 </div>
-
-<!-- EDIT Activity Modal -->
-<div id="editActivityModal" class="modal" style="display: none;">
-  <div class="modal-content">
-    <h2>Edit Activity</h2>
-    <form id="editActivityForm">
-      {% csrf_token %}
-      <input type="hidden" id="editActivityId">
-
-      <label for="editLoginTime">Login Time (rounded):</label>
-      <input type="datetime-local" id="editLoginTime">
-
-      <label for="editLogoutTime">Logout Time (rounded):</label>
-      <input type="datetime-local" id="editLogoutTime">
-
-      <label for="editIsPublicHoliday">Is Public Holiday?</label>
-      <input type="checkbox" id="editIsPublicHoliday" value="false">
-
-      <label for="editDeliveries">Deliveries:</label>
-      <input type="number" id="editDeliveries" min="0">
-
-      <button type="submit">Save Changes</button>
-      <button type="button" id="deleteActivityBtn" style="background-color: red; color: white;">Delete</button>
-      <button type="button" id="closeEditModal">Cancel</button>
-    </form>
-  </div>
-</div>
-
-<!-- ADD Activity Modal -->
-<div id="addActivityModal" class="modal" style="display: none;">
-  <div class="modal-content">
-    <h2>Add New Activity</h2>
-    <form id="addActivityForm">
-      {% csrf_token %}
-
-      <label for="addStaffSelect">Staff (User):</label>
-      <select id="addStaffSelect" required></select>
-
-      <label for="addLoginTime">Login Time (rounded):</label>
-      <input type="datetime-local" id="addLoginTime" required>
-
-      <label for="addLogoutTime">Logout Time (rounded):</label>
-      <input type="datetime-local" id="addLogoutTime" required>
-
-      <label for="addIsPublicHoliday">Is Public Holiday?</label>
-      <input type="checkbox" id="addIsPublicHoliday" value="true">
-
-      <label for="addDeliveries">Deliveries:</label>
-      <input type="number" id="addDeliveries" min="0" value="0">
-
-      <button type="submit">Create Activity</button>
-      <button type="button" id="closeAddModal">Cancel</button>
-    </form>
-  </div>
-</div>
 {% endblock %}
 
 {% block extra_urls %}

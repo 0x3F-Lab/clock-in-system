@@ -12,7 +12,7 @@
     <div class="button-container">
         <button onclick="location.href=`{% url 'manage_employee_details' %}`">Employee Details</button>
         <button onclick="location.href=`{% url 'api:weekly_summary_page' %}`">Weekly Summary</button>
-        <button onclick="location.href=`{% url 'api:raw_data_logs' %}`">Raw Data</button>
+        <button onclick="location.href=`{% url 'manage_shift_logs' %}`">Shift Logs</button>
         <button onclick="location.href='#'">Date-Based Summary</button>
 
         <form method="POST" action="{{ BASE_URL }}{% url 'logout' %}">

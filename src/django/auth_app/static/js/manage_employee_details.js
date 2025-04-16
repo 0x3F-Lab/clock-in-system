@@ -91,7 +91,7 @@ function updateEmployeeDetailsTable() {
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     type: "GET",
     contentType: "application/json",
     headers: {

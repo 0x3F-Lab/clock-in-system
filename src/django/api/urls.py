@@ -11,12 +11,6 @@ urlpatterns = [
     path(
         "clocked_state/<int:id>/", views.clocked_state_view, name="clocked_state_view"
     ),
-    path("raw-data-logs/", views.raw_data_logs_view, name="raw_data_logs"),
-    path(
-        "raw-data-logs/<int:id>/",
-        views.raw_data_logs_detail_view,
-        name="raw_data_logs_detail",
-    ),
     # JSON API endpoint for weekly summary data
     path("weekly-summary/", views.weekly_summary_view, name="weekly_summary_view"),
     # HTML page that uses JS to fetch from the above API
