@@ -145,7 +145,6 @@ function updateShiftLogsTable() {
         });
         // No need to update edit buttons as that is done dynamically
         // Set pagination values
-        console.log(`${req.offset}&${req.total}`)
         setPaginationValues(req.offset, req.total);
       }
     },
@@ -270,8 +269,8 @@ function handleShiftDetailsEdit() {
     const id = $('#editActivityId').val();
 
     // Check the form is correctly filled
-    const loginTimestamp = $('#editLoginTimestamp').val().trim().replace(' ', 'T').replace('/','-');
-    const logoutTimestamp = $('#editLogoutTimestamp').val().trim().replace(' ', 'T').replace('/','-');
+    const loginTimestamp = $('#editLoginTimestamp').val().trim();
+    const logoutTimestamp = $('#editLogoutTimestamp').val().trim();
     const isPublicHoliday = ($('#editIsPublicHoliday').prop('checked') === true);
     const deliveries = $('#editDeliveries').val()
 
@@ -322,7 +321,7 @@ function handleShiftDetailsEdit() {
 
       $.ajax({
         url: `${window.djangoURLs.createShift}`,
-        type: 'POST',
+        type: 'PUT',
         headers: {
           'X-CSRFToken': `${getCookie('csrftoken')}`,
         },
@@ -360,5 +359,7 @@ function handleShiftDetailsEdit() {
 // HELPER FUNCTIONS
 
 function correctAPITimestamps(time) {
+  if (!time || time === "" || time === null) return "";
+  // Else append ':SS' to string 'YYYY-MM-DDTHH:MM'
   return (time + ":00")
 }

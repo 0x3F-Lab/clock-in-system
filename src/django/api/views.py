@@ -10,6 +10,7 @@ from rest_framework import status
 from auth_app.models import User, Activity
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
@@ -18,7 +19,7 @@ from auth_app.utils import manager_required, api_manager_required
 from django.views.decorators.csrf import ensure_csrf_cookie
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
-    FINISH_SHIFT_TIME_DELTA_THRESHOLD,
+    FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 )
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
@@ -223,21 +224,33 @@ def update_shift_details(request, id):
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
             data = json.loads(request.body)
+            login_timestamp = data.get("login_timestamp", None) or None
+            logout_timestamp = data.get("logout_timestamp", None) or None
 
             try:
-                if data.get("login_timestamp") is not None:
+                if login_timestamp:
                     login_timestamp = datetime.strptime(
-                        data.get("login_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                        login_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
                     activity.login_time = round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
+                else:
+                    return Response(
+                        {"Error": "Login timestamp cannot be empty. Please try again."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
-                if data.get("logout_timestamp") is not None:
+                if logout_timestamp:
                     logout_timestamp = datetime.strptime(
-                        data.get("logout_timestamp"), "%Y-%m-%dT%H:%M:%S"
+                        logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
                     activity.logout_time = round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
+                else:
+                    # If manually deleting start time, set logout time to null
+                    activity.logout_time = None
+                    activity.logout_timestamp = None
+
             except ValueError as e:
                 return Response(
                     {
@@ -255,10 +268,29 @@ def update_shift_details(request, id):
                 )
                 user = activity.employee_id  # Get the user from the activity
 
-                # If the user's latest activity is the current one being edited and they're clocked in (manually being clocked out) their state needs to be manually modified
-                if (activity.id == user_latest_activity.id) and (user.clocked_in):
+                ############################################################################################################################################################################################################### CHECK ALL USE CASES
+
+                # If trying to clock out user manually by setting logout timestamp (has to modify clocked in state for consistency)
+                if (
+                    (activity.id == user_latest_activity.id)
+                    and (user.clocked_in)
+                    and (logout_timestamp)
+                ):
                     user.clocked_in = False
-                    user.save()
+
+                # If trying to clock user back in on their latest activity (i.e. make it seem as though they did not clock out)
+                elif (
+                    (activity.id == user_latest_activity.id)
+                    and not (user.clocked_in)
+                    and not (logout_timestamp)
+                ):
+                    user.clocked_in = True
+
+                # If trying to clock in user for an older activity (will likely cause a string of problems )
+                elif (activity.id != user_latest_activity.id) and not (
+                    logout_timestamp
+                ):
+                    user.clocked_in = True
 
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
@@ -288,15 +320,19 @@ def update_shift_details(request, id):
                 activity.shift_length_mins = int(delta.total_seconds() // 60)
 
                 # Check that shift length reaches minimum required shift length
-                if activity.shift_length_mins < FINISH_SHIFT_TIME_DELTA_THRESHOLD:
+                if activity.shift_length_mins < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS:
                     return JsonResponse(
                         {
-                            "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD.total_seconds() // 60:.0f} minutes."
+                            "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            activity.save()
+            # Ensure both databases are saved successfully, otherwise roll the other back.
+            with transaction.atomic():
+                activity.save()
+                user.save()
+
             return JsonResponse(
                 {"message": "Shift updated successfully."},
                 status=status.HTTP_202_ACCEPTED,
@@ -337,10 +373,9 @@ def create_new_shift(request):
         # Parse data from request
         data = json.loads(request.body)
         employee_id = str(data.get("employee_id", ""))
-        login_timestamp = data.get(
-            "login_timestamp", None
-        )  # Type checking done when checking their form
-        logout_timestamp = data.get("logout_timestamp", None)
+        # Type checking done later when converting form
+        login_timestamp = data.get("login_timestamp", None) or None
+        logout_timestamp = data.get("logout_timestamp", None) or None
         is_public_holiday = str_to_bool(data.get("is_public_holiday", False))
 
         try:
@@ -358,13 +393,16 @@ def create_new_shift(request):
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
-        # Ensure the timestamps are in the correct form
+        # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
         try:
             login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
+            login_timestamp = make_aware(login_timestamp)
+
             if logout_timestamp:
                 logout_timestamp = datetime.strptime(
                     logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                 )
+                login_timestamp = make_aware(logout_timestamp)
         except ValueError as e:
             return Response(
                 {
@@ -401,10 +439,10 @@ def create_new_shift(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if (logout_timestamp - login_time) < FINISH_SHIFT_TIME_DELTA_THRESHOLD:
+            if (logout_timestamp - login_time) < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS:
                 return JsonResponse(
                     {
-                        "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD.total_seconds() // 60:.0f} minutes."
+                        "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
