@@ -290,7 +290,12 @@ def update_shift_details(request, id):
                 elif (activity.id != user_latest_activity.id) and not (
                     logout_timestamp
                 ):
-                    user.clocked_in = True
+                    return JsonResponse(
+                        {
+                            "Error": "Cannot clock in user for an older shift. (i.e. cannot remove clock out time)."
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
 
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
