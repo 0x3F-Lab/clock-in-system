@@ -14,7 +14,7 @@ function showNotification(message, type = "info") {
 
   // Make the notification
   const notification = $(`
-    <div class="toast align-items-center bg-${type.toLowerCase()}-subtle border-0 show my-2 p-1 text-dark" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast align-items-center bg-${type.toLowerCase()}-subtle border-0 rounded-3 show my-2 p-1 text-dark" role="alert" aria-live="assertive" aria-atomic="true">
       <div class="toast-body">
         <div class="d-flex gap-4">
           <span><i class="fa-solid ${iconMap[type.toLowerCase()]} fa-lg"></i></span>
