@@ -136,8 +136,10 @@ function updateShiftLogsTable() {
               <td>${shift.deliveries}</td>
               <td>${shift.hours_worked}</td>
               <td>
-                <button class="editBtn" data-id="${shift.id}">Edit</button>
-                <button class="deleteBtn" data-id="${shift.id}">Delete</button>
+                <div class="d-flex flex-row">
+                  <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>
+                  <button class="deleteBtn btn btn-sm btn-outline-danger ms-1 mt-1" data-id="${shift.id}"><i class="fa-solid fa-trash"></i> Delete</button>
+                </div>
               </td>
             </tr>
           `;

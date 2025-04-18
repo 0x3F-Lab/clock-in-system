@@ -117,8 +117,8 @@ function updateEmployeeDetailsTable() {
         $employeeTable.html(""); // Reset inner HTML
         $.each(employees, function(index, employee) {
           const activationButton = employee.is_active
-            ? `<button class="deactivateEmployeeBtn" data-id="${employee.id}" data-type="deactivate">Deactivate</button>`
-            : `<button class="activateEmployeeBtn" data-id="${employee.id}" data-type="activate">Activate</button>`;
+            ? `<button class="deactivateEmployeeBtn btn btn-sm btn-outline-danger ms-1 mt-1" data-id="${employee.id}" data-type="deactivate"><i class="fa-solid fa-user-slash"></i> Deactivate</button>`
+            : `<button class="activateEmployeeBtn btn btn-sm btn-outline-success ms-1 mt-1" data-id="${employee.id}" data-type="activate"><i class="fa-solid fa-user-check"></i> Activate</button>`;
 
           const row = `
             <tr>
@@ -127,8 +127,10 @@ function updateEmployeeDetailsTable() {
               <td>${employee.phone_number || "N/A"}</td>
               <td>${employee.pin}</td>
               <td>
-                <button class="editBtn" data-id="${employee.id}">Edit</button>
-                ${activationButton}
+                <div class="d-flex flex-row">
+                  <button class="editBtn btn btn-sm btn-outline-primary" data-id="${employee.id}"><i class="fa-solid fa-pen"></i> Edit</button>
+                  ${activationButton}
+                </div>
               </td>
             </tr>
           `;
