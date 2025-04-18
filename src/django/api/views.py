@@ -121,23 +121,23 @@ def list_all_shift_details(request):
                     "login_time": (
                         localtime(act.login_time).strftime("%H:%M")
                         if act.login_time
-                        else "N/A"
+                        else None
                     ),
                     "logout_time": (
                         localtime(act.logout_time).strftime("%H:%M")
                         if act.logout_time
-                        else "N/A"
+                        else None
                     ),
                     "is_public_holiday": act.is_public_holiday,
                     "login_timestamp": (
                         localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
                         if act.login_timestamp
-                        else "N/A"
+                        else None
                     ),
                     "logout_timestamp": (
                         localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
                         if act.logout_timestamp
-                        else "N/A"
+                        else None
                     ),
                     "deliveries": act.deliveries,
                     "hours_worked": f"{hours_decimal:.2f}",
@@ -176,12 +176,12 @@ def list_singular_shift_details(request, id):
             "login_timestamp": (
                 localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
                 if act.login_timestamp
-                else "N/A"
+                else None
             ),
             "logout_timestamp": (
                 localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
                 if act.logout_timestamp
-                else "N/A"
+                else None
             ),
             "is_public_holiday": act.is_public_holiday,
             "deliveries": act.deliveries,
@@ -214,7 +214,25 @@ def update_shift_details(request, id):
 
         # If DELETING the activity
         if request.method == "DELETE":
-            activity.delete()
+            # Get user
+            user = activity.employee_id
+
+            # Check if user's clocked in state needs to be modified before deleting a shift (i.e. if the shift isnt finished)
+            if not activity.logout_timestamp or not activity.logout_time:
+                other_active_shifts = (
+                    Activity.objects.filter(employee_id=user)
+                    .exclude(id=activity.id)
+                    .filter(Q(logout_time__isnull=True))
+                )  # Dont check timestamp as "clocked_in" uses mainly clockout_time to determine shift length and account clocked state
+
+                # Only change clocked_in to False if no other active shifts
+                if not other_active_shifts.exists():
+                    user.clocked_in = False
+
+            # Ensure both databases are saved successfully, otherwise roll the other back.
+            with transaction.atomic():
+                user.save()
+                activity.delete()
 
             return JsonResponse(
                 {"message": "Employee deleted successfully"},
@@ -259,43 +277,35 @@ def update_shift_details(request, id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-            # If finishing a shift manually, check that the user doesnt need to be clocked out
-            if activity.logout_time is not None:
-                user_latest_activity = (
-                    Activity.objects.filter(employee_id=activity.employee_id)
-                    .order_by("-login_timestamp")
-                    .first()
+            # Get the required variables
+            now_date = localtime(now()).date()
+            user = activity.employee_id
+
+            # Check when deleting clockout time (hence clocking user in) for shift older than current day.
+            if (not logout_timestamp) and (login_timestamp.date() != now_date):
+                return Response(
+                    {
+                        "Error": "Cannot remove clock out time for shift older than current day."
+                    },
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
-                user = activity.employee_id  # Get the user from the activity
 
-                ############################################################################################################################################################################################################### CHECK ALL USE CASES
+            # Check that the login and logout times are on the same day, so a shift cant be longer than 24hours.
+            elif login_timestamp.date() == logout_timestamp.date():
+                return Response(
+                    {"Error": "A shift must be finished on the same day it started."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
 
-                # If trying to clock out user manually by setting logout timestamp (has to modify clocked in state for consistency)
-                if (
-                    (activity.id == user_latest_activity.id)
-                    and (user.clocked_in)
-                    and (logout_timestamp)
-                ):
-                    user.clocked_in = False
-
-                # If trying to clock user back in on their latest activity (i.e. make it seem as though they did not clock out)
-                elif (
-                    (activity.id == user_latest_activity.id)
-                    and not (user.clocked_in)
-                    and not (logout_timestamp)
-                ):
+            # Check when deleting clockout time for a shift the same day, the user's clocked state needs to be modified.
+            elif (not logout_timestamp) and (login_timestamp.date() == now_date):
+                if not user.clocked_in:
                     user.clocked_in = True
 
-                # If trying to clock in user for an older activity (will likely cause a string of problems )
-                elif (activity.id != user_latest_activity.id) and not (
-                    logout_timestamp
-                ):
-                    return JsonResponse(
-                        {
-                            "Error": "Cannot clock in user for an older shift. (i.e. cannot remove clock out time)."
-                        },
-                        status=status.HTTP_409_CONFLICT,
-                    )
+            # Check when setting clock out time, ensure user is not clocked in (ensure its shift on same day otherwise editing older shifts will modify user for newer shifts)
+            elif logout_timestamp and (login_timestamp.date() == now_date):
+                if user.clocked_in:
+                    user.clocked_in = False
 
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
@@ -417,14 +427,14 @@ def create_new_shift(request):
             )
 
         # Check if login_timestamp is in the future
-        if login_timestamp > now():
+        if login_timestamp > localtime(now()):
             return JsonResponse(
                 {"Error": "Login time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         # Check if logout_timestamp is in the future
-        if (logout_timestamp) and (login_timestamp > now()):
+        if (logout_timestamp) and (login_timestamp > localtime(now())):
             return JsonResponse(
                 {"Error": "Logout time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,

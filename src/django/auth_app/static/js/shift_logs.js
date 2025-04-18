@@ -124,9 +124,9 @@ function updateShiftLogsTable() {
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
         $.each(shifts, function(index, shift) {
-
+          const colour = (!shift.logout_time || !shift.logout_timestamp) ? 'bg-danger bg-gradient' : '';
           const row = `
-            <tr>
+            <tr class="${colour}">
               <td>${shift.employee_first_name} ${shift.employee_last_name}</td>
               <td>${shift.login_time || "N/A"}</td>
               <td>${shift.logout_time || "N/A"}</td>
