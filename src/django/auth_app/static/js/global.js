@@ -1,22 +1,41 @@
 // Function to show notifications
-function showNotification(message, type = "warning") {
-  // Create notification HTML element
-  const notification = $(`<div class="alert alert-${type} alert-dismissible fade show" role="alert" aria-live="assertive" aria-atomic="true"></div>`);
-  notification.text(message);
-  
-  // Add close button to the notification
-  notification.append('<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>');
-  
-  // Append notification to the notification container
-  $('#notification-container').append(notification);
-  
-  // Automatically remove notification after 5.5 seconds
-  setTimeout(() => {
-    const bsAlert = bootstrap.Alert.getOrCreateInstance(notification[0]);
-    bsAlert.close();
-  }, 5500);
+function showNotification(message, type = "info") {
+  const iconMap = {
+    success: "fa-circle-check",
+    danger: "fa-circle-exclamation",
+    warning: "fa-triangle-exclamation",
+    info: "fa-circle-info",
+  };
 
-  // Log warning message to console
+  // Set type to the default if given improper type
+  if (!["success", "danger", "warning", "info"].includes(type.toLocaleLowerCase())) {
+    type = "info";
+  }
+
+  // Make the notification
+  const notification = $(`
+    <div class="toast align-items-center bg-${type.toLowerCase()}-subtle border-0 show my-2 p-1 text-dark" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-body">
+        <div class="d-flex gap-4">
+          <span><i class="fa-solid ${iconMap[type.toLowerCase()]} fa-lg"></i></span>
+          <div class="d-flex flex-grow-1 align-items-center justify-content-between w-100">
+            <span class="fw-semibold">${message}</span>
+            <button type="button" class="btn-close btn-close ms-2" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+
+  // Append the notification to the container
+  $('#notification-container').append(notification);
+
+  // Remove the notification after 6 seconds
+  setTimeout(() => {
+    notification.fadeOut(400, () => notification.remove());
+  }, 6000);
+
+  // Console logging (only log warning/danger)
   switch (type.toLowerCase()) {
     case "warning":
       console.warn(message);
