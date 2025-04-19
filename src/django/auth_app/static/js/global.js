@@ -106,21 +106,24 @@ function formatToDatetimeLocal(dateStr) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
 }
 
+// Ensure global variable to ensure spinner timeout can be adjusted
+let spinnerTimeout;
 
 // Hide / show progress spinner
 function showSpinner(delay = 150) {
-  // Start a timer but don’t show the spinner yet
+  clearTimeout(spinnerTimeout); // Prevent any previous timers
+
   spinnerTimeout = setTimeout(() => {
-    // Remove the d-none class to ensure it's not hidden
-    $('#spinnerContainer').removeClass('d-none');
-    $('#spinnerContainer').fadeIn(300);  // Fade in over 300ms
+    const $spinner = $('#spinnerContainer');
+    $spinner.removeClass('d-none').stop(true, true).fadeIn(300);
   }, delay);
 }
 
 function hideSpinner() {
-  clearTimeout(spinnerTimeout); // Prevent spinner from showing if it's still waiting
-  $('#spinnerContainer').fadeOut(300, function() {
-    // After fading out, hide the spinner completely
+  clearTimeout(spinnerTimeout); // Cancel pending show
+  const $spinner = $('#spinnerContainer');
+
+  $spinner.stop(true, true).fadeOut(300, function () {
     $(this).addClass('d-none');
   });
 }
@@ -132,61 +135,140 @@ function hideSpinner() {
 function handlePagination(config) {
   const { updateFunc } = config;
 
-  $('#firstPageBtn').on('click', () => {
-    $('#paginationOffset').attr('data-future-offset', 0);
+  $('#prevPageBtn').on('click', function () {
+    const newOffset = $(this).attr('data-offset');
+    $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
 
-  $('#prevPageBtn').on('click', () => {
-    const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-    const currOffset = ensureSafeInt($('#paginationOffset').attr('data-offset'), 0, totCount-1);
-    const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-    $('#paginationOffset').attr('data-future-offset', (currOffset - pageLimit));
+  $('#nextPageBtn').on('click', function () {
+    const newOffset = $(this).attr('data-offset');
+    $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
 
-  $('#nextPageBtn').on('click', () => {
-    const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-    const currOffset = ensureSafeInt($('#paginationOffset').attr('data-offset'), 0, totCount-1);
-    const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-    const newOffset = Math.min(currOffset + pageLimit, totCount - 1);
-    $('#paginationOffset').attr('data-future-offset', newOffset);
-    updateFunc();
-  });
-
-  $('#lastPageBtn').on('click', () => {
-    const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-    const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-    const lastOffset = Math.floor((totCount - 1) / pageLimit) * pageLimit;
-    $('#paginationOffset').attr('data-future-offset', lastOffset);
-    updateFunc();
-  });
-
-  $('#pageInput').on('change', function () {
-    const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-    const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-    const totalPages = Math.ceil(totCount / pageLimit);
-
-    // Update input in case it's out of bounds
-    const requestedPage = ensureSafeInt($(this).val(), 1, totalPages);
-    $(this).val(requestedPage);
-  
-    const newOffset = (requestedPage - 1) * pageLimit;
-    $('#paginationOffset').attr('data-future-offset', newOffset);
+  // For clicking any specific page number (done so that it dynamically adjusts when they're added/removed)
+  $(document).on('click', 'li.page-item button', function () {
+    const newOffset = $(this).attr('data-offset');
+    $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
 
   $('#pageLimitInput').on('change', () => {
-      $('#paginationOffset').attr('data-future-offset', 0); // Reset offset to start
-      updateFunc(); // Refresh the table with new limit
+    $('#paginationVariables').attr('data-future-offset', 0); // Reset offset to start
+    updateFunc(); // Refresh the table with new limit
   });
 }
 
 
+function updatePaginationPageButtons() {
+  const totCount = ensureSafeInt($('#paginationVariables').attr('data-count'), 0, null);
+  const offset = ensureSafeInt($('#paginationVariables').attr('data-offset'), 0, totCount - 1);
+  const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
+  const totalPages = Math.max(Math.ceil(totCount / pageLimit), 1); // Ensure there is at least 1 page (even if totCount=0)
+  const currentPage = Math.floor(offset / pageLimit) + 1;
+
+  // Get the list of page numbers that need to be made into buttons using the window size for dynamic sizing
+  const maxPageBtns = window.innerWidth < 576 ? 5 :
+                    window.innerWidth < 768 ? 7 :
+                    window.innerWidth < 992 ? 9 : 11;
+  const pages = getPaginationPages(currentPage, totalPages, maxPageBtns);
+
+  const paginationList = $('#paginationList');
+  paginationList.find('li.page-number').remove(); // Remove previous page buttons
+
+  const nextBtn = $('#nextPageBtn').closest('li');
+  const prevBtn = $('#prevPageBtn').closest('li');
+
+  // Insert page buttons between prev and next
+  pages.forEach(page => {
+    const pageItem = $('<li>').addClass('page-item page-number');
+
+    // If the page indicator is meerely a break (i.e ...)
+    if (page === '...') {
+      pageItem.addClass('disabled').append(`<span class="page-link">…</span>`);
+
+    } else {
+      pageItem.append(
+        $('<button>')
+          .addClass('page-link')
+          .attr('data-offset', `${(page - 1) * pageLimit}`)
+          .text(page)
+      );
+
+      // If its the current page, ensure its marked as active
+      if (page === currentPage) {
+        pageItem.addClass('active');
+      }
+    }
+
+    // Add the single page button
+    pageItem.insertBefore(nextBtn);
+  });
+
+  // Update prev/next button states
+  if (currentPage === 1) {
+    prevBtn.find('button').addClass('disabled');
+  } else {
+    const newOffset = ensureSafeInt(((currentPage - 1) * pageLimit) - pageLimit, 0, totCount-1); // Ensure offset is within possible limits and take off page limit as offset indexes at 0 comparatively to pages which start at 1
+    prevBtn.find('button').removeClass('disabled').attr('data-offset', `${newOffset}`);
+  }
+
+  if (currentPage === totalPages) {
+    nextBtn.find('button').addClass('disabled');
+  } else {
+    const newOffset = ensureSafeInt(((currentPage + 1) * pageLimit) - pageLimit, 0, totCount-1); // Ensure offset is within possible limits
+    nextBtn.find('button').removeClass('disabled').attr('data-offset', `${newOffset}`);
+  }
+}
+
+
+function getPaginationPages(currentPage, totalPages, size = 7) {
+  const pages = [];
+
+  // Ensure minimum of 5 for proper ellipsis logic
+  size = Math.max(size, 5); 
+
+  // Simple case of having less pages than room given for page buttons
+  if (totalPages <= size) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const half = Math.floor(size / 2);
+
+  // Near start
+  if (currentPage <= half + 1) {
+    const end = size - 2;
+    for (let i = 1; i <= end; i++) pages.push(i);
+    pages.push('...', totalPages);
+    return pages;
+  }
+
+  // Near end
+  if (currentPage >= totalPages - half) {
+    pages.push(1, '...');
+    for (let i = totalPages - (size - 3); i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  // Middle range
+  pages.push(1, '...');
+  const sideCount = Math.floor((size - 4) / 2);
+  for (let i = currentPage - sideCount; i <= currentPage + sideCount; i++) {
+    pages.push(i);
+  }
+  pages.push('...', totalPages);
+  return pages;
+}
+
+
+
 function getPaginationOffset() {
   // Ensure number is an int and within range
-  const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-  const currOffset = ensureSafeInt($('#paginationOffset').attr('data-future-offset'), 0, totCount-1);
+  const totCount = ensureSafeInt($('#paginationVariables').attr('data-count'), 0, null);
+  const currOffset = ensureSafeInt($('#paginationVariables').attr('data-future-offset'), 0, totCount-1);
   return currOffset
 }
 
@@ -203,61 +285,16 @@ function setPaginationValues(offset, totalCount) {
   
   if (totalCount) {
     offset = ensureSafeInt(offset, 0, totalCount-1);
-    $('#paginationTotalItemsCount').attr('data-count', totalCount);
+    $('#paginationVariables').attr('data-count', totalCount);
 
   } else {
     offset = ensureSafeInt(offset, 0, null);
   }
 
   if (offset || offset == 0) { // If offset was given in request response
-    $('#paginationOffset').attr('data-offset', offset);
+    $('#paginationVariables').attr('data-offset', offset);
   }
-
-  // Set max page count (USE PAGE VALUES IN CASE ONE OF THE TWO VALUES WERENT PROVIDED)
-  const pageTotCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-  const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-  $('#pageCount').text(Math.ceil(pageTotCount / pageLimit));
-
-  // Update current page count
-  const currOffset = ensureSafeInt($('#paginationOffset').attr('data-offset'), 0, pageTotCount-1);
-  const pageNum = Math.ceil(currOffset/pageLimit) + 1; // Counting is offset by 1 compared to indexation (starts at 0)
-  $('#pageInput').val(pageNum);
 
   // Update the button controls
-  updatePaginationButtonControls();
-}
-
-
-function updatePaginationButtonControls() {
-  const totCount = ensureSafeInt($('#paginationTotalItemsCount').attr('data-count'), 0, null);
-  const offset = ensureSafeInt($('#paginationOffset').attr('data-offset'), 0, totCount-1);
-  const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
-
-  // Check if first/back buttons can be enabled/disabled
-  if (offset > 0) {
-    $('#firstPageBtn').prop('disabled', false);
-    $('#prevPageBtn').prop('disabled', false);
-
-  } else {
-    $('#firstPageBtn').prop('disabled', true);
-    $('#prevPageBtn').prop('disabled', true);
-  }
-
-  // Check if next/last buttons can be enabled/disabled
-  if (offset + pageLimit < totCount) {
-    $('#nextPageBtn').prop('disabled', false);
-    $('#lastPageBtn').prop('disabled', false);
-
-  } else {
-    $('#nextPageBtn').prop('disabled', true);
-    $('#lastPageBtn').prop('disabled', true);
-  }
-
-  // Check if the manual page navigator (input) can be enabled/disabled
-  if (totCount > pageLimit) {
-    $('#pageInput').prop('disabled', false);
-
-  } else {
-    $('#pageInput').prop('disabled', true);
-  }
+  updatePaginationPageButtons();
 }
