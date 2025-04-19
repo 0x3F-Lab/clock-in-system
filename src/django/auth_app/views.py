@@ -3,15 +3,10 @@ from auth_app.models import User
 from auth_app.utils import manager_required
 from django.contrib import messages
 from django.shortcuts import render, redirect
-from django.conf.urls import handler404
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
 logger = logging.getLogger("auth_app")
-
-
-def page_not_found(request, exception):
-    return render(request, "auth_app/404.html", status=404)
 
 
 @require_http_methods(["GET", "POST"])
@@ -72,7 +67,3 @@ def manage_employee_details(request):
 @require_GET
 def manage_shift_logs(request):
     return render(request, "auth_app/shift_logs.html")
-
-
-# Set custom error page (page not found)
-handler404 = page_not_found
