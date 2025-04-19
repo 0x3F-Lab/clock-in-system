@@ -124,7 +124,7 @@ function updateShiftLogsTable() {
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
         $.each(shifts, function(index, shift) {
-          const rowColour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-danger' : '';
+          const rowColour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-success' : '';
           const row = `
             <tr class="${rowColour}">
               <td>${shift.employee_first_name} ${shift.employee_last_name}</td>
@@ -134,7 +134,7 @@ function updateShiftLogsTable() {
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
               <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
-              <td class="${parseFloat(shift.hours_worked) > 18 ? 'bg-danger' : ''}">${shift.hours_worked}</td>
+              <td class="${parseFloat(shift.hours_worked) > 18 ? 'table-danger' : ''}">${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>
