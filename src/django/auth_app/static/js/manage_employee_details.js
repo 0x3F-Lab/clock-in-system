@@ -119,11 +119,12 @@ function updateEmployeeDetailsTable() {
           const activationButton = employee.is_active
             ? `<button class="deactivateEmployeeBtn btn btn-sm btn-outline-danger ms-1 mt-1" data-id="${employee.id}" data-type="deactivate"><i class="fa-solid fa-user-slash"></i> Deactivate</button>`
             : `<button class="activateEmployeeBtn btn btn-sm btn-outline-success ms-1 mt-1" data-id="${employee.id}" data-type="activate"><i class="fa-solid fa-user-check"></i> Activate</button>`;
+          const rowColour = (!employee.is_active) ? 'table-danger' : '';
 
           const row = `
-            <tr>
+            <tr class="${rowColour}">
               <td>${employee.first_name} ${employee.last_name}</td>
-              <td>${employee.email || "N/A"}</td>
+              <td class="${!employee.email ? 'table-warning' : ''}">${employee.email || "N/A"}</td>
               <td>${employee.phone_number || "N/A"}</td>
               <td>${employee.pin}</td>
               <td>

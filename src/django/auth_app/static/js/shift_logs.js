@@ -124,16 +124,16 @@ function updateShiftLogsTable() {
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
         $.each(shifts, function(index, shift) {
-          const colour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-danger' : '';
+          const rowColour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-danger' : '';
           const row = `
-            <tr class='${colour}'>
+            <tr class="${rowColour}">
               <td>${shift.employee_first_name} ${shift.employee_last_name}</td>
               <td>${shift.login_time || "N/A"}</td>
               <td>${shift.logout_time || "N/A"}</td>
-              <td>${shift.is_public_holiday ? "Yes" : "No"}</td>
+              <td class="${shift.is_public_holiday ? 'table-info' : ''}">${shift.is_public_holiday ? "Yes" : "No"}</td>
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
-              <td>${shift.deliveries}</td>
+              <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
               <td>${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
