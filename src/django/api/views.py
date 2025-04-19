@@ -285,13 +285,13 @@ def update_shift_details(request, id):
             if (not logout_timestamp) and (login_timestamp.date() != now_date):
                 return Response(
                     {
-                        "Error": "Cannot remove clock out time for shift older than current day."
+                        "Error": "Cannot have a missing clock out time for a shift older than the current day."
                     },
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
             # Check that the login and logout times are on the same day, so a shift cant be longer than 24hours.
-            elif login_timestamp.date() == logout_timestamp.date():
+            elif login_timestamp.date() != logout_timestamp.date():
                 return Response(
                     {"Error": "A shift must be finished on the same day it started."},
                     status=status.HTTP_417_EXPECTATION_FAILED,

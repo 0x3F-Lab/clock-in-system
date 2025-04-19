@@ -16,7 +16,6 @@ def page_not_found(request, exception):
 
 @require_http_methods(["GET", "POST"])
 def manager_login(request):
-    logger.debug(f"manager login user: {request.user}")
     if request.method == "POST":
         email = request.POST.get("email")
         password = request.POST.get("password")
@@ -32,7 +31,6 @@ def manager_login(request):
             # Log the user in by setting session data
             request.session["user_id"] = user.id
             request.session["is_manager"] = user.is_manager
-            logger
             return redirect("manager_dashboard")
         else:
             messages.error(request, "Invalid Details")
