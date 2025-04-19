@@ -69,7 +69,7 @@ def test_get_users_name_no_results(inactive_employee):
     """
     Test the scenario where no users match the given criteria (should return None).
     """
-    with pytest.raises(User.DoesNotExist, match="No active clock-in activity found."):
+    with pytest.raises(User.DoesNotExist, match="No employees found."):
         controllers.get_users_name(only_active=True)
 
 
@@ -88,7 +88,7 @@ def test_get_users_name_empty_query(employee, manager):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")  # Mock 'now()' to control the timestamp
+@patch("api.controllers.now")  # Mock 'now()' to control the timestamp
 def test_handle_clock_in_success(mock_now, employee):
     """
     Test successful clock-in for an employee.
@@ -111,7 +111,7 @@ def test_handle_clock_in_success(mock_now, employee):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 def test_handle_clock_in_already_clocked_in(mock_now, clocked_in_employee):
     """
     Test attempting to clock in an employee who is already clocked in.
@@ -127,7 +127,7 @@ def test_handle_clock_in_already_clocked_in(mock_now, clocked_in_employee):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 def test_handle_clock_in_employee_not_found(mock_now):
     """
     Test attempting to clock in with an invalid employee ID.
@@ -143,7 +143,7 @@ def test_handle_clock_in_employee_not_found(mock_now):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 @patch("api.utils.round_datetime_minute")
 def test_handle_clock_out_success(mock_round, mock_now, clocked_in_employee):
     """
@@ -171,7 +171,7 @@ def test_handle_clock_out_success(mock_round, mock_now, clocked_in_employee):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 def test_handle_clock_out_not_clocked_in(mock_now, employee):
     """
     Test attempting to clock out an employee who is not clocked in.
@@ -187,7 +187,7 @@ def test_handle_clock_out_not_clocked_in(mock_now, employee):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 def test_handle_clock_out_no_active_record(mock_now, clocked_in_employee):
     """
     Test attempting to clock out an employee without an active clock-in record.
@@ -211,7 +211,7 @@ def test_handle_clock_out_no_active_record(mock_now, clocked_in_employee):
 
 
 @pytest.mark.django_db
-@patch("api.utils.now")
+@patch("api.controllers.now")
 def test_handle_clock_out_employee_not_found(mock_now):
     """
     Test attempting to clock out with an invalid employee ID.

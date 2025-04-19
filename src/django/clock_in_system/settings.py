@@ -56,7 +56,7 @@ CSRF_COOKIE_AGE = 604800
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
 )  # Use True in production to send cookies over HTTPS only
-CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
+CSRF_COOKIE_HTTPONLY = True  # Default is False; True prevents JavaScript access
 CSRF_COOKIE_SAMESITE = os.getenv(
     "CSRF_COOKIE_SAMESITE", "Lax"
 )  # Can be 'Lax', 'Strict', or 'None'
@@ -150,6 +150,22 @@ DATABASES = {
     }
 }
 
+# Django cache to store the more temporary info (i.e. public holiday checks)
+if DEBUG:  # Use memory for development (saves the file permission errors)
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "django_cache",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": "/app/django_cache",
+        }
+    }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -179,6 +195,25 @@ TIME_ZONE = os.getenv("TZ", "Australia/Perth")
 USE_I18N = True
 
 USE_TZ = True
+
+
+# This is used for public holiday information: (https://date.nager.at/)
+COUNTRY_CODE = "AU"
+COUNTRY_SUBDIV_CODE = "WA"
+UTC_OFFSET = "8"  # For UTC+8
+
+
+# Rounding amount for calculating true shift length
+SHIFT_ROUNDING_MINS = 15  # Default is 15min
+
+# How long a user must wait between finishing a shift and starting a new one
+START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 30  # Default is 30m
+
+# How long a user must wait between starting a shift and finishing it
+FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
+
+# Determine maximum possible dump size for db queries (i.e. employee details list)
+MAX_DATABASE_DUMP_LIMIT = 150
 
 
 # Static files (CSS, JavaScript, Images)

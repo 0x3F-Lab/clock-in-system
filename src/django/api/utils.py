@@ -1,27 +1,110 @@
 import math
+import requests
+import logging
+import holidays
 import api.exceptions as err
 import api.controllers as controllers
-from datetime import datetime, timedelta
-from django.utils.timezone import now
+from urllib.parse import urlencode
+from datetime import timedelta
+from django.core.cache import cache
+from django.utils import timezone
 from auth_app.models import User
+from clock_in_system.settings import (
+    COUNTRY_CODE,
+    COUNTRY_SUBDIV_CODE,
+    UTC_OFFSET,
+    SHIFT_ROUNDING_MINS,
+)
+
+logger = logging.getLogger("api")
 
 
 # Function to check if a given date is a public holiday
-def is_public_holiday(time):
+def is_public_holiday(
+    time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, utc_offset=UTC_OFFSET
+):
+    # Ensure 'time' is timezone-aware
+    if time.tzinfo is None:
+        # If naive datetime, convert it to a timezone-aware datetime based on the default timezone
+        time = timezone.make_aware(time, timezone.get_current_timezone())
+
+    time = timezone.localtime(
+        time
+    )  # Ensure time is in the local timezone of django settings
     date = time.date()
 
-    ### USE API CALLS TO CHECK FOR PUBLIC HOLIDAYS!!!
+    # Check cache if public holiday status has already been checked (saves computing)
+    cache_key = f"public_holiday_{date.isoformat()}"
 
-    public_holidays = [
-        datetime(2024, 12, 25).date(),  # Example: Christmas Day
-        datetime(2024, 1, 1).date(),  # Example: New Year's Day
-    ]
+    status = cache.get(cache_key)
+    if status is not None:
+        # If the status is already cached, return the status
+        return status
 
-    return date in public_holidays
+    # Check using offline library
+    try:
+        country_holidays = holidays.country_holidays(country=country, subdiv=subdiv)
+        if date in country_holidays:
+            # Set the cache before returning
+            cache.set(cache_key, True, timeout=86400)  # Cache it for 24 hours
+            return True
+
+    except Exception as e:
+        logger.error(f"Error checking local holidays for date `{date}`: {str(e)}")
+
+    # Else, double check API to ensure its up to date with current affairs.
+    url = f"https://date.nager.at/api/v3/IsTodayPublicHoliday/{country}"
+
+    # Create query parameters
+    query_params = {}
+    if subdiv:  # If there is a further country subdivision code
+        query_params["countyCode"] = f"{country}-{subdiv}"
+    if utc_offset:
+        query_params["offset"] = utc_offset
+
+    # Append query params if any exist
+    if query_params:
+        url += "?" + urlencode(query_params)
+
+    # Check API
+    try:
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            # Set the cache before returning
+            cache.set(cache_key, True, timeout=86400)
+            return True
+
+        elif response.status_code == 204:
+            cache.set(cache_key, False, timeout=86400)
+            return False
+
+        elif response.status_code == 503:
+            logger.error(
+                f"Error checking public holiday via API gave code `{response.status_code}`: Server is currently down."
+            )
+
+        else:
+            logger.error(
+                f"Error checking public holiday via API gave code `{response.status_code}`: {response.json().get('error', 'Unknown error.')}"
+            )
+
+    except requests.exceptions.Timeout:
+        logger.error(
+            "Error checking public holiday via API as request timed out. Is the API up?"
+        )
+    except requests.exceptions.ConnectionError:
+        logger.error(
+            "Error checking public holiday via API as it failed to connect to API."
+        )
+    except requests.RequestException as e:
+        logger.error(f"Unexpected error when checking public holiday via API: {str(e)}")
+
+    # Ensure something returns (DONT SET CACHE AS API CALL FAILED)
+    return False
 
 
 # Function to round the time to the nearest specified minute
-def round_datetime_minute(dt, rounding_mins=15):
+def round_datetime_minute(dt, rounding_mins=SHIFT_ROUNDING_MINS):
     # Calculate the total number of minutes since midnight
     total_minutes = dt.hour * 60 + dt.minute
 
@@ -147,8 +230,13 @@ def check_pin_hash(employee_id: bool, pin) -> bool:
         raise err.InactiveUserError
 
     # Check if pin is valid
-    if not employee.check_pin(raw_pin=pin):
-        return False
+    if employee.check_pin(raw_pin=pin):
+        return True
 
-    # Return True on successful pin check
-    return True
+    # Return False by default on failing check
+    return False
+
+
+def str_to_bool(val):
+    # Ensure the value is a boolean by converting properly
+    return str(val).lower() in ["true", "1", "yes"]

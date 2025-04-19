@@ -1,0 +1,120 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Shift Logs{% endblock %}
+
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Logs</u></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+  </button>
+
+  <button id="addNewShiftBtn" class="btn btn-primary">
+    <i class="fa-solid fa-plus me-2"></i> Add New Shift
+  </button>
+</div>
+
+<!-- Shift Logs Table -->
+<div class="table-responsive">
+  <table id="shiftLogsTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
+    <thead>
+      <tr>
+        <th>Staff Name</th>
+        <th>Rounded Login Time</th>
+        <th>Rounded Logout Time</th>
+        <th>Is Public Holiday</th>
+        <th>Exact Login Timestamp</th>
+        <th>Exact Logout Timestamp</th>
+        <th>Deliveries</th>
+        <th>Hours Worked</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+{% include "components/pagination_controller.html" %}
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+
+      <div class="modal-header text-white">
+        <h5 class="modal-title text-center w-100" id="editModalLabel">Edit Activity</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="editForm" class="px-1">
+          <input type="hidden" id="editActivityId" name="editActivityId">
+
+          <div id="editModalEmployeeListContainer" class="mb-4 d-none">
+            <div class="mb-3">
+              <label for="editModalEmployeeSearchBar" class="form-label fw-semibold">Search Employees</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editModalEmployeeSearchBar"
+                placeholder="Type to filter employees..."
+              >
+            </div>
+            <ul
+              id="editModalEmployeeList"
+              class="list-group mb-3"
+              style="max-height: 200px; overflow-y: auto;"
+            ></ul>
+            <input
+              type="hidden"
+              id="editModalListSelectedEmployeeID"
+              name="editModalListSelectedEmployeeID"
+              value=""
+            >
+          </div>
+
+          <div class="col-md-6 my-3 w-100">
+            <label for="editLoginTimestamp" class="form-label fw-semibold">Login Timestamp</label>
+            <input type="datetime-local" class="form-control w-100" id="editLoginTimestamp" name="editLoginTimestamp" required>
+          </div>
+          <div class="col-md-6 my-3 w-100">
+            <label for="editLogoutTimestamp" class="form-label fw-semibold">Logout Timestamp</label>
+            <input type="datetime-local" class="form-control w-100" id="editLogoutTimestamp" name="editLogoutTimestamp" required>
+          </div>
+
+          <div class="form-check my-3">
+            <input type="checkbox" class="form-check-input" id="editIsPublicHoliday" name="editIsPublicHoliday">
+            <label class="form-check-label fw-semibold" for="editIsPublicHoliday">Is it a Public Holiday?</label>
+          </div>
+
+          <div class="my-3">
+            <label for="editDeliveries" class="form-label fw-semibold">Deliveries</label>
+            <input type="number" min="0" class="form-control" id="editDeliveries" name="editDeliveries">
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="editModalSubmit">
+          <i class="fa-solid fa-floppy-disk me-1"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_urls %}
+    listSingularShiftDetails: "{{ BASE_URL }}{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
+    listEveryShiftDetails: "{{ BASE_URL }}{% url 'api:list_all_shift_details' %}",
+    updateShiftDetails: "{{ BASE_URL }}{% url 'api:update_shift_details' 0 %}".slice(0, -2),
+    createShift: "{{ BASE_URL }}{% url 'api:create_new_shift' %}",
+{% endblock %}
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/shift_logs.js' %}"></script>
+{% endblock %}

@@ -8,6 +8,39 @@ body, html {
     min-height: 100vh;         /* Let the document grow taller than the viewport */
 }
 
+.z-top {
+  z-index: 2000 !important;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Pagination controller */
+.pagination-gradient .page-link {
+  border: none;
+  padding: 12px 18px;
+  margin: 0 5px;
+  border-radius: 50%;
+  color: #f4f4f9;
+  background: #1a202c;
+  transition: all 0.3s ease;
+}
+
+.pagination-gradient .page-item.active .page-link {
+  background: linear-gradient(45deg, #6b5ce7, #a178df);
+  color: white;
+  box-shadow: 0 2px 10px rgba(107, 92, 231, 0.4);
+}
+
+.pagination-gradient .page-link:hover {
+  background: linear-gradient(45deg, #a178df, #6b5ce7);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(107, 92, 231, 0.4);
+}
+
 /* If you still want the login box centered, apply flex styling only to the login container */
 .login-container {
     display: flex;
@@ -277,32 +310,6 @@ body, html {
     text-align: center;
 }
 
-
-.container {
-    margin: 20px auto;
-    width: 80%;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-thead {
-    background-color: #4CAF50;
-    color: white;
-}
-
-th, td {
-    padding: 10px;
-    border: 1px solid #ddd;
-    text-align: left;
-}
-
-th {
-    cursor: pointer;
-}
-
 .modal {
     display: none;
     position: fixed;
@@ -320,29 +327,6 @@ th {
     padding: 20px;
     border-radius: 5px;
     width: 50%;
-}
-
-
-
-/* Notification styling */
-#notification-container {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1050;
-  max-width: 300px;
-  width: 100%;
-}
-
-.alert {
-  margin-bottom: 10px;
-  border-radius: 5px;
-}
-
-.alert-dismissible .close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
 }
 
 /* 

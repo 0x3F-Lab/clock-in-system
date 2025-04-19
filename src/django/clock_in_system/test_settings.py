@@ -16,6 +16,14 @@ DATABASES["default"] = {
     "NAME": ":memory:",  # Use an in-memory SQLite database
 }
 
+# Override the Cache setting for testing
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",  # For local dev
+        "LOCATION": "django_cache",
+    }
+}
+
 
 # Override logging settings
 LOGGING = {

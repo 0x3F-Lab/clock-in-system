@@ -45,16 +45,18 @@
     </div>
 
     <!-- Single-column table style -->
-    <table style="margin-top:20px;">
-        <thead>
-            <tr>
-                <th>Summary</th>
-            </tr>
-        </thead>
-        <tbody id="summaryTableBody">
-            <!-- Data populated dynamically below -->
-        </tbody>
-    </table>
+    <div class="table-responsive mt-5">
+      <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
+          <thead>
+              <tr>
+                  <th>Summary</th>
+              </tr>
+          </thead>
+          <tbody id="summaryTableBody">
+              <!-- Data populated dynamically below -->
+          </tbody>
+      </table>
+    </div>
 </div>
 {% endblock %}
 
@@ -71,7 +73,7 @@
         const employeeIdsInput = document.getElementById("employeeIds");
 
         function fetchSummary(startDate = null, endDate = null, employeeIds = null) {
-            let url = "/api/weekly-summary/";
+            let url = "/api/v1/weekly-summary/";
             const params = [];
             if (startDate && endDate) {
                 params.push(`start_date=${startDate}`);
@@ -162,7 +164,7 @@
                 return;
             }
 
-            fetch("/api/reset-summary/", {
+            fetch("/api/v1/reset-summary/", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
