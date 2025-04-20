@@ -350,7 +350,7 @@ def update_shift_details(request, id):
 
             return JsonResponse(
                 {"message": "Shift updated successfully."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_202_ACCEPTED,
             )
 
         else:
