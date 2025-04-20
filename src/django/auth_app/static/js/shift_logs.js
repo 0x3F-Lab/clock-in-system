@@ -65,7 +65,6 @@ function deleteShift(activityId) {
   $.ajax({
     url: `${window.djangoURLs.updateShiftDetails}${activityId}/`,
     type: "DELETE",
-    contentType: "application/json",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -101,7 +100,6 @@ function updateShiftLogsTable() {
   $.ajax({
     url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     type: "GET",
-    contentType: "application/json",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -291,6 +289,7 @@ function handleShiftDetailsEdit() {
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
+        contentType: 'application/json',
         data: JSON.stringify({
           login_timestamp: correctAPITimestamps(loginTimestamp),
           logout_timestamp: correctAPITimestamps(logoutTimestamp),
@@ -327,6 +326,7 @@ function handleShiftDetailsEdit() {
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
+        contentType: 'application/json',
         data: JSON.stringify({
           employee_id: selectedID,
           login_timestamp: correctAPITimestamps(loginTimestamp),

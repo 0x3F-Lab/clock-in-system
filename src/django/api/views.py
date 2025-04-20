@@ -241,7 +241,7 @@ def update_shift_details(request, id):
 
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
-            data = json.loads(request.body)
+            data = json.loads(request.data)
             login_timestamp = data.get("login_timestamp", None) or None
             logout_timestamp = data.get("logout_timestamp", None) or None
 
@@ -394,7 +394,7 @@ def update_shift_details(request, id):
 def create_new_shift(request):
     try:
         # Parse data from request
-        data = json.loads(request.body)
+        data = json.loads(request.data)
         employee_id = str(data.get("employee_id", ""))
         # Type checking done later when converting form
         login_timestamp = data.get("login_timestamp", None) or None
@@ -621,7 +621,7 @@ def update_employee_details(request, id):
             raise err.InactiveUserError
 
         # Parse data from request
-        data = json.loads(request.body)
+        data = json.loads(request.data)
         employee.first_name = str(data.get("first_name", employee.first_name))
         employee.last_name = str(data.get("last_name", employee.last_name))
         employee.email = str(data.get("email", employee.email))
@@ -665,7 +665,7 @@ def update_employee_details(request, id):
 def create_new_employee(request):
     try:
         # Parse data from request
-        data = json.loads(request.body)
+        data = json.loads(request.data)
         first_name = str(data.get("first_name", ""))
         last_name = str(data.get("last_name", ""))
         email = str(data.get("email", ""))
@@ -723,7 +723,7 @@ def create_new_employee(request):
 def modify_account_status(request, id):
     try:
         # Parse data from request
-        data = json.loads(request.body)
+        data = json.loads(request.data)
         status_type = str(data.get("status_type", ""))
 
         ########## CHECKS ON THIS IS NEEDED!!!

@@ -48,10 +48,10 @@ function updateEmployeeActivationStatus(id, type) {
   $.ajax({
     url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
     type: "PUT",
-    contentType: "application/json",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
+    contentType: 'application/json',
     data: JSON.stringify({
       status_type: type
     }),
@@ -93,7 +93,6 @@ function updateEmployeeDetailsTable() {
   $.ajax({
     url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     type: "GET",
-    contentType: "application/json",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -227,6 +226,7 @@ function handleEmployeeDetailsEdit() {
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
+        contentType: 'application/json',
         data: JSON.stringify({
           first_name: firstName,
           last_name: lastName,
@@ -262,6 +262,7 @@ function handleEmployeeDetailsEdit() {
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
+        contentType: 'application/json',
         data: JSON.stringify({
           first_name: firstName,
           last_name: lastName,
