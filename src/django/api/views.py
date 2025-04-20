@@ -297,6 +297,14 @@ def update_shift_details(request, id):
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
+            elif (make_aware(login_timestamp) > localtime(now())) or (
+                logout_timestamp and make_aware(logout_timestamp) > localtime(now())
+            ):
+                return Response(
+                    {"Error": "A timestamp cannot be in the future."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
+
             # Check when deleting clockout time for a shift the same day, the user's clocked state needs to be modified.
             elif (not logout_timestamp) and (login_timestamp.date() == now_date):
                 if not user.clocked_in:
@@ -372,7 +380,7 @@ def update_shift_details(request, id):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to update activity details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to update activity details for activity ID {id}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -411,13 +419,11 @@ def create_new_shift(request):
         # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
         try:
             login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
-            login_timestamp = make_aware(login_timestamp)
 
             if logout_timestamp:
                 logout_timestamp = datetime.strptime(
                     logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                 )
-                login_timestamp = make_aware(logout_timestamp)
         except ValueError as e:
             return Response(
                 {
@@ -427,14 +433,14 @@ def create_new_shift(request):
             )
 
         # Check if login_timestamp is in the future
-        if login_timestamp > localtime(now()):
+        if make_aware(login_timestamp) > localtime(now()):
             return JsonResponse(
                 {"Error": "Login time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         # Check if logout_timestamp is in the future
-        if (logout_timestamp) and (login_timestamp > localtime(now())):
+        if (logout_timestamp) and (make_aware(logout_timestamp) > localtime(now())):
             return JsonResponse(
                 {"Error": "Logout time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
@@ -454,12 +460,23 @@ def create_new_shift(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if (logout_timestamp - login_time) < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS:
+            delta = logout_time - login_time
+            if (
+                int(delta.total_seconds() // 60)
+                < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+            ):
                 return JsonResponse(
                     {
                         "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Ensure shift starts and ends on same day
+            if login_timestamp.date() != logout_timestamp.date():
+                return JsonResponse(
+                    {"Error": "A shift must be finished on the same day it started."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
         # Get the employee
