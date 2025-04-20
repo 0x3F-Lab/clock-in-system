@@ -74,7 +74,7 @@ CORS_TRUSTED_ORIGINS = os.getenv(
     "CORS_TRUSTED_ORIGINS",
     "http://localhost:8000,http://localhost,http://127.0.0.1:8000,http://127.0.0.1",
 ).split(",")
-CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site
+CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site (SET TO TRUE IF ENDPOINTS ON DIFF DOMAINS I.E. API ON api.domain.com -- then withCredentials is needed for js ajax requests)
 CORS_PREFLIGHT_MAX_AGE = 43200  # Cache for 12 hours
 CORS_ALLOW_HEADERS = [
     "accept",

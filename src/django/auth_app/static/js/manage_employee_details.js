@@ -50,7 +50,7 @@ function updateEmployeeActivationStatus(id, type) {
     type: "PUT",
     contentType: "application/json",
     headers: {
-      'X-CSRFToken': `${getCookie('csrftoken')}`, // Include CSRF token
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
     data: JSON.stringify({
       status_type: type
@@ -95,7 +95,7 @@ function updateEmployeeDetailsTable() {
     type: "GET",
     contentType: "application/json",
     headers: {
-      'X-CSRFToken': `${getCookie('csrftoken')}`, // Include CSRF token
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
 
     success: function(req) {
@@ -176,7 +176,7 @@ function handleEmployeeDetailsEdit() {
         url: `${window.djangoURLs.listSingularEmployeeDetails}${id}/`,
         type: 'GET',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
     
         success: function(req) {
@@ -225,7 +225,7 @@ function handleEmployeeDetailsEdit() {
         url: `${window.djangoURLs.updateEmployeeDetails}${id}/`,
         type: 'POST',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
         data: JSON.stringify({
           first_name: firstName,
@@ -260,7 +260,7 @@ function handleEmployeeDetailsEdit() {
         url: `${window.djangoURLs.createEmployeeAccount}`,
         type: 'PUT',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
         data: JSON.stringify({
           first_name: firstName,

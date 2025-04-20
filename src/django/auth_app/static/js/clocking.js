@@ -196,7 +196,6 @@ async function toggleClock(clockInURL, clockOutURL, pin) {
 
   const userID = $("#selectedEmployee").data("id");
   const deliveries = parseInt(deliveriesCount.textContent, 10);
-  const csrftoken = getCookie('csrftoken');
 
   // Get location data using the helper function
   const locationData = await getLocationData();
@@ -214,7 +213,7 @@ async function toggleClock(clockInURL, clockOutURL, pin) {
       type: "PUT",
       contentType: "application/json",
       headers: {
-        'X-CSRFToken': csrftoken // Include CSRF token
+        'X-CSRFToken': getCSRFToken() // Include CSRF token
       },
       data: JSON.stringify({
         location_latitude: userLat,
@@ -251,7 +250,7 @@ async function toggleClock(clockInURL, clockOutURL, pin) {
       type: "PUT",
       contentType: "application/json",
       headers: {
-        'X-CSRFToken': csrftoken // Include CSRF token
+        'X-CSRFToken': getCSRFToken() // Include CSRF token
       },
       data: JSON.stringify({
         location_latitude: userLat,
@@ -434,14 +433,12 @@ function handleChangePin(listEmployeeNamesURL, changePinURL) {
       return;
     }
 
-    const csrftoken = getCookie('csrftoken');
-
     // POST to your "change pin" endpoint
     $.ajax({
       url: `${changePinURL}${userID}/`,
       method: "POST",
       headers: {
-        "X-CSRFToken": csrftoken
+        "X-CSRFToken": getCSRFToken()
       },
       data: {
         current_pin: currentPin,

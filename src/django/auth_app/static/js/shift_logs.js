@@ -67,7 +67,7 @@ function deleteShift(activityId) {
     type: "DELETE",
     contentType: "application/json",
     headers: {
-      'X-CSRFToken': `${getCookie('csrftoken')}`, // Include CSRF token
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
 
     success: function(req) {
@@ -103,7 +103,7 @@ function updateShiftLogsTable() {
     type: "GET",
     contentType: "application/json",
     headers: {
-      'X-CSRFToken': `${getCookie('csrftoken')}`, // Include CSRF token
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
 
     success: function(req) {
@@ -187,7 +187,7 @@ function handleShiftDetailsEdit() {
         url: `${window.djangoURLs.listSingularShiftDetails}${id}/`,
         type: 'GET',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
     
         success: function(req) {
@@ -217,7 +217,7 @@ function handleShiftDetailsEdit() {
         url: `${window.djangoURLs.listEmployeeNames}`,
         type: 'GET',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
     
         success: function(req) {
@@ -289,7 +289,7 @@ function handleShiftDetailsEdit() {
         url: `${window.djangoURLs.updateShiftDetails}${id}/`,
         type: 'POST',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
         data: JSON.stringify({
           login_timestamp: correctAPITimestamps(loginTimestamp),
@@ -325,7 +325,7 @@ function handleShiftDetailsEdit() {
         url: `${window.djangoURLs.createShift}`,
         type: 'PUT',
         headers: {
-          'X-CSRFToken': `${getCookie('csrftoken')}`,
+          'X-CSRFToken': getCSRFToken(),
         },
         data: JSON.stringify({
           employee_id: selectedID,
