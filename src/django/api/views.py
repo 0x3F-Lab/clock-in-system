@@ -241,9 +241,8 @@ def update_shift_details(request, id):
 
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
-            data = json.loads(request.data)
-            login_timestamp = data.get("login_timestamp", None) or None
-            logout_timestamp = data.get("logout_timestamp", None) or None
+            login_timestamp = request.data.get("login_timestamp", None) or None
+            logout_timestamp = request.data.get("logout_timestamp", None) or None
 
             try:
                 if login_timestamp:
@@ -317,12 +316,14 @@ def update_shift_details(request, id):
 
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
-                data.get("is_public_holiday", activity.is_public_holiday)
+                request.data.get("is_public_holiday", activity.is_public_holiday)
             )
 
             # Set deliveries (keep same if not given)
             try:
-                activity.deliveries = int(data.get("deliveries", activity.deliveries))
+                activity.deliveries = int(
+                    request.data.get("deliveries", activity.deliveries)
+                )
             except ValueError:
                 return JsonResponse(
                     {"Error": "Deliveries must be an integer."},
@@ -394,15 +395,14 @@ def update_shift_details(request, id):
 def create_new_shift(request):
     try:
         # Parse data from request
-        data = json.loads(request.data)
-        employee_id = str(data.get("employee_id", ""))
+        employee_id = str(request.data.get("employee_id", ""))
         # Type checking done later when converting form
-        login_timestamp = data.get("login_timestamp", None) or None
-        logout_timestamp = data.get("logout_timestamp", None) or None
-        is_public_holiday = str_to_bool(data.get("is_public_holiday", False))
+        login_timestamp = request.data.get("login_timestamp", None) or None
+        logout_timestamp = request.data.get("logout_timestamp", None) or None
+        is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
 
         try:
-            deliveries = int(data.get("deliveries", 0))
+            deliveries = int(request.data.get("deliveries", 0))
         except ValueError as e:
             return Response(
                 {"Error": "Deliveries must be an integer."},
@@ -621,14 +621,13 @@ def update_employee_details(request, id):
             raise err.InactiveUserError
 
         # Parse data from request
-        data = json.loads(request.data)
-        employee.first_name = str(data.get("first_name", employee.first_name))
-        employee.last_name = str(data.get("last_name", employee.last_name))
-        employee.email = str(data.get("email", employee.email))
-        employee.phone_number = str(data.get("phone", employee.phone_number))
+        employee.first_name = str(request.data.get("first_name", employee.first_name))
+        employee.last_name = str(request.data.get("last_name", employee.last_name))
+        employee.email = str(request.data.get("email", employee.email))
+        employee.phone_number = str(request.data.get("phone", employee.phone_number))
 
-        if data.get("pin") is not None:
-            employee.set_pin(str(data["pin"]))
+        if request.data.get("pin") is not None:
+            employee.set_pin(str(request.data["pin"]))
 
         ########## CHECKS ON THIS IS NEEDED!!!
 
@@ -665,12 +664,11 @@ def update_employee_details(request, id):
 def create_new_employee(request):
     try:
         # Parse data from request
-        data = json.loads(request.data)
-        first_name = str(data.get("first_name", ""))
-        last_name = str(data.get("last_name", ""))
-        email = str(data.get("email", ""))
-        phone_number = str(data.get("phone", ""))
-        pin = str(data.get("pin", ""))
+        first_name = str(request.data.get("first_name", ""))
+        last_name = str(request.data.get("last_name", ""))
+        email = str(request.data.get("email", ""))
+        phone_number = str(request.data.get("phone", ""))
+        pin = str(request.data.get("pin", ""))
 
         ########## CHECKS ON THIS IS NEEDED!!!
 
@@ -723,10 +721,7 @@ def create_new_employee(request):
 def modify_account_status(request, id):
     try:
         # Parse data from request
-        data = json.loads(request.data)
-        status_type = str(data.get("status_type", ""))
-
-        ########## CHECKS ON THIS IS NEEDED!!!
+        status_type = str(request.data.get("status_type", ""))
 
         # You can add validation or checks here
         if not status_type:
