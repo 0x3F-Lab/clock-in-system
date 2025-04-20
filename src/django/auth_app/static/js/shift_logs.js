@@ -27,32 +27,26 @@ function handleActionButtons() {
     openEditModal();
   });
 
-  // When clicking delete on a row in the table
+  // When clicking delete on a row in the table -> Replace with confirmation button
   $(document).on('click', '.deleteBtn', function () {
+    const $original = $(this);
+    const $confirm = $(`<button class="deleteBtnConfirm btn btn-sm btn-outline-danger ms-1 mt-1" data-id="${$original.data('id')}"><i class="fas fa-exclamation-triangle"></i> Confirm</button>`);
+    $(this).replaceWith($confirm);
+    
+    // Set timeout to revert back after 3 seconds
+    setTimeout(() => {
+      if ($confirm.parent().length) { // Ensure still in the DOM
+        $confirm.replaceWith($original);
+      }
+    }, 3000);
+  });
+
+  // After clicking delete confirmation button -> Delete the shift row
+  $(document).on('click', '.deleteBtnConfirm', function () {
     const activityId = $(this).data('id');
     deleteShift(activityId);
   });
 }
-
-
-// Populate the modal with the user list
-// function populateModalUserList(listEmployeeNamesURL) {
-//   $.get(listEmployeeNamesURL, function (data) {
-//       const $userList = $("#userList");
-//       data.forEach(employee => {
-//           $userList.append(`<li class="list-group-item list-group-item-action" data-id="${employee[0]}">${employee[1]}</li>`);
-//       });
-
-//   }).fail(function (jqXHR) {
-//       let errorMessage;
-//       if (jqXHR.status == 500) {
-//         errorMessage = "Failed to load employee list due to internal server error. Please try again.";
-//       } else {
-//         errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee list. Please try again.";
-//       }
-//       showNotification(errorMessage, "danger");
-//   });
-// }
 
 
 function openEditModal() {
