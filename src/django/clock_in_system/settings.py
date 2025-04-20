@@ -221,7 +221,7 @@ MAX_DATABASE_DUMP_LIMIT = 150
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage" # Disabled for the time being
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"  # Adds hash to static files to ensure client side caching does not introduce problems when updating code.
 
 
 # Default primary key field type
