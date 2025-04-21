@@ -1,56 +1,37 @@
 import logging
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.response import Response
-from rest_framework import status
+import json
 import api.utils as util
-from api.utils import round_datetime_minute
+from api.utils import round_datetime_minute, str_to_bool
 import api.controllers as controllers
 import api.exceptions as err
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
 from auth_app.models import User, Activity
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import manager_required
-from django.contrib.auth.decorators import login_required
+from auth_app.utils import manager_required, api_manager_required
+from django.views.decorators.csrf import ensure_csrf_cookie
+from clock_in_system.settings import (
+    MAX_DATABASE_DUMP_LIMIT,
+    FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+)
 
-import json
 from django.db.models import Sum, F, Q, Case, When, DecimalField
-from datetime import datetime, timezone, time
+from datetime import datetime, time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
 
 
-@api_view(["POST"])
-@renderer_classes([JSONRenderer])
-def change_pin_view(request):
-    user_id = request.data.get("user_id")
-    current_pin = request.data.get("current_pin")
-    new_pin = request.data.get("new_pin")
-
-    if not user_id or not current_pin or not new_pin:
-        return JsonResponse({"Error": "Missing required fields."}, status=400)
-
-    try:
-        user = User.objects.get(id=user_id, is_active=True)
-    except User.DoesNotExist:
-        return JsonResponse({"Error": "User not found or inactive."}, status=404)
-
-    if not user.check_pin(current_pin):
-        return JsonResponse({"Error": "Current pin is incorrect."}, status=403)
-
-    user.set_pin(new_pin)
-    return JsonResponse({"success": True, "message": "Pin changed successfully."})
-
-
 @api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def list_users_name_view(request):
     """
     API view to fetch a list of users with their IDs and full names.
@@ -96,356 +77,696 @@ def list_users_name_view(request):
         )
 
 
-@manager_required
-@api_view(["GET", "POST"])
+@api_manager_required
+@api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def raw_data_logs_view(request):
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            activities = (
-                Activity.objects.all()
-                .select_related("employee_id")
-                .order_by("-login_timestamp")
-            )
-            data = []
-            for act in activities:
-                staff_name = f"{act.employee_id.first_name} {act.employee_id.last_name}"
-                hours_decimal = (
-                    act.shift_length_mins / 60.0 if act.shift_length_mins else 0.0
-                )
-                data.append(
-                    {
-                        "id": act.id,
-                        "staff_name": staff_name,
-                        "login_time": (
-                            localtime(act.login_time).strftime("%H:%M")
-                            if act.login_time
-                            else "N/A"
-                        ),
-                        "logout_time": (
-                            localtime(act.logout_time).strftime("%H:%M")
-                            if act.logout_time
-                            else "N/A"
-                        ),
-                        "is_public_holiday": act.is_public_holiday,
-                        "exact_login_timestamp": (
-                            localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
-                            if act.login_timestamp
-                            else "N/A"
-                        ),
-                        "exact_logout_timestamp": (
-                            localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
-                            if act.logout_timestamp
-                            else "N/A"
-                        ),
-                        "deliveries": act.deliveries,
-                        "hours_worked": f"{hours_decimal:.2f}",
-                    }
-                )
-            return JsonResponse(data, safe=False)
-        else:
-            # Render HTML template
-            get_token(request)  # ensure CSRF token
-            return render(request, "auth_app/raw_data_logs.html")
-
-    elif request.method == "POST":
-        """
-        Create a new Activity record.
-        exact_login_timestamp & exact_logout_timestamp remain None to show as N/A.
-        """
-        data = request.data
-
-        required_fields = ["employee_id", "login_time", "logout_time"]
-        missing = [f for f in required_fields if f not in data]
-        if missing:
-            return JsonResponse(
-                {"Error": f"Missing field(s): {', '.join(missing)}"},
-                status=400,
-            )
+def list_all_shift_details(request):
+    try:
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
 
         try:
-            employee_id = data.get("employee_id")
-            login_str = data.get("login_time")  # e.g. "2025-01-01T14:30:00"
-            logout_str = data.get("logout_time")  # e.g. "2025-01-01T17:45:00"
-            is_public_holiday = data.get("is_public_holiday", False)
-            deliveries = data.get("deliveries", 0)
-
-            # Parse naive datetimes (no time zone)
-            login_dt = datetime.strptime(login_str, "%Y-%m-%dT%H:%M:%S")
-            logout_dt = datetime.strptime(logout_str, "%Y-%m-%dT%H:%M:%S")
-
-            emp = get_object_or_404(User, id=employee_id)
-
-            now_ts = datetime.now()
-
-            # Create the new activity record
-            activity = Activity.objects.create(
-                employee_id=emp,
-                login_time=login_dt,
-                logout_time=logout_dt,
-                login_timestamp=now_ts,
-                logout_timestamp=now_ts,
-                is_public_holiday=is_public_holiday,
-                deliveries=deliveries,
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
             )
+        except ValueError:
+            limit = 25
 
-            # Calculate shift length if both times exist
-            if activity.login_time and activity.logout_time:
-                delta = activity.logout_time - activity.login_time
-                activity.shift_length_mins = int(delta.total_seconds() // 60)
-                activity.save()
-
-            return JsonResponse(
-                {"message": "Activity created successfully", "id": activity.id},
-                status=201,
-            )
-
-        except ValueError as ve:
-            # e.g., datetime parsing error
-            logger.error(f"Date parse error: {ve}")
-            return JsonResponse(
-                {"Error": f"Invalid date/time format: {ve}"}, status=400
-            )
-        except User.DoesNotExist:
-            return JsonResponse({"Error": "Invalid employee_id"}, status=404)
-        except Exception as e:
-            logger.error(f"Error creating Activity: {e}")
-            return JsonResponse({"Error": "Internal error."}, status=500)
-
-
-@manager_required
-@api_view(["GET", "PUT", "DELETE"])
-@renderer_classes([JSONRenderer])
-def raw_data_logs_detail_view(request, id):
-    """
-    Handle retrieval (GET) and updates (PUT) for a single Activity record.
-    """
-    # Attempt to fetch the activity by ID
-    activity = get_object_or_404(Activity, id=id)
-
-    if request.method == "GET":
-        # Return JSON data for a single Activity
-        staff_name = (
-            f"{activity.employee_id.first_name} {activity.employee_id.last_name}"
-        )
-        hours_decimal = (
-            activity.shift_length_mins / 60.0 if activity.shift_length_mins else 0.0
+        # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
+        activities_query = Activity.objects.select_related("employee_id").order_by(
+            "-login_timestamp", "employee_id__first_name", "employee_id__last_name"
         )
 
-        data = {
-            "login_time": (
-                localtime(activity.login_time).strftime("%Y-%m-%dT%H:%M:%S")
-                if activity.login_time
-                else None
-            ),
-            "logout_time": (
-                localtime(activity.logout_time).strftime("%Y-%m-%dT%H:%M:%S")
-                if activity.logout_time
-                else None
-            ),
-            "is_public_holiday": activity.is_public_holiday,
+        # Get total
+        total = activities_query.count()
+
+        # Ensure slicing happens on DB level for most performance
+        activities = activities_query[offset : offset + limit]
+
+        data = []
+        for act in activities:
+            hours_decimal = (
+                (act.shift_length_mins / 60.0) if act.shift_length_mins else 0.0
+            )
+
+            data.append(
+                {
+                    "id": act.id,
+                    "employee_first_name": act.employee_id.first_name,
+                    "employee_last_name": act.employee_id.last_name,
+                    "login_time": (
+                        localtime(act.login_time).strftime("%H:%M")
+                        if act.login_time
+                        else None
+                    ),
+                    "logout_time": (
+                        localtime(act.logout_time).strftime("%H:%M")
+                        if act.logout_time
+                        else None
+                    ),
+                    "is_public_holiday": act.is_public_holiday,
+                    "login_timestamp": (
+                        localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                        if act.login_timestamp
+                        else None
+                    ),
+                    "logout_timestamp": (
+                        localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                        if act.logout_timestamp
+                        else None
+                    ),
+                    "deliveries": act.deliveries,
+                    "hours_worked": f"{hours_decimal:.2f}",
+                }
+            )
+
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list all shift details (full dump), resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+def list_singular_shift_details(request, id):
+    try:
+        act = Activity.objects.get(id=id)
+
+        activity_data = {
+            "id": id,
             "login_timestamp": (
-                activity.login_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
-                if activity.login_timestamp
+                localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                if act.login_timestamp
                 else None
             ),
             "logout_timestamp": (
-                activity.logout_timestamp.strftime("%Y-%m-%dT%H:%M:%S")
-                if activity.logout_timestamp
+                localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                if act.logout_timestamp
                 else None
             ),
-            "deliveries": activity.deliveries,
-            "shift_length_mins": activity.shift_length_mins,
-            "hours_worked": f"{hours_decimal:.2f}",
+            "is_public_holiday": act.is_public_holiday,
+            "deliveries": act.deliveries,
         }
 
-        return JsonResponse(data, safe=False)
+        return JsonResponse(activity_data, status=status.HTTP_200_OK)
 
-    if request.method == "PUT":
-        required_fields = ["login_time", "logout_time"]
-        # Update the Activity
-        data = request.data
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
+    except Activity.DoesNotExist as e:
+        return Response(
+            {"Error": f"Shift with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list activity details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST", "PATCH", "DELETE"])
+@renderer_classes([JSONRenderer])
+def update_shift_details(request, id):
+    try:
+        activity = Activity.objects.get(id=id)
+
+        # If DELETING the activity
+        if request.method == "DELETE":
+            # Get user
+            user = activity.employee_id
+
+            # Check if user's clocked in state needs to be modified before deleting a shift (i.e. if the shift isnt finished)
+            if not activity.logout_timestamp or not activity.logout_time:
+                other_active_shifts = (
+                    Activity.objects.filter(employee_id=user)
+                    .exclude(id=activity.id)
+                    .filter(Q(logout_time__isnull=True))
+                )  # Dont check timestamp as "clocked_in" uses mainly clockout_time to determine shift length and account clocked state
+
+                # Only change clocked_in to False if no other active shifts
+                if not other_active_shifts.exists():
+                    user.clocked_in = False
+
+            # Ensure both databases are saved successfully, otherwise roll the other back.
+            with transaction.atomic():
+                user.save()
+                activity.delete()
+
             return JsonResponse(
-                {"Error": f"Missing required fields: {', '.join(missing_fields)}"},
-                status=400,
+                {"message": "Employee deleted successfully"},
+                status=status.HTTP_200_OK,
             )
 
-        # For example, if you decide to let the manager update the rounded times:
-        login_time_str = data.get("login_time")
-        logout_time_str = data.get("logout_time")
+        elif (request.method == "POST") or (request.method == "PATCH"):
+            # Parse data from request
+            login_timestamp = request.data.get("login_timestamp", None) or None
+            logout_timestamp = request.data.get("logout_timestamp", None) or None
 
-        # Check if manually logging out a user
-        employee = activity.employee_id
+            try:
+                if login_timestamp:
+                    login_timestamp = datetime.strptime(
+                        login_timestamp, "%Y-%m-%dT%H:%M:%S"
+                    )
+                    activity.login_time = round_datetime_minute(login_timestamp)
+                    activity.login_timestamp = login_timestamp
+                else:
+                    return Response(
+                        {"Error": "Login timestamp cannot be empty. Please try again."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
-        # Parse the string times if provided (assuming they come in as ISO8601, e.g. "2025-01-01T14:30:00")
-        if login_time_str:
-            login_time = datetime.strptime(login_time_str, "%Y-%m-%dT%H:%M:%S")
-            activity.login_time = round_datetime_minute(login_time)
-            activity.login_timestamp = login_time
-        if logout_time_str:
-            logout_time = datetime.strptime(logout_time_str, "%Y-%m-%dT%H:%M:%S")
-            activity.logout_time = round_datetime_minute(
-                logout_time
-            )  # Apply rounding function
-            activity.logout_timestamp = logout_time
+                if logout_timestamp:
+                    logout_timestamp = datetime.strptime(
+                        logout_timestamp, "%Y-%m-%dT%H:%M:%S"
+                    )
+                    activity.logout_time = round_datetime_minute(logout_timestamp)
+                    activity.logout_timestamp = logout_timestamp
+                else:
+                    # If manually deleting start time, set logout time to null
+                    activity.logout_time = None
+                    activity.logout_timestamp = None
 
-            # Clock out user if they were clocked in
-            if employee.clocked_in:
-                employee.clocked_in = False
-                employee.save()
+            except ValueError as e:
+                return Response(
+                    {
+                        "Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
 
-        # is_public_holiday, deliveries, etc.
-        if "is_public_holiday" in data:
-            activity.is_public_holiday = data["is_public_holiday"]
+            # Get the required variables
+            now_date = localtime(now()).date()
+            user = activity.employee_id
 
-        if "deliveries" in data:
-            activity.deliveries = data["deliveries"]
+            # Check when deleting clockout time (hence clocking user in) for shift older than current day.
+            if (not logout_timestamp) and (login_timestamp.date() != now_date):
+                return Response(
+                    {
+                        "Error": "Cannot have a missing clock out time for a shift older than the current day."
+                    },
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
 
-        if activity.login_time and activity.logout_time:
-            delta = activity.logout_time - activity.login_time
-            activity.shift_length_mins = int(delta.total_seconds() // 60)
+            # Check that the login and logout times are on the same day, so a shift cant be longer than 24hours.
+            elif login_timestamp.date() != logout_timestamp.date():
+                return Response(
+                    {"Error": "A shift must be finished on the same day it started."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
 
-        # Save the changes
+            elif (make_aware(login_timestamp) > localtime(now())) or (
+                logout_timestamp and make_aware(logout_timestamp) > localtime(now())
+            ):
+                return Response(
+                    {"Error": "A timestamp cannot be in the future."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
+
+            # Check when deleting clockout time for a shift the same day, the user's clocked state needs to be modified.
+            elif (not logout_timestamp) and (login_timestamp.date() == now_date):
+                if not user.clocked_in:
+                    user.clocked_in = True
+
+            # Check when setting clock out time, ensure user is not clocked in (ensure its shift on same day otherwise editing older shifts will modify user for newer shifts)
+            elif logout_timestamp and (login_timestamp.date() == now_date):
+                if user.clocked_in:
+                    user.clocked_in = False
+
+            # Set public holiday state (keep same if not given)
+            activity.is_public_holiday = str_to_bool(
+                request.data.get("is_public_holiday", activity.is_public_holiday)
+            )
+
+            # Set deliveries (keep same if not given)
+            try:
+                activity.deliveries = int(
+                    request.data.get("deliveries", activity.deliveries)
+                )
+            except ValueError:
+                return JsonResponse(
+                    {"Error": "Deliveries must be an integer."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Update shift length if both login and logout time exist
+            if activity.login_time and activity.logout_time:
+                # Check that logout time is not before login time
+                if activity.logout_time < activity.login_time:
+                    return JsonResponse(
+                        {"Error": "Logout time cannot be before login time."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # Update shift length
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
+
+                # Check that shift length reaches minimum required shift length
+                if activity.shift_length_mins < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS:
+                    return JsonResponse(
+                        {
+                            "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # Ensure both databases are saved successfully, otherwise roll the other back.
+            with transaction.atomic():
+                activity.save()
+                user.save()
+
+            return JsonResponse(
+                {"message": "Shift updated successfully."},
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        else:
+            return Response(
+                {"Error": "Invalid method."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+
+    except ValueError as e:
+        return Response(
+            {"Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."},
+            status=status.HTTP_412_PRECONDITION_FAILED,
+        )
+    except Activity.DoesNotExist as e:
+        return Response(
+            {"Error": f"Shift with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update activity details for activity ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def create_new_shift(request):
+    try:
+        # Parse data from request
+        employee_id = str(request.data.get("employee_id", ""))
+        # Type checking done later when converting form
+        login_timestamp = request.data.get("login_timestamp", None) or None
+        logout_timestamp = request.data.get("logout_timestamp", None) or None
+        is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
+
+        try:
+            deliveries = int(request.data.get("deliveries", 0))
+        except ValueError as e:
+            return Response(
+                {"Error": "Deliveries must be an integer."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check that the request is not missing the employee ID or the login timestamp (REQUIRED)
+        if not employee_id or not login_timestamp:
+            return JsonResponse(
+                {"Error": "Required fields are missing. (Employee and Login time)"},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
+        try:
+            login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
+
+            if logout_timestamp:
+                logout_timestamp = datetime.strptime(
+                    logout_timestamp, "%Y-%m-%dT%H:%M:%S"
+                )
+        except ValueError as e:
+            return Response(
+                {
+                    "Error": "Times must be sent in ISO8601 format (YYYY-MM-DDTHH:MM:SS)."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        # Check if login_timestamp is in the future
+        if make_aware(login_timestamp) > localtime(now()):
+            return JsonResponse(
+                {"Error": "Login time cannot be in the future."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check if logout_timestamp is in the future
+        if (logout_timestamp) and (make_aware(logout_timestamp) > localtime(now())):
+            return JsonResponse(
+                {"Error": "Logout time cannot be in the future."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Get the rounded login/logout times
+        login_time = round_datetime_minute(login_timestamp)
+        logout_time = None
+        if logout_timestamp:
+            logout_time = round_datetime_minute(logout_timestamp)
+
+        # Ensure minimum shift length is achieve between login and logout
+        if logout_timestamp:
+            if logout_time < login_time:
+                return JsonResponse(
+                    {"Error": "Logout time cannot be before login time."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            delta = logout_time - login_time
+            if (
+                int(delta.total_seconds() // 60)
+                < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+            ):
+                return JsonResponse(
+                    {
+                        "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Ensure shift starts and ends on same day
+            if login_timestamp.date() != logout_timestamp.date():
+                return JsonResponse(
+                    {"Error": "A shift must be finished on the same day it started."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
+
+        # Get the employee
+        employee = User.objects.get(id=employee_id)
+
+        # Create the new activity record
+        activity = Activity.objects.create(
+            employee_id=employee,
+            login_time=login_time,
+            logout_time=logout_time,
+            login_timestamp=login_timestamp,
+            logout_timestamp=logout_timestamp,
+            is_public_holiday=is_public_holiday,
+            deliveries=deliveries,
+        )
+
         activity.save()
 
-        return JsonResponse({"message": "Activity updated successfully"})
+        return JsonResponse(
+            {"message": "Shift created successfully.", "id": activity.id},
+            status=status.HTTP_201_CREATED,
+        )
 
-    elif request.method == "DELETE":
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to create new shift for employee ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-        # Check user isn't clocked in from this activity
-        if not activity.logout_time:
-            employee = activity.employee_id
-            employee.clocked_in = False
-            employee.save()
 
-        activity.delete()
-        return JsonResponse({"message": "Activity deleted successfully"}, status=204)
-
-    # Fallback
-    return JsonResponse({"Error": "Invalid request"}, status=400)
-
-
-@manager_required
-@api_view(["GET", "PUT", "POST"])
+@api_manager_required
+@api_view(["GET"])
 @renderer_classes([JSONRenderer])
-# @manager_required
-def employee_details_view(request, id=None):
-    logger.error(f"test: {request.user}")
-    if request.method == "GET":
-        if request.headers.get("Accept") == "application/json":
-            # JSON response logic here (unchanged)
-            if id is not None:
-                employee = get_object_or_404(User, id=id, is_manager=False)
-                employee_data = {
-                    "id": employee.id,
-                    "first_name": employee.first_name,
-                    "last_name": employee.last_name,
-                    "email": employee.email,
-                    "phone_number": employee.phone_number,
-                    "pin": employee.pin,
-                }
-                return JsonResponse(employee_data, safe=False)
-            else:
-                employees = User.objects.filter(is_manager=False).order_by(
-                    "first_name", "last_name"
-                )
-                employee_data = [
-                    {
-                        "id": emp.id,
-                        "first_name": emp.first_name,
-                        "last_name": emp.last_name,
-                        "email": emp.email,
-                        "phone_number": emp.phone_number,
-                        "pin": emp.pin,
-                    }
-                    for emp in employees
-                ]
-                return JsonResponse(employee_data, safe=False)
-        else:
-            # Not JSON: Return the HTML and ensure CSRF cookie is set
-            get_token(request)  # This forces a CSRF cookie to be sent
-            return render(request, "auth_app/employee_details.html")
+def list_all_employee_details(request):
+    try:
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
 
-    if request.method == "PUT" and id:
-        # PUT logic unchanged
-        employee = get_object_or_404(User, id=id)
-        data = request.data
-        employee.first_name = data.get("first_name", employee.first_name)
-        employee.last_name = data.get("last_name", employee.last_name)
-        employee.email = data.get("email", employee.email)
-        employee.phone_number = data.get("phone_number", employee.phone_number)
+        try:
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            )
+        except ValueError:
+            limit = 25
 
-        if "pin" in data:
-            employee.pin = data["pin"]
+        # Apply slicing (converted to SQL level by django)
+        employees = User.objects.order_by("first_name", "last_name")[
+            offset : offset + limit
+        ]
+
+        # Get total
+        total = User.objects.count()
+
+        employee_data = [
+            {
+                "id": emp.id,
+                "first_name": emp.first_name,
+                "last_name": emp.last_name,
+                "email": emp.email,
+                "phone_number": emp.phone_number,
+                "pin": emp.pin,
+                "is_active": emp.is_active,
+            }
+            for emp in employees
+        ]
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": employee_data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list all employee data (full dump), resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+def list_singular_employee_details(request, id):
+    try:
+        employee = User.objects.get(id=id)
+
+        employee_data = {
+            "id": id,
+            "first_name": employee.first_name,
+            "last_name": employee.last_name,
+            "email": employee.email,
+            "phone_number": employee.phone_number,
+            "pin": employee.pin,
+            "is_active": employee.is_active,
+        }
+
+        return JsonResponse(employee_data)
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST", "PATCH"])
+@renderer_classes([JSONRenderer])
+def update_employee_details(request, id):
+    try:
+        employee = User.objects.get(id=id)
+
+        if not employee.is_active:
+            raise err.InactiveUserError
+
+        # Parse data from request
+        employee.first_name = str(request.data.get("first_name", employee.first_name))
+        employee.last_name = str(request.data.get("last_name", employee.last_name))
+        employee.email = str(request.data.get("email", employee.email))
+        employee.phone_number = str(request.data.get("phone", employee.phone_number))
+
+        if request.data.get("pin") is not None:
+            employee.set_pin(str(request.data["pin"]))
+
+        ########## CHECKS ON THIS IS NEEDED!!!
 
         employee.save()
-        return JsonResponse({"message": "Employee updated successfully"})
+        return JsonResponse(
+            {"message": "Employee updated successfully."},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
-    if request.method == "POST":
-        # Create a new employee
-        try:
-            # Parse data from request
-            data = request.data
-            first_name = data.get("first_name", "")
-            last_name = data.get("last_name", "")
-            email = data.get("email", "")
-            phone_number = data.get("phone_number", "")
-            pin = data.get("pin", "")
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveUserError as e:
+        return Response(
+            {"Error": "Cannot update an incative employee's details."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-            # You can add validation or checks here
-            if not first_name or not last_name or not email:
-                return JsonResponse(
-                    {"Error": "Required fields are missing."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
-            # Ensure email is unique
-            if User.objects.filter(email=email).exists():
-                return JsonResponse(
-                    {"Error": "Email already exists"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+@api_manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def create_new_employee(request):
+    try:
+        # Parse data from request
+        first_name = str(request.data.get("first_name", ""))
+        last_name = str(request.data.get("last_name", ""))
+        email = str(request.data.get("email", ""))
+        phone_number = str(request.data.get("phone", ""))
+        pin = str(request.data.get("pin", ""))
 
-            # Create user
-            employee = User.objects.create(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                phone_number=phone_number,
-                pin=pin,
-                is_active=True,  # or set as needed
-                is_manager=False,  # presumably a normal employee
-            )
+        ########## CHECKS ON THIS IS NEEDED!!!
 
-            employee.save()
-
+        # You can add validation or checks here
+        if not first_name or not last_name or not email:
             return JsonResponse(
-                {"message": "Employee created successfully", "id": employee.id},
-                status=status.HTTP_201_CREATED,
+                {"Error": "Required fields are missing."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
             )
-        except Exception as e:
-            logger.critical(
-                f"An error occured when generating employee details view for ID '{id}': {e}"
-            )
+
+        # Ensure email is unique
+        if User.objects.filter(email=email).exists():
             return JsonResponse(
-                {"Error": "Internal error."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"Error": "Email already exists."},
+                status=status.HTTP_409_CONFLICT,
             )
 
-    return JsonResponse(
-        {"Error": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST
-    )
+        # Create user
+        employee = User.objects.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone_number=phone_number,
+            pin=pin,
+            is_active=True,  # or set as needed
+            is_manager=False,  # presumably a normal employee
+        )
+
+        employee.save()
+
+        return JsonResponse(
+            {"message": "Employee created successfully.", "id": employee.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
-@manager_required
-def employee_details_page(request):
-    """
-    View to render the employee details HTML page.
-    """
-    get_token(request)
-    return render(request, "auth_app/employee_details.html")
+@api_manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_status(request, id):
+    try:
+        # Parse data from request
+        status_type = str(request.data.get("status_type", ""))
+
+        # You can add validation or checks here
+        if not status_type:
+            return JsonResponse(
+                {"Error": "Required status type field missing."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Get employee
+        employee = User.objects.get(id=id)
+
+        # If account deactivation
+        if status_type.lower() == "deactivation":
+            employee.is_active = False
+
+        elif status_type.lower() == "activation":
+            employee.is_active = True
+
+        else:
+            return JsonResponse(
+                {"Error": "Invalid status type to modify.", "id": employee.id},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        employee.save()
+
+        return JsonResponse(
+            {"message": "Employee status updated successfully.", "id": employee.id},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee status of type '{status_type}' for ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["POST", "PUT"])
@@ -689,6 +1010,7 @@ def clocked_state_view(request, id):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def weekly_summary_view(request):
@@ -805,6 +1127,7 @@ def weekly_summary_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
 def reset_summary_view(request):
@@ -838,6 +1161,8 @@ def reset_summary_view(request):
 
 
 @manager_required
+@ensure_csrf_cookie
+@renderer_classes([JSONRenderer])
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
@@ -857,10 +1182,10 @@ def change_pin(request, id):
             )
 
         # Get hashed pin to check they're authorised
-        old_pin = request.data.get("old_pin", None)
+        current_pin = request.data.get("current_pin", None)
 
         # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, hashed_pin=old_pin):
+        if not util.check_pin_hash(employee_id=id, pin=current_pin):
             raise err.InvalidPinError
 
         # Update the pin
@@ -869,7 +1194,7 @@ def change_pin(request, id):
         employee.save()
 
         return Response(
-            {"Success": f"Pin for account ID {id} has been updated."},
+            {"message": f"Pin for account ID {id} has been updated."},
             status=status.HTTP_200_OK,
         )
 
@@ -902,101 +1227,5 @@ def change_pin(request, id):
         logger.critical(f"An error occured when changing employee pin: {e}")
         return Response(
             {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_view(["POST", "PUT"])
-def active_employee_account(request, id):
-    try:
-        # Get new pin
-        new_pin = request.data.get("new_pin", None)
-
-        # Check if new pin exists
-        if new_pin is None:
-            return Response(
-                {"Error": "Missing new authentication pin."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Check employee is already active
-        employee = User.objects.get(id=id)
-        if employee.is_active:
-            return Response(
-                {"Error": "Account is already active."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Set their pin and activate account
-        employee.set_pin(raw_pin=new_pin)
-        employee.is_active = True
-        employee.save()
-
-        return Response(
-            {"Success": f"Account ID {id} has been activated with a new pin."},
-            status=status.HTTP_200_OK,
-        )
-
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    except Exception as e:
-        # General error capture
-        logger.critical(f"An error occured when activating an employee account: {e}")
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_view(["POST"])
-def verify_global_employee_pin(request):
-    """
-    Verifies the employee PIN against the stored PIN in KeyValueStore.
-    """
-    try:
-        entered_pin = request.data.get("pin")
-
-        if not entered_pin:
-            raise err.MissingPinError
-
-        # Fetch the stored PIN from KeyValueStore
-        stored_pin_entry = KeyValueStore.objects.filter(key="employee_pin").first()
-
-        # Check it exists
-        if stored_pin_entry is None:
-            logger.critical(
-                "Database is missing `employee_pin` from the key-value store. Please run the database script."
-            )
-            return Response(
-                {"Error": "Internal error."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        if stored_pin_entry and entered_pin == stored_pin_entry.value:
-            # Set session flag to indicate PIN has been validated
-            request.session["pin_verified"] = True
-            return Response({"success": True}, status=status.HTTP_200_OK)
-        else:
-            # PIN is incorrect
-            raise err.InvalidPinError
-
-    except err.MissingPinError:
-        return Response(
-            {"Error": "Missing authentication pin in request."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    except err.InvalidPinError:
-        return Response(
-            {"Error": "Invalid PIN."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-    except Exception as e:
-        logger.error(f"Error verifying PIN: {str(e)}")
-        return Response(
-            {"Error": "Internal server error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
