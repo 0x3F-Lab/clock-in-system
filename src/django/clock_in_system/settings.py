@@ -56,7 +56,7 @@ CSRF_COOKIE_AGE = 604800
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
 )  # Use True in production to send cookies over HTTPS only
-CSRF_COOKIE_HTTPONLY = False  # Default is False; True prevents JavaScript access
+CSRF_COOKIE_HTTPONLY = True  # Default is False; True prevents JavaScript access
 CSRF_COOKIE_SAMESITE = os.getenv(
     "CSRF_COOKIE_SAMESITE", "Lax"
 )  # Can be 'Lax', 'Strict', or 'None'
@@ -74,7 +74,7 @@ CORS_TRUSTED_ORIGINS = os.getenv(
     "CORS_TRUSTED_ORIGINS",
     "http://localhost:8000,http://localhost,http://127.0.0.1:8000,http://127.0.0.1",
 ).split(",")
-CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site
+CORS_ALLOW_CREDENTIALS = False  # App currently doesnt use any authorisation cross-site (SET TO TRUE IF ENDPOINTS ON DIFF DOMAINS I.E. API ON api.domain.com -- then withCredentials is needed for js ajax requests)
 CORS_PREFLIGHT_MAX_AGE = 43200  # Cache for 12 hours
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -150,6 +150,22 @@ DATABASES = {
     }
 }
 
+# Django cache to store the more temporary info (i.e. public holiday checks)
+if DEBUG:  # Use memory for development (saves the file permission errors)
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "django_cache",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": "/app/django_cache",
+        }
+    }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -181,12 +197,31 @@ USE_I18N = True
 USE_TZ = True
 
 
+# This is used for public holiday information: (https://date.nager.at/)
+COUNTRY_CODE = "AU"
+COUNTRY_SUBDIV_CODE = "WA"
+UTC_OFFSET = "8"  # For UTC+8
+
+
+# Rounding amount for calculating true shift length
+SHIFT_ROUNDING_MINS = 15  # Default is 15min
+
+# How long a user must wait between finishing a shift and starting a new one
+START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 30  # Default is 30m
+
+# How long a user must wait between starting a shift and finishing it
+FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
+
+# Determine maximum possible dump size for db queries (i.e. employee details list)
+MAX_DATABASE_DUMP_LIMIT = 150
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage" # Disabled for the time being
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"  # Adds hash to static files to ensure client side caching does not introduce problems when updating code.
 
 
 # Default primary key field type
