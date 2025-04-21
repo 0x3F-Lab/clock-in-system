@@ -57,9 +57,86 @@ class User(models.Model):
             return False
         return self.pin == raw_pin
 
+    def is_associated_with_store(self, store):
+        """
+        Checks if the user is associated with the given store (either way).
+        You can pass a store object or store id.
+        """
+        if isinstance(store, Store):  # Check if store is an object
+            return StoreUserAccess.objects.filter(user=self, store=store).exists()
+        elif isinstance(store, int):  # If store is an ID
+            return StoreUserAccess.objects.filter(user=self, store_id=store).exists()
+        return False
+
+
+class Store(models.Model):
+    name = models.CharField(unique=True, max_length=250, null=False)
+    code = models.CharField(
+        unique=True, max_length=10, null=False
+    )  # 4-10 character unique store code (i.e. GRNWDPZA)
+    location_street = models.CharField(max_length=255, null=True)
+    location_latitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=False
+    )  # Float (max 7 decimal places)
+    location_longitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=False
+    )
+    store_pin = models.CharField(max_length=255, null=False)
+    is_active = models.BooleanField(default=False, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+
+    def __str__(self):
+        return f"[{self.id}] {self.name}"
+
+    def set_code(self, code):
+        if not code:
+            raise ValueError("Unique store code must be provided.")
+
+        code = code.strip().upper()
+        if (len(code) < 4) or (len(code) > 10):
+            raise ValueError("Unique store code must be 4-10 characters long.")
+
+        self.code = code
+        self.save()
+
+
+class StoreUserAccess(models.Model):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="store_access"
+    )
+    store = models.ForeignKey(
+        Store, on_delete=models.CASCADE, related_name="user_access"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "store")  # Prevent duplicate entries
+
+    def __str__(self):
+        role = "Manager" if self.user.is_manager else "Employee"
+        return f"{self.user} → {self.store} ({role})"
+
+    def get_store_managers(self):
+        """
+        Returns a queryset of managers who have access to the given store.
+        """
+        return User.objects.filter(store_access__store=self, is_manager=True).distinct()
+
+    def is_associated_with_user(self, user):
+        """
+        Checks if the store is associated with the given user (either way).
+        You can pass a user object or user id.
+        """
+        if isinstance(user, User):  # Check if user is an object
+            return StoreUserAccess.objects.filter(store=self, user=user).exists()
+        elif isinstance(user, int):  # If user is an ID
+            return StoreUserAccess.objects.filter(store=self, user_id=user).exists()
+        return False
+
 
 class Activity(models.Model):
     employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
     login_time = models.DateTimeField(null=False)  # Rounds in time
     logout_time = models.DateTimeField(
         null=True
