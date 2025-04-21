@@ -770,6 +770,7 @@ def modify_account_status(request, id):
 
 
 @api_view(["POST", "PUT"])
+@renderer_classes([JSONRenderer])
 def clock_in(request, id):
     try:
         # Get location data
@@ -861,6 +862,7 @@ def clock_in(request, id):
 
 
 @api_view(["POST", "PUT"])
+@renderer_classes([JSONRenderer])
 def clock_out(request, id):
     try:
         # Check if they made any deliveries on clock out
@@ -966,6 +968,7 @@ def clock_out(request, id):
 
 
 @api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def clocked_state_view(request, id):
     """
     API view to get the clocked-in state of a user by ID.
