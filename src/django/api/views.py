@@ -249,6 +249,9 @@ def update_shift_details(request, id):
                     login_timestamp = datetime.strptime(
                         login_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
+                    login_timestamp = make_aware(
+                        login_timestamp
+                    )  # Add timezone information to timstamp
                     activity.login_time = round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
                 else:
@@ -261,6 +264,9 @@ def update_shift_details(request, id):
                     logout_timestamp = datetime.strptime(
                         logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
+                    logout_timestamp = make_aware(
+                        logout_timestamp
+                    )  # Add timezone information to timstamp
                     activity.logout_time = round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
                 else:
@@ -290,14 +296,16 @@ def update_shift_details(request, id):
                 )
 
             # Check that the login and logout times are on the same day, so a shift cant be longer than 24hours.
-            elif login_timestamp.date() != logout_timestamp.date():
+            elif (logout_timestamp) and (
+                login_timestamp.date() != logout_timestamp.date()
+            ):
                 return Response(
                     {"Error": "A shift must be finished on the same day it started."},
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
-            elif (make_aware(login_timestamp) > localtime(now())) or (
-                logout_timestamp and make_aware(logout_timestamp) > localtime(now())
+            elif (login_timestamp > localtime(now())) or (
+                logout_timestamp and logout_timestamp > localtime(now())
             ):
                 return Response(
                     {"Error": "A timestamp cannot be in the future."},
@@ -419,11 +427,17 @@ def create_new_shift(request):
         # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
         try:
             login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
+            login_timestamp = make_aware(
+                login_timestamp
+            )  # Add timezone info to timestamp
 
             if logout_timestamp:
                 logout_timestamp = datetime.strptime(
                     logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                 )
+                logout_timestamp = make_aware(
+                    logout_timestamp
+                )  # Add timezone info to timestamp
         except ValueError as e:
             return Response(
                 {
@@ -433,14 +447,14 @@ def create_new_shift(request):
             )
 
         # Check if login_timestamp is in the future
-        if make_aware(login_timestamp) > localtime(now()):
+        if login_timestamp > localtime(now()):
             return JsonResponse(
                 {"Error": "Login time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         # Check if logout_timestamp is in the future
-        if (logout_timestamp) and (make_aware(logout_timestamp) > localtime(now())):
+        if (logout_timestamp) and (logout_timestamp > localtime(now())):
             return JsonResponse(
                 {"Error": "Logout time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
