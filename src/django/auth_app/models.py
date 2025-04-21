@@ -1,3 +1,4 @@
+import random
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
 
@@ -9,9 +10,7 @@ class User(models.Model):
     phone_number = models.CharField(
         max_length=15, null=True
     )  # CharField to handle leading zeros
-    pin = models.CharField(
-        max_length=256, null=True
-    )  # Store hashed pins -- Allow nullable pin for fresh account (shouldnt be used until password is set)
+    pin = models.CharField(max_length=6, unique=True, null=True)
     password = models.CharField(
         max_length=256, null=True
     )  # Allow nullable for non-manager accounts
@@ -42,20 +41,22 @@ class User(models.Model):
         return check_password(raw_password, self.password)
 
     # Pin management
-    def set_pin(self, raw_pin: str) -> None:
+    def set_unique_pin(self):
         """
-        Sets the user's pin by hashing it.
+        Assign a unique 6-digit pin to the user.
         """
-        self.pin = raw_pin
-        self.save(update_fields=["pin"])
+        pin = f"{random.randint(0, 999999):06}"  # Format to always generate a 6-digit string
+        while User.objects.filter(pin=pin).exists():  # Check if the pin already exists
+            pin = f"{random.randint(0, 999999):06}"  # If it does, generate a new one
+        self.set_pin(pin)  # Use the method that hashes the pin and saves it
 
-    def check_pin(self, raw_pin: str) -> bool:
+    def check_pin(self, pin: str) -> bool:
         """
         Checks if the provided pin matches the stored hashed pin.
         """
         if not self.pin:
             return False
-        return self.pin == raw_pin
+        return self.pin == pin
 
     def is_associated_with_store(self, store):
         """
