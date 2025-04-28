@@ -1,0 +1,30 @@
+{% extends "auth_app/base.html" %}
+
+{% block title %}Pizza Clock-in || Home Directory{% endblock %}
+
+{% block content %}
+<div class="centered-container">
+  <h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Home Directory</u></h1>
+
+  <!-- Display Logged-in User Info -->
+  <p>Hello, <strong>{{ request.session.name|default:"Guest" }}</strong>!</p>
+
+  <div class="button-container">
+      {% if request.session.user_id %}
+      <button onclick="location.href=`{% url 'dashboard' %}`">Employee Dashboard</button>
+      {% endif %}
+
+      {% if request.session.is_manager %}
+      <button onclick="location.href=`{% url 'manager_dashboard' %}`">Manager Dashboard</button>
+      {% endif %}
+
+      <button onclick="location.href=`{% url 'home' %}`">Manual Clock-in/out</button>
+
+      {% if request.session.user_id %}
+      <a href="{% url 'logout' %}">Logout</a>
+      {% else %}
+      <a href="{% url 'login' %}">Login</a>
+      {% endif %}
+  </div>
+</div>
+{% endblock %}

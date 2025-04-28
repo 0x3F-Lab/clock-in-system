@@ -1,7 +1,9 @@
 {% extends "auth_app/base.html" %}
 {% block title %}Pizza Clock-in || Employee Details{% endblock %}
-{% block content %}
 
+
+{% block content_container_class %}my-5{% endblock %}
+{% block content %}
 <h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Employee Details</u></h1>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -85,8 +87,8 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
+
 
 {% block extra_urls %}
     listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_singular_employee_details' 0 %}".slice(0, -2),
@@ -95,6 +97,7 @@
     createEmployeeAccount: "{{ BASE_URL }}{% url 'api:create_new_employee' %}",
     modifyAccountStatus: "{{ BASE_URL }}{% url 'api:modify_account_status' 0 %}".slice(0, -2),
 {% endblock %}
+
 
 {% block customscripts %}
 {% load static %}

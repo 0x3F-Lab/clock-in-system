@@ -74,7 +74,7 @@
     </div>
   </nav>
 
-  <div id="content-container" class="container my-5">
+  <div id="content-container" class="container {% block content_container_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </div>
 
