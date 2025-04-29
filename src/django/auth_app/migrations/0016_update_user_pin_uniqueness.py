@@ -1,6 +1,7 @@
 from django.db import migrations
 import random
 
+
 def set_unique_pins(apps, schema_editor):
     User = apps.get_model('auth_app', 'User')
     users = User.objects.all()
@@ -12,6 +13,16 @@ def set_unique_pins(apps, schema_editor):
         user.pin = pin  # Directly assign the pin
         user.save()  # Save the user after setting the pin
 
+
+def reset_pins(apps, schema_editor):
+    User = apps.get_model('auth_app', 'User')
+    users = User.objects.all()
+
+    for user in users:
+        user.pin = '1234'  # Reset all pins to '1234'
+        user.save()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -19,5 +30,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(set_unique_pins),
+        migrations.RunPython(set_unique_pins, reverse_code=reset_pins),
     ]
