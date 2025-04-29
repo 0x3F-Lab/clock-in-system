@@ -1,16 +1,25 @@
 $(document).ready(function() {
   // Ensure submit button outside form works
   $('#clockingButton').on('click', () => {
-    $('#hiddenDeliveries').val($('#visibleDeliveries').val()); // Ensure the deliveries is passed to the hidden field
-    $('#manualClockingForm').submit()
+    handleManualClockingFormSubmission();
   });
 
   // Handle deliveries adjustment
   handleDeliveryAdjustment();
+
+  // Initial check of enabling/disabling clocking button
+  toggleClockingButton();
+
+  // Bind updates to field to check for clocking button updates
+  $('#id_store_pin, #id_employee_pin').on('input', toggleClockingButton);
 });
+
 
 function handleDeliveryAdjustment() {
   const $input = $('#visibleDeliveries');
+
+  // Copy the invisible delivery count field into visible field if the form was sent back (allows state transfer)
+  $input.val($('#id_deliveries').val());
 
   $('#plusButton').on('click', function (e) {
     e.preventDefault();
@@ -46,4 +55,38 @@ function handleDeliveryAdjustment() {
   if ((parseInt($input.val(), 10) || 0) == 0) {
     $('#minusButton').addClass('disabled'); 
   }
+}
+
+
+function toggleClockingButton() {
+  const storePinFilled = $('#id_store_pin').val().trim() !== "";
+  const employeePinFilled = $('#id_employee_pin').val().trim() !== "";
+
+  if (storePinFilled && employeePinFilled) {
+    $('#clockingButton').prop('disabled', false);
+  } else {
+    $('#clockingButton').prop('disabled', true);
+  }
+}
+
+
+async function handleManualClockingFormSubmission() {
+  // Ensure the deliveries is passed to the hidden field
+  $('#id_deliveries').val($('#visibleDeliveries').val());
+  
+  // Get the location data
+  const locationData = await getLocationData();
+  
+  if (!locationData) {
+    return; // Errors handled by location function
+  }
+
+  const [userLat, userLong] = locationData;
+
+  // Update the fields
+  $('#id_latitude').val(userLat);
+  $('#id_longitude').val(userLong);
+  
+  // Submit the form with the updated fields
+  $('#manualClockingForm').submit()
 }

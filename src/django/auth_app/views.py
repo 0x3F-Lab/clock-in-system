@@ -3,6 +3,7 @@ from auth_app.models import User, Store, StoreUserAccess
 from auth_app.utils import manager_required, employee_required
 from auth_app.forms import LoginForm, ManualClockingForm
 from api.controllers import handle_clock_in, handle_clock_out
+from api.utils import get_distance_from_lat_lon_in_m
 import api.exceptions as err
 from django.contrib import messages
 from django.shortcuts import render, redirect
@@ -89,6 +90,7 @@ def login(request):
     return render(request, "auth_app/login.html", {"form": form})
 
 
+@ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
 def manual_clocking(request):
     if request.method == "POST":
@@ -98,6 +100,8 @@ def manual_clocking(request):
             store_pin = form.cleaned_data.get("store_pin")
             employee_pin = form.cleaned_data.get("employee_pin")
             deliveries = form.cleaned_data.get("deliveries")
+            latitude = form.cleaned_data.get("latitude")
+            longitude = form.cleaned_data.get("longitude")
 
             # Ensure a value is returned
             if deliveries is None:
@@ -116,6 +120,17 @@ def manual_clocking(request):
                 messages.error(
                     request, "The employee is not associated with the store."
                 )
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+
+            # Ensure user is within range of the store's acceptable range
+            dist = get_distance_from_lat_lon_in_m(
+                lat1=store.location_latitude,
+                lon1=store.location_longitude,
+                lat2=latitude,
+                lon2=longitude,
+            )
+            if dist > store.allowable_clocking_dist_m:
+                messages.error(request, "Cannot clock in/out too far from the store.")
                 return render(request, "auth_app/manual_clocking.html", {"form": form})
 
             # Clock the user in/out
@@ -174,11 +189,6 @@ def manual_clocking(request):
 
     else:
         form = ManualClockingForm()
-
-    # Go back home if they're already logged in
-    user_id = request.session.get("user_id")
-    if user_id:
-        return redirect("home")
 
     return render(request, "auth_app/manual_clocking.html", {"form": form})
 

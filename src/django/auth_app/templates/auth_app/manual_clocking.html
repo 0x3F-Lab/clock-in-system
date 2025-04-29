@@ -7,7 +7,9 @@
   <div class="panel rounded shadow p-5">
     <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
       {% csrf_token %}
-      <input type="hidden" name="deliveries" id="hiddenDeliveries">
+      {{ form.deliveries }}
+      {{ form.latitude }}
+      {{ form.longitude }}
       <div class="form-group">
         <label for="{{ form.store_pin.id_for_label }}" class="text-light">Store PIN:</label>
         {{ form.store_pin }}

@@ -49,13 +49,15 @@ class ManualClockingForm(forms.Form):
         ),
     )
 
+    # Hidden input as the page uses an input outside the form which is then handled by js
     deliveries = forms.IntegerField(
-        required=False,
-        min_value=0,
-        widget=forms.NumberInput(
-            attrs={
-                "placeholder": "Deliveries (if any)",
-                "class": "form-control",
-            }
-        ),
+        required=False, min_value=0, widget=forms.HiddenInput()
+    )
+
+    latitude = forms.DecimalField(
+        required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
+    )
+
+    longitude = forms.DecimalField(
+        required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
     )
