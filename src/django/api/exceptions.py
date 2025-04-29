@@ -131,3 +131,13 @@ class ClockingOutTooSoonError(Exception):
     def __init__(self, message="Can not clock out too soon after clocking in."):
         self.message = message
         super().__init__(self.message)
+
+
+class NotAssociatedWithStore(Exception):
+    """
+    Raised when an attempt is made to interact with a store the user is not associated with.
+    """
+
+    def __init__(self, message="Can not interact with a non-associated store."):
+        self.message = message
+        super().__init__(self.message)

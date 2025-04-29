@@ -122,14 +122,19 @@ def manual_clocking(request):
             try:
                 if user.clocked_in:
                     activity = handle_clock_out(
-                        employee_id=user.id, deliveries=deliveries
+                        employee_id=user.id, deliveries=deliveries, store_id=store.id
                     )
                     messages.success(request, "Successfully clocked out.")
                 else:
                     activity = handle_clock_in(
-                        employee_id=user.id, deliveries=deliveries
+                        employee_id=user.id, deliveries=deliveries, store_id=store.id
                     )
                     messages.success(request, "Successfully clocked in.")
+            except err.NotAssociatedWithStore:
+                messages.error(
+                    request, "Cannot clock in/out to a non-associated store."
+                )
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
             except err.InactiveUserError:
                 messages.error(request, "Cannot clock in/out an inactive account.")
                 return render(request, "auth_app/manual_clocking.html", {"form": form})
@@ -157,7 +162,9 @@ def manual_clocking(request):
 
             # Reset the form
             return render(
-                request, "auth_app/manual_clocking.html", {"form": ManualClockingForm()}
+                request,
+                "auth_app/manual_clocking.html",
+                {"form": ManualClockingForm(), "activity": activity},
             )
 
         else:

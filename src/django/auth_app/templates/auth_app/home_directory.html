@@ -18,7 +18,7 @@
       <button onclick="location.href=`{% url 'manager_dashboard' %}`">Manager Dashboard</button>
       {% endif %}
 
-      <button onclick="location.href=`{% url 'home' %}`">Manual Clock-in/out</button>
+      <button onclick="location.href=`{% url 'manual_clocking' %}`">Manual Clock-in/out</button>
 
       {% if request.session.user_id %}
       <a href="{% url 'logout' %}">Logout</a>

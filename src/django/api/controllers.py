@@ -5,7 +5,7 @@ from typing import List, Tuple
 from datetime import timedelta
 from django.utils.timezone import now, localtime
 from django.db import transaction
-from auth_app.models import User, Activity, KeyValueStore
+from auth_app.models import User, Activity, KeyValueStore, Store, StoreUserAccess
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -65,12 +65,13 @@ def get_users_name(
     return users_list
 
 
-def handle_clock_in(employee_id: int) -> Activity:
+def handle_clock_in(employee_id: int, store_id: int) -> Activity:
     """
     Handles clocking in an employee by ID.
 
     Args:
         employee_id (int): The employee's ID.
+        store_id (int): The store's ID for which the clocking event will register.
 
     Returns:
         Activity: An activity object containing the information about the clock in.
@@ -89,6 +90,13 @@ def handle_clock_in(employee_id: int) -> Activity:
             elif not employee.is_active:
                 raise err.InactiveUserError
 
+            # Get the store
+            store = Store.objects.get(id=store_id)
+
+            # Check user is associated with the store
+            if not employee.is_associated_with_store(store_id):
+                raise err.NotAssociatedWithStore
+
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
             if check_new_shift_too_soon(employee_id=employee_id):
                 raise err.StartingShiftTooSoonError
@@ -102,6 +110,7 @@ def handle_clock_in(employee_id: int) -> Activity:
             # Create Activity record
             activity = Activity.objects.create(
                 employee_id=employee,
+                store=store,
                 login_timestamp=time,
                 login_time=util.round_datetime_minute(
                     time
@@ -116,7 +125,9 @@ def handle_clock_in(employee_id: int) -> Activity:
         err.AlreadyClockedInError,
         err.InactiveUserError,
         User.DoesNotExist,
+        Store.DoesNotExist,
         err.StartingShiftTooSoonError,
+        err.NotAssociatedWithStore,
     ) as e:
         # Re-raise common errors
         raise e
@@ -128,13 +139,14 @@ def handle_clock_in(employee_id: int) -> Activity:
         raise e
 
 
-def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
+def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activity:
     """
     Handles clocking out an employee by ID.
 
     Args:
         employee_id (int): The employee's ID.
         deliveries (int): Number of deliveries made during the shift.
+        store_id (int): The store's ID for which the clocking event will register.
 
     Returns:
         Activity: An activity object containing the information about the clock out.
@@ -153,9 +165,16 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
             elif not employee.is_active:
                 raise err.InactiveUserError
 
+            # Get the store
+            store = Store.objects.get(id=store_id)
+
+            # Check user is associated with the store
+            if not employee.is_associated_with_store(store_id):
+                raise err.NotAssociatedWithStore
+
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
-                employee_id=employee, logout_time__isnull=True
+                employee_id=employee, store=store, logout_time__isnull=True
             ).last()
 
             if not activity:
@@ -190,8 +209,10 @@ def handle_clock_out(employee_id: int, deliveries: int) -> Activity:
     except (
         err.AlreadyClockedOutError,
         User.DoesNotExist,
+        Store.DoesNotExist,
         err.InactiveUserError,
         err.StartingShiftTooSoonError,
+        err.NotAssociatedWithStore,
     ) as e:
         # Re-raise common errors
         raise e

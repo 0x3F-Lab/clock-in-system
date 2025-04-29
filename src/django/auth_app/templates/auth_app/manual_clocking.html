@@ -3,20 +3,44 @@
 
 
 {% block content %}
-<!-- Right Panel -->
-<div class="">
-    <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
-    <div class="deliveries flex">
-        Deliveries:
-        <button id="minusButton" class="btn" disabled>-</button>
-        <span id="deliveriesCount">0</span>
-        <button id="plusButton" class="btn" disabled>+</button>
-    </div>
+<div class="d-flex flex-column justify-content-center align-items-center vh-100">
+  <div class="panel rounded shadow p-5">
+    <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
+      {% csrf_token %}
+      <input type="hidden" name="deliveries" id="hiddenDeliveries">
+      <div class="form-group">
+        <label for="{{ form.store_pin.id_for_label }}" class="text-light">Store PIN:</label>
+        {{ form.store_pin }}
+        {% for error in form.store_pin.errors %}
+        <div class="fieldError">{{ error|escapejs }}</div>
+        {% endfor %}
+      </div>
+      <div class="form-group mt-4">
+        <label for="{{ form.employee_pin.id_for_label }}" class="text-light">Employee PIN:</label>
+        {{ form.employee_pin }}
+        {% for error in form.employee_pin.error %}
+        <div class="fieldError">{{ error|escapejs }}</div>
+        {% endfor %}
+      </div>
+      {% for error in form.non_field_errors %}
+      <div class="nonFieldErrors">{{ error|escapejs }}</div>
+      {% endfor %}
+  </form>
+  </div>
+
+  <div class="panel rounded shadow p-5 mt-5">
+      <button id="clockingButton" type="submit" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
+      <div class="deliveries flex">
+          <button id="minusButton" class="btn">-</button>
+          <input type="number" id="visibleDeliveries" value="0" min="0" class="form-control w-25">
+          <button id="plusButton" class="btn">+</button>
+      </div>
+  </div>
 </div>
 {% endblock %}
 
 
 {% block customscripts %}
 {% load static %}
-<script src="{{ BASE_URL }}{% static 'js/clocking.js' %}"></script>
+<script src="{{ BASE_URL }}{% static 'js/manual_clocking.js' %}"></script>
 {% endblock %}

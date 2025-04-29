@@ -3,6 +3,7 @@ from django import forms
 
 class LoginForm(forms.Form):
     email = forms.EmailField(
+        label="Email",
         required=True,
         widget=forms.TextInput(
             attrs={
@@ -12,6 +13,7 @@ class LoginForm(forms.Form):
         ),
     )
     password = forms.CharField(
+        label="Password",
         required=True,
         widget=forms.PasswordInput(
             attrs={
@@ -24,6 +26,7 @@ class LoginForm(forms.Form):
 
 class ManualClockingForm(forms.Form):
     store_pin = forms.CharField(
+        label="Store PIN",
         required=True,
         max_length=255,
         widget=forms.TextInput(
@@ -36,6 +39,7 @@ class ManualClockingForm(forms.Form):
     )
 
     employee_pin = forms.CharField(
+        label="Employee PIN",
         required=True,
         widget=forms.TextInput(
             attrs={

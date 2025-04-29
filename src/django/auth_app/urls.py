@@ -14,8 +14,7 @@ urlpatterns = [
         name="manage_employee_details",
     ),
     path("manage_shift_logs/", views.manage_shift_logs, name="manage_shift_logs"),
-    # path("store_select/", views.store_select, name="store_select"),
-    # path("manual_clocking/", views.manual_clocking, name="manual_clocking"),
+    path("manual_clocking/", views.manual_clocking, name="manual_clocking"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("login/", views.login, name="login"),
 ]
