@@ -110,13 +110,13 @@
 {% endblock %}
 
 {% block extra_urls %}
-    listSingularShiftDetails: "{{ BASE_URL }}{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
-    listEveryShiftDetails: "{{ BASE_URL }}{% url 'api:list_all_shift_details' %}",
-    updateShiftDetails: "{{ BASE_URL }}{% url 'api:update_shift_details' 0 %}".slice(0, -2),
-    createShift: "{{ BASE_URL }}{% url 'api:create_new_shift' %}",
+    listSingularShiftDetails: "{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
+    listEveryShiftDetails: "{% url 'api:list_all_shift_details' %}",
+    updateShiftDetails: "{% url 'api:update_shift_details' 0 %}".slice(0, -2),
+    createShift: "{% url 'api:create_new_shift' %}",
 {% endblock %}
 
 {% block customscripts %}
 {% load static %}
-<script src="{{ BASE_URL }}{% static 'js/shift_logs.js' %}"></script>
+<script src="{% static 'js/shift_logs.js' %}"></script>
 {% endblock %}
