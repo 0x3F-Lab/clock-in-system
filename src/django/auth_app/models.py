@@ -85,6 +85,9 @@ class Store(models.Model):
     location_longitude = models.DecimalField(
         max_digits=10, decimal_places=7, null=False
     )
+    allowable_clocking_dist_m = models.PositiveIntegerField(
+        null=False, default=500, help_text="Allowed clock-in distance in meters"
+    )
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
