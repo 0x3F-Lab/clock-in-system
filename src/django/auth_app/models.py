@@ -17,6 +17,9 @@ class User(models.Model):
     birth_date = models.DateField(blank=True, default=None, null=True)
     is_active = models.BooleanField(default=False, null=False)
     is_manager = models.BooleanField(default=False, null=False)
+    is_hidden = models.BooleanField(
+        default=False, null=False
+    )  # Used for admin accounts (completely hidden from manager menus)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
     clocked_in = models.BooleanField(default=False, null=False)
@@ -82,12 +85,12 @@ class Store(models.Model):
     location_longitude = models.DecimalField(
         max_digits=10, decimal_places=7, null=False
     )
-    store_pin = models.CharField(max_length=255, null=False)
+    store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):
-        return f"[{self.id}] {self.name}"
+        return f"[{self.id}] {self.code} - {self.name}"
 
     def set_code(self, code):
         if not code:
@@ -99,6 +102,23 @@ class Store(models.Model):
 
         self.code = code
         self.save()
+
+    def get_store_managers(self):
+        """
+        Returns a queryset of managers who have access to the given store.
+        """
+        return User.objects.filter(store_access__store=self, is_manager=True).distinct()
+
+    def is_associated_with_user(self, user):
+        """
+        Checks if the store is associated with the given user (either way).
+        You can pass a user object or user id.
+        """
+        if isinstance(user, User):
+            return StoreUserAccess.objects.filter(store=self, user=user).exists()
+        elif isinstance(user, int):
+            return StoreUserAccess.objects.filter(store=self, user_id=user).exists()
+        return False
 
 
 class StoreUserAccess(models.Model):
@@ -116,23 +136,6 @@ class StoreUserAccess(models.Model):
     def __str__(self):
         role = "Manager" if self.user.is_manager else "Employee"
         return f"{self.user} → {self.store} ({role})"
-
-    def get_store_managers(self):
-        """
-        Returns a queryset of managers who have access to the given store.
-        """
-        return User.objects.filter(store_access__store=self, is_manager=True).distinct()
-
-    def is_associated_with_user(self, user):
-        """
-        Checks if the store is associated with the given user (either way).
-        You can pass a user object or user id.
-        """
-        if isinstance(user, User):  # Check if user is an object
-            return StoreUserAccess.objects.filter(store=self, user=user).exists()
-        elif isinstance(user, int):  # If user is an ID
-            return StoreUserAccess.objects.filter(store=self, user_id=user).exists()
-        return False
 
 
 class Activity(models.Model):
