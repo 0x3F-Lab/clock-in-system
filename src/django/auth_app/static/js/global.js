@@ -300,6 +300,49 @@ function setPaginationValues(offset, totalCount) {
 }
 
 
+///////////////////// STORE SELECTION PANEL COMPONENT FUNCTIONS /////////////////////////
+
+function populateStoreSelection() {
+  $.ajax({
+    url: `${window.djangoURLs.listAssociatedStores}`,
+    type: "GET",
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+
+    success: function(response) {
+      const $dropdown = $('#storeSelectDropdown');
+      $dropdown.empty(); // Clear previous options
+
+      const keys = Object.keys(response);
+      if (keys.length > 0) {
+        $dropdown.append('<option value="">Select a store</option>');
+
+        keys.forEach(storeId => {
+          const storeCode = response[storeId];
+          const option = `<option value="${storeId}">${storeCode}</option>`;
+          $dropdown.append(option);
+        });
+      } else {
+        $dropdown.append('<option value="">No stores available</option>');
+      }
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to load associated stores due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to load associated stores. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+}
+
+
+
 /////////////////// LOCATION FUNCTION FOR CLOCKING IN/OUT /////////////////////////////
 
 // Get the location data of the user

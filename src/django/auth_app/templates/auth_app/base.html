@@ -109,6 +109,7 @@
         clockIn: "{{ BASE_URL }}{% url 'api:clock_in' 0 %}".slice(0, -2),
         clockOut: "{{ BASE_URL }}{% url 'api:clock_out' 0 %}".slice(0, -2),
         changePin: "{{ BASE_URL }}{% url 'api:change_pin' 0 %}".slice(0, -2),
+        listAssociatedStores: "{% url 'api:list_associated_stores' %}",
         {% block extra_urls %}{% endblock %}
     };
   </script>

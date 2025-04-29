@@ -5,9 +5,17 @@
 {% block content %}
 <h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Employee Dashboard</u></h1>
 
+{% include "components/store_selection_controller.html" %}
+
 <div id="clockingContainer">CLOCKING CONTAINER</div>
 
 <div id="shiftRoster">SHIFT ROSTER CONTAINER</div>
 
 <div id="shiftHistory">SHIFT HISTORY CONTAINER</div>
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/employee_dashboard.js' %}"></script>
 {% endblock %}
