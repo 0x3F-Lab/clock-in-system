@@ -1,0 +1,22 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Employee Dashboard{% endblock %}
+
+
+{% block content %}
+<!-- Right Panel -->
+<div class="">
+    <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
+    <div class="deliveries flex">
+        Deliveries:
+        <button id="minusButton" class="btn" disabled>-</button>
+        <span id="deliveriesCount">0</span>
+        <button id="plusButton" class="btn" disabled>+</button>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{{ BASE_URL }}{% static 'js/clocking.js' %}"></script>
+{% endblock %}

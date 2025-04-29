@@ -22,7 +22,7 @@ def str_to_bool(value):
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-LOGIN_URL = "/manager_login/"
+LOGIN_URL = "/login/"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -229,51 +229,51 @@ STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesSto
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "formatters": {
-#         "verbose": {
-#             "format": "[{levelname}] [{module}] {asctime}: {message}",
-#             "style": "{",
-#         },
-#         "simple": {
-#             "format": "[{levelname}] {message}",
-#             "style": "{",
-#         },
-#     },
-#     "handlers": {
-#         "console": {
-#             "level": "INFO",  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-#             "class": "logging.StreamHandler",
-#             "formatter": "verbose",
-#         },
-#         "file": {
-#             "level": "DEBUG",
-#             "class": "logging.FileHandler",
-#             "filename": "/app/debug.log",
-#             "formatter": "verbose",
-#         },
-#     },
-#     "loggers": {
-#         "django": {
-#             "handlers": ["console"],
-#             "level": "DEBUG",  # Minimum level this logger will process
-#             "propagate": False,
-#         },
-#         "api": {
-#             "handlers": ["console", "file"],
-#             "level": "DEBUG",
-#             "propagate": False,
-#         },
-#         "auth_app": {
-#             "handlers": ["console", "file"],
-#             "level": "DEBUG",
-#             "propagate": False,
-#         },
-#     },
-#     "root": {  # Root logger for broader debugging
-#         "handlers": ["console"],
-#         "level": "DEBUG",
-#     },
-# }
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname}] [{module}] {asctime}: {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "[{levelname}] {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": "/app/debug.log",
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "DEBUG",  # Minimum level this logger will process
+            "propagate": False,
+        },
+        "api": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "auth_app": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+    "root": {  # Root logger for broader debugging
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
+}

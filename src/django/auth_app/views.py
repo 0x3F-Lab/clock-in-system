@@ -1,7 +1,9 @@
 import logging
-from auth_app.models import User
+from auth_app.models import User, Store, StoreUserAccess
 from auth_app.utils import manager_required, employee_required
-from auth_app.forms import LoginForm
+from auth_app.forms import LoginForm, ManualClockingForm
+from api.controllers import handle_clock_in, handle_clock_out
+import api.exceptions as err
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -85,6 +87,93 @@ def login(request):
         return redirect("home")
 
     return render(request, "auth_app/login.html", {"form": form})
+
+
+@require_http_methods(["GET", "POST"])
+def manual_clocking(request):
+    if request.method == "POST":
+        form = ManualClockingForm(request.POST)
+
+        if form.is_valid():
+            store_pin = form.cleaned_data.get("store_pin")
+            employee_pin = form.cleaned_data.get("employee_pin")
+            deliveries = form.cleaned_data.get("deliveries")
+
+            # Ensure a value is returned
+            if deliveries is None:
+                deliveries = 0
+
+            # Get user and store
+            try:
+                user = User.objects.get(pin=employee_pin)
+                store = Store.objects.get(store_pin=store_pin)
+            except (User.DoesNotExist, Store.DoesNotExist):
+                messages.error(request, "Invalid PIN combination.")
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+
+            # Ensure user is assigned to the store
+            if not user.is_associated_with_store(store=store):
+                messages.error(
+                    request, "The employee is not associated with the store."
+                )
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+
+            # Clock the user in/out
+            try:
+                if user.clocked_in:
+                    activity = handle_clock_out(
+                        employee_id=user.id, deliveries=deliveries
+                    )
+                    messages.success(request, "Successfully clocked out.")
+                else:
+                    activity = handle_clock_in(
+                        employee_id=user.id, deliveries=deliveries
+                    )
+                    messages.success(request, "Successfully clocked in.")
+            except err.InactiveUserError:
+                messages.error(request, "Cannot clock in/out an inactive account.")
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+            except err.StartingShiftTooSoonError:
+                messages.error(request, "Cannot clock in too soon after clocking out.")
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+            except err.ClockingOutTooSoonError:
+                messages.error(request, "Cannot clock out too soon after clocking in.")
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+            except err.NoActiveClockingRecordError:
+                messages.error(
+                    request,
+                    "Could not clock out user due to bugged user state. State has been reset, please retry.",
+                )
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+            except Exception as e:
+                logger.warning(
+                    f"Failed to manually clock in/out employee with PIN {employee_pin} (ID: {user.id}) for store PIN {store_pin} (Code: {store.code}) due to the error: {e}"
+                )
+                messages.error(
+                    request,
+                    "Could not manually clock in/out user due to internal errors. Please retry.",
+                )
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+
+            # Reset the form
+            return render(
+                request, "auth_app/manual_clocking.html", {"form": ManualClockingForm()}
+            )
+
+        else:
+            messages.error(
+                request, "Failed to clock in/out. Please correct the errors."
+            )
+
+    else:
+        form = ManualClockingForm()
+
+    # Go back home if they're already logged in
+    user_id = request.session.get("user_id")
+    if user_id:
+        return redirect("home")
+
+    return render(request, "auth_app/manual_clocking.html", {"form": form})
 
 
 @employee_required
