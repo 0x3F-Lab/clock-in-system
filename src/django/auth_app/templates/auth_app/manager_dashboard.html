@@ -15,7 +15,7 @@
         <button onclick="location.href=`{% url 'manage_shift_logs' %}`">Shift Logs</button>
         <button onclick="location.href='#'">Date-Based Summary</button>
 
-        <form method="POST" action="{{ BASE_URL }}{% url 'logout' %}">
+        <form method="POST" action="{% url 'logout' %}">
             {% csrf_token %}
             <button type="submit" class="logout-button">Logout</button>
         </form>

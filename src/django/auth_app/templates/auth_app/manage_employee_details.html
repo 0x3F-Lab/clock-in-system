@@ -89,14 +89,14 @@
 {% endblock %}
 
 {% block extra_urls %}
-    listSingularEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_singular_employee_details' 0 %}".slice(0, -2),
-    listEveryEmployeeDetails: "{{ BASE_URL }}{% url 'api:list_all_employee_details' %}",
-    updateEmployeeDetails: "{{ BASE_URL }}{% url 'api:update_employee_details' 0 %}".slice(0, -2),
-    createEmployeeAccount: "{{ BASE_URL }}{% url 'api:create_new_employee' %}",
-    modifyAccountStatus: "{{ BASE_URL }}{% url 'api:modify_account_status' 0 %}".slice(0, -2),
+    listSingularEmployeeDetails: "{% url 'api:list_singular_employee_details' 0 %}".slice(0, -2),
+    listEveryEmployeeDetails: "{% url 'api:list_all_employee_details' %}",
+    updateEmployeeDetails: "{% url 'api:update_employee_details' 0 %}".slice(0, -2),
+    createEmployeeAccount: "{% url 'api:create_new_employee' %}",
+    modifyAccountStatus: "{% url 'api:modify_account_status' 0 %}".slice(0, -2),
 {% endblock %}
 
 {% block customscripts %}
 {% load static %}
-<script src="{{ BASE_URL }}{% static 'js/manage_employee_details.js' %}"></script>
+<script src="{% static 'js/manage_employee_details.js' %}"></script>
 {% endblock %}
