@@ -15,7 +15,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import manager_required, api_manager_required
+from auth_app.utils import manager_required, api_manager_required, api_employee_required
 from django.views.decorators.csrf import ensure_csrf_cookie
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
@@ -1024,6 +1024,43 @@ def clocked_state_view(request, id):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_employee_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_associated_stores(request):
+    """
+    API view to list all associated stores with the user.
+    THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
+    """
+    employee_id = request.session.get("user_id")
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        if not employee.is_active:
+            request.session.flush()
+            return JsonResponse(
+                {"Error": "Your account is deactivated. Please login again."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        return JsonResponse(
+            {
+                "Error": "The account you have been authenticated with is bugged. Please login again."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Get the stores and format it for return
+    stores = employee.get_associated_stores()
+    store_data = {store.id: store.code for store in stores}
+
+    return JsonResponse(store_data, status=status.HTTP_200_OK)
 
 
 @manager_required

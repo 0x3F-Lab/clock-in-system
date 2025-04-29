@@ -72,6 +72,12 @@ class User(models.Model):
             return StoreUserAccess.objects.filter(user=self, store_id=store).exists()
         return False
 
+    def get_associated_stores(self):
+        """
+        Returns a queryset of all stores this user is associated with.
+        """
+        return Store.objects.filter(user_access__user=self).distinct()
+
 
 class Store(models.Model):
     name = models.CharField(unique=True, max_length=250, null=False)

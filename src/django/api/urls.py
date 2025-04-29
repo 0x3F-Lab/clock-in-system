@@ -53,4 +53,9 @@ urlpatterns = [
         name="update_shift_details",
     ),
     path("create-shift/", views.create_new_shift, name="create_new_shift"),
+    path(
+        "list-associated-stores/",
+        views.list_associated_stores,
+        name="list_associated_stores",
+    ),
 ]

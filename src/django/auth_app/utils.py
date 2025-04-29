@@ -116,6 +116,48 @@ def employee_required(view_func):
     return _wrapped_view
 
 
+def api_employee_required(view_func):
+    """
+    Decorator to ensure the user is an authenticated employee (including managers & normal employees).
+    DOES NOT REDIRECT USER IF NOT AUTHENTICATED to be useable for api requests.
+    """
+
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        user_id = request.session.get("user_id")
+
+        # Redirect to login if they havent already
+        if not user_id:
+            return JsonResponse(
+                {"Error": "You do not have permission to access this resource."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get employee data to check state
+        try:
+            employee = User.objects.get(id=user_id)
+
+            if not employee.is_active:
+                request.session.flush()
+                return JsonResponse(
+                    {"Error": "Your account is deactivated. Please login again."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        except User.DoesNotExist as e:
+            request.session.flush()
+            return JsonResponse(
+                {
+                    "Error": "The account you have been authenticated with is bugged. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
+
+
 def create_redirection_url_for_login_including_return(request):
     """
     Function to create the redirection URL required to send the user to the login page and then return
