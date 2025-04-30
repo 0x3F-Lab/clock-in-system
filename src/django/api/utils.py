@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
-from auth_app.models import User
+from auth_app.models import User, Store
 from clock_in_system.settings import (
     COUNTRY_CODE,
     COUNTRY_SUBDIV_CODE,
@@ -202,13 +202,14 @@ def get_distance_from_lat_lon_in_m(
     return R * c
 
 
-def check_location_data(location_lat, location_long) -> bool:
+def check_location_data(location_lat, location_long, store_id) -> bool:
     """
     Check the location data given is close enough to the store
 
     Args:
-        lat: Latitude of the user.
-        lon: Longitude of the user.
+        location_lat: Latitude of the user.
+        location_lon: Longitude of the user.
+        store_id: The ID of the Store to check the location against
 
     Returns:
         bool: True if the user is close enough to the store, False otherwise.
@@ -217,6 +218,9 @@ def check_location_data(location_lat, location_long) -> bool:
     if (location_lat is None) or (location_long is None):
         raise err.MissingLocationDataError
 
+    if store_id is None:
+        raise err.MissingStoreObjectOrIDError
+
     # Convert to location floats
     try:
         location_lat = float(location_lat)
@@ -224,20 +228,22 @@ def check_location_data(location_lat, location_long) -> bool:
     except ValueError:
         raise err.BadLocationDataError
 
-    # Get store location and allowable distance
-    (store_lat, store_long) = controllers.get_store_location()
-    allowable_dist = controllers.get_clocking_range_limit()
+    # Get Store Object
+    store = Store.objects.get(id=store_id)
 
     # Obtain distance of user from store
     dist = get_distance_from_lat_lon_in_m(
-        lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        lat1=location_lat,
+        lon1=location_long,
+        lat2=store.location_latitude,
+        lon2=store.location_longitude,
     )
 
-    if dist > allowable_dist:
-        return False
+    if int(dist) <= int(store.allowable_clocking_dist_m):
+        return True
 
-    # Return True on successful location data check
-    return True
+    # Return fefault False on unsuccessful location data check
+    return False
 
 
 def check_pin_hash(employee_id: bool, pin) -> bool:

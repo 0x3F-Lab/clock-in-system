@@ -753,29 +753,30 @@ def modify_account_status(request, id):
         )
 
 
+@api_employee_required
 @api_view(["POST", "PUT"])
 @renderer_classes([JSONRenderer])
-def clock_in(request, id):
+def clock_in(request):
     try:
-        # Get location data
+        # Get location data and store
         location_lat = request.data.get("location_latitude", None)
         location_long = request.data.get("location_longitude", None)
+        store_id = request.data.get("store_id", None)
 
         # Perform general checks on location data (and if its close to store)
         if not util.check_location_data(
-            location_lat=location_lat, location_long=location_long
+            location_lat=location_lat, location_long=location_long, store_id=store_id
         ):
-            raise err.InvalidLocationError
+            return Response(
+                {"Error": "Cannot clock in too far from the store's allowed range."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
 
-        # Get hashed pin to check they're authorised
-        pin = request.data.get("pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=pin):
-            raise err.InvalidPinError
+        # Get user id from their session
+        user_id = request.session.get("user_id")
 
         # Clock the user in
-        activity = controllers.handle_clock_in(employee_id=id)
+        activity = controllers.handle_clock_in(employee_id=user_id, store_id=store_id)
 
         # Return the results after serialisation
         return Response(
@@ -786,6 +787,11 @@ def clock_in(request, id):
         # If the request is missing the location data
         return Response(
             {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.MissingStoreObjectOrIDError:
+        return Response(
+            {"Error": "Missing store id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
@@ -830,6 +836,11 @@ def clock_in(request, id):
             {"Error": f"Employee not found with the ID {id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store not found with the ID {store_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     except err.StartingShiftTooSoonError:
         # If the user is trying to start a shift too soon after their last shift
         return Response(
@@ -855,9 +866,10 @@ def clock_in(request, id):
         )
 
 
+@api_employee_required
 @api_view(["POST", "PUT"])
 @renderer_classes([JSONRenderer])
-def clock_out(request, id):
+def clock_out(request):
     try:
         # Check if they made any deliveries on clock out
         deliveries = max(
@@ -865,25 +877,27 @@ def clock_out(request, id):
             0,  # Ensure it's an integer and above 0
         )
 
-        # Get location data
+        # Get location data and store
         location_lat = request.data.get("location_latitude", None)
         location_long = request.data.get("location_longitude", None)
+        store_id = request.data.get("store_id", None)
 
         # Perform general checks on location data (and if its close to store)
         if not util.check_location_data(
-            location_lat=location_lat, location_long=location_long
+            location_lat=location_lat, location_long=location_long, store_id=store_id
         ):
-            raise err.InvalidLocationError
+            return Response(
+                {"Error": "Cannot clock out too far from the store's allowed range."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
 
-        # Get hashed pin to check they're authorised
-        pin = request.data.get("pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=pin):
-            raise err.InvalidPinError
+        # Get user id from their session
+        user_id = request.session.get("user_id")
 
         # Clock the user out
-        activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+        activity = controllers.handle_clock_out(
+            employee_id=user_id, deliveries=deliveries, store_id=store_id
+        )
 
         # Return the results after serialisation
         return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
@@ -892,6 +906,11 @@ def clock_out(request, id):
         # If the request is missing the location data
         return Response(
             {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.MissingStoreObjectOrIDError:
+        return Response(
+            {"Error": "Missing store id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
@@ -934,6 +953,11 @@ def clock_out(request, id):
         # If the user is not found, return 404
         return Response(
             {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store not found with the ID {store_id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
     except err.InactiveUserError:

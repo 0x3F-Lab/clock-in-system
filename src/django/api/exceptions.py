@@ -151,3 +151,13 @@ class InactiveStoreError(Exception):
     def __init__(self, message="Can not interact with an inactive store."):
         self.message = message
         super().__init__(self.message)
+
+
+class MissingStoreObjectOrIDError(Exception):
+    """
+    Raised when an attempt is made to interact with a store but is provided no Store Object or ID.
+    """
+
+    def __init__(self, message="Missing Store object or ID."):
+        self.message = message
+        super().__init__(self.message)

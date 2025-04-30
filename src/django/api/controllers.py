@@ -106,7 +106,7 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
                 raise err.InactiveStoreError
 
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
-            if check_new_shift_too_soon(employee_id=employee_id):
+            if check_new_shift_too_soon(employee=employee):
                 raise err.StartingShiftTooSoonError
 
             time = localtime(now())  # Consistent timestamp
@@ -185,7 +185,7 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
             activity = employee.get_last_active_activity_for_store(store=store)
 
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
-            if check_clocking_out_too_soon(employee_id=employee_id):
+            if check_clocking_out_too_soon(employee=employee):
                 raise err.ClockingOutTooSoonError
 
             time = localtime(now())

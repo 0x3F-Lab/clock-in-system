@@ -9,6 +9,11 @@ $(document).ready(function() {
 
   // Handle deliveries adjustment
   handleDeliveryAdjustment();
+
+  // Attach event to clock in/out submission to actually request the API
+  $('#clockingButton').on('click', () => {
+    clockInOutUser();
+  });
 });
 
 
@@ -53,12 +58,10 @@ function handleDeliveryAdjustment() {
 
 
 function updateClockedState() {
-  console.log("test")
   if (getSelectedStoreID() === null) {
     showNotification("Cannot update clocked state due to not having selected a store.", "danger");
     return;
   }
-  console.log("test2")
 
   $.ajax({
     url: `${window.djangoURLs.clockedState}`,
@@ -101,7 +104,8 @@ function updateClockButtonState(clockedIn) {
     $("#clockingButton")
       .text("Clock Out")
       .removeClass("btn-success")
-      .addClass("btn-danger");
+      .addClass("btn-danger")
+      .attr('data-clocking-action', 'clockout');
     $("#minusButton").removeClass('disabled');
     $("#plusButton").removeClass('disabled');
     $('#deliveries').prop('disabled', false);
@@ -109,7 +113,8 @@ function updateClockButtonState(clockedIn) {
     $("#clockingButton")
       .text("Clock In")
       .removeClass("btn-danger")
-      .addClass("btn-success");
+      .addClass("btn-success")
+      .attr('data-clocking-action', 'clockin');
     $("#minusButton").addClass('disabled');
     $("#plusButton").addClass('disabled');
     $('#deliveries').prop('disabled', true); // Also disable the input field
@@ -120,4 +125,93 @@ function updateClockButtonState(clockedIn) {
 function updateClockinInformation(login_time, login_timestamp) {
   console.log(login_time);
   console.log(login_timestamp);
+}
+
+
+async function clockInOutUser() {
+  const clockingIn = ($("#clockingButton").attr('data-clocking-action')?.toLowerCase() === 'clockin')
+  const deliveries = ensureSafeInt($('#deliveries').val(), 0, null);
+
+  // Get location data using the helper function
+  const locationData = await getLocationData();
+  
+  if (!locationData) {
+    return;
+  }
+
+  const [userLat, userLong] = locationData;
+
+  showSpinner();
+
+  if (clockingIn) {
+    $.ajax({
+      url: `${window.djangoURLs.clockIn}`,
+      type: "PUT",
+      headers: {
+        'X-CSRFToken': getCSRFToken(), // Include CSRF token
+      },
+      contentType: 'application/json',
+      data: JSON.stringify({
+        store_id: getSelectedStoreID(),
+        location_latitude: userLat,
+        location_longitude: userLong,
+      }),
+  
+      success: function(response) {
+        hideSpinner();
+
+        // Update the clocked state and subsequently the clocking buttons
+        updateClockedState();
+        showNotification("Successfully clocked in.");
+      },
+  
+      error: function(jqXHR, textStatus, errorThrown) {
+        hideSpinner();
+        // Extract the error message from the API response if available
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to clock in due to internal server errors. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock in. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
+      }
+    });
+
+  } else {
+    $.ajax({
+      url: `${window.djangoURLs.clockOut}`,
+      type: "PUT",
+      headers: {
+        'X-CSRFToken': getCSRFToken(), // Include CSRF token
+      },
+      contentType: 'application/json',
+      data: JSON.stringify({
+        store_id: getSelectedStoreID(),
+        location_latitude: userLat,
+        location_longitude: userLong,
+        deliveries: deliveries,
+      }),
+  
+      success: function(response) {
+        hideSpinner();
+
+        // Update the clocked state and subsequently the clocking buttons
+        updateClockedState();
+        showNotification("Successfully clocked out.");
+      },
+  
+      error: function(jqXHR, textStatus, errorThrown) {
+        hideSpinner();
+        // Extract the error message from the API response if available
+        let errorMessage;
+        if (jqXHR.status == 500) {
+          errorMessage = "Failed to clock out due to internal server errors. Please try again.";
+        } else {
+          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock out. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
+      }
+    });
+  }
 }
