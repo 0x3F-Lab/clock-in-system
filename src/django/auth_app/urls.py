@@ -14,6 +14,6 @@ urlpatterns = [
     ),
     path("manage_shift_logs/", views.manage_shift_logs, name="manage_shift_logs"),
     path("manual_clocking/", views.manual_clocking, name="manual_clocking"),
-    path("dashboard/", views.dashboard, name="dashboard"),
+    path("dashboard/", views.employee_dashboard, name="dashboard"),
     path("login/", views.login, name="login"),
 ]

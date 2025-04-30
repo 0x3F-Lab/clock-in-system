@@ -8,6 +8,7 @@
     <h2 class="fw-bold text-center">Employee Login</h2>
     <form method="POST" action="{% url 'login' %}" class="login-form mt-4">
         {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.GET.next }}">
         <div class="form-group">
           <label for="{{ form.email.id_for_label }}" class="text-light">Email:</label>
           {{ form.email }}

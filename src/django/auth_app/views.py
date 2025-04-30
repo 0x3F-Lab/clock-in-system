@@ -59,14 +59,16 @@ def login(request):
                 messages.error(request, "Invalid credentials.")
                 return render(request, "auth_app/login.html", {"form": form})
 
-            # Check password and if the user is a manager
-            if user.check_password(password) and user.is_manager:
+            # Check password
+            if user.check_password(password):
                 # Log the user in by setting session data
                 request.session["user_id"] = user.id
                 request.session["is_manager"] = user.is_manager
                 request.session["name"] = user.first_name
 
-                next_url = request.GET.get("next") or request.POST.get("next")
+                next_url = request.POST.get("next", None) or request.GET.get(
+                    "next", None
+                )
                 if next_url:
                     return redirect(next_url)
                 else:
