@@ -1,4 +1,5 @@
 import random
+from typing import Union
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
 
@@ -22,7 +23,6 @@ class User(models.Model):
     )  # Used for admin accounts (completely hidden from manager menus)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
-    clocked_in = models.BooleanField(default=False, null=False)
 
     def __str__(self):
         return f"[{self.id}] {self.first_name} {self.last_name} ({self.email})"
@@ -61,7 +61,42 @@ class User(models.Model):
             return False
         return self.pin == pin
 
-    def is_associated_with_store(self, store):
+    def is_clocked_in(self, store=None) -> bool:
+        """
+        Returns True if the user is currently clocked in.
+        If a store is provided (Store object or ID), it checks for that store only.
+        If no store is given, checks across all associated stores.
+        """
+        active_activities = Activity.objects.filter(
+            employee=self,
+            logout_time__isnull=True,
+        )
+
+        if store:
+            if isinstance(store, int):
+                active_activities = active_activities.filter(store_id=store)
+            elif isinstance(store, Store):
+                active_activities = active_activities.filter(store=store)
+
+        return active_activities.exists()
+
+    def get_last_active_activity_for_store(self, store):
+        """
+        Returns the current active (ongoing) Activity for this user limited to the provided store.
+        Provide 'store' as the Store object or its ID.
+        Returns None if no active activity exists.
+        """
+        activities = Activity.objects.filter(employee=self, logout_time__isnull=True)
+
+        # Filter by store
+        if isinstance(store, int):
+            activities = activities.filter(store_id=store)
+        elif isinstance(store, Store):
+            activities = activities.filter(store=store)
+
+        return activities.last()  # Returns None if no match
+
+    def is_associated_with_store(self, store) -> bool:
         """
         Checks if the user is associated with the given store (either way).
         You can pass a store object or store id.
@@ -152,7 +187,7 @@ class StoreUserAccess(models.Model):
 
 
 class Activity(models.Model):
-    employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    employee = models.ForeignKey(User, on_delete=models.CASCADE)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
     login_time = models.DateTimeField(null=False)  # Rounds in time
     logout_time = models.DateTimeField(
