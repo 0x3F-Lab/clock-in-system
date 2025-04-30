@@ -60,7 +60,7 @@ def list_all_shift_details(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get the account requesting this info's user object
+        # Get the account info of the user requesting these shifts
         user_id = request.session.get("user_id")
         try:
             user = User.objects.get(id=user_id)
@@ -155,6 +155,16 @@ def list_singular_shift_details(request, id):
     try:
         act = Activity.objects.get(id=id)
 
+        # Get the account info of the user requesting this shift info
+        user_id = request.session.get("user_id")
+        user = User.objects.get(id=user_id)
+
+        if not user.is_associated_with_store(store=act.store):
+            return Response(
+                {"Error": "Cannot get shift information for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         activity_data = {
             "id": id,
             "login_timestamp": (
@@ -177,6 +187,13 @@ def list_singular_shift_details(request, id):
         return Response(
             {"Error": f"Shift with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except User.DoesNotExist as e:
+        return Response(
+            {
+                "Error": "Failed to get your account's information for authorisation. Please login again."
+            },
+            status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
         # Handle any unexpected exceptions
