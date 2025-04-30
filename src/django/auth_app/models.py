@@ -72,8 +72,8 @@ class User(models.Model):
         )
 
         if store:
-            if isinstance(store, int):
-                active_activities = active_activities.filter(store_id=store)
+            if isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
+                active_activities = active_activities.filter(store_id=int(store))
             elif isinstance(store, Store):
                 active_activities = active_activities.filter(store=store)
 
@@ -88,8 +88,8 @@ class User(models.Model):
         activities = Activity.objects.filter(employee=self, logout_time__isnull=True)
 
         # Filter by store
-        if isinstance(store, int):
-            activities = activities.filter(store_id=store)
+        if isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
+            activities = activities.filter(store_id=int(store))
         elif isinstance(store, Store):
             activities = activities.filter(store=store)
 
@@ -102,8 +102,12 @@ class User(models.Model):
         """
         if isinstance(store, Store):  # Check if store is an object
             return StoreUserAccess.objects.filter(user=self, store=store).exists()
-        elif isinstance(store, int):  # If store is an ID
-            return StoreUserAccess.objects.filter(user=self, store_id=store).exists()
+        elif isinstance(store, int) or (
+            isinstance(store, str) and store.isdigit()
+        ):  # If store is an ID
+            return StoreUserAccess.objects.filter(
+                user=self, store_id=int(store)
+            ).exists()
         return False
 
     def get_associated_stores(self):
@@ -163,8 +167,10 @@ class Store(models.Model):
         """
         if isinstance(user, User):
             return StoreUserAccess.objects.filter(store=self, user=user).exists()
-        elif isinstance(user, int):
-            return StoreUserAccess.objects.filter(store=self, user_id=user).exists()
+        elif isinstance(user, int) or (isinstance(user, str) and user.isdigit()):
+            return StoreUserAccess.objects.filter(
+                store=self, user_id=int(user)
+            ).exists()
         return False
 
 

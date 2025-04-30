@@ -67,13 +67,10 @@ function updateClockedState() {
   }
 
   $.ajax({
-    url: `${window.djangoURLs.clockedState}`,
+    url: `${window.djangoURLs.clockedState}?store_id=${getSelectedStoreID()}`,
     type: "GET",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
-    data: {
-      store_id: getSelectedStoreID(),
     },
 
     success: function(response) {

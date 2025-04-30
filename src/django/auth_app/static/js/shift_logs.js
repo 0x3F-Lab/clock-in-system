@@ -1,6 +1,11 @@
 $(document).ready(function() {
-  // Populate the table with all users once the page has loaded
-  updateShiftLogsTable();
+  // Update store selection component
+  populateStoreSelection();
+
+  // Populate the table with all users once the stores have loaded completely
+  $('#storeSelectDropdown').on('change', function() {
+    updateShiftLogsTable();
+  });
 
   // Handle actionable buttons on the page (i.e., edit, create, delete)
   handleActionButtons();
@@ -92,7 +97,7 @@ function updateShiftLogsTable() {
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
     type: "GET",
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
@@ -106,12 +111,9 @@ function updateShiftLogsTable() {
 
       // If there are no users returned
       if (shifts.length <= 0) {
-        if ($shiftLogsTable.html().length > 0) {
-          showNotification("Obtained no shifts when updating table.... Keeping table.", "danger");
-        } else {
-          $shiftLogsTable.html(`<tr><td colspan="5">No shifts found.</td></tr>`);
+          $shiftLogsTable.html(`<tr><td colspan="9" class="table-danger">No shifts found.</td></tr>`);
           showNotification("Obtained no shifts when updating table.", "danger");
-        }
+          setPaginationValues(0, 1); // Set pagination values to indicate an empty table
 
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
@@ -138,8 +140,7 @@ function updateShiftLogsTable() {
           $shiftLogsTable.append(row)
         });
         // No need to update edit buttons as that is done dynamically
-        // Set pagination values
-        setPaginationValues(req.offset, req.total);
+        setPaginationValues(req.offset, req.total); // Set pagination values
       }
     },
 

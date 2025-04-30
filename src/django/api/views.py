@@ -49,9 +49,40 @@ def list_all_shift_details(request):
         except ValueError:
             limit = 25
 
+        # Get store id
+        store_id = request.GET.get("store_id", None)
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing required store_id field in query params. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the account requesting this info's user object
+        user_id = request.session.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Cannot get shift information for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
-        activities_query = Activity.objects.select_related("employee").order_by(
-            "-login_timestamp", "employee_id__first_name", "employee_id__last_name"
+        activities_query = (
+            Activity.objects.select_related("employee")
+            .filter(store_id=int(store_id))
+            .order_by("-login_timestamp", "employee__first_name", "employee__last_name")
         )
 
         # Get total
@@ -961,7 +992,7 @@ def clocked_state_view(request):
         if store_id is None:
             return Response(
                 {
-                    "Error": "Missing required store_id field to obtain clocked state. Please retry."
+                    "Error": "Missing required store_id field in query params to obtain clocked state. Please retry."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
