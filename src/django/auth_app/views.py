@@ -135,15 +135,13 @@ def manual_clocking(request):
 
             # Clock the user in/out
             try:
-                if user.clocked_in:
+                if user.is_clocked_in(store=store):
                     activity = handle_clock_out(
                         employee_id=user.id, deliveries=deliveries, store_id=store.id
                     )
                     messages.success(request, "Successfully clocked out.")
                 else:
-                    activity = handle_clock_in(
-                        employee_id=user.id, deliveries=deliveries, store_id=store.id
-                    )
+                    activity = handle_clock_in(employee_id=user.id, store_id=store.id)
                     messages.success(request, "Successfully clocked in.")
             except err.NotAssociatedWithStoreError:
                 messages.error(

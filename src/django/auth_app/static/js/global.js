@@ -335,6 +335,9 @@ function populateStoreSelection() {
       if (keys.length <= 1) {
         $('#storeSelectionController').addClass('d-none');
       }
+      
+      // Trigger initial update events linked to store selection menu
+      $dropdown.trigger('change');
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
@@ -351,6 +354,18 @@ function populateStoreSelection() {
 }
 
 
+function getSelectedStoreID() {
+  const storeID = $('#storeSelectDropdown').val();
+
+  // Return null if storeId is empty, null, or undefined
+  if (!storeID || storeID.trim() === "") {
+    return null;
+  }
+
+  // Return as an int for easy use
+  return parseInt(storeID.trim(), 10);
+}
+
 
 /////////////////// LOCATION FUNCTION FOR CLOCKING IN/OUT /////////////////////////////
 
@@ -360,7 +375,7 @@ async function getLocationData() {
     // Check geolocation permissions proactively
     const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
     
-    if (permissionStatus.state === 'denied') {
+    if (permissionStatus.state.toLowerCase() === 'denied') {
       showNotification("Location access is denied. Please enable it in your browser settings.");
       return null;
     }

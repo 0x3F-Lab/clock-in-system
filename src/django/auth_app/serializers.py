@@ -35,6 +35,7 @@ class SummarySerializer(serializers.ModelSerializer):
 # Used purely for the clocked state API endpoint
 class ClockedInfoSerializer(serializers.Serializer):
     employee_id = serializers.IntegerField()
+    store_id = serializers.IntegerField()
     name = serializers.CharField()
     clocked_in = serializers.BooleanField()
     login_time = serializers.DateTimeField(required=False, allow_null=True)

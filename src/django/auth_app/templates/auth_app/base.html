@@ -105,7 +105,6 @@
   <script>
     window.djangoURLs = {
         listEmployeeNames: "{% url 'api:list_users_name_view' %}",
-        clockedState: "{% url 'api:clocked_state_view' 0 %}".slice(0, -2),
         clockIn: "{% url 'api:clock_in' 0 %}".slice(0, -2),
         clockOut: "{% url 'api:clock_out' 0 %}".slice(0, -2),
         changePin: "{% url 'api:change_pin' 0 %}".slice(0, -2),

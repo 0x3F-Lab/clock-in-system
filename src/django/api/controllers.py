@@ -82,19 +82,23 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
             # Fetch the employee (errors if they dont exist)
             employee = User.objects.get(id=employee_id)
 
+            # Get the store
+            store = Store.objects.get(id=store_id)
+
+            # Check if user is inactive
+            if not employee.is_active:
+                raise err.InactiveUserError
+
             # Check if already clocked in
-            if employee.clocked_in:
+            elif employee.is_clocked_in(store=store):
                 raise err.AlreadyClockedInError
 
             # Check if user is inactive
             elif not employee.is_active:
                 raise err.InactiveUserError
 
-            # Get the store
-            store = Store.objects.get(id=store_id)
-
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store_id):
+            if not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
             # Check the store is active
@@ -104,10 +108,6 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
             if check_new_shift_too_soon(employee_id=employee_id):
                 raise err.StartingShiftTooSoonError
-
-            # Update employee clocked-in status
-            employee.clocked_in = True
-            employee.save()
 
             time = localtime(now())  # Consistent timestamp
 
@@ -162,19 +162,19 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
             # Fetch the employee (errors if they dont exist)
             employee = User.objects.get(id=employee_id)
 
-            # Check if not clocked in
-            if not employee.clocked_in:
-                raise err.AlreadyClockedOutError
-
-            # Check if user is inactive
-            elif not employee.is_active:
-                raise err.InactiveUserError
-
             # Get the store
             store = Store.objects.get(id=store_id)
 
+            # Check if user is inactive
+            if not employee.is_active:
+                raise err.InactiveUserError
+
+            # Check if not clocked in
+            elif not employee.is_clocked_in(store=store):
+                raise err.AlreadyClockedOutError
+
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store_id):
+            if not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
             # Check the store is active
@@ -182,25 +182,11 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
                 raise err.InactiveStoreError
 
             # Fetch the last active clock-in record
-            activity = Activity.objects.filter(
-                employee_id=employee, store=store, logout_time__isnull=True
-            ).last()
-
-            if not activity:
-                force_fix_user_bugged_clocked_state(
-                    employee=employee, employee_id=employee_id
-                )
-                raise err.NoActiveClockingRecordError(
-                    "No active clock-in activity found. Resetting user's clocked state."
-                )
+            activity = employee.get_last_active_activity_for_store(store=store)
 
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
             if check_clocking_out_too_soon(employee_id=employee_id):
                 raise err.ClockingOutTooSoonError
-
-            # Update employee clocked-out status and Activity record
-            employee.clocked_in = False
-            employee.save()
 
             time = localtime(now())
             activity.logout_timestamp = time
@@ -226,12 +212,6 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
     ) as e:
         # Re-raise common errors
         raise e
-    except err.NoActiveClockingRecordError:
-        # If the user has no active clocking record (their clock-in activity is missing)
-        logger.warning(
-            f"Failed to clock out employee with ID {employee_id} due to a missing active clocking record (activity). Their clocked state has been reset to ensure they don't remain bugged."
-        )
-        raise
     except Exception as e:
         logger.error(
             f"Failed to clock out employee with ID {employee_id}, resulting in the error: {str(e)}"
@@ -239,82 +219,46 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
         raise e
 
 
-def force_fix_user_bugged_clocked_state(employee: User, employee_id: int) -> bool:
+def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
     """
-    Forcefully fixes a user's bugged clocked state due to missing activity records.
-
-    Args:
-        employee (User): The User instance whose clocked-in state needs correction.
-        employee_id (int): The ID of the user whpse clocked-in state needs correction.
-        BOTH MUST BE GIVEN!
-
-    Returns:
-        bool: Whether the user's state has been reset or not
-    """
-    try:
-        # Ensure they dont have an active activity record before resetting state
-        activity = Activity.objects.filter(
-            employee_id=employee_id, logout_time__isnull=True
-        ).last()
-
-        if activity:
-            return False
-
-        # Reset user's clocked state
-        employee.clocked_in = False
-        employee.save()
-        logger.info(
-            f"Fixed clocked state for ID {employee.id} by resetting to 'False'."
-        )
-
-        return True
-
-    except Exception as e:
-        logger.critical(f"Failed to fix clocked state for {employee.id}: {str(e)}")
-        raise Exception(
-            f"Failed to fix clocked state for {employee.id} by resetting their state."
-        )
-
-
-def get_employee_clocked_info(employee_id: int) -> dict:
-    """
-    Get detailed clocked information for an employee.
+    Get detailed clocked information for an employee for a certain store.
 
     Args:
         employee_id (int): The ID of the employee.
+        store_id (int): The ID of the store the employee is associated to.
 
     Returns:
         dict: A dictionary containing employee info and clocked-in details if applicable.
     """
     try:
         employee = User.objects.get(id=employee_id)
+        store = Store.objects.get(id=store_id)
 
         # Check employee is not inactive
         if not employee.is_active:
             raise err.InactiveUserError
 
+        # Check store is not inactive
+        if not store.is_active:
+            raise err.InactiveStoreError
+
         # Form the basic info
+        clocked_in = employee.is_clocked_in(store=store)
         full_name = f"{employee.first_name} {employee.last_name}"
         info = {
             "employee_id": employee_id,
+            "store_id": store_id,
             "name": full_name,
-            "clocked_in": employee.clocked_in,
+            "clocked_in": clocked_in,
         }
 
         # If the employee is logged in, add the activity info
-        if employee.clocked_in:
+        if clocked_in:
             # Fetch the last active clock-in record for the employee
-            activity = Activity.objects.filter(
-                employee_id=employee, logout_time__isnull=True
-            ).last()
+            activity = employee.get_last_active_activity_for_store(store=store)
 
             if not activity:
-                force_fix_user_bugged_clocked_state(
-                    employee=employee, employee_id=employee_id
-                )
-                raise err.NoActiveClockingRecordError(
-                    "No active clock-in activity found. Resetting user's clocked state."
-                )
+                raise err.NoActiveClockingRecordError
 
             # Add the clock-in time to the info
             info["login_time"] = activity.login_time
@@ -322,12 +266,18 @@ def get_employee_clocked_info(employee_id: int) -> dict:
 
         return info
 
-    except (User.DoesNotExist, Activity.DoesNotExist, err.InactiveUserError) as e:
+    except (
+        User.DoesNotExist,
+        Store.DoesNotExist,
+        Activity.DoesNotExist,
+        err.InactiveUserError,
+        err.InactiveStoreError,
+    ) as e:
         raise e  # Re-raise error to be caught in view
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.warning(
-            f"Failed to get clocked status for employee with ID {employee_id} due to a missing active clocking record (activity). Their clocked state has been reset to ensure they don't remain bugged."
+            f"Failed to get clocked status for employee with ID {employee_id} due to a missing active clocking record (activity)."
         )
         raise
     except Exception as e:
@@ -401,13 +351,13 @@ def get_clocking_range_limit() -> float:
 
 
 def check_new_shift_too_soon(
-    employee_id: int, limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS
+    employee: User, limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS
 ) -> bool:
     """
     Check if the user attempts to start a new shift within time limits of their last clock-out.
 
     Args:
-        employee_id (int): The ID of the employee.
+        employee (User): The User object of the employee.
         limit_mins (int): The minimum interval in minutes required between clock-out and clock-in. (Default = 30m)
 
     Returns:
@@ -416,7 +366,7 @@ def check_new_shift_too_soon(
     try:
         # Get the last clock-out activity for the employee
         last_activity = Activity.objects.filter(
-            employee_id=employee_id, logout_timestamp__isnull=False
+            employee=employee, logout_timestamp__isnull=False
         ).last()
 
         if not last_activity:
@@ -434,18 +384,18 @@ def check_new_shift_too_soon(
 
     except Exception as e:
         raise Exception(
-            f"Error checking if employee {employee_id} is attempting to start a shift too soon: {str(e)}"
+            f"Error checking if employee {employee.id} is attempting to start a shift too soon: {str(e)}"
         )
 
 
 def check_clocking_out_too_soon(
-    employee_id: int, limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+    employee: User, limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
 ) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.
 
     Args:
-        employee_id (int): The ID of the employee.
+        employee (User): The User object of the employee.
         limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 15m)
                           Ensure this value equals that of the rounding minutes for shift lengths.
 
@@ -455,7 +405,7 @@ def check_clocking_out_too_soon(
     try:
         # Get the last activity for the employee
         last_activity = (
-            Activity.objects.filter(employee_id=employee_id)
+            Activity.objects.filter(employee=employee)
             .order_by("-login_timestamp")
             .first()
         )  # Order by latest clock-in/out
@@ -475,7 +425,7 @@ def check_clocking_out_too_soon(
 
     except Exception as e:
         raise Exception(
-            f"Error checking if employee {employee_id} is attempting to clock in/out too soon: {str(e)}"
+            f"Error checking if employee {employee.id} is attempting to clock in/out too soon: {str(e)}"
         )
 
 

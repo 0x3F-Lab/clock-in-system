@@ -7,7 +7,7 @@ import api.exceptions as err
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
-from auth_app.models import User, Activity
+from auth_app.models import User, Activity, Store
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from django.db import transaction
@@ -97,7 +97,7 @@ def list_all_shift_details(request):
             limit = 25
 
         # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
-        activities_query = Activity.objects.select_related("employee_id").order_by(
+        activities_query = Activity.objects.select_related("employee").order_by(
             "-login_timestamp", "employee_id__first_name", "employee_id__last_name"
         )
 
@@ -116,8 +116,8 @@ def list_all_shift_details(request):
             data.append(
                 {
                     "id": act.id,
-                    "employee_first_name": act.employee_id.first_name,
-                    "employee_last_name": act.employee_id.last_name,
+                    "employee_first_name": act.employee.first_name,
+                    "employee_last_name": act.employee.last_name,
                     "login_time": (
                         localtime(act.login_time).strftime("%H:%M")
                         if act.login_time
@@ -214,24 +214,7 @@ def update_shift_details(request, id):
 
         # If DELETING the activity
         if request.method == "DELETE":
-            # Get user
-            user = activity.employee_id
-
-            # Check if user's clocked in state needs to be modified before deleting a shift (i.e. if the shift isnt finished)
-            if not activity.logout_timestamp or not activity.logout_time:
-                other_active_shifts = (
-                    Activity.objects.filter(employee_id=user)
-                    .exclude(id=activity.id)
-                    .filter(Q(logout_time__isnull=True))
-                )  # Dont check timestamp as "clocked_in" uses mainly clockout_time to determine shift length and account clocked state
-
-                # Only change clocked_in to False if no other active shifts
-                if not other_active_shifts.exists():
-                    user.clocked_in = False
-
-            # Ensure both databases are saved successfully, otherwise roll the other back.
             with transaction.atomic():
-                user.save()
                 activity.delete()
 
             return JsonResponse(
@@ -284,7 +267,6 @@ def update_shift_details(request, id):
 
             # Get the required variables
             now_date = localtime(now()).date()
-            user = activity.employee_id
 
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
             if (not logout_timestamp) and (login_timestamp.date() != now_date):
@@ -311,16 +293,6 @@ def update_shift_details(request, id):
                     {"Error": "A timestamp cannot be in the future."},
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
-
-            # Check when deleting clockout time for a shift the same day, the user's clocked state needs to be modified.
-            elif (not logout_timestamp) and (login_timestamp.date() == now_date):
-                if not user.clocked_in:
-                    user.clocked_in = True
-
-            # Check when setting clock out time, ensure user is not clocked in (ensure its shift on same day otherwise editing older shifts will modify user for newer shifts)
-            elif logout_timestamp and (login_timestamp.date() == now_date):
-                if user.clocked_in:
-                    user.clocked_in = False
 
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
@@ -360,10 +332,8 @@ def update_shift_details(request, id):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Ensure both databases are saved successfully, otherwise roll the other back.
             with transaction.atomic():
                 activity.save()
-                user.save()
 
             return JsonResponse(
                 {"message": "Shift updated successfully."},
@@ -498,7 +468,7 @@ def create_new_shift(request):
 
         # Create the new activity record
         activity = Activity.objects.create(
-            employee_id=employee,
+            employee=employee,
             login_time=login_time,
             logout_time=logout_time,
             login_timestamp=login_timestamp,
@@ -707,8 +677,8 @@ def create_new_employee(request):
             email=email,
             phone_number=phone_number,
             pin=pin,
-            is_active=True,  # or set as needed
-            is_manager=False,  # presumably a normal employee
+            is_active=True,
+            is_manager=False,
         )
 
         employee.save()
@@ -957,9 +927,7 @@ def clock_out(request, id):
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         return Response(
-            {
-                "Error": "No active clock-in record found. The account's state has been reset."
-            },
+            {"Error": "No active clock-in record found. Please contact an admin."},
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
     except User.DoesNotExist:
@@ -1001,15 +969,33 @@ def clock_out(request, id):
         )
 
 
+@api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def clocked_state_view(request, id):
+def clocked_state_view(request):
     """
-    API view to get the clocked-in state of a user by ID.
+    API view to get the clocked-in state of a user by ID for a given store (given in request data).
+    THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
     """
     try:
+        # Get the store information
+        store_id = request.query_params.get("store_id", None)
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing required store_id field to obtain clocked state. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the user object from the session information
+        employee = util.api_get_user_object_from_session(request)
+
         # Get the user's info
-        info = controllers.get_employee_clocked_info(employee_id=id)
+        info = controllers.get_employee_clocked_info(
+            employee_id=employee.id, store_id=store_id
+        )
 
         # Return the info
         return Response(ClockedInfoSerializer(info).data, status=status.HTTP_200_OK)
@@ -1017,23 +1003,42 @@ def clocked_state_view(request, id):
     except User.DoesNotExist:
         # Return a 404 if the user does not exist
         return Response(
-            {"Error": f"User not found with ID {id}."}, status=status.HTTP_404_NOT_FOUND
+            {
+                "Error": "The account you have been authenticated with is bugged. Please login again."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        # Return a 404 if the user does not exist
+        return Response(
+            {"Error": "Cannot get clocked info relating to a non-existant store."},
+            status=status.HTTP_404_NOT_FOUND,
         )
     except err.InactiveUserError:
         # If the user is trying to view the data of an inactive account
         return Response(
-            {"Error": "Cannot view information from an inactive account."},
+            {"Error": "Your account is deactivated. Please login again."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": f"Can't get clocked information related to a inactive store."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": f"Can't get clocked information related to a store your unassociated to."
+            },
+            status=status.HTTP_409_CONFLICT,
         )
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
-            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record. Their state has been reset"
+            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record."
         )
         return Response(
-            {
-                "Error": "No active clock-in record found. The account's state has been reset."
-            },
+            {"Error": "No active clock-in record found. Please contact an admin."},
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
     except Exception as e:
@@ -1054,25 +1059,21 @@ def list_associated_stores(request):
     API view to list all associated stores with the user.
     THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
     """
-    employee_id = request.session.get("user_id")
-
-    # Get employee data to check state
     try:
-        employee = User.objects.get(id=employee_id)
-
-        if not employee.is_active:
-            request.session.flush()
-            return JsonResponse(
-                {"Error": "Your account is deactivated. Please login again."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-    except User.DoesNotExist as e:
-        request.session.flush()
-        return JsonResponse(
+        # Get the user object from the session information
+        employee = util.api_get_user_object_from_session(request)
+    except User.DoesNotExist:
+        # Return a 404 if the user does not exist
+        return Response(
             {
                 "Error": "The account you have been authenticated with is bugged. Please login again."
             },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveUserError:
+        # If the user is trying to view the data of an inactive account
+        return Response(
+            {"Error": "Your account is deactivated. Please login again."},
             status=status.HTTP_403_FORBIDDEN,
         )
 
@@ -1132,7 +1133,7 @@ def weekly_summary_view(request):
                 if e_id.strip().isdigit()
             ]
             if employee_ids:
-                activities = activities.filter(employee_id__in=employee_ids)
+                activities = activities.filter(employee__in=employee_ids)
 
         # Calculate hours by converting shift_length_mins to hours
         # Note: Exclude public holiday hours from weekday/weekend columns

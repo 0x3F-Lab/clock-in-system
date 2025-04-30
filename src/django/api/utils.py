@@ -103,6 +103,29 @@ def is_public_holiday(
     return False
 
 
+def api_get_user_object_from_session(request):
+    # Get user's id
+    employee_id = request.session.get("user_id")
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        if not employee.is_active:
+            request.session.flush()
+            raise err.InactiveUserError
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        logger.error(
+            f"User object could not be obtained from user id in the session info. Session infomration: {request.session}"
+        )
+        raise e
+
+    # Return employee object
+    return employee
+
+
 # Function to round the time to the nearest specified minute
 def round_datetime_minute(dt, rounding_mins=SHIFT_ROUNDING_MINS):
     # Calculate the total number of minutes since midnight
