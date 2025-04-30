@@ -74,9 +74,9 @@ class User(models.Model):
 
     def get_associated_stores(self):
         """
-        Returns a queryset of all stores this user is associated with.
+        Returns a queryset of all ACTIVE stores this user is associated with.
         """
-        return Store.objects.filter(user_access__user=self).distinct()
+        return Store.objects.filter(user_access__user=self, is_active=True).distinct()
 
 
 class Store(models.Model):
@@ -114,9 +114,13 @@ class Store(models.Model):
 
     def get_store_managers(self):
         """
-        Returns a queryset of managers who have access to the given store.
+        Returns a queryset of ACTIVE managers who have access to the given store.
         """
-        return User.objects.filter(store_access__store=self, is_manager=True).distinct()
+        return User.objects.filter(
+            store_access__store=self,
+            is_manager=True,
+            is_active=True,  # Only include active users
+        ).distinct()
 
     def is_associated_with_user(self, user):
         """

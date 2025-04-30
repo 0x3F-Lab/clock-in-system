@@ -866,6 +866,16 @@ def clock_in(request, id):
             {"Error": f"Can't start a shift too soon after your last shift."},
             status=status.HTTP_409_CONFLICT,
         )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": f"Can't clock in to a store you aren't associated to."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": f"Can't clock in to an inactive store."},
+            status=status.HTTP_409_CONFLICT,
+        )
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(f"An error occured when clocking in employee ID '{id}': {e}")
@@ -968,6 +978,16 @@ def clock_out(request, id):
         # If the user is trying to clock out too soon after clocking in
         return Response(
             {"Error": f"Can't clock out too soon after clocking in."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": f"Can't clock out to a store you aren't associated to."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": f"Can't clock out to an inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:

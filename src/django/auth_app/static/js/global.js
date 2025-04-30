@@ -316,8 +316,7 @@ function populateStoreSelection() {
 
       const keys = Object.keys(response);
       if (keys.length > 0) {
-        $dropdown.append('<option value="">Select a store</option>');
-
+        $('#storeSelectionController').removeClass('d-none'); // Ensure whole component is visible
         keys.forEach(storeId => {
           const storeCode = response[storeId];
           const option = `<option value="${storeId}">${storeCode}</option>`;
@@ -325,6 +324,16 @@ function populateStoreSelection() {
         });
       } else {
         $dropdown.append('<option value="">No stores available</option>');
+        $('#storeSelectionController').removeClass('d-none');
+        showNotification("Your account has no stores associated to it. Please contact a store manager to fix this.", "danger");
+      }
+
+      // Ensure first store/option is selected (regardless if there are no stores)
+      $dropdown.prop('selectedIndex', 0);
+
+      // Hide the whole store selection component if only one store in the list
+      if (keys.length <= 1) {
+        $('#storeSelectionController').addClass('d-none');
       }
     },
 

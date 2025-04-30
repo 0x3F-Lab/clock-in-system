@@ -133,11 +133,21 @@ class ClockingOutTooSoonError(Exception):
         super().__init__(self.message)
 
 
-class NotAssociatedWithStore(Exception):
+class NotAssociatedWithStoreError(Exception):
     """
     Raised when an attempt is made to interact with a store the user is not associated with.
     """
 
     def __init__(self, message="Can not interact with a non-associated store."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InactiveStoreError(Exception):
+    """
+    Raised when an attempt is made to interact with a store that is inactive.
+    """
+
+    def __init__(self, message="Can not interact with an inactive store."):
         self.message = message
         super().__init__(self.message)

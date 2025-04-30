@@ -145,7 +145,7 @@ def manual_clocking(request):
                         employee_id=user.id, deliveries=deliveries, store_id=store.id
                     )
                     messages.success(request, "Successfully clocked in.")
-            except err.NotAssociatedWithStore:
+            except err.NotAssociatedWithStoreError:
                 messages.error(
                     request, "Cannot clock in/out to a non-associated store."
                 )
@@ -158,6 +158,9 @@ def manual_clocking(request):
                 return render(request, "auth_app/manual_clocking.html", {"form": form})
             except err.ClockingOutTooSoonError:
                 messages.error(request, "Cannot clock out too soon after clocking in.")
+                return render(request, "auth_app/manual_clocking.html", {"form": form})
+            except err.InactiveStoreError:
+                messages.error(request, "Cannot clock in/out to an inactive store.")
                 return render(request, "auth_app/manual_clocking.html", {"form": form})
             except err.NoActiveClockingRecordError:
                 messages.error(

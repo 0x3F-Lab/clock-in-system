@@ -95,7 +95,11 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
 
             # Check user is associated with the store
             if not employee.is_associated_with_store(store_id):
-                raise err.NotAssociatedWithStore
+                raise err.NotAssociatedWithStoreError
+
+            # Check the store is active
+            if not store.is_active:
+                raise err.InactiveStoreError
 
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
             if check_new_shift_too_soon(employee_id=employee_id):
@@ -127,7 +131,8 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
         User.DoesNotExist,
         Store.DoesNotExist,
         err.StartingShiftTooSoonError,
-        err.NotAssociatedWithStore,
+        err.NotAssociatedWithStoreError,
+        err.InactiveStoreError,
     ) as e:
         # Re-raise common errors
         raise e
@@ -170,7 +175,11 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
 
             # Check user is associated with the store
             if not employee.is_associated_with_store(store_id):
-                raise err.NotAssociatedWithStore
+                raise err.NotAssociatedWithStoreError
+
+            # Check the store is active
+            if not store.is_active:
+                raise err.InactiveStoreError
 
             # Fetch the last active clock-in record
             activity = Activity.objects.filter(
@@ -212,7 +221,8 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
         Store.DoesNotExist,
         err.InactiveUserError,
         err.StartingShiftTooSoonError,
-        err.NotAssociatedWithStore,
+        err.NotAssociatedWithStoreError,
+        err.InactiveStoreError,
     ) as e:
         # Re-raise common errors
         raise e
