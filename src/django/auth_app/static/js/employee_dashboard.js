@@ -129,6 +129,9 @@ function updateClockinInformation(login_time, login_timestamp) {
 
 
 async function clockInOutUser() {
+  // Show the spinner to indicate the page is waiting for informaiton
+  showSpinner();
+
   const clockingIn = ($("#clockingButton").attr('data-clocking-action')?.toLowerCase() === 'clockin')
   const deliveries = ensureSafeInt($('#deliveries').val(), 0, null);
 
@@ -136,12 +139,11 @@ async function clockInOutUser() {
   const locationData = await getLocationData();
   
   if (!locationData) {
+    hideSpinner();
     return;
   }
 
   const [userLat, userLong] = locationData;
-
-  showSpinner();
 
   if (clockingIn) {
     $.ajax({
