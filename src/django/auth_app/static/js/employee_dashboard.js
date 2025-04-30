@@ -58,6 +58,9 @@ function handleDeliveryAdjustment() {
 
 
 function updateClockedState() {
+  // Remove Clocked In Info if it exists
+  $('#clockedInInfoDiv').empty();
+
   if (getSelectedStoreID() === null) {
     showNotification("Cannot update clocked state due to not having selected a store.", "danger");
     return;
@@ -78,7 +81,9 @@ function updateClockedState() {
       updateClockButtonState(response.clocked_in);
 
       // Add the clockin information if the user is clocked in
-      updateClockinInformation(response.login_time, response.login_timestamp);
+      if (response.clocked_in) {
+        updateClockinInformation(response.login_time, response.login_timestamp);
+      }
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
@@ -123,8 +128,11 @@ function updateClockButtonState(clockedIn) {
 
 
 function updateClockinInformation(login_time, login_timestamp) {
-  console.log(login_time);
-  console.log(login_timestamp);
+  $infoDiv = $('#clockedInInfoDiv');
+
+  // Append the times
+  $infoDiv.append(`<div>Registered Start Time: ${formatTime(login_timestamp)}</div>`);
+  $infoDiv.append(`<div>Actual Start Time: ${formatTime(login_time)}</div>`);
 }
 
 
@@ -216,4 +224,18 @@ async function clockInOutUser() {
       }
     });
   }
+}
+
+
+//////////////////////////// HELPER FUNCTIONS ///////////////////////////////////////
+
+
+// Format time function
+function formatTime(text) {
+  if (!text) { return ""; }
+
+  const date = new Date(text);
+  const options = { hour: 'numeric', minute: 'numeric', hour12: true };
+  
+  return new Intl.DateTimeFormat('en-US', options).format(date);
 }

@@ -1,157 +1,38 @@
 {% extends "auth_app/base.html" %}
 {% block title %}Pizza Clock-in || Employee Dashboard{% endblock %}
+
+
 {% block content %}
+<h1 class="text-center flex-grow-1 mt-3 mb-5 fw-bolder"><u>Employee Dashboard</u></h1>
 
-<div class="employee-dashboard">
-  <!-- Left Panel -->
-  <div class="left-panel">
-      <!-- Trigger Button for Modal -->
-      <div class="mb-3">
-        <h1 id="selectedEmployee">No Selected Employee</h1>
-        <button id="selectUserButton" class="btn btn-primary">Select Employee</button>
-      </div>
-      <p>Local Time: <span id="localTime">--:--</span></p>
-      <div id="shiftInfo"></div>
-  </div>
+<div class="d-flex flex-column align-items-center">
+  {% include "components/store_selection_controller.html" %}
 
-  <!-- Right Panel -->
-  <div class="right-panel">
-      <button id="clockButton" type="button" class="btn btn-success p-3 fs-4" disabled>Clock In</button>
-      <div class="deliveries flex">
-          Deliveries:
-          <button id="minusButton" class="btn" disabled>-</button>
-          <span id="deliveriesCount">0</span>
-          <button id="plusButton" class="btn" disabled>+</button>
-      </div>
-  </div>
-
-  <!-- User Selection Modal -->
-  <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="userModalLabel">Select a User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <input type="text" id="userSearchBar" class="form-control" placeholder="Search for a user..." />
-                </div>
-                <ul id="userList" class="list-group"></ul>
-            </div>
-        </div>
+  <div id="clockingContainer" class="panel rounded shadow p-5 mt-5">
+    <div id="clockedInInfoDiv" class="mb-3"></div>
+    <button id="clockingButton" type="submit" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In</button>
+    <div class="deliveries flex">
+        <button id="minusButton" class="btn disabled">-</button>
+        <input type="number" id="deliveries" value="0" min="0" class="form-control w-25" disabled>
+        <button id="plusButton" class="btn disabled">+</button>
     </div>
   </div>
-</div>
 
-<!-- Authentication PIN Modal -->
-<div class="modal fade" id="authPinModal" tabindex="-1" aria-labelledby="authPinModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="authPinModalLabel">Enter Your PIN</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Please confirm your identity by entering your PIN.</p>
-        <div class="mb-3">
-          <input type="password" id="authPinInput" class="form-control" placeholder="Enter PIN" maxlength="32">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" id="authPinSubmit" class="btn btn-primary">Submit</button>
-      </div>
-    </div>
-  </div>
-</div>
+  <div id="shiftRoster" class="mt-5">SHIFT ROSTER CONTAINER</div>
 
-<!-- Change User PIN Modal -->
-<div class="modal fade" id="changePinModal" tabindex="-1" aria-labelledby="changePinModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="changePinModalLabel">Change Pin</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form id="changePinForm">
-          <div class="mb-3">
-            <label for="changePinSearchBar" class="form-label">Search Your Name</label>
-            <input
-              type="text"
-              class="form-control"
-              id="changePinSearchBar"
-              placeholder="Type to filter your name..."
-            >
-          </div>
-          <ul
-            id="changePinUserList"
-            class="list-group mb-3"
-            style="max-height: 200px; overflow-y: auto;"
-          ></ul>
-          <input
-            type="hidden"
-            id="changePinSelectedUserID"
-            name="changePinSelectedUserID"
-            value=""
-          >
-          <div class="mb-3">
-            <label for="currentPin" class="form-label">Current Pin</label>
-            <input
-              type="password"
-              class="form-control"
-              id="currentPin"
-              name="currentPin"
-              required
-            >
-          </div>
-          <div class="mb-3">
-            <label for="newPin" class="form-label">New Pin</label>
-            <input
-              type="password"
-              class="form-control"
-              id="newPin"
-              name="newPin"
-              required
-            >
-          </div>
-          <div class="mb-3">
-            <label for="confirmNewPin" class="form-label">Confirm New Pin</label>
-            <input
-              type="password"
-              class="form-control"
-              id="confirmNewPin"
-              name="confirmNewPin"
-              required
-            >
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button
-          type="button"
-          class="btn btn-secondary"
-          data-bs-dismiss="modal"
-        >
-          Close
-        </button>
-        <button
-          id="submitChangePin"
-          type="button"
-          class="btn btn-primary"
-        >
-          Submit
-        </button>
-      </div>
-    </div>
-  </div>
+  <div id="shiftHistory" class="mt-5">SHIFT HISTORY CONTAINER</div>
 </div>
+{% endblock %}
 
+
+{% block extra_urls %}
+    clockedState: "{% url 'api:clocked_state' %}",
+    clockIn: "{% url 'api:clock_in' %}",
+    clockOut: "{% url 'api:clock_out' %}",
 {% endblock %}
 
 
 {% block customscripts %}
 {% load static %}
-<script src="{% static 'js/clocking.js' %}"></script>
+<script src="{% static 'js/employee_dashboard.js' %}"></script>
 {% endblock %}

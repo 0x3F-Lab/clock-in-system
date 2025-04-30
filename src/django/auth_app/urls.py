@@ -4,10 +4,9 @@ from auth_app import views
 urlpatterns = [
     path("", views.home_directory, name="home"),
     path("clocking", views.employee_dashboard, name="clocking"),
-    path("manager_login/", views.manager_login, name="manager_login"),
     path("logout/", views.logout, name="logout"),
     path("manager_dashboard/", views.manager_dashboard, name="manager_dashboard"),
-    path("employee_dashboard/", views.employee_dashboard, name="employee_dashboard"),
+    path("dashboard/", views.employee_dashboard, name="dashboard"),
     path(
         "manage_employee_details/",
         views.manage_employee_details,

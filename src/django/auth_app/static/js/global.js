@@ -375,7 +375,7 @@ async function getLocationData() {
     // Check geolocation permissions proactively
     const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
     
-    if (permissionStatus.state.toLowerCase() === 'denied') {
+    if (permissionStatus.state === 'denied') {
       showNotification("Location access is denied. Please enable it in your browser settings.");
       return null;
     }

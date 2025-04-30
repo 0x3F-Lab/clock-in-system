@@ -246,26 +246,6 @@ def check_location_data(location_lat, location_long, store_id) -> bool:
     return False
 
 
-def check_pin_hash(employee_id: bool, pin) -> bool:
-    # Check if pin was given
-    if pin is None:
-        raise err.MissingPinError
-
-    # Get employee
-    employee = User.objects.get(id=employee_id)
-
-    # Check that they aren't inactive
-    if not employee.is_active:
-        raise err.InactiveUserError
-
-    # Check if pin is valid
-    if employee.check_pin(raw_pin=pin):
-        return True
-
-    # Return False by default on failing check
-    return False
-
-
 def str_to_bool(val):
     # Ensure the value is a boolean by converting properly
     return str(val).lower() in ["true", "1", "yes"]

@@ -15,56 +15,6 @@ from clock_in_system.settings import (
 logger = logging.getLogger("api")
 
 
-def get_users_name(
-    only_active: bool = True,
-    ignore_managers: bool = False,
-    order: bool = True,
-    order_by_first_name: bool = True,
-    ignore_clocked_in: bool = False,
-) -> List[Tuple[int, str]]:
-    """
-    Fetches a list of users with their IDs and full names.
-
-    Args:
-        only_active (bool): Include only active users if True.
-        ignore_managers (bool): Exclude managers if True.
-        ignore_clocked_in (bool): Wether to ignore users who are clocked in.
-        order (bool): Whether to order by the user's names, otherwise order by their id.
-        order_by_first_name (bool): Order by first name if True, otherwise by last name.
-
-    Returns:
-        List[Tuple[int, str]]: A list of tuples where each tuple contains user ID and full name.
-    """
-    # Filter base query
-    filters = {"is_active": only_active}
-    if ignore_managers:
-        filters["is_manager"] = False
-    if ignore_clocked_in:
-        filters["clocked_in"] = False
-
-    # Fetch filtered users
-    users = User.objects.filter(**filters)
-
-    if not users:
-        raise User.DoesNotExist("No employees found.")
-
-    # Determine ordering
-    if order:
-        if order_by_first_name:
-            # First order by first_name, then by last_name
-            users = users.order_by("first_name", "last_name")
-        else:
-            # First order by last_name, then by first_name
-            users = users.order_by("last_name", "first_name")
-
-    # Convert users to compact list
-    users_list = list()
-    for user in users:
-        users_list.append((user.id, f"{user.first_name} {user.last_name}"))
-
-    return users_list
-
-
 def handle_clock_in(employee_id: int, store_id: int) -> Activity:
     """
     Handles clocking in an employee by ID.
@@ -113,7 +63,7 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
 
             # Create Activity record
             activity = Activity.objects.create(
-                employee_id=employee,
+                employee=employee,
                 store=store,
                 login_timestamp=time,
                 login_time=util.round_datetime_minute(
@@ -286,68 +236,6 @@ def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
             f"Failed to get clocked information of employee with ID {employee_id}, resulting in the error: {str(e)}"
         )
         raise e  # Re-raise error to be caught in view
-
-
-def get_store_location() -> tuple[float, float]:
-    """
-    Gets the store's latitude and longitude from the database to be used to check
-    the employee's distance from the store before clocking them in/out.
-
-    Returns:
-        (float, float): The latitude and longitude of the store.
-    """
-    try:
-        # Query the values for the specific keys
-        store_lat = KeyValueStore.objects.get(key="store_latitude").value
-        store_long = KeyValueStore.objects.get(key="store_longitude").value
-
-        # Convert the values to floats (if stored as strings)
-        latitude = float(store_lat)
-        longitude = float(store_long)
-
-        return latitude, longitude
-
-    except KeyValueStore.DoesNotExist:
-        # If the lat or long keys dont exist in the database
-        logger.critical(
-            "Store latitude or longitude does not exist within database. Please run the setup script."
-        )
-        raise
-    except ValueError as e:
-        # If the value stored in the database for the location is not valid
-        logger.critical(
-            "Store latitude or longitude values in the database are not valid. Please run the setup script to correct."
-        )
-        raise ValueError(f"Invalid value for store location: {e}")
-
-
-def get_clocking_range_limit() -> float:
-    """
-    Gets the maximum allowable distance a user can be from the store's location
-    for them to be able to clock in/out.
-
-    Returns:
-        float: The distance in meters the user can be from the store.
-    """
-    try:
-        # Query the value for the allowable distance
-        dist = KeyValueStore.objects.get(key="allowable_clocking_dist_m").value
-
-        # Convert the value to floats (if stored as strings)
-        return float(dist)
-
-    except KeyValueStore.DoesNotExist:
-        # If the lat or long keys dont exist in the database
-        logger.critical(
-            "Allowable distance limit for clocking does not exist within database. Please run the setup script."
-        )
-        raise
-    except ValueError as e:
-        # If the value stored in the database for the location is not valid
-        logger.critical(
-            "Allowable distance limit for clocking in the database is not valid. Please run the setup script to correct."
-        )
-        raise ValueError(f"Invalid value for store location: {e}")
 
 
 def check_new_shift_too_soon(

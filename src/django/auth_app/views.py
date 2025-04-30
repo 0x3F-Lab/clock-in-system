@@ -197,8 +197,8 @@ def manual_clocking(request):
 @employee_required
 @ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
-def dashboard(request):
-    return render(request, "auth_app/employee_dashboard_v2.html")
+def employee_dashboard(request):
+    return render(request, "auth_app/employee_dashboard.html")
 
 
 @ensure_csrf_cookie
@@ -214,13 +214,6 @@ def manager_dashboard(request):
     user_id = request.session.get("user_id")
     user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
     return render(request, "auth_app/manager_dashboard.html", {"user": user})
-
-
-@ensure_csrf_cookie
-@require_GET
-def employee_dashboard(request):
-    # Render employee dashboard
-    return render(request, "auth_app/employee_dashboard.html")
 
 
 @manager_required
