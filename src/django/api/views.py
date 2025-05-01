@@ -1190,17 +1190,17 @@ def clock_out(request):
     except err.ClockingOutTooSoonError:
         # If the user is trying to clock out too soon after clocking in
         return Response(
-            {"Error": f"Can't clock out too soon after clocking in."},
+            {"Error": "Can't clock out too soon after clocking in."},
             status=status.HTTP_409_CONFLICT,
         )
     except err.NotAssociatedWithStoreError:
         return Response(
-            {"Error": f"Can't clock out to a store you aren't associated to."},
+            {"Error": "Can't clock out to a store you aren't associated to."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
         return Response(
-            {"Error": f"Can't clock out to an inactive store."},
+            {"Error": "Can't clock out to an inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:
@@ -1267,13 +1267,13 @@ def clocked_state_view(request):
         )
     except err.InactiveStoreError:
         return Response(
-            {"Error": f"Can't get clocked information related to a inactive store."},
+            {"Error": "Can't get clocked information related to a inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
     except err.NotAssociatedWithStoreError:
         return Response(
             {
-                "Error": f"Can't get clocked information related to a store your unassociated to."
+                "Error": "Can't get clocked information related to a store your unassociated to."
             },
             status=status.HTTP_409_CONFLICT,
         )
@@ -1307,6 +1307,13 @@ def list_associated_stores(request):
     try:
         # Get the user object from the session information
         employee = util.api_get_user_object_from_session(request)
+
+        # Get the stores and format it for return
+        stores = employee.get_associated_stores()
+        store_data = {store.id: store.code for store in stores}
+
+        return JsonResponse(store_data, status=status.HTTP_200_OK)
+
     except User.DoesNotExist:
         # Return a 404 if the user does not exist
         return Response(
@@ -1321,12 +1328,71 @@ def list_associated_stores(request):
             {"Error": "Your account is deactivated. Please login again."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to get a user's associated stores, resulting in the error: {e}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
-    # Get the stores and format it for return
-    stores = employee.get_associated_stores()
-    store_data = {store.id: store.code for store in stores}
 
-    return JsonResponse(store_data, status=status.HTTP_200_OK)
+@api_employee_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_recent_shifts(request):
+    try:
+        user_id = request.session.get("user_id")
+        store_id = request.query_params.get("store_id", None)
+        limit = int(request.query_params.get("limit_days", "7"))
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing store_id from the request params. Please try again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the shifts
+        shifts = controllers.get_users_recent_shifts(
+            user_id=user_id, store_id=store_id, time_limit_days=limit
+        )
+
+        return JsonResponse(shifts, safe=False, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response(
+            {"Error": "Error converting 'limit_days' to an int, was it set correctly?"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {
+                "Error": "Failed to get the store information, was the store_id set correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Can't get shift information for stores your unassociated with."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Can't get shift information for inactive stores."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when trying to get recent shifts for employee ID {user_id} associated to the store ID {store_id}, resulting in the error: {e}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @manager_required

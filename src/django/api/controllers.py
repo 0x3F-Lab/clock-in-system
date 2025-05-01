@@ -295,6 +295,86 @@ def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
         raise e  # Re-raise error to be caught in view
 
 
+def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 7):
+    """
+    Retrieve the recent shifts a user has completed or is currently working on
+    within the last `time_limit_days` (default is 7, max is 15, min is 1).
+
+    Returns:
+        List[Dict]: A list of dictionaries with keys:
+            - employee_id
+            - store_id
+            - store_code
+            - login_time
+            - logout_time (can be None)
+            - deliveries (can be None)
+            - is_public_holiday
+            - is_modified
+    """
+    try:
+        # Ensure limit is within expectations
+        time_limit_days = min(
+            max(int(time_limit_days), 1), 15
+        )  # Max 15 days, min 1 day
+
+        # Get objects
+        user = User.objects.get(id=user_id)
+        store = Store.objects.get(id=store_id)
+
+        # Validate store and user states
+        if not user.is_active:
+            raise err.InactiveUserError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not user.is_associated_with_store(store=store):
+            raise err.NotAssociatedWithStoreError
+
+        # Time threshold
+        time_threshold = now() - timedelta(days=time_limit_days)
+
+        # Fetch relevant activity records
+        shifts = (
+            Activity.objects.select_related("store")
+            .filter(employee=user, store=store, login_timestamp__gte=time_threshold)
+            .order_by("-login_timestamp")
+        )
+
+        # Format results
+        result = []
+        for shift in shifts:
+            result.append(
+                {
+                    "employee_id": shift.employee.id,
+                    "store_id": shift.store.id,
+                    "store_code": shift.store.code,
+                    "login_time": shift.login_timestamp,
+                    "logout_time": (
+                        shift.logout_timestamp if shift.logout_timestamp else None
+                    ),
+                    "deliveries": shift.deliveries if shift.deliveries else None,
+                    "is_public_holiday": shift.is_public_holiday,
+                    "is_modified": util.is_activity_modified(shift),
+                }
+            )
+
+        return result
+
+    except (
+        User.DoesNotExist,
+        Store.DoesNotExist,
+        err.InactiveUserError,
+        err.NotAssociatedWithStoreError,
+        err.InactiveStoreError,
+    ) as e:
+        # Re-raise common errors
+        raise e
+    except Exception as e:
+        logger.error(
+            f"Failed to get user ID {user_id}'s recent shift information up to a limit of {time_limit_days} days for the store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        raise e
+
+
 def check_new_shift_too_soon(
     employee: User, limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS
 ) -> bool:

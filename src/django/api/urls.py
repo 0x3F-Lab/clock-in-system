@@ -7,7 +7,8 @@ urlpatterns = [
     path("clock-in/", views.clock_in, name="clock_in"),
     path("clock-out/", views.clock_out, name="clock_out"),
     path("change-pin/<int:id>/", views.change_pin, name="change_pin"),
-    path("clocked_state/", views.clocked_state_view, name="clocked_state"),
+    path("clocked-state/", views.clocked_state_view, name="clocked_state"),
+    path("list-recent-shifts/", views.list_recent_shifts, name="list_recent_shifts"),
     # JSON API endpoint for weekly summary data
     path("weekly-summary/", views.weekly_summary_view, name="weekly_summary_view"),
     # HTML page that uses JS to fetch from the above API

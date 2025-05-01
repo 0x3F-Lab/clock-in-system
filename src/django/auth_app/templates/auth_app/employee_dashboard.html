@@ -21,7 +21,14 @@
 
   <div id="shiftRoster" class="mt-5">SHIFT ROSTER CONTAINER</div>
 
-  <div id="shiftHistory" class="mt-5">SHIFT HISTORY CONTAINER</div>
+  <div id="shiftHistory" class="panel rounded shadow p-5 mt-5 text-center">
+    <h3 class="mb-3 fw-semibold">Shift History</h3>
+    <div id="shiftHistoryContainer"
+       class="rounded p-3 bg-secondary d-flex justify-content-evenly flex-wrap overflow-auto text-dark gap-3"
+       style="max-width: 100%; max-height: 400px;">
+      <!-- Shift blocks will be dynamically inserted here -->
+    </div>
+  </div>
 
   <div class="panel rounded shadow p-5 mt-5 text-center">
     <div id="userAccountInfo text-wrap">
@@ -119,6 +126,7 @@
     clockIn: "{% url 'api:clock_in' %}",
     clockOut: "{% url 'api:clock_out' %}",
     modifyAccountInfo: "{% url 'api:update_account_information' %}",
+    listRecentShifts: "{% url 'api:list_recent_shifts' %}",
 {% endblock %}
 
 

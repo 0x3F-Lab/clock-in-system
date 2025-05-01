@@ -8,7 +8,7 @@ from urllib.parse import urlencode
 from datetime import timedelta
 from django.core.cache import cache
 from django.utils import timezone
-from auth_app.models import User, Store
+from auth_app.models import User, Store, Activity
 from clock_in_system.settings import (
     COUNTRY_CODE,
     COUNTRY_SUBDIV_CODE,
@@ -244,6 +244,14 @@ def check_location_data(location_lat, location_long, store_id) -> bool:
 
     # Return fefault False on unsuccessful location data check
     return False
+
+
+def is_activity_modified(activity: Activity):
+    """
+    Determine if a activity has been modified after clocking.
+    """
+    clock_time = activity.logout_timestamp or activity.login_timestamp
+    return activity.last_updated_at > clock_time if clock_time else False
 
 
 def str_to_bool(val):

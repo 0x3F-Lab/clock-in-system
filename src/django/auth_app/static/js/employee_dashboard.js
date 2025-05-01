@@ -1,7 +1,8 @@
 $(document).ready(function() {
-  // Attach event to update clocked state whenever selected store changes
+  // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
     updateClockedState();
+    updateShiftHistory();
   });
 
   // Update store selection component
@@ -182,6 +183,7 @@ async function clockInOutUser() {
 
         // Update the clocked state and subsequently the clocking buttons
         updateClockedState();
+        updateShiftHistory();
         showNotification("Successfully clocked in.");
       },
   
@@ -235,6 +237,74 @@ async function clockInOutUser() {
     });
   }
 }
+
+
+//////////////////////// SHIFT HISTORY & SHIFT ROSTER HANDLING //////////////////////////////
+
+function updateShiftHistory() {
+  $('#shiftHistoryContainer').empty();
+
+  if (getSelectedStoreID() === null) {
+    showNotification("Cannot update shift history due to not having selected a store.", "danger");
+    $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">Failed to load shifts.</div>');
+    return;
+  }
+
+  $.ajax({
+    url: `${window.djangoURLs.listRecentShifts}?store_id=${getSelectedStoreID()}`,
+    type: "GET",
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+
+    success: function(response) {
+      if (response.length === 0) {
+        $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">No shifts found within last 7 days.</div>');
+        return;
+      }
+
+      response.forEach(shift => {
+        const loginDate = new Date(shift.login_time);
+        const logoutDate = shift.logout_time ? new Date(shift.logout_time) : null;
+
+        const dateStr = loginDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
+        const loginTimeStr = loginDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        const logoutTimeStr = logoutDate
+          ? logoutDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          : "N/A";
+
+        // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
+        const background = !logoutDate ? 'bg-success-subtle' : (shift.is_modified ? 'bg-danger-subtle' : (shift.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
+        const deliveriesDiv = shift.deliveries ? `<div><i class="fas fa-truck me-2"></i>${shift.deliveries}</div>` : ''
+
+        const card = `
+          <div class="p-3 m-2 rounded ${background} shadow-sm text-center" style="min-width: 220px;">
+            <div><strong>${shift.store_code}</strong></div>
+            <div>${shift.is_public_holiday ? `<em>${dateStr}</em>` : dateStr}</div>
+            <div><span class="fw-medium">Start:</span> ${loginTimeStr}</div>
+            <div><span class="fw-medium">End:</span> ${logoutTimeStr}</div>
+            ${deliveriesDiv}
+          </div>
+        `;
+
+        $('#shiftHistoryContainer').append(card);
+      });
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">Failed to load shifts.</div>');
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to get shift history for selected store due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to get shift history for selected store. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+}
+
 
 
 //////////////////////// ACOUNT INFORMATION HANDLING ////////////////////////////////
