@@ -14,6 +14,11 @@ urlpatterns = [
     path("weekly-summary-page/", views.weekly_summary_page, name="weekly_summary_page"),
     path("reset-summary/", views.reset_summary_view, name="reset_summary_view"),
     path(
+        "list-store-employee-names/",
+        views.list_store_employee_names,
+        name="list_store_employee_names",
+    ),
+    path(
         "list-employee-details/",
         views.list_all_employee_details,
         name="list_all_employee_details",

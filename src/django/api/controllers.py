@@ -1,7 +1,7 @@
 import logging
 import api.exceptions as err
 import api.utils as util
-from typing import List, Tuple
+from typing import Union, Dict
 from datetime import timedelta
 from django.utils.timezone import now, localtime
 from django.db import transaction
@@ -13,6 +13,63 @@ from clock_in_system.settings import (
 
 
 logger = logging.getLogger("api")
+
+
+def get_store_employee_names(
+    store_id: Union[int, str, Store],
+    only_active: bool = True,
+    ignore_managers: bool = False,
+    order: bool = True,
+    order_by_first_name: bool = True,
+    ignore_clocked_in: bool = False,
+) -> Dict[int, str]:
+    """
+    Fetches a list of users with their IDs and full names.
+
+    Args:
+        store_id (int OR string OR Store object): The ID of the store to list all employees for. MUST BE PROVIDED.
+        only_active (bool): Include only active users if True.
+        ignore_managers (bool): Exclude managers if True.
+        ignore_clocked_in (bool): Wether to ignore users who are clocked in.
+        order (bool): Whether to order by the user's names, otherwise order by their id.
+        order_by_first_name (bool): Order by first name if True, otherwise by last name.
+
+    Returns:
+        Dict[int, str]: A dictionary where the ID is the key and the value is the user's full name.
+    """
+    # Ensure store is provided
+    if isinstance(store_id, Store):
+        store = store_id
+    elif isinstance(store_id, (int, str)) and str(store_id).isdigit():
+        store = Store.objects.get(id=int(store_id))
+    else:
+        raise ValueError("Invalid store_id provided")
+
+    # Get users associated with the store (ignore hidden users)
+    users = User.objects.filter(store_access__store=store, is_hidden=False).distinct()
+
+    # Apply filters
+    if only_active:
+        users = users.filter(is_active=True)
+    if ignore_managers:
+        users = users.filter(is_manager=False)
+
+    # Filter out clocked-in users manually
+    if ignore_clocked_in:
+        users = [user for user in users if not user.is_clocked_in(store)]
+
+    # Sort
+    if order:
+        users = sorted(
+            users,
+            key=lambda user: (
+                (user.first_name.lower(), user.last_name.lower())
+                if order_by_first_name
+                else (user.last_name.lower(), user.first_name.lower())
+            ),
+        )
+
+    return {user.id: f"{user.first_name} {user.last_name}" for user in users}
 
 
 def handle_clock_in(employee_id: int, store_id: int) -> Activity:

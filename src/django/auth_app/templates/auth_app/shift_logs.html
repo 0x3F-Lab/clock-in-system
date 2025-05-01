@@ -114,6 +114,7 @@
 {% endblock %}
 
 {% block extra_urls %}
+    listStoreEmployeeNames: "{% url 'api:list_store_employee_names' %}",
     listSingularShiftDetails: "{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
     listEveryShiftDetails: "{% url 'api:list_all_shift_details' %}",
     updateShiftDetails: "{% url 'api:update_shift_details' 0 %}".slice(0, -2),

@@ -33,6 +33,82 @@ logger = logging.getLogger("api")
 @api_manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
+def list_store_employee_names(request):
+    """
+    API view to fetch a list of users with their IDs and full names who are related to a certain store.
+    The authenticated user MUST be associated to the store to list their employees.
+    """
+    try:
+        # Extract query parameters from the request, with defaults
+        only_active = request.query_params.get("only_active", "true").lower() == "true"
+        ignore_managers = (
+            request.query_params.get("ignore_managers", "false").lower() == "true"
+        )
+        order = request.query_params.get("order", "true").lower() == "true"
+        order_by_first_name = (
+            request.query_params.get("order_by_first_name", "true").lower() == "true"
+        )
+        ignore_clocked_in = (
+            request.query_params.get("ignore_clocked_in", "false").lower() == "true"
+        )
+        store_id = request.query_params.get("store_id", None)
+
+        if store_id is None:
+            return Response(
+                {"Error": "Missing store id in request params. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the user information of the manager requesting this info from their session
+        try:
+            user_id = request.session.get("user_id")
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Ensure user is associated with the store
+        if not user.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Cannot list employee names for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Call the controller function
+        users_list = controllers.get_store_employee_names(
+            store_id=store_id,
+            only_active=only_active,
+            ignore_managers=ignore_managers,
+            order=order,
+            order_by_first_name=order_by_first_name,
+            ignore_clocked_in=ignore_clocked_in,
+        )
+
+        # Return the list of users in the response
+        return Response(users_list, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        # Return a 404 if the user does not exist
+        return Response(
+            {"Error": "No users found matching the given criteria."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(f"Failed to list all users, resulting in the error: {str(e)}")
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def list_all_shift_details(request):
     try:
         try:
@@ -81,7 +157,9 @@ def list_all_shift_details(request):
         # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
         activities_query = (
             Activity.objects.select_related("employee")
-            .filter(store_id=int(store_id))
+            .filter(
+                store_id=int(store_id), employee__is_hidden=False
+            )  # Exclude hidden users
             .order_by("-login_timestamp", "employee__first_name", "employee__last_name")
         )
 
@@ -212,6 +290,18 @@ def list_singular_shift_details(request, id):
 def update_shift_details(request, id):
     try:
         activity = Activity.objects.get(id=id)
+
+        # Get the account info of the user requesting this shift info
+        user_id = request.session.get("user_id")
+        user = User.objects.get(id=user_id)
+
+        if not user.is_associated_with_store(store=activity.store):
+            return Response(
+                {
+                    "Error": "Cannot update a shift's information for an unassociated store."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # If DELETING the activity
         if request.method == "DELETE":
@@ -357,6 +447,13 @@ def update_shift_details(request, id):
             {"Error": f"Shift with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except User.DoesNotExist as e:
+        return Response(
+            {
+                "Error": "Failed to get your account's information for authorisation. Please login again."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -379,6 +476,26 @@ def create_new_shift(request):
         login_timestamp = request.data.get("login_timestamp", None) or None
         logout_timestamp = request.data.get("logout_timestamp", None) or None
         is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
+        store_id = request.data.get("store_id", None)
+
+        # Get the account info of the user requesting this shift info
+        user_id = request.session.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Check user is authorised to interact with the store
+        if not user.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Cannot create a new shift for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         try:
             deliveries = int(request.data.get("deliveries", 0))
@@ -392,6 +509,12 @@ def create_new_shift(request):
         if not employee_id or not login_timestamp:
             return JsonResponse(
                 {"Error": "Required fields are missing. (Employee and Login time)"},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        if store_id is None:
+            return JsonResponse(
+                {"Error": "Missing store id information in request data."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
@@ -467,9 +590,13 @@ def create_new_shift(request):
         # Get the employee
         employee = User.objects.get(id=employee_id)
 
+        # Get the store object to link it
+        store = Store.objects.get(id=store_id)
+
         # Create the new activity record
         activity = Activity.objects.create(
             employee=employee,
+            store=store,
             login_time=login_time,
             logout_time=logout_time,
             login_timestamp=login_timestamp,
@@ -487,7 +614,12 @@ def create_new_shift(request):
 
     except User.DoesNotExist as e:
         return Response(
-            {"Error": f"Employee with ID {id} does not exist."},
+            {"Error": f"Employee with ID {employee_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store with the ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
     except Exception as e:

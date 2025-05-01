@@ -317,9 +317,9 @@ function populateStoreSelection() {
       const keys = Object.keys(response);
       if (keys.length > 0) {
         $('#storeSelectionController').removeClass('d-none'); // Ensure whole component is visible
-        keys.forEach(storeId => {
-          const storeCode = response[storeId];
-          const option = `<option value="${storeId}">${storeCode}</option>`;
+        keys.forEach(storeID => {
+          const storeCode = response[storeID];
+          const option = `<option value="${storeID}">${storeCode}</option>`;
           $dropdown.append(option);
         });
       } else {
@@ -357,7 +357,7 @@ function populateStoreSelection() {
 function getSelectedStoreID() {
   const storeID = $('#storeSelectDropdown').val();
 
-  // Return null if storeId is empty, null, or undefined
+  // Return null if storeID is empty, null, or undefined
   if (!storeID || storeID.trim() === "") {
     return null;
   }

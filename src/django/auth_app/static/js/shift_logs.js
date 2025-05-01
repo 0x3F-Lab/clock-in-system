@@ -177,7 +177,7 @@ function handleShiftDetailsEdit() {
       $('#editModalEmployeeListContainer').addClass('d-none');
 
       $.ajax({
-        url: `${window.djangoURLs.listSingularShiftDetails}${id}/`,
+        url: `${window.djangoURLs.listSingularShiftDetails}${id}/?store_id=${getSelectedStoreID()}`,
         type: 'GET',
         headers: {
           'X-CSRFToken': getCSRFToken(),
@@ -206,28 +206,30 @@ function handleShiftDetailsEdit() {
     } else {
       $('#editModalEmployeeListContainer').removeClass('d-none');
 
+      // Remove old list of users to select from
+      $("#editModalEmployeeList").empty()
+
       $.ajax({
-        url: `${window.djangoURLs.listEmployeeNames}`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}`,
         type: 'GET',
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
     
-        success: function(req) {
-          // data might be [[1, "John Smith"], [2, "Jane Doe"]], etc.
-          req.forEach(emp => {
-            const userId = emp[0];
-            const fullName = emp[1];
-            $("#editModalEmployeeList").append(`
-              <li
-                class="list-group-item"
-                data-id="${userId}"
-                style="cursor: pointer;"
-              >
-                ${fullName}
-              </li>
-            `);
-          });
+        success: function(response) {
+          // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
+          const keys = Object.keys(response);
+
+          if (keys.length > 0) {
+            keys.forEach(userID => {
+              const name = response[userID];
+              const option = `<li class="list-group-item" data-id="${userID}" style="cursor: pointer;">${name}</li>`;
+              $("#editModalEmployeeList").append(option);
+            });
+          } else {
+            $dropdown.append('<option value="">No stores available</option>');
+            showNotification("There are no employees associated to the selected store.", "danger");
+          }
         },
     
         error: function(jqXHR, textStatus, errorThrown) {
@@ -328,6 +330,7 @@ function handleShiftDetailsEdit() {
           logout_timestamp: correctAPITimestamps(logoutTimestamp),
           is_public_holiday: isPublicHoliday,
           deliveries: deliveries,
+          store_id: getSelectedStoreID(),
         }),
     
         success: function(req) {
