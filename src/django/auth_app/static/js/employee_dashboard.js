@@ -14,6 +14,19 @@ $(document).ready(function() {
   $('#clockingButton').on('click', () => {
     clockInOutUser();
   });
+
+  // Add tooltip to user pin
+  $('[data-bs-toggle="tooltip"]').tooltip();
+
+  // Open edit modal when clicking on edit button
+  $('#updateAccInfoBtn').on('click', () => {
+    openEditModal();
+  });
+
+  // When submitting account infromation modal, send info to API
+  $('#editModalSubmit').on('click', () => {
+    submitAccountInfoModal();
+  });
 });
 
 
@@ -221,6 +234,51 @@ async function clockInOutUser() {
       }
     });
   }
+}
+
+
+//////////////////////// ACOUNT INFORMATION HANDLING ////////////////////////////////
+
+function openEditModal() {
+  const editModal = new bootstrap.Modal(document.getElementById("editModal"));
+  editModal.show();
+}
+
+
+function submitAccountInfoModal() {
+  showSpinner();
+
+  $.ajax({
+    url: `${window.djangoURLs.modifyAccountInfo}`,
+    type: "POST",
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+    contentType: 'application/json',
+    data: JSON.stringify({
+      first_name: $('#editFirstName').val(),
+      last_name: $('#editLastName').val(),
+      phone: $('#editPhone').val(),
+      dob: $('#editDOB').val(),
+    }),
+
+    success: function(response) {
+      hideSpinner();
+      showNotification("Successfully updated account information. Please reload the page to see changes.");
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      hideSpinner();
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to update account information due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to update account information. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
 }
 
 

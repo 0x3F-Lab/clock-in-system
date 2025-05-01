@@ -1,5 +1,5 @@
 import logging
-import json
+import re
 import api.utils as util
 from api.utils import round_datetime_minute, str_to_bool
 import api.controllers as controllers
@@ -11,15 +11,16 @@ from auth_app.models import User, Activity, Store
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from django.db import transaction
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render
 from django.http import JsonResponse
-from django.middleware.csrf import get_token
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import manager_required, api_manager_required, api_employee_required
 from django.views.decorators.csrf import ensure_csrf_cookie
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+    VALID_NAME_PATTERN,
+    VALID_PHONE_NUMBER_PATTERN,
 )
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
@@ -728,54 +729,6 @@ def list_singular_employee_details(request, id):
 
 
 @api_manager_required
-@api_view(["POST", "PATCH"])
-@renderer_classes([JSONRenderer])
-def update_employee_details(request, id):
-    try:
-        employee = User.objects.get(id=id)
-
-        if not employee.is_active:
-            raise err.InactiveUserError
-
-        # Parse data from request
-        employee.first_name = str(request.data.get("first_name", employee.first_name))
-        employee.last_name = str(request.data.get("last_name", employee.last_name))
-        employee.email = str(request.data.get("email", employee.email))
-        employee.phone_number = str(request.data.get("phone", employee.phone_number))
-
-        if request.data.get("pin") is not None:
-            employee.set_pin(str(request.data["pin"]))
-
-        ########## CHECKS ON THIS IS NEEDED!!!
-
-        employee.save()
-        return JsonResponse(
-            {"message": "Employee updated successfully."},
-            status=status.HTTP_202_ACCEPTED,
-        )
-
-    except User.DoesNotExist as e:
-        return Response(
-            {"Error": f"Employee with ID {id} does not exist."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    except err.InactiveUserError as e:
-        return Response(
-            {"Error": "Cannot update an incative employee's details."},
-            status=status.HTTP_409_CONFLICT,
-        )
-    except Exception as e:
-        # Handle any unexpected exceptions
-        logger.critical(
-            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}"
-        )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_manager_required
 @api_view(["PUT"])
 @renderer_classes([JSONRenderer])
 def create_new_employee(request):
@@ -825,6 +778,141 @@ def create_new_employee(request):
         # Handle any unexpected exceptions
         logger.critical(
             f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["POST", "PATCH", "PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_information(request, id=None):
+    """
+    API endpoint to either update user's own account or another account if they're a manager and is specified.
+    """
+    try:
+        # Get user information from their session
+        try:
+            user_id = request.session.get("user_id")
+            user = User.objects.get(id=user_id)
+            employee_to_update = user
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if id:
+            if not user.is_manager:
+                return Response(
+                    {
+                        "Error": "Not authorised to update another employee's account information."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            employee = User.objects.get(id=id)
+            employee_to_update = employee
+            if not employee.is_active:
+                raise err.InactiveUserError
+
+        # Parse data from request
+        first_name = str(request.data.get("first_name", None))
+        last_name = str(request.data.get("last_name", None))
+        phone = str(request.data.get("phone", None))
+        dob = str(request.data.get("dob", None))
+
+        # Validate and update first name
+        if first_name:
+            if len(first_name) > 100:
+                return Response(
+                    {"Error": "First name cannot be longer than 100 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_NAME_PATTERN, first_name):
+                return Response(
+                    {
+                        "Error": "Invalid first name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.first_name = first_name
+
+        # Validate and update last name
+        if last_name:
+            if len(last_name) > 100:
+                return Response(
+                    {"Error": "Last name cannot be longer than 100 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_NAME_PATTERN, last_name):
+                return Response(
+                    {
+                        "Error": "Invalid last name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.last_name = last_name
+
+        # Validate and update phone
+        if phone:
+            if len(phone) > 15:
+                return Response(
+                    {"Error": "Phone number cannot be longer than 15 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_PHONE_NUMBER_PATTERN, phone):
+                return Response(
+                    {
+                        "Error": "Invalid phone number. Only numbers, spaces, hyphens, and plus are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.phone_number = phone
+
+        # Validate and update DOB
+        if dob:
+            try:
+                parsed_dob = datetime.strptime(dob.strip(), "%Y-%m-%d").date()
+
+                if parsed_dob >= now().date():
+                    return Response(
+                        {"Error": "Date of birth must be before today."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+
+                employee_to_update.birth_date = parsed_dob
+
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid DOB format. Expected format is YYYY-MM-DD."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        employee_to_update.save()
+        return JsonResponse(
+            {"message": "Account information updated successfully."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveUserError as e:
+        return Response(
+            {"Error": "Cannot update an incative employee's details."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

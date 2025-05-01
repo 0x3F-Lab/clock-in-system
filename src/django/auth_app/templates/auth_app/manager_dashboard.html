@@ -7,7 +7,7 @@
     <h1>Manager Dashboard</h1>
 
     <!-- Display Logged-in User Info -->
-    <p>Welcome, <strong>{{ user.username }}</strong>!</p>
+    <p>Manager account: <strong>{{ request.session.name|default:"ERROR LOADING USER" }}</strong>!</p>
 
     <div class="button-container">
         <button onclick="location.href=`{% url 'manage_employee_details' %}`">Employee Details</button>

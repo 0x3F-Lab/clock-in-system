@@ -29,9 +29,14 @@ urlpatterns = [
         name="list_singular_employee_details",
     ),
     path(
-        "update-employee-details/<int:id>/",
-        views.update_employee_details,
-        name="update_employee_details",
+        "update-account-information/<int:id>/",
+        views.modify_account_information,
+        name="update_other_account_information",
+    ),
+    path(
+        "update-account-information/",
+        views.modify_account_information,
+        name="update_account_information",
     ),
     path("create-employee/", views.create_new_employee, name="create_new_employee"),
     path(

@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="d-flex flex-column justify-content-center align-items-center vh-100">
+  <h1 class="text-center mb-5 fw-bolder"><u>Manual Clock In/Out</u></h1>
   <div class="panel rounded shadow p-5">
     <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
       {% csrf_token %}
@@ -27,7 +28,7 @@
       {% for error in form.non_field_errors %}
       <div class="nonFieldErrors">{{ error|escapejs }}</div>
       {% endfor %}
-  </form>
+    </form>
   </div>
 
   <div class="panel rounded shadow p-5 mt-5">

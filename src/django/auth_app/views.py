@@ -200,7 +200,30 @@ def manual_clocking(request):
 @ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
 def employee_dashboard(request):
-    return render(request, "auth_app/employee_dashboard.html")
+    user_id = request.session.get("user_id", None)
+    user = User.objects.get(id=user_id)
+    info = {
+        "user_first_name": user.first_name,
+        "user_last_name": user.last_name,
+        "user_is_hidden": user.is_hidden,
+        "user_is_manager": user.is_manager,
+        "user_associated_store_count": len(user.get_associated_stores()),
+        "user_pin": user.pin,
+        "user_email": user.email,
+        "user_phone": user.phone_number or None,
+        "user_dob": user.birth_date.strftime("%d/%m/%Y") if user.birth_date else None,
+        "user_dob_form_value": (
+            user.birth_date.strftime("%Y-%m-%d") if user.birth_date else None
+        ),
+        "user_creation_date": (
+            user.created_at.strftime("%d/%m/%Y") if user.created_at else None
+        ),
+        "user_updated_date": (
+            user.updated_at.strftime("%d/%m/%Y") if user.updated_at else None
+        ),
+    }
+
+    return render(request, "auth_app/employee_dashboard.html", info)
 
 
 @ensure_csrf_cookie

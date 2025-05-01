@@ -216,6 +216,12 @@ FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
+# Define a pattern for valid names (i.e. employee names, store names)
+VALID_NAME_PATTERN = (
+    r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes
+)
+VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
