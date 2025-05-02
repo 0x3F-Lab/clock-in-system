@@ -61,8 +61,13 @@ def login(request):
                 messages.error(request, "Invalid credentials.")
                 return render(request, "auth_app/login.html", {"form": form})
 
+            # Ensure user has been setup
+            if not user.is_setup:
+                messages.error(request, "Please setup your account to login.")
+                return render(request, "auth_app/login.html", {"form": form})
+
             # Check password
-            if user.check_password(password):
+            elif user.check_password(password):
                 # Log the user in by setting session data
                 request.session["user_id"] = user.id
                 request.session["is_manager"] = user.is_manager
