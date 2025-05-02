@@ -1,9 +1,10 @@
 import logging
 import re
 import api.utils as util
-from api.utils import round_datetime_minute, str_to_bool
 import api.controllers as controllers
 import api.exceptions as err
+from datetime import datetime
+from api.utils import round_datetime_minute, str_to_bool
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.response import Response
 from rest_framework import status
@@ -24,7 +25,7 @@ from clock_in_system.settings import (
 )
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
-from datetime import datetime, time
+from datetime import time
 from auth_app.models import Activity, User, KeyValueStore
 from django.db.models.functions import ExtractWeekDay
 
@@ -734,10 +735,10 @@ def list_singular_employee_details(request, id):
 def create_new_employee(request):
     try:
         # Parse data from request
-        first_name = str(request.data.get("first_name", ""))
-        last_name = str(request.data.get("last_name", ""))
-        email = str(request.data.get("email", ""))
-        phone_number = str(request.data.get("phone", ""))
+        first_name = str(request.data.get("first_name", "")).strip()
+        last_name = str(request.data.get("last_name", "")).strip()
+        email = str(request.data.get("email", "")).strip().lower()
+        phone_number = str(request.data.get("phone", "")).strip()
         pin = str(request.data.get("pin", ""))
 
         ########## CHECKS ON THIS IS NEEDED!!!
@@ -821,8 +822,8 @@ def modify_account_information(request, id=None):
                 raise err.InactiveUserError
 
         # Parse data from request
-        first_name = str(request.data.get("first_name", None))
-        last_name = str(request.data.get("last_name", None))
+        first_name = str(request.data.get("first_name", None)).strip()
+        last_name = str(request.data.get("last_name", None)).strip()
         phone = str(request.data.get("phone", None))
         dob = str(request.data.get("dob", None))
 
@@ -840,7 +841,7 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.first_name = first_name
+            employee_to_update.first_name = first_name.title()
 
         # Validate and update last name
         if last_name:
@@ -856,7 +857,7 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.last_name = last_name
+            employee_to_update.last_name = last_name.title()
 
         # Validate and update phone
         if phone:
@@ -872,7 +873,7 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.phone_number = phone
+            employee_to_update.phone_number = phone.strip()
 
         # Validate and update DOB
         if dob:

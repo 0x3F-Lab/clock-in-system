@@ -1,10 +1,12 @@
 import logging
-from auth_app.models import User, Store, StoreUserAccess
+from datetime import datetime
+from auth_app.models import User, Store
 from auth_app.utils import manager_required, employee_required
-from auth_app.forms import LoginForm, ManualClockingForm
+from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.controllers import handle_clock_in, handle_clock_out
 from api.utils import get_distance_from_lat_lon_in_m
 import api.exceptions as err
+from django.core.exceptions import ValidationError
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -90,6 +92,88 @@ def login(request):
         return redirect("home")
 
     return render(request, "auth_app/login.html", {"form": form})
+
+
+@require_http_methods(["GET", "POST"])
+def setup_account(request):
+    if request.method == "POST":
+        form = AccountSetupForm(request.POST)
+
+        if form.is_valid():
+            email = form.cleaned_data.get("email")
+            password = form.cleaned_data.get("password")
+            first_name = form.cleaned_data.get("first_name")
+            last_name = form.cleaned_data.get("last_name")
+            phone = form.cleaned_data.get("phone_number") or None
+            dob = form.cleaned_data.get("birth_date") or None
+
+            try:
+                user = User.objects.get(email=email)  # Look up the user by email
+
+                # Set password
+                user.set_password(raw_password=password)
+
+                # Set the values
+                user.first_name = first_name
+                user.last_name = last_name
+
+                if phone:
+                    user.phone_number = phone
+
+                if dob:
+                    user.birth_date = dob
+
+                # Ensure user account cannot be setup again
+                user.is_setup = True
+
+                # Save user object
+                user.save()
+                messages.success(request, "Successfully setup employee account.")
+
+            except User.DoesNotExist:
+                messages.error(request, "Invalid account email.")
+                return render(request, "auth_app/account_setup.html", {"form": form})
+            except ValidationError as e:
+                messages.error(request, "Invalid data while saving the account.")
+                logger.warning(
+                    f"Failed to setup account with email {email} ({first_name} {last_name}) due to a database validation error, producing the error: {e}"
+                )
+                return render(request, "auth_app/account_setup.html", {"form": form})
+            except Exception as e:
+                messages.error(
+                    request,
+                    "Failed to setup account due to internal server error. Please try again later.",
+                )
+                logger.critical(
+                    f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}"
+                )
+                return render(request, "auth_app/account_setup.html", {"form": form})
+
+            # Log the user in by setting session data
+            request.session["user_id"] = user.id
+            request.session["is_manager"] = user.is_manager
+            request.session["name"] = user.first_name
+
+            next_url = request.POST.get("next", None) or request.GET.get("next", None)
+            if next_url:
+                return redirect(next_url)
+            else:
+                return redirect("home")  # fallback after login
+
+        else:
+            messages.error(
+                request, "Failed to setup employee account. Please correct the errors."
+            )
+
+    else:
+        form = AccountSetupForm()
+
+    # Go back home if they're already logged in -> means they're account is setup (dont need to actually check)
+    user_id = request.session.get("user_id")
+    if user_id:
+        return redirect("home")
+
+    return render(request, "auth_app/account_setup.html", {"form": form})
 
 
 @ensure_csrf_cookie

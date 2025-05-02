@@ -216,7 +216,11 @@ FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
-# Define a pattern for valid names (i.e. employee names, store names)
+# Define minimum and maximum password length
+PASSWORD_MIN_LENGTH = 6
+PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
+
+# Define a pattern for valid fields
 VALID_NAME_PATTERN = (
     r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes
 )

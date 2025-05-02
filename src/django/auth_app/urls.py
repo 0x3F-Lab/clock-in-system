@@ -16,4 +16,5 @@ urlpatterns = [
     path("manual_clocking/", views.manual_clocking, name="manual_clocking"),
     path("dashboard/", views.employee_dashboard, name="dashboard"),
     path("login/", views.login, name="login"),
+    path("setup/", views.setup_account, name="account_setup"),
 ]
