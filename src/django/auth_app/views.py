@@ -1,14 +1,14 @@
 import logging
-from datetime import datetime
 from auth_app.models import User, Store
 from auth_app.utils import manager_required, employee_required
 from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.controllers import handle_clock_in, handle_clock_out
 from api.utils import get_distance_from_lat_lon_in_m
 import api.exceptions as err
-from django.core.exceptions import ValidationError
 from django.contrib import messages
+from django.urls import reverse
 from django.shortcuts import render, redirect
+from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -54,6 +54,7 @@ def login(request):
         if form.is_valid():
             email = form.cleaned_data.get("email")
             password = form.cleaned_data.get("password")
+            next_url = request.POST.get("next", None) or request.GET.get("next", None)
 
             try:
                 user = User.objects.get(email=email)  # Look up the user by email
@@ -61,10 +62,19 @@ def login(request):
                 messages.error(request, "Invalid credentials.")
                 return render(request, "auth_app/login.html", {"form": form})
 
-            # Ensure user has been setup
-            if not user.is_setup:
-                messages.error(request, "Please setup your account to login.")
+            # Ensure user can log into their account
+            if not user.is_active:
+                messages.error(
+                    request,
+                    "Cannot log into a deactivated account. Please contact a store manager.",
+                )
                 return render(request, "auth_app/login.html", {"form": form})
+
+            elif not user.is_setup:
+                messages.error(request, "Please setup your account to login.")
+                return redirect(
+                    f"{reverse('account_setup')}{f'?next={next_url}' if next_url else ''}"
+                )
 
             # Check password
             elif user.check_password(password):
@@ -73,9 +83,6 @@ def login(request):
                 request.session["is_manager"] = user.is_manager
                 request.session["name"] = user.first_name
 
-                next_url = request.POST.get("next", None) or request.GET.get(
-                    "next", None
-                )
                 if next_url:
                     return redirect(next_url)
                 else:
