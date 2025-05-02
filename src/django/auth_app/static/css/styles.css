@@ -17,6 +17,11 @@ table {
   border-collapse: collapse;
 }
 
+.vertical-divider {
+  width: 2px;
+  align-self: stretch;
+}
+
 .panel {
   background-color: #2d3748;
   color: white;
@@ -49,6 +54,40 @@ table {
   color: white;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(107, 92, 231, 0.4);
+}
+
+/* CUSTOM BUTTONS */
+.btn-outline-indigo {
+  color: #6610f2;
+  border: 1px solid #6610f2;
+  background-color: transparent;
+}
+
+.btn-outline-indigo:hover {
+  background-color: #6610f2;
+  color: #fff;
+}
+
+.btn-outline-cyan {
+  color: #0dcaf0;
+  border: 1px solid #0dcaf0;
+  background-color: transparent;
+}
+
+.btn-outline-cyan:hover {
+  background-color: #0dcaf0;
+  color: #fff;
+}
+
+.btn-outline-orange {
+  color: #d35400;
+  border-color: #d35400;
+}
+
+.btn-outline-orange:hover {
+  background-color: #d35400;
+  color: #fff;
+  border-color: #d35400;
 }
 
 /* If you still want the login box centered, apply flex styling only to the login container */

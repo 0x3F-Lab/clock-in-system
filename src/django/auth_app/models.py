@@ -53,7 +53,7 @@ class User(models.Model):
         pin = f"{random.randint(0, 999999):06}"  # Format to always generate a 6-digit string
         while User.objects.filter(pin=pin).exists():  # Check if the pin already exists
             pin = f"{random.randint(0, 999999):06}"  # If it does, generate a new one
-        self.set_pin(pin)  # Use the method that hashes the pin and saves it
+        self.pin = pin
 
     def check_pin(self, pin: str) -> bool:
         """
@@ -118,6 +118,32 @@ class User(models.Model):
         Returns a queryset of all ACTIVE stores this user is associated with.
         """
         return Store.objects.filter(user_access__user=self, is_active=True).distinct()
+
+    def is_manager_of(self, employee) -> bool:
+        """
+        Returns True if the current user is a manager and shares at least one store with the given employee.
+        Accepts a User object or ID for the employee.
+        """
+        if not self.is_manager or not self.is_active:
+            return False
+
+        if isinstance(employee, int) or (
+            isinstance(employee, str) and employee.isdigit()
+        ):
+            try:
+                employee = User.objects.get(id=int(employee))
+            except User.DoesNotExist:
+                return False
+        elif not isinstance(employee, User):
+            return False
+
+        shared_store_ids = StoreUserAccess.objects.filter(user=self).values_list(
+            "store_id", flat=True
+        )
+
+        return StoreUserAccess.objects.filter(
+            user=employee, store_id__in=shared_store_ids
+        ).exists()
 
 
 class Store(models.Model):

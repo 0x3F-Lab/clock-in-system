@@ -16,6 +16,10 @@
   </button>
 </div>
 
+<div class="d-flex justify-content-center my-4">
+  {% include "components/store_selection_controller.html" %}
+</div>
+
 <div class="table-responsive">
   <table id="employeeTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
       <thead>
@@ -23,6 +27,7 @@
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
+              <th>DOB</th>
               <th>Pin</th>
               <th style="width: 1%; white-space: nowrap;">Actions</th>
           </tr>
@@ -50,33 +55,40 @@
           <input type="hidden" id="editEmployeeId" name="editEmployeeId">
 
           <div class="mb-3">
-            <label for="editFirstName" class="form-label fw-semibold">First Name</label>
-            <input type="text" class="form-control" id="editFirstName" name="editFirstName" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="editLastName" class="form-label fw-semibold">Last Name</label>
-            <input type="text" class="form-control" id="editLastName" name="editLastName" required>
-          </div>
-
-          <div class="mb-3">
             <label for="editEmail" class="form-label fw-semibold">Email</label>
             <input type="email" class="form-control" id="editEmail" name="editEmail" required>
           </div>
 
           <div class="mb-3">
-            <label for="editPhone" class="form-label fw-semibold">Phone</label>
-            <input type="text" class="form-control" id="editPhone" name="editPhone">
+            <label for="editFirstName" class="form-label fw-semibold">First Name</label>
+            <input type="text" class="form-control" id="editFirstName" name="first_name" required>
           </div>
 
           <div class="mb-3">
-            <label for="editPin" class="form-label fw-semibold">PIN</label>
-            <input type="text" class="form-control" id="editPin" name="editPin" required>
+            <label for="editLastName" class="form-label fw-semibold">Last Name</label>
+            <input type="text" class="form-control" id="editLastName" name="last_name" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="editPhone" class="form-label fw-semibold">Phone</label>
+            <input type="text" class="form-control" id="editPhone" name="phone_number">
+          </div>
+
+          <div class="mb-3">
+            <label for="editDOB" class="form-label fw-semibold">Date of Birth</label>
+            <input type="date" class="form-control" id="editDOB" name="birth_date">
           </div>
         </form>
       </div>
 
       <div class="modal-footer">
+        <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
+          <div><i class="fas fa-circle-info"></i></div>
+          <div>
+            <p class="m-0">Existing accounts will be added to the selected store.</p>
+            <p class="m-0">A new account is only created if none is found.</p>
+          </div>
+        </div>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
           Cancel
         </button>
@@ -93,7 +105,7 @@
 {% block extra_urls %}
     listSingularEmployeeDetails: "{% url 'api:list_singular_employee_details' 0 %}".slice(0, -2),
     listEveryEmployeeDetails: "{% url 'api:list_all_employee_details' %}",
-    updateEmployeeDetails: "{% url 'api:update_employee_details' 0 %}".slice(0, -2),
+    updateEmployeeDetails: "{% url 'api:modify_other_account_information' 0 %}".slice(0, -2),
     createEmployeeAccount: "{% url 'api:create_new_employee' %}",
     modifyAccountStatus: "{% url 'api:modify_account_status' 0 %}".slice(0, -2),
 {% endblock %}
