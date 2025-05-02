@@ -22,7 +22,7 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3 shadow-sm">
+  <nav class="navbar navbar-expand-sm navbar-dark bg-dark py-3 px-2 shadow-sm">
     <div class="container-fluid">
       <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
         <img src="{% static 'img/logo.png' %}" alt="Site Logo" style="height: 40px;">
@@ -45,29 +45,20 @@
           <!-- You can add nav links here -->
         </ul>
   
-        <div class="d-flex align-items-center gap-2">
-          {% if request.resolver_match.view_name == 'home' %}
-          <button
-            type="button"
-            class="btn btn-outline-warning d-flex align-items-center"
-            data-bs-toggle="modal"
-            data-bs-target="#changePinModal"
-          >
-            <i class="fa-solid fa-key me-1"></i> Change Pin
-          </button>
+        <div class="d-flex flex-sm-row flex-column align-items-center align-items-stretch gap-2 w-100 mt-3 mt-sm-0 justify-content-end">
+          {% if request.session.is_manager %}
+          <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-info d-flex align-items-center">
+            <i class="fa-solid fa-chart-line me-1"></i> Manager Dash
+          </a>
           {% endif %}
-  
           {% if request.session.user_id %}
-            <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-info d-flex align-items-center">
-              <i class="fa-solid fa-chart-line me-1"></i> Manager Dash
-            </a>
-            <a href="{% url 'logout' %}" class="btn btn-outline-danger d-flex align-items-center">
-              <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Logout
-            </a>
+          <a href="{% url 'logout' %}" class="btn btn-outline-danger d-flex align-items-center">
+            <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Logout
+          </a>
           {% else %}
-            <a href="{% url 'login' %}" class="btn btn-outline-light d-flex align-items-center">
-              <i class="fa-solid fa-right-to-bracket me-1"></i> Login
-            </a>
+          <a href="{% url 'login' %}" class="btn btn-outline-light d-flex align-items-center">
+            <i class="fa-solid fa-right-to-bracket me-1"></i> Login
+          </a>
           {% endif %}
         </div>
       </div>
