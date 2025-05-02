@@ -314,9 +314,27 @@ def update_shift_details(request, id):
 
         # If DELETING the activity
         if request.method == "DELETE":
+            # Save activity info
+            original = {
+                "id": activity.id,
+                "deliveries": activity.deliveries,
+                "login_time": activity.login_time,
+                "login_timestamp": activity.login_timestamp,
+                "logout_time": activity.logout_time,
+                "logout_timestamp": activity.logout_timestamp,
+                "shift_length_mins": activity.shift_length_mins,
+                "is_public_holiday": activity.is_public_holiday,
+            }
+
             with transaction.atomic():
                 activity.delete()
 
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+            )
+            logger.debug(
+                f"[DELETE: ACTIVITY (ID: {original['id']})] Login: {original['login_time']} ({original['login_timestamp']}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) -- Deliveries: {original['deliveries']} -- Shift Length: {original['shift_length_mins']} -- PUBLIC HOLIDAY: {original['is_public_holiday']}"
+            )
             return JsonResponse(
                 {"message": "Employee deleted successfully"},
                 status=status.HTTP_200_OK,
@@ -326,6 +344,17 @@ def update_shift_details(request, id):
             # Parse data from request
             login_timestamp = request.data.get("login_timestamp", None) or None
             logout_timestamp = request.data.get("logout_timestamp", None) or None
+
+            # Save original data for logging
+            original = {
+                "deliveries": activity.deliveries,
+                "login_time": activity.login_time,
+                "login_timestamp": activity.login_timestamp,
+                "logout_time": activity.logout_time,
+                "logout_timestamp": activity.logout_timestamp,
+                "shift_length_mins": activity.shift_length_mins,
+                "is_public_holiday": activity.is_public_holiday,
+            }
 
             try:
                 if login_timestamp:
@@ -435,6 +464,12 @@ def update_shift_details(request, id):
             with transaction.atomic():
                 activity.save()
 
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+            )
+            logger.debug(
+                f"[UPDATE: ACTIVITY (ID: {activity.id})] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {original['deliveries']} → {activity.deliveries} -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins} -- PUBLIC HOLIDAY: {original['is_public_holiday']} → {activity.is_public_holiday}"
+            )
             return JsonResponse(
                 {"message": "Shift updated successfully."},
                 status=status.HTTP_202_ACCEPTED,
@@ -629,6 +664,12 @@ def create_new_shift(request):
 
         activity.save()
 
+        logger.info(
+            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) (under store ID {store.id} [{store.code}])."
+        )
+        logger.debug(
+            f"[CREATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}"
+        )
         return JsonResponse(
             {"message": "Shift created successfully.", "id": activity.id},
             status=status.HTTP_201_CREATED,
@@ -854,13 +895,21 @@ def create_new_employee(request):
                 store=store,
             )
 
+            # Save association
             new_association.save()
+
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
+            )
+            logger.debug(
+                f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+            )
             return JsonResponse(
                 {
                     "message": f"Existing employee assigned to store {store.code} successfully.",
                     "id": employee.id,
                 },
-                status=status.HTTP_201_CREATED,
+                status=status.HTTP_202_ACCEPTED,
             )
 
         ####################### CREATING A NEW ACCOUNT #########################
@@ -966,6 +1015,15 @@ def create_new_employee(request):
             employee.save()
             new_association.save()
 
+        logger.info(
+            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
+        )
+        logger.debug(
+            f"[CREATE: USER (ID: {employee.id})] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- Phone: {employee.phone_number} -- DOB: {employee.birth_date} -- PIN: {employee.pin} -- MANAGER: {employee.is_manager} -- ACTIVE: {employee.is_active} -- SETUP: {employee.is_setup} -- HIDDEN: {employee.is_hidden}"
+        )
+        logger.debug(
+            f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+        )
         return JsonResponse(
             {
                 "message": f"New employee created successfully and assigned to store {store.code}.",
@@ -1067,6 +1125,14 @@ def modify_account_information(request, id=None):
         phone = str(request.data.get("phone", None))
         dob = str(request.data.get("dob", None))
 
+        # Save original data for logging
+        original = {
+            "first_name": employee_to_update.first_name,
+            "last_name": employee_to_update.last_name,
+            "phone": employee_to_update.phone_number,
+            "dob": employee_to_update.birth_date,
+        }
+
         # Validate and update first name
         if first_name:
             if len(first_name) > 100:
@@ -1135,6 +1201,13 @@ def modify_account_information(request, id=None):
                 )
 
         employee_to_update.save()
+
+        logger.info(
+            f"Account ID {user.id} ({user.first_name} {user.last_name}) updated account information for a USER with ID {employee_to_update.id} ({employee_to_update.first_name} {employee_to_update.last_name})."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee_to_update.id})] Name: {original['first_name']} {original['last_name']} → {employee_to_update.first_name} {employee_to_update.last_name} -- Phone: {original['phone']} → {employee_to_update.phone_number} -- DOB: {original['dob']} → {employee_to_update.birth_date}"
+        )
         return JsonResponse(
             {"message": "Account information updated successfully."},
             status=status.HTTP_202_ACCEPTED,
@@ -1196,10 +1269,10 @@ def modify_account_status(request, id):
             )
 
         # Seperate status type modification
-        if status_type.lower() == "deactivation":
+        if status_type.lower() == "deactivate":
             employee.is_active = False
 
-        elif status_type.lower() == "activation":
+        elif status_type.lower() == "activate":
             employee.is_active = True
 
         elif status_type.lower() == "reset_password":
@@ -1235,7 +1308,24 @@ def modify_account_status(request, id):
                     )
 
                 # Resign the user
-                StoreUserAccess.objects.filter(user=employee, store=store).delete()
+                association = StoreUserAccess.objects.filter(
+                    user=employee, store=store
+                ).last()
+                association.delete()
+
+                logger.info(
+                    f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) removed STORE ASSOCIATION for employee with ID {employee.id} ({employee.first_name} {employee.last_name}) under the store ID {store.id} [{store.code}]."
+                )
+                logger.debug(
+                    f"[DELETE: STOREUSERACCESS (ID: {association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+                )
+                return JsonResponse(
+                    {
+                        "message": f"Employee resigned from store ID {store.id} successfully.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_202_ACCEPTED,
+                )
 
             except Store.DoesNotExist:
                 return JsonResponse(
@@ -1254,6 +1344,17 @@ def modify_account_status(request, id):
 
         employee.save()
 
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated account status for a USER with ID {employee.id} ({employee.first_name} {employee.last_name}). Type: {status_type.replace('_', ' ').upper()}."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee.id})] Status update: {status_type.replace('_', ' ').upper()}"
+            + (
+                f". Set new PIN to {employee.pin}."
+                if status_type.lower() == "reset_pin"
+                else ""
+            )
+        )
         return JsonResponse(
             {"message": "Employee status updated successfully.", "id": employee.id},
             status=status.HTTP_202_ACCEPTED,

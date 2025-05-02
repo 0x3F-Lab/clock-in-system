@@ -213,7 +213,10 @@ class StoreUserAccess(models.Model):
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ("user", "store")  # Prevent duplicate entries
+        # Prevent duplicate entries
+        constraints = [
+            models.UniqueConstraint(fields=["user", "store"], name="unique_user_store")
+        ]
 
     def __str__(self):
         role = "Manager" if self.user.is_manager else "Employee"

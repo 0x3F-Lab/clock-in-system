@@ -255,12 +255,14 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": "INFO",  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            "level": os.getenv(
+                "LOG_LEVEL_CONSOLE", "INFO"
+            ).upper(),  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
         "file": {
-            "level": "DEBUG",
+            "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
             "filename": "/app/debug.log",
             "formatter": "verbose",

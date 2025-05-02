@@ -122,6 +122,15 @@ def setup_account(request):
             try:
                 user = User.objects.get(email=email)  # Look up the user by email
 
+                if not user.is_active:
+                    messages.error(
+                        request,
+                        "Cannot setup an inactive account. Please contact a store manager.",
+                    )
+                    return render(
+                        request, "auth_app/account_setup.html", {"form": form}
+                    )
+
                 # Set password
                 user.set_password(raw_password=password)
 
@@ -141,6 +150,13 @@ def setup_account(request):
                 # Save user object
                 user.save()
                 messages.success(request, "Successfully setup employee account.")
+
+                logger.info(
+                    f"Employee ID {user.id} ({user.first_name} {user.last_name}) SETUP their USER account."
+                )
+                logger.debug(
+                    f"[UPDATE: USER (ID: {user.id})] [ACC SETUP] Name: {user.first_name} {user.last_name} -- Email: {user.email} -- Phone: {user.phone_number} -- DOB: {user.birth_date} -- PIN: {user.pin} -- MANAGER: {user.is_manager}"
+                )
 
             except User.DoesNotExist:
                 messages.error(request, "Invalid account email.")
