@@ -8,18 +8,21 @@ class User(models.Model):
     last_name = models.CharField(max_length=100, null=False)
     email = models.EmailField(unique=True, null=False)
     phone_number = models.CharField(
-        max_length=15, null=True
+        max_length=15, null=True, blank=True
     )  # CharField to handle leading zeros
     pin = models.CharField(max_length=6, unique=True, null=True)
     password = models.CharField(
         max_length=256, null=True
-    )  # Allow nullable for non-manager accounts
+    )  # Allow nullable for non-setup accounts
     birth_date = models.DateField(blank=True, default=None, null=True)
     is_active = models.BooleanField(default=False, null=False)
     is_manager = models.BooleanField(default=False, null=False)
     is_hidden = models.BooleanField(
         default=False, null=False
     )  # Used for admin accounts (completely hidden from manager menus)
+    is_setup = models.BooleanField(
+        default=False, null=False
+    )  # Used to determine if an account needs to be setup (set/reset their password)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
