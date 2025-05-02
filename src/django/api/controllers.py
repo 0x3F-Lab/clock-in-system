@@ -347,9 +347,9 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
                     "employee_id": shift.employee.id,
                     "store_id": shift.store.id,
                     "store_code": shift.store.code,
-                    "login_time": shift.login_timestamp,
+                    "login_time": localtime(shift.login_time),
                     "logout_time": (
-                        shift.logout_timestamp if shift.logout_timestamp else None
+                        localtime(shift.logout_time) if shift.logout_time else None
                     ),
                     "deliveries": shift.deliveries if shift.deliveries else None,
                     "is_public_holiday": shift.is_public_holiday,

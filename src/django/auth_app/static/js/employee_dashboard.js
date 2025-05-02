@@ -306,7 +306,6 @@ function updateShiftHistory() {
 }
 
 
-
 //////////////////////// ACOUNT INFORMATION HANDLING ////////////////////////////////
 
 function openEditModal() {

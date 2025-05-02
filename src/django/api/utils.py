@@ -3,10 +3,10 @@ import requests
 import logging
 import holidays
 import api.exceptions as err
-import api.controllers as controllers
 from urllib.parse import urlencode
 from datetime import timedelta
 from django.core.cache import cache
+from django.utils.timezone import make_aware, is_naive
 from django.utils import timezone
 from auth_app.models import User, Store, Activity
 from clock_in_system.settings import (
@@ -248,10 +248,22 @@ def check_location_data(location_lat, location_long, store_id) -> bool:
 
 def is_activity_modified(activity: Activity):
     """
-    Determine if a activity has been modified after clocking.
+    Determine if an activity has been modified after clocking,
+    allowing a 15-second tolerance window.
     """
     clock_time = activity.logout_timestamp or activity.login_timestamp
-    return activity.last_updated_at > clock_time if clock_time else False
+    last_updated = activity.last_updated_at
+
+    # Ensure both times are timezone-aware
+    if clock_time and is_naive(clock_time):
+        clock_time = make_aware(clock_time)
+    if is_naive(last_updated):
+        last_updated = make_aware(last_updated)
+
+    # Add a 15-second buffer to the clock time
+    if clock_time:
+        return last_updated > (clock_time + timedelta(seconds=15))
+    return False
 
 
 def str_to_bool(val):
