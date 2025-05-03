@@ -224,6 +224,7 @@ PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep b
 VALID_NAME_PATTERN = (
     r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes
 )
+VALID_NAME_LIST_PATTERN = r"^[a-zA-Z\s\-',]+$"  # Allows commas as well
 VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
 VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
 

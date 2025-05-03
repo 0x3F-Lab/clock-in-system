@@ -117,7 +117,7 @@ function updateShiftLogsTable() {
 
       // If there are no users returned
       if (shifts.length <= 0) {
-          $shiftLogsTable.html(`<tr><td colspan="9" class="table-danger">No shifts found.</td></tr>`);
+          $shiftLogsTable.html(`<tr><td colspan="9" class="table-danger">No shifts found</td></tr>`);
           showNotification("Obtained no shifts when updating table.", "danger");
           setPaginationValues(0, 1); // Set pagination values to indicate an empty table
 
@@ -152,6 +152,9 @@ function updateShiftLogsTable() {
 
     error: function(jqXHR, textStatus, errorThrown) {
       hideSpinner();
+
+      // Add error data
+      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">ERROR OBTAINING SHIFTS</td></tr>`);
 
       // Extract the error message from the API response if available
       let errorMessage;

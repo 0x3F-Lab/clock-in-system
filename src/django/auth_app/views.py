@@ -369,6 +369,13 @@ def manage_shift_logs(request):
     return render(request, "auth_app/shift_logs.html")
 
 
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def manage_account_summary(request):
+    return render(request, "auth_app/account_summary.html")
+
+
 def offline(request):
     return render(request, "offline.html")
 

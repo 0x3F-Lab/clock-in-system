@@ -17,6 +17,11 @@ table {
   border-collapse: collapse;
 }
 
+.cell-danger {
+  background-color: #dc3545 !important;
+  color: white;
+}
+
 .vertical-divider {
   width: 2px;
   align-self: stretch;

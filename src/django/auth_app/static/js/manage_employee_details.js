@@ -138,7 +138,7 @@ function updateEmployeeDetailsTable() {
 
       // If there are no users returned
       if (employees.length <= 0) {
-        $shiftLogsTable.html(`<tr><td colspan="7" class="table-danger">No employees found.</td></tr>`);
+        $shiftLogsTable.html(`<tr><td colspan="7" class="table-danger">No employees found</td></tr>`);
           showNotification("Obtained no employees when updating table.", "danger");
           setPaginationValues(0, 1); // Set pagination values to indicate an empty table
 
@@ -179,6 +179,9 @@ function updateEmployeeDetailsTable() {
 
     error: function(jqXHR, textStatus, errorThrown) {
       hideSpinner();
+
+      // Add error row
+      $('#employeeTable tbody').html(`<tr><td colspan="7" class="table-danger">ERROR OBTAINING EMPLOYEES</td></tr>`);
 
       // Extract the error message from the API response if available
       let errorMessage;

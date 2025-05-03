@@ -23,6 +23,7 @@ from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     VALID_NAME_PATTERN,
+    VALID_NAME_LIST_PATTERN,
     VALID_PHONE_NUMBER_PATTERN,
     VALID_PASSWORD_PATTERN,
     PASSWORD_MAX_LENGTH,
@@ -246,7 +247,9 @@ def list_singular_shift_details(request, id):
 
         if not manager.is_associated_with_store(store=act.store):
             return Response(
-                {"Error": "Cannot get shift information for an unassociated store."},
+                {
+                    "Error": "Not authorised to get shift information for an unassociated store."
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -305,7 +308,7 @@ def update_shift_details(request, id):
         if not manager.is_associated_with_store(store=activity.store):
             return Response(
                 {
-                    "Error": "Cannot update a shift's information for an unassociated store."
+                    "Error": "Not authorised to update a shift's information for an unassociated store."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -568,7 +571,9 @@ def create_new_shift(request):
         # Check user is authorised to interact with the store and the user
         if not manager.is_associated_with_store(store=int(store_id)):
             return Response(
-                {"Error": "Cannot create a new shift for an unassociated store."},
+                {
+                    "Error": "Not authorised to create a new shift for an unassociated store."
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
         elif not manager.is_manager_of(employee=employee):
@@ -797,7 +802,7 @@ def list_singular_employee_details(request, id):
         if not manager.is_manager_of(employee=employee):
             return Response(
                 {
-                    "Error": "Cannot request employee information of an employee associated to a different store."
+                    "Error": "Not authorised to get employee information of an employee associated to a different store."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -1904,6 +1909,135 @@ def list_recent_shifts(request):
         # General error capture -- including database location errors
         logger.critical(
             f"An error occured when trying to get recent shifts for employee ID {user_id} associated to the store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_account_summaries(request):
+    try:
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        store_id = request.query_params.get("store_id", None)
+        ignore_no_hours = str_to_bool(
+            request.query_params.get("ignore_no_hours", "false")
+        )
+        sort_field = str(request.query_params.get("sort", "name"))
+        start_date = request.query_params.get("start", None)
+        end_date = request.query_params.get("end", None)
+        filter_names = str(request.query_params.get("filter", ""))
+
+        if not store_id or not start_date or not end_date:
+            return Response(
+                {
+                    "Error": "Missing required request parameters of store_id, start, and end. Please try again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ensure manager is authorised
+        if not manager.is_associated_with_store(store=store_id):
+            raise err.NotAssociatedWithStoreError
+
+        # Get pagination fields
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
+
+        try:
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            )
+        except ValueError:
+            limit = 25
+
+        # Validate other given fields
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        VALID_SORT_FIELDS = {"name", "hours", "age", "deliveries"}
+        if sort_field not in VALID_SORT_FIELDS:
+            return Response(
+                {
+                    "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Convert filter_names string to list
+        if filter_names and not re.match(VALID_NAME_LIST_PATTERN, filter_names):
+            return Response(
+                {"Error": "Invalid characters in filter list."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        filter_names_list = [
+            name.strip() for name in filter_names.split(",") if name.strip()
+        ]
+
+        # Get the summaries
+        summaries, total = controllers.get_account_summaries(
+            store_id=store_id,
+            offset=offset,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+            ignore_no_hours=ignore_no_hours,
+            sort_field=sort_field,
+            filter_names=filter_names_list,
+        )
+
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": summaries,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except ValueError:
+        logger.warning(
+            f"A VALUE ERROR occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Error converting a field. Is the request parameters correct?"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the store information for ID {store_id}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to get summaries for a unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to get summaries for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

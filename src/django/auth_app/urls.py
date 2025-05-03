@@ -22,8 +22,9 @@ urlpatterns = [
         name="manage_employee_details",
     ),
     path("manage_shift_logs", views.manage_shift_logs, name="manage_shift_logs"),
+    path("account_summary", views.manage_account_summary, name="account_summary"),
     path("manual_clocking", views.manual_clocking, name="manual_clocking"),
-    path("dashboard/", views.employee_dashboard, name="dashboard"),
+    path("dashboard", views.employee_dashboard, name="dashboard"),
     path("login", views.login, name="login"),
     path("setup", views.setup_account, name="account_setup"),
 ]

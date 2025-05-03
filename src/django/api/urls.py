@@ -9,6 +9,11 @@ urlpatterns = [
     path("clocked-state/", views.clocked_state_view, name="clocked_state"),
     path("list-recent-shifts/", views.list_recent_shifts, name="list_recent_shifts"),
     path(
+        "list-account-summaries/",
+        views.list_account_summaries,
+        name="list_account_summaries",
+    ),
+    path(
         "modify-account-password/",
         views.modify_account_password,
         name="modify_account_password",

@@ -2,10 +2,11 @@ import logging
 import api.exceptions as err
 import api.utils as util
 from typing import Union, Dict
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.utils.timezone import now, localtime
 from django.db import transaction
-from auth_app.models import User, Activity, KeyValueStore, Store, StoreUserAccess
+from django.db.models import Sum, Count, Q, F, ExpressionWrapper, DurationField
+from auth_app.models import User, Activity, Store
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -383,6 +384,181 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
     except Exception as e:
         logger.error(
             f"Failed to get user ID {user_id}'s recent shift information up to a limit of {time_limit_days} days for the store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        raise e
+
+
+def get_account_summaries(
+    store_id,
+    offset,
+    limit,
+    start_date,
+    end_date,
+    ignore_no_hours,
+    sort_field,
+    filter_names,
+):
+    """
+    Retrieve a paginated list of employee account summaries for a specific store.
+
+    Args:
+        store_id (int or str): The ID of the store to filter employees by.
+        offset (int): The number of records to skip (for pagination).
+        limit (int): The maximum number of records to return.
+        start_date (str): The start of the date range in YYYY-MM-DD format.
+        end_date (str): The end of the date range in YYYY-MM-DD format.
+        ignore_no_hours (bool): Whether to exclude employees with zero hours worked.
+        sort_field (str): Field to sort by. One of "name", "hours", "age", "deliveries".
+        filter_names (List[str]): List of employee names to include (case-insensitive match).
+
+    Returns:
+        Tuple[List[dict], int]: A list of summary dictionaries and the total count.
+    """
+    try:
+        # Get store object and ensure its active
+        store = Store.objects.get(id=int(store_id))
+
+        if not store.is_active:
+            raise err.InactiveStoreError
+
+        # Convert date strings
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Base queryset
+        activities = Activity.objects.filter(
+            store_id=int(store_id),
+            login_time__date__gte=start_dt,
+            login_time__date__lte=end_dt,
+            employee__is_hidden=False,
+        ).select_related(
+            "employee"
+        )  # Ensure employee info is also obtained
+
+        # Apply name filter
+        if filter_names:
+            name_filter = Q()
+            for name in filter_names:
+                name_filter |= Q(employee__first_name__icontains=name) | Q(
+                    employee__last_name__icontains=name
+                )
+            activities = activities.filter(name_filter)
+
+        # Aggregate by employee
+        summary_qs = activities.values(
+            "employee__id",
+            "employee__first_name",
+            "employee__last_name",
+            "employee__birth_date",
+        ).annotate(
+            total_mins=Sum("shift_length_mins"),
+            deliveries=Sum("deliveries"),
+        )
+
+        # Exclude no-hour employees if needed
+        if ignore_no_hours:
+            summary_qs = summary_qs.filter(total_mins__gt=0)
+
+        # Sorting logic
+        sort_map = {
+            "name": ("employee__first_name", "employee__last_name", "-total_mins"),
+            "hours": ("-total_mins", "employee__first_name", "employee__last_name"),
+            "age": (
+                "employee__birth_date",
+                "employee__first_name",
+                "employee__last_name",
+            ),
+            "deliveries": (
+                "-deliveries",
+                "employee__first_name",
+                "employee__last_name",
+            ),
+        }
+        summary_qs = summary_qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+
+        total = summary_qs.count()
+
+        # Apply pagination
+        summaries = summary_qs[offset : offset + limit]
+
+        # Prefetch all related employees
+        employee_ids = [row["employee__id"] for row in summaries]
+        employees = User.objects.filter(id__in=employee_ids).in_bulk()
+
+        # Format output
+        summary_list = []
+        for row in summaries:
+            birth_date = row["employee__birth_date"]
+            age = None
+            if birth_date:
+                today = now().date()
+                age = (
+                    today.year
+                    - birth_date.year
+                    - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                )
+
+            # Calculate hours for weekdays, weekends, and public holidays
+            mins_weekday = 0
+            mins_weekend = 0
+            mins_public_holiday = 0
+
+            # Get all activities for this employee within the date range
+            employee_activities = activities.filter(employee_id=row["employee__id"])
+
+            # Calculate the hours based on the activity's day type
+            for activity in employee_activities:
+                login_time = activity.login_time
+                shift_length = activity.shift_length_mins
+
+                # Determine the day of the week
+                day_of_week = login_time.weekday()  # Monday=0, Sunday=6
+
+                # Check for public holiday
+                if activity.is_public_holiday:
+                    mins_public_holiday += shift_length
+
+                # Weekday (Mon-Fri)
+                if day_of_week >= 0 and day_of_week <= 4:
+                    mins_weekday += shift_length
+                # Weekend (Sat-Sun)
+                else:
+                    mins_weekend += shift_length
+
+            # Fetch additional employee data (acc_resigned, acc_active, acc_manager, dob)
+            employee = employees.get(row["employee__id"])
+
+            summary_list.append(
+                {
+                    "name": f'{row["employee__first_name"]} {row["employee__last_name"]}',
+                    "hours_total": round(
+                        (row["total_mins"] or 0) / 60, 2
+                    ),  # Total worked hours
+                    "hours_weekday": round(mins_weekday / 60, 2),  # Weekday hours
+                    "hours_weekend": round(mins_weekend / 60, 2),  # Weekend hours
+                    "hours_public_holiday": round(
+                        mins_public_holiday / 60, 2
+                    ),  # Public Holiday hours
+                    "deliveries": row["deliveries"] or 0,
+                    "age": age,  # Integer age or None
+                    "acc_resigned": not employee.is_associated_with_store(store=store),
+                    "acc_active": employee.is_active,
+                    "acc_manager": employee.is_manager,
+                }
+            )
+
+        return summary_list, total
+
+    except (
+        Store.DoesNotExist,
+        err.InactiveStoreError,
+        ValueError,
+    ) as e:
+        # Re-raise common errors
+        raise e
+    except Exception as e:
+        logger.error(
+            f"Failed to get account summaries for store ID {store_id} for period ({start_date} -> {end_date}), resulting in the error: {str(e)}"
         )
         raise e
 
