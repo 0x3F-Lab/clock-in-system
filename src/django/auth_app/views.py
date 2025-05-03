@@ -7,10 +7,12 @@ from api.utils import get_distance_from_lat_lon_in_m
 import api.exceptions as err
 from django.contrib import messages
 from django.urls import reverse
+from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
+from clock_in_system.settings import STATIC_URL, BASE_URL
 
 logger = logging.getLogger("auth_app")
 
@@ -365,3 +367,51 @@ def manage_employee_details(request):
 @require_GET
 def manage_shift_logs(request):
     return render(request, "auth_app/shift_logs.html")
+
+
+def offline(request):
+    return render(request, "offline.html")
+
+
+@require_GET
+def manifest(request):
+    return JsonResponse(
+        {
+            "name": "Clockin App",
+            "short_name": "Clockin",
+            "id": f"http://192.168.1.119:8000/",
+            "start_url": f"http://192.168.1.119:8000/?source=pwa",
+            "scope": f"http://192.168.1.119:8000/",
+            "display": "fullscreen",
+            "orientation": "portrait",  # Lock orientation to portrait
+            "theme_color": "#343a40",
+            "background_color": "#1a202c",
+            "description": "Clock-in app for employees to manage shifts and time.",
+            "icons": [
+                {
+                    "src": f"{STATIC_URL}img/favicon/android-chrome-192x192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                },
+                {
+                    "src": f"{STATIC_URL}img/favicon/android-chrome-512x512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                },
+            ],
+            "shortcuts": [
+                {
+                    "name": "Clockin Employee Dash",
+                    "short_name": "Clockin Dash",
+                    "description": "Employee dashboard for clocking in/out.",
+                    "url": "/dashboard/?source=pwa",
+                    "icons": [
+                        {
+                            "src": f"{STATIC_URL}img/favicon/android-chrome-192x192.png",
+                            "sizes": "192x192",
+                        }
+                    ],
+                },
+            ],
+        }
+    )

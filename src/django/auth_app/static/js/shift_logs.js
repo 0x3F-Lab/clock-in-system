@@ -64,6 +64,9 @@ function deleteShift(activityId) {
   $.ajax({
     url: `${window.djangoURLs.updateShiftDetails}${activityId}/`,
     type: "DELETE",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -99,6 +102,9 @@ function updateShiftLogsTable() {
   $.ajax({
     url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -179,6 +185,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.listSingularShiftDetails}${id}/?store_id=${getSelectedStoreID()}`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -212,6 +221,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -283,6 +295,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.updateShiftDetails}${id}/`,
         type: 'POST',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -320,6 +335,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.createShift}`,
         type: 'PUT',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },

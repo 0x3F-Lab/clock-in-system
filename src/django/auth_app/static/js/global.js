@@ -306,6 +306,9 @@ function populateStoreSelection() {
   $.ajax({
     url: `${window.djangoURLs.listAssociatedStores}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },

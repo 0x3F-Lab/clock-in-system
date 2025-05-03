@@ -83,6 +83,9 @@ function updateClockedState() {
   $.ajax({
     url: `${window.djangoURLs.clockedState}?store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -168,6 +171,9 @@ async function clockInOutUser() {
     $.ajax({
       url: `${window.djangoURLs.clockIn}`,
       type: "PUT",
+      xhrFields: {
+        withCredentials: true
+      },
       headers: {
         'X-CSRFToken': getCSRFToken(), // Include CSRF token
       },
@@ -204,6 +210,9 @@ async function clockInOutUser() {
     $.ajax({
       url: `${window.djangoURLs.clockOut}`,
       type: "PUT",
+      xhrFields: {
+        withCredentials: true
+      },
       headers: {
         'X-CSRFToken': getCSRFToken(), // Include CSRF token
       },
@@ -253,6 +262,9 @@ function updateShiftHistory() {
   $.ajax({
     url: `${window.djangoURLs.listRecentShifts}?store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -320,6 +332,9 @@ function submitAccountInfoModal() {
   $.ajax({
     url: `${window.djangoURLs.modifyAccountInfo}`,
     type: "POST",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },

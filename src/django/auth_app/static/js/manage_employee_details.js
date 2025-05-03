@@ -74,6 +74,9 @@ function updateEmployeeStatus(id, type) {
   $.ajax({
     url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
     type: "PUT",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -120,6 +123,9 @@ function updateEmployeeDetailsTable() {
   $.ajax({
     url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -203,6 +209,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.listSingularEmployeeDetails}${id}/`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -247,6 +256,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.updateEmployeeDetails}${id}/`,
         type: 'POST',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -282,6 +294,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.createEmployeeAccount}`,
         type: 'PUT',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
