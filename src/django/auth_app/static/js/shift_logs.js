@@ -274,7 +274,8 @@ function handleShiftDetailsEdit() {
   });
 
   // When the edit modal is submitted
-  $('#editModalSubmit').on('click', () => {
+  $('#editModalSubmit').on('click', function (e) {
+    e.preventDefault();
     const id = $('#editActivityId').val();
 
     // Check the form is correctly filled

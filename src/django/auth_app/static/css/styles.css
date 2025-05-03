@@ -22,6 +22,14 @@ table {
   align-self: stretch;
 }
 
+.field-error {
+  color: #dc3545;
+}
+
+.nonfield-error {
+  color: #dc3545;
+}
+
 .panel {
   background-color: #2d3748;
   color: white;

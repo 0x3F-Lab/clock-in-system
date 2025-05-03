@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from datetime import timedelta
 from django.core.cache import cache
 from django.utils.timezone import make_aware, is_naive
+from django.contrib.sessions.models import Session
 from django.utils import timezone
 from auth_app.models import User, Store, Activity
 from clock_in_system.settings import (
@@ -17,6 +18,22 @@ from clock_in_system.settings import (
 )
 
 logger = logging.getLogger("api")
+
+
+def flush_user_sessions(user_id: int):
+    """
+    Helper function to flush all sessions that are for the given user_id
+    """
+    count = 0
+    for session in Session.objects.all():
+        data = session.get_decoded()
+        if data.get("user_id") == int(user_id):
+            session.delete()
+            count += 1
+
+    logger.debug(
+        f"[FLUSH: SESSIONS] [PASSWORD-CHANGE] USER ID: {user_id} -- Num Sessions flushed: {count}"
+    )
 
 
 # Function to check if a given date is a public holiday

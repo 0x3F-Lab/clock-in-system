@@ -24,6 +24,9 @@ from clock_in_system.settings import (
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     VALID_NAME_PATTERN,
     VALID_PHONE_NUMBER_PATTERN,
+    VALID_PASSWORD_PATTERN,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
 )
 
 from django.db.models import Sum, F, Q, Case, When, DecimalField
@@ -1377,6 +1380,115 @@ def modify_account_status(request, id):
 
 
 @api_employee_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_password(request):
+    try:
+        # Parse data from request
+        old_pass = request.data.get("old_pass") or None
+        new_pass = request.data.get("new_pass") or None
+
+        if not old_pass or not new_pass:
+            return JsonResponse(
+                {"Error": "Required old and new password fields are missing."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        old_pass = str(old_pass)
+        new_pass = str(new_pass)
+
+        # Get employee
+        employee_id = request.session.get("user_id")
+        employee = User.objects.get(id=employee_id)
+
+        # Check account can be modified
+        if not employee.is_active:
+            return Response(
+                {"Error": "Not authorised to update an inactive account's password."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_setup:
+            return Response(
+                {
+                    "Error": "Employee account must be setup before the password can be modified."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Validate new password to generate errors to add
+        errors = {"old_pass": [], "new_pass": []}
+        if len(new_pass) < PASSWORD_MIN_LENGTH:
+            errors["new_pass"].append(
+                f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
+            )
+        if len(new_pass) > PASSWORD_MAX_LENGTH:
+            errors["new_pass"].append(
+                f"Password cannot be longer than {PASSWORD_MAX_LENGTH} characters long."
+            )
+        if not re.search(VALID_PASSWORD_PATTERN, new_pass):
+            errors["new_pass"].append(
+                f"Password must contain at least one uppercase letter, one lowercase letter, and one number."
+            )
+
+        # If the old password is not valid
+        if not employee.check_password(raw_password=old_pass):
+            errors["old_pass"].append("Invalid old account password.")
+            return Response(
+                {"Error": "Invalid old account password.", "field_errors": errors},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif employee.check_password(raw_password=new_pass):
+            errors["new_pass"].append("New password cannot match current password.")
+            return Response(
+                {"Error": "Cannot set the same password.", "field_errors": errors},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # If the new password is not valid
+        if len(errors["new_pass"]) > 0:
+            return Response(
+                {"Error": "Invalid new account password.", "field_errors": errors},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Update user password
+        employee.set_password(raw_password=new_pass)
+        employee.save()
+
+        logger.info(
+            f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) updated their password."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee.id})] [PASSWORD-CHANGE] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- MANAGER: {employee.is_manager} -- HIDDEN: {employee.is_hidden}"
+        )
+        util.flush_user_sessions(
+            user_id=employee_id
+        )  # FLUSH ALL SESSIONS WITH THE USER'S ID -> FORCE THEM TO RELOGGIN
+        return JsonResponse(
+            {
+                "message": "Employee password updated successfully. Please login again.",
+                "id": employee.id,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {employee_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee password for user with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
 @api_view(["POST", "PUT"])
 @renderer_classes([JSONRenderer])
 def clock_in(request):
@@ -1956,66 +2068,3 @@ def reset_summary_view(request):
 def weekly_summary_page(request):
     # Return the HTML template
     return render(request, "auth_app/weekly_summary.html")
-
-
-@api_view(["POST", "PUT"])
-def change_pin(request, id):
-    try:
-        # Get new pin
-        new_pin = request.data.get("new_pin", None)
-
-        # Check if new pin exists
-        if new_pin is None:
-            return Response(
-                {"Error": "Missing new authentication pin."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Get hashed pin to check they're authorised
-        current_pin = request.data.get("current_pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=current_pin):
-            raise err.InvalidPinError
-
-        # Update the pin
-        employee = User.objects.get(id=id)
-        employee.set_pin(raw_pin=new_pin)
-        employee.save()
-
-        return Response(
-            {"message": f"Pin for account ID {id} has been updated."},
-            status=status.HTTP_200_OK,
-        )
-
-    except err.MissingPinError:
-        # If the request is missing the authentication pin
-        return Response(
-            {"Error": "Missing authentication pin in request."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    except err.InvalidPinError:
-        # If the authentication pin is invalid
-        return Response(
-            {"Error": "Invalid authentication pin."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-    except User.DoesNotExist:
-        # If the user is not found, return 404
-        return Response(
-            {"Error": f"Employee not found with the ID {id}."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-    except err.InactiveUserError:
-        # If the user is trying to change pin of an inactive account
-        return Response(
-            {"Error": "Cannot change the pin of an inactive account."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    except Exception as e:
-        # General error capture
-        logger.critical(f"An error occured when changing employee pin: {str(e)}")
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )

@@ -239,7 +239,8 @@ function handleEmployeeDetailsEdit() {
   });
 
   // When the edit modal is submitted
-  $('#editModalSubmit').on('click', () => {
+  $('#editModalSubmit').on('click', function (e) {
+    e.preventDefault();
     const id = $('#editEmployeeId').val();
 
     // Check the form is correctly filled

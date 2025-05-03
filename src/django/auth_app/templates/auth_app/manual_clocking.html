@@ -15,18 +15,18 @@
         <label for="{{ form.store_pin.id_for_label }}" class="text-light">Store PIN:</label>
         {{ form.store_pin }}
         {% for error in form.store_pin.errors %}
-        <div class="fieldError">{{ error|escapejs }}</div>
+        <div class="field-error">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
       <div class="form-group mt-4">
         <label for="{{ form.employee_pin.id_for_label }}" class="text-light">Employee PIN:</label>
         {{ form.employee_pin }}
         {% for error in form.employee_pin.error %}
-        <div class="fieldError">{{ error|escapejs }}</div>
+        <div class="field-error">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
       {% for error in form.non_field_errors %}
-      <div class="nonFieldErrors">{{ error|escapejs }}</div>
+      <div class="nonfield-error">{{ error|escapejs }}</div>
       {% endfor %}
     </form>
   </div>

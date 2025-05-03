@@ -4,6 +4,13 @@ from django.conf import settings
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from auth_app.models import User
+from clock_in_system.settings import (
+    VALID_NAME_PATTERN,
+    VALID_PHONE_NUMBER_PATTERN,
+    VALID_PASSWORD_PATTERN,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+)
 
 
 class LoginForm(forms.Form):
@@ -111,7 +118,7 @@ class AccountSetupForm(forms.Form):
             raise ValidationError(
                 "First name cannot be longer than 100 characters long."
             )
-        if not re.match(settings.VALID_NAME_PATTERN, first_name):
+        if not re.match(VALID_NAME_PATTERN, first_name):
             raise ValidationError("First name contains invalid characters.")
         return first_name.title()
 
@@ -121,7 +128,7 @@ class AccountSetupForm(forms.Form):
             raise ValidationError(
                 "Last name cannot be longer than 100 characters long."
             )
-        if not re.match(settings.VALID_NAME_PATTERN, last_name):
+        if not re.match(VALID_NAME_PATTERN, last_name):
             raise ValidationError("Last name contains invalid characters.")
         return last_name.title()
 
@@ -132,7 +139,7 @@ class AccountSetupForm(forms.Form):
                 raise ValidationError(
                     "Phone number cannot be longer than 15 characters long."
                 )
-            if not re.match(settings.VALID_PHONE_NUMBER_PATTERN, phone):
+            if not re.match(VALID_PHONE_NUMBER_PATTERN, phone):
                 raise ValidationError("Phone number contains invalid characters.")
         return phone.strip() if phone else phone
 
@@ -146,15 +153,15 @@ class AccountSetupForm(forms.Form):
 
     def clean_password(self):
         password = self.cleaned_data.get("password", "")
-        if len(password) < settings.PASSWORD_MIN_LENGTH:
+        if len(password) < PASSWORD_MIN_LENGTH:
             raise ValidationError(
-                f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters long."
+                f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
             )
-        if len(password) > settings.PASSWORD_MAX_LENGTH:
+        if len(password) > PASSWORD_MAX_LENGTH:
             raise ValidationError(
-                f"Password cannot be longer than {settings.PASSWORD_MAX_LENGTH} characters long."
+                f"Password cannot be longer than {PASSWORD_MAX_LENGTH} characters long."
             )
-        if not re.search(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)", password):
+        if not re.search(VALID_PASSWORD_PATTERN, password):
             raise ValidationError(
                 "Password must contain at least one uppercase letter, one lowercase letter, and one number."
             )

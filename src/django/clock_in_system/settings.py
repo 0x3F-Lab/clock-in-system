@@ -225,6 +225,7 @@ VALID_NAME_PATTERN = (
     r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes
 )
 VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
+VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
 
 
 # Static files (CSS, JavaScript, Images)
