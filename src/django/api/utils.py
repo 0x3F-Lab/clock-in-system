@@ -3,12 +3,13 @@ import requests
 import logging
 import holidays
 import api.exceptions as err
-from urllib.parse import urlencode
+
 from datetime import timedelta
-from django.core.cache import cache
-from django.utils.timezone import make_aware, is_naive
-from django.contrib.sessions.models import Session
+from urllib.parse import urlencode
 from django.utils import timezone
+from django.core.cache import cache
+from django.contrib.sessions.models import Session
+from django.utils.timezone import make_aware, is_naive
 from auth_app.models import User, Store, Activity
 from clock_in_system.settings import (
     COUNTRY_CODE,

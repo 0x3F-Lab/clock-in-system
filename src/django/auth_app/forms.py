@@ -1,6 +1,6 @@
 import re
+
 from django import forms
-from django.conf import settings
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from auth_app.models import User

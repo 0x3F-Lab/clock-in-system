@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from auth_app.models import User, Activity
+from auth_app.models import Activity
 
 
 class ActivitySerializer(serializers.ModelSerializer):

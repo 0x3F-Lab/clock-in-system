@@ -1,17 +1,18 @@
 import logging
-from auth_app.models import User, Store
-from auth_app.utils import manager_required, employee_required
-from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
-from api.controllers import handle_clock_in, handle_clock_out
-from api.utils import get_distance_from_lat_lon_in_m
 import api.exceptions as err
-from django.contrib import messages
+
 from django.urls import reverse
+from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
+from auth_app.models import User, Store
+from auth_app.utils import manager_required, employee_required
+from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
+from api.utils import get_distance_from_lat_lon_in_m
+from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL
 
 logger = logging.getLogger("auth_app")

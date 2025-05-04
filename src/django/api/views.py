@@ -1,22 +1,23 @@
 import logging
 import re
 import api.utils as util
-import api.controllers as controllers
 import api.exceptions as err
+import api.controllers as controllers
+
 from datetime import datetime
-from api.utils import round_datetime_minute, str_to_bool
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.response import Response
 from rest_framework import status
-from auth_app.models import User, Activity, Store, StoreUserAccess
-from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
+from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
-from django.db import transaction, IntegrityError
+from rest_framework.decorators import api_view, renderer_classes
 from django.http import JsonResponse
+from django.db import transaction, IntegrityError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
+from api.utils import round_datetime_minute, str_to_bool
+from auth_app.models import User, Activity, Store, StoreUserAccess
 from auth_app.utils import api_manager_required, api_employee_required
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
