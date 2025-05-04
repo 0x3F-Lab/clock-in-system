@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from auth_app.models import User, Activity, Summary
+from auth_app.models import User, Activity
 
 
 class ActivitySerializer(serializers.ModelSerializer):
@@ -15,20 +15,6 @@ class ActivitySerializer(serializers.ModelSerializer):
             "deliveries",
             "login_timestamp",
             "logout_timestamp",
-        ]
-
-
-class SummarySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Summary
-        fields = [
-            "id",
-            "employee_id",
-            "weekday_hours",
-            "weekend_hours",
-            "public_holiday_hours",
-            "deliveries",
-            "summary_date",
         ]
 
 

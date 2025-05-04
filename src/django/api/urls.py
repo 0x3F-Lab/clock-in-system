@@ -18,11 +18,6 @@ urlpatterns = [
         views.modify_account_password,
         name="modify_account_password",
     ),
-    # JSON API endpoint for weekly summary data
-    path("weekly-summary/", views.weekly_summary_view, name="weekly_summary_view"),
-    # HTML page that uses JS to fetch from the above API
-    path("weekly-summary-page/", views.weekly_summary_page, name="weekly_summary_page"),
-    path("reset-summary/", views.reset_summary_view, name="reset_summary_view"),
     path(
         "list-store-employee-names/",
         views.list_store_employee_names,

@@ -17,30 +17,6 @@ from clock_in_system.settings import STATIC_URL, BASE_URL
 logger = logging.getLogger("auth_app")
 
 
-@require_http_methods(["GET", "POST"])
-def manager_login(request):
-    if request.method == "POST":
-        email = request.POST.get("email")
-        password = request.POST.get("password")
-
-        try:
-            user = User.objects.get(email=email)  # Look up the user by email
-        except User.DoesNotExist:
-            messages.error(request, "Invalid details.")
-            return render(request, "auth_app/manager_login.html")
-
-        # Check password and if the user is a manager
-        if user.check_password(password) and user.is_manager:
-            # Log the user in by setting session data
-            request.session["user_id"] = user.id
-            request.session["is_manager"] = user.is_manager
-            return redirect("manager_dashboard")
-        else:
-            messages.error(request, "Invalid Details")
-
-    return render(request, "auth_app/manager_login.html")
-
-
 @require_GET
 def logout(request):
     request.session.flush()  # Clear all session data

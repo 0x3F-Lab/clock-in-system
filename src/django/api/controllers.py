@@ -5,7 +5,7 @@ from typing import Union, Dict
 from datetime import timedelta, datetime
 from django.utils.timezone import now, localtime
 from django.db import transaction
-from django.db.models import Sum, Count, Q, F, ExpressionWrapper, DurationField
+from django.db.models import Sum, Q
 from auth_app.models import User, Activity, Store
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,

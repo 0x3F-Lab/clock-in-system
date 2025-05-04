@@ -241,31 +241,3 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"[{self.id}] Clock-in data for {self.employee_id}"
-
-
-class Summary(models.Model):
-    employee_id = models.ForeignKey(User, on_delete=models.CASCADE)
-    weekday_hours = models.DecimalField(
-        max_digits=5, decimal_places=2, null=False, default=0.00
-    )
-    weekend_hours = models.DecimalField(
-        max_digits=5, decimal_places=2, null=False, default=0.00
-    )
-    public_holiday_hours = models.DecimalField(
-        max_digits=5, decimal_places=2, null=False, default=0.00
-    )
-    deliveries = models.IntegerField(default=0, null=False)
-    summary_date = models.DateField(null=False)
-
-    def __str__(self):
-        return (
-            f"[{self.id}] Weekly Summary for {self.employee_id} on {self.summary_date}"
-        )
-
-
-class KeyValueStore(models.Model):
-    key = models.CharField(max_length=255, unique=True)
-    value = models.CharField(max_length=256, null=False)
-
-    def __str__(self):
-        return f"{self.key}: {self.value}"

@@ -12,13 +12,11 @@ from auth_app.models import User, Activity, Store, StoreUserAccess
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from rest_framework.renderers import JSONRenderer
 from django.db import transaction, IntegrityError
-from django.shortcuts import render
 from django.http import JsonResponse
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import manager_required, api_manager_required, api_employee_required
-from django.views.decorators.csrf import ensure_csrf_cookie
+from auth_app.utils import api_manager_required, api_employee_required
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -30,10 +28,6 @@ from clock_in_system.settings import (
     PASSWORD_MIN_LENGTH,
 )
 
-from django.db.models import Sum, F, Q, Case, When, DecimalField
-from datetime import time
-from auth_app.models import Activity, User, KeyValueStore
-from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
 
@@ -2043,162 +2037,3 @@ def list_account_summaries(request):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-
-@manager_required
-@ensure_csrf_cookie
-@api_view(["GET"])
-@renderer_classes([JSONRenderer])
-def weekly_summary_view(request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
-    employee_ids_str = request.query_params.get("employee_ids")
-
-    try:
-        # Handle date range
-        if start_date_str and end_date_str:
-            try:
-                start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-
-                start_date = make_aware(datetime.combine(start_day, time.min))
-                end_date = make_aware(datetime.combine(end_day, time.max))
-
-                activities = Activity.objects.filter(
-                    login_time__gte=start_date, login_time__lte=end_date
-                )
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            # No date range provided, use last reset date
-            try:
-                kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
-                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").date()
-                last_reset_date = make_aware(
-                    datetime.combine(last_reset_date, time.min)
-                )
-            except KeyValueStore.DoesNotExist:
-                # Fallback date
-                last_reset_date = make_aware(datetime(2023, 3, 15))
-
-            activities = Activity.objects.filter(login_time__gte=last_reset_date)
-
-        # Handle employee filter
-        if employee_ids_str:
-            employee_ids = [
-                int(e_id.strip())
-                for e_id in employee_ids_str.split(",")
-                if e_id.strip().isdigit()
-            ]
-            if employee_ids:
-                activities = activities.filter(employee__in=employee_ids)
-
-        # Calculate hours by converting shift_length_mins to hours
-        # Note: Exclude public holiday hours from weekday/weekend columns
-        summary = (
-            activities.annotate(day_of_week=ExtractWeekDay("login_time"))
-            .values("employee_id", "employee_id__first_name", "employee_id__last_name")
-            .annotate(
-                weekday_hours=Sum(
-                    Case(
-                        When(
-                            Q(day_of_week__in=[2, 3, 4, 5, 6])
-                            & Q(is_public_holiday=False),
-                            then=F("shift_length_mins") / 60.0,
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                weekend_hours=Sum(
-                    Case(
-                        When(
-                            Q(day_of_week__in=[1, 7]) & Q(is_public_holiday=False),
-                            then=F("shift_length_mins") / 60.0,
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                public_holiday_hours=Sum(
-                    Case(
-                        When(
-                            is_public_holiday=True, then=F("shift_length_mins") / 60.0
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                total_hours=Sum(F("shift_length_mins") / 60.0),
-                total_deliveries=Sum("deliveries"),
-            )
-            .order_by("employee_id__first_name", "employee_id__last_name")
-        )
-
-        data = [
-            {
-                "employee_id": item["employee_id"],
-                "first_name": item["employee_id__first_name"],
-                "last_name": item["employee_id__last_name"],
-                "weekday_hours": float(item["weekday_hours"] or 0.0),
-                "weekend_hours": float(item["weekend_hours"] or 0.0),
-                "public_holiday_hours": float(item["public_holiday_hours"] or 0.0),
-                "total_hours": float(item["total_hours"] or 0.0),
-                "total_deliveries": item["total_deliveries"] or 0,
-            }
-            for item in summary
-        ]
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    except Exception as e:
-        logger.critical(f"An error occurred when generating weekly summary: {str(e)}")
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@manager_required
-@ensure_csrf_cookie
-@api_view(["POST"])
-@renderer_classes([JSONRenderer])
-def reset_summary_view(request):
-    # If a new date is provided in the POST, use it, otherwise today
-    new_date_str = request.data.get("new_reset_date")
-    if new_date_str:
-        try:
-            # Validate the date format
-            datetime.strptime(new_date_str, "%Y-%m-%d")
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        today_str = new_date_str
-    else:
-        # Default to today if no date provided
-        today_str = now().date().isoformat()
-
-    kv, created = KeyValueStore.objects.get_or_create(
-        key="last_weekly_summary_reset", defaults={"value": today_str}
-    )
-    if not created:
-        kv.value = today_str
-        kv.save()
-
-    return Response(
-        {"message": "Weekly summary reset successfully", "reset_date": today_str},
-        status=status.HTTP_200_OK,
-    )
-
-
-@manager_required
-@ensure_csrf_cookie
-@renderer_classes([JSONRenderer])
-def weekly_summary_page(request):
-    # Return the HTML template
-    return render(request, "auth_app/weekly_summary.html")
