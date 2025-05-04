@@ -13,7 +13,7 @@ from auth_app.utils import manager_required, employee_required
 from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
-from clock_in_system.settings import STATIC_URL, BASE_URL
+from clock_in_system.settings import STATIC_URL
 
 logger = logging.getLogger("auth_app")
 
