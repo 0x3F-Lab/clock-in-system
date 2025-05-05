@@ -313,20 +313,20 @@ def update_shift_details(request, id):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Save activity info
+        original = {
+            "id": activity.id,
+            "deliveries": activity.deliveries,
+            "login_time": activity.login_time,
+            "login_timestamp": activity.login_timestamp,
+            "logout_time": activity.logout_time,
+            "logout_timestamp": activity.logout_timestamp,
+            "shift_length_mins": activity.shift_length_mins,
+            "is_public_holiday": activity.is_public_holiday,
+        }
+
         # If DELETING the activity
         if request.method == "DELETE":
-            # Save activity info
-            original = {
-                "id": activity.id,
-                "deliveries": activity.deliveries,
-                "login_time": activity.login_time,
-                "login_timestamp": activity.login_timestamp,
-                "logout_time": activity.logout_time,
-                "logout_timestamp": activity.logout_timestamp,
-                "shift_length_mins": activity.shift_length_mins,
-                "is_public_holiday": activity.is_public_holiday,
-            }
-
             with transaction.atomic():
                 activity.delete()
 
@@ -341,21 +341,11 @@ def update_shift_details(request, id):
                 status=status.HTTP_200_OK,
             )
 
+        # If UPDATING the activity
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
             login_timestamp = request.data.get("login_timestamp", None) or None
             logout_timestamp = request.data.get("logout_timestamp", None) or None
-
-            # Save original data for logging
-            original = {
-                "deliveries": activity.deliveries,
-                "login_time": activity.login_time,
-                "login_timestamp": activity.login_timestamp,
-                "logout_time": activity.logout_time,
-                "logout_timestamp": activity.logout_timestamp,
-                "shift_length_mins": activity.shift_length_mins,
-                "is_public_holiday": activity.is_public_holiday,
-            }
 
             try:
                 if login_timestamp:
@@ -461,6 +451,10 @@ def update_shift_details(request, id):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+            # Else reset shift length time
+            else:
+                activity.shift_length_mins = 0
 
             with transaction.atomic():
                 activity.save()
@@ -621,7 +615,9 @@ def create_new_shift(request):
             )
 
         # Get the rounded login/logout times
-        login_time = round_datetime_minute(login_timestamp)
+        login_time = round_datetime_minute(
+            login_timestamp
+        )  # Login timestamp MUST be pass to reach this point
         logout_time = None
         if logout_timestamp:
             logout_time = round_datetime_minute(logout_timestamp)
@@ -653,6 +649,10 @@ def create_new_shift(request):
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
+            # Set shift length field
+            delta = logout_time - login_time
+            shift_length_mins = int(delta.total_seconds() // 60)
+
         # Create the new activity record
         activity = Activity.objects.create(
             employee=employee,
@@ -661,6 +661,7 @@ def create_new_shift(request):
             logout_time=logout_time,
             login_timestamp=login_timestamp,
             logout_timestamp=logout_timestamp,
+            shift_length_mins=shift_length_mins,
             is_public_holiday=is_public_holiday,
             deliveries=deliveries,
         )

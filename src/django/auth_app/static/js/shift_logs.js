@@ -134,7 +134,7 @@ function updateShiftLogsTable() {
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
               <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
-              <td class="${parseFloat(shift.hours_worked) > 10 ? 'table-danger' : ''}">${shift.hours_worked}</td>
+              <td class="${parseFloat(shift.hours_worked) < 1.0 ? 'cell-danger' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-danger' : '')}">${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>
