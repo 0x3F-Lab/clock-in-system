@@ -45,6 +45,26 @@ table {
   background-color: #718096;
 }
 
+.rounded-5 {
+  border-radius: 1.75rem;
+}
+
+.card-link {
+  transition: all 0.3s ease;
+  border-radius: 1rem;
+}
+
+.card-link:hover {
+  background-color: #f8f9fa !important; /* Light background */
+  color: #000 !important; /* Black text */
+}
+
+.card-link:hover i,
+.card-link:hover h5,
+.card-link:hover p {
+  color: #000 !important;
+}
+
 /* Pagination controller */
 .pagination-gradient .page-link {
   border: none;
@@ -76,10 +96,12 @@ table {
   background-color: transparent;
 }
 
+.bg-indigo,
 .btn-outline-indigo:hover {
   background-color: #6610f2;
   color: #fff;
 }
+
 
 .btn-outline-cyan {
   color: #0dcaf0;
@@ -87,6 +109,7 @@ table {
   background-color: transparent;
 }
 
+.bg-cyan,
 .btn-outline-cyan:hover {
   background-color: #0dcaf0;
   color: #fff;
@@ -97,10 +120,10 @@ table {
   border-color: #d35400;
 }
 
+.bg-orange,
 .btn-outline-orange:hover {
   background-color: #d35400;
   color: #fff;
-  border-color: #d35400;
 }
 
 /* If you still want the login box centered, apply flex styling only to the login container */
