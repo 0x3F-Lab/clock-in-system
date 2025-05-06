@@ -5,28 +5,33 @@ if (isDevEnvironment) {
 
   // Intercept all fetches and just proxy to the network (no caching)
   self.addEventListener('fetch', event => {
-    const reqWithCreds = new Request(event.request, { credentials: 'include' });
-    event.respondWith(fetch(reqWithCreds));
+    event.respondWith(fetch(event.request));
   });
 
 } else {
   // Load workbox from CDN
   importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
 
-  self.skipWaiting();
-  self.clients.claim();
-  workbox.navigationPreload.enable();
+  // Skip waiting to activate the new SW immediately
+  self.addEventListener('install', (event) => {
+    self.skipWaiting();
+  });
+
+  // Claim clients after the service worker is activated
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
+    workbox.navigationPreload.enable();
+  });
 
   // Set custom cache names
   workbox.core.setCacheNameDetails({
     prefix: 'clockinapp',
-    suffix: 'v1.1',
+    suffix: 'v1.1.2',
   });
 
   const OFFLINE_URL = '/offline';
 
   workbox.precaching.precacheAndRoute([
-    { url: '/', revision: null },
     { url: OFFLINE_URL, revision: null },
     { url: '/static/css/styles.css', revision: null },
     { url: '/static/js/global.js', revision: null },
