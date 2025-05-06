@@ -11,7 +11,7 @@ urlpatterns = [
             template_name="sw.js", content_type="application/javascript"
         ),
     ),
-    path("offline/", views.offline, name="offline"),
+    path("offline", views.offline, name="offline"),
     path("clocking", views.employee_dashboard, name="clocking"),
     path("logout", views.logout, name="logout"),
     path("manager_dashboard", views.manager_dashboard, name="manager_dashboard"),

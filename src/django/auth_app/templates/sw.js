@@ -1,144 +1,107 @@
-// NOTE: THIS FILE IS PLACED IN TEMPLATES SECTION TO ENSURE IT LOADS ON THE BASE PATH AND GET FULL SCOPE
+const isDevEnvironment = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
 
-const CACHE_NAME = 'clockinapp-cache-v1';
+if (isDevEnvironment) {
+  console.log('Running in development mode — disabling caching.');
 
-const urlsToCache = [
-    '/',  // Root URL
-    '/offline/',
-    '/sw.js',
-    '/static/css/styles.css',
-    '/static/js/global.js',
-    '/static/img/logo.png',
-    '/static/favicon.ico',
-    '/static/img/favicon/favicon-32x32.png',
-    '/static/img/favicon/android-chrome-192x192.png',
-    '/static/img/favicon/android-chrome-512x512.png',
-    '/static/img/gifs/offline.gif',
-    '/static/js/employee_dashboard.js',
-    '/static/js/manage_employee_details.js',
-    '/static/js/manual_clocking.js',
-    '/static/js/shift_logs.js',
-];
+  // Intercept all fetches and just proxy to the network (no caching)
+  self.addEventListener('fetch', event => {
+    const reqWithCreds = new Request(event.request, { credentials: 'include' });
+    event.respondWith(fetch(reqWithCreds));
+  });
 
-// Install SW and cache assets
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.all(urlsToCache.map(url => {
-        return fetch(url)
-          .then(response => {
-            if (response.ok) {
-              return cache.put(url, response);
-            } else {
-              throw new Error(`Failed to fetch resource '${url}'.`);
-            }
-          })
-          .catch(err => {
-            console.error(err);
-            return null; // Proceed even if some resources fail to load
-          });
-      }));
-    })
-  );
-  self.skipWaiting(); // Activate worker
-});
+} else {
+  // Load workbox from CDN
+  importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
 
-// Activate SW and clean up old caches
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    (async () => {
-      // Enable navigation preload if supported
-      if (self.registration.navigationPreload) {
-        await self.registration.navigationPreload.enable();
+  self.skipWaiting();
+  self.clients.claim();
+  workbox.navigationPreload.enable();
+
+  // Set custom cache names
+  workbox.core.setCacheNameDetails({
+    prefix: 'clockinapp',
+    suffix: 'v1.1',
+  });
+
+  const OFFLINE_URL = '/offline';
+
+  workbox.precaching.precacheAndRoute([
+    { url: '/', revision: null },
+    { url: OFFLINE_URL, revision: null },
+    { url: '/static/css/styles.css', revision: null },
+    { url: '/static/js/global.js', revision: null },
+    { url: '/static/img/logo.png', revision: null },
+    { url: '/static/favicon.ico', revision: null },
+    { url: '/static/img/favicon/favicon-32x32.png', revision: null },
+    { url: '/static/img/favicon/android-chrome-192x192.png', revision: null },
+    { url: '/static/img/favicon/android-chrome-512x512.png', revision: null },
+    { url: '/static/img/gifs/offline.gif', revision: null },
+    { url: '/static/js/employee_dashboard.js', revision: null },
+    { url: '/static/js/manage_employee_details.js', revision: null },
+    { url: '/static/js/manual_clocking.js', revision: null },
+    { url: '/static/js/shift_logs.js', revision: null },
+    { url: '/sw.js', revision: null },
+  ]);
+
+  // For full pages
+  workbox.routing.registerRoute(
+    ({ request }) => request.mode === 'navigate',
+    async ({ event }) => {
+      const reqUrl = new URL(event.request.url);
+  
+      // If request is for the offline page, just serve from cache directly
+      if (reqUrl.pathname === '/offline') {
+        return caches.match('/offline');
       }
-
-      const cacheNames = await caches.keys();
-      await Promise.all(
-        cacheNames.map(name => {
-          if (name !== CACHE_NAME) return caches.delete(name);
-        })
-      );
-      self.clients.claim(); // Take control of clients
-    })()
-  );
-});
-
-// Intercept requests and include credentials
-self.addEventListener('fetch', event => {
-  const { request } = event;
-
-  // Skip caching for external resources with integrity hashes
-  if (request.url.includes('cdn.jsdelivr.net') || request.url.includes('code.jquery.com')) {
-    // Fetch from the network and bypass cache for external resources
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // Handle navigation (page loads)
-  if (event.request.mode === 'navigate') {
-    const reqUrl = new URL(request.url);
-    const pathname = reqUrl.pathname;
-
-    // If the user is already going to /offline, just serve it
-    if (pathname === '/offline/') {
-      event.respondWith(
-        caches.match('/offline/')
-          .then(cached => cached || fetch(request))
-      );
-      return;
-    }
-
-    // All other navs: try network (with preload) then redirect to offline on failure
-    event.respondWith((async () => {
+  
       try {
-        const preloadResponse = await event.preloadResponse;
-        if (preloadResponse) return preloadResponse;
-        return await fetch(request, { credentials: 'include' });
+        const preloadResp = await event.preloadResponse;
+        if (preloadResp) return preloadResp;
+  
+        // Include credentials for fetch
+        return await fetch(event.request, { credentials: 'include' });
+  
       } catch (err) {
-        // Build a URL like `/offline?prev=/your/path`
-        const redirectUrl = new URL('/offline/', self.location.origin);
-        redirectUrl.searchParams.set('prev', pathname);
+        // Offline — redirect to cached offline page with original path encoded
+        const redirectUrl = new URL('/offline', self.location.origin);
+        redirectUrl.searchParams.set('prev', reqUrl.pathname);
         return Response.redirect(redirectUrl.href, 302);
       }
-    })());
-    return;
-  }
+    }
+  );
 
-  // Handle API calls separately (e.g., /api/)
-  if (request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(request, { credentials: 'include' })
-        .catch(() => {
-          return new Response(
-            JSON.stringify({ Error: 'OFFLINE – request failed.' }),
-            {
-              status: 503,
-              headers: { 'Content-Type': 'application/json' }
-            }
-          );
-          })
-    );
-    return;
-  }
-
-  // Handle static assets (e.g., /static/)
-  event.respondWith(
-    caches.match(request).then(cachedResponse => {
-      if (cachedResponse) return cachedResponse;
-
-      const fetchRequest = new Request(request, {
-        credentials: 'include',
-        method: request.method,
-        headers: request.headers,
-        mode: request.mode,
-        redirect: request.redirect,
-        referrer: request.referrer
-      });
-
-      return fetch(fetchRequest).catch(() => {
-        // Optionally return fallback assets or just fail silently
-        return new Response('', { status: 503 });
-      });
+  // For static requests
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/static/'),
+    new workbox.strategies.CacheFirst({
+      cacheName: 'static-resources',
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({ maxEntries: 60, maxAgeSeconds: 7 * 24 * 60 * 60 }),
+      ],
     })
   );
-});
+
+  // For API requests
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.startsWith('/api/'),
+    async ({ request }) => {
+      try {
+        const reqWithCreds = new Request(request, { credentials: 'include' });
+        return await fetch(reqWithCreds);
+      } catch {
+        return new Response(JSON.stringify({ Error: 'OFFLINE – request failed.' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+  );
+
+  // Cache manifest but update in the background
+  workbox.routing.registerRoute(
+    ({ url }) => url.pathname.endsWith('manifest.json'),
+    new workbox.strategies.StaleWhileRevalidate({
+      cacheName: 'manifest-cache',
+    })
+  );
+}

@@ -13,7 +13,7 @@ from auth_app.utils import manager_required, employee_required
 from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
-from clock_in_system.settings import STATIC_URL
+from clock_in_system.settings import STATIC_URL, BASE_URL
 
 logger = logging.getLogger("auth_app")
 
@@ -363,9 +363,9 @@ def manifest(request):
         {
             "name": "Clockin App",
             "short_name": "Clockin",
-            "id": f"http://192.168.1.119:8000/",
-            "start_url": f"http://192.168.1.119:8000/?source=pwa",
-            "scope": f"http://192.168.1.119:8000/",
+            "id": BASE_URL,
+            "start_url": f"{BASE_URL}/?source=pwa",
+            "scope": BASE_URL,
             "display": "fullscreen",
             "orientation": "portrait",  # Lock orientation to portrait
             "theme_color": "#343a40",
