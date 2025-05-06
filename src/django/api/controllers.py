@@ -115,7 +115,7 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
                 raise err.InactiveStoreError
 
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
-            if check_new_shift_too_soon(employee=employee):
+            if check_new_shift_too_soon(employee=employee, store=store):
                 raise err.StartingShiftTooSoonError
 
             time = localtime(now())  # Consistent timestamp
@@ -200,7 +200,7 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
             activity = employee.get_last_active_activity_for_store(store=store)
 
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
-            if check_clocking_out_too_soon(employee=employee):
+            if check_clocking_out_too_soon(employee=employee, store=store):
                 raise err.ClockingOutTooSoonError
 
             time = localtime(now())
@@ -565,13 +565,16 @@ def get_account_summaries(
 
 
 def check_new_shift_too_soon(
-    employee: User, limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS
+    employee: User,
+    store: Store,
+    limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 ) -> bool:
     """
     Check if the user attempts to start a new shift within time limits of their last clock-out.
 
     Args:
         employee (User): The User object of the employee.
+        store (Store): The Store object of the store the employee is getting checked against.
         limit_mins (int): The minimum interval in minutes required between clock-out and clock-in. (Default = 30m)
 
     Returns:
@@ -580,7 +583,7 @@ def check_new_shift_too_soon(
     try:
         # Get the last clock-out activity for the employee
         last_activity = Activity.objects.filter(
-            employee=employee, logout_timestamp__isnull=False
+            employee=employee, store=store, logout_timestamp__isnull=False
         ).last()
 
         if not last_activity:
@@ -603,13 +606,16 @@ def check_new_shift_too_soon(
 
 
 def check_clocking_out_too_soon(
-    employee: User, limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+    employee: User,
+    store: Store,
+    limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 ) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.
 
     Args:
         employee (User): The User object of the employee.
+        store (Store): The Store object of the store the employee is getting checked against.
         limit_mins (int): The minimum interval in minutes required between consecutive clock-in and clock-outs. (Default = 15m)
                           Ensure this value equals that of the rounding minutes for shift lengths.
 
@@ -619,7 +625,7 @@ def check_clocking_out_too_soon(
     try:
         # Get the last activity for the employee
         last_activity = (
-            Activity.objects.filter(employee=employee)
+            Activity.objects.filter(employee=employee, store=store)
             .order_by("-login_timestamp")
             .first()
         )  # Order by latest clock-in/out

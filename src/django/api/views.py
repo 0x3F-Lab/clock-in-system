@@ -58,7 +58,7 @@ def list_store_employee_names(request):
 
         if store_id is None:
             return Response(
-                {"Error": "Missing store id in request params. Please try again."},
+                {"Error": "Missing store_id in request params. Please try again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -352,9 +352,8 @@ def update_shift_details(request, id):
                     login_timestamp = datetime.strptime(
                         login_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
-                    login_timestamp = make_aware(
-                        login_timestamp
-                    )  # Add timezone information to timstamp
+                    # Add timezone information to timstamp
+                    login_timestamp = localtime(make_aware(login_timestamp))
                     activity.login_time = round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
                 else:
@@ -367,9 +366,8 @@ def update_shift_details(request, id):
                     logout_timestamp = datetime.strptime(
                         logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
-                    logout_timestamp = make_aware(
-                        logout_timestamp
-                    )  # Add timezone information to timstamp
+                    # Add timezone information to timstamp
+                    logout_timestamp = localtime(make_aware(logout_timestamp))
                     activity.logout_time = round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
                 else:
@@ -518,7 +516,7 @@ def create_new_shift(request):
         store_id = request.data.get("store_id", None)
 
         # Get the account info of the user requesting this shift info
-        manager_id = request.session.get("manager_id")
+        manager_id = request.session.get("user_id")
         try:
             manager = User.objects.get(id=manager_id)
         except User.DoesNotExist:
@@ -538,7 +536,7 @@ def create_new_shift(request):
 
         if store_id is None:
             return JsonResponse(
-                {"Error": "Missing store id information in request data."},
+                {"Error": "Missing store_id information in request data."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
@@ -581,17 +579,15 @@ def create_new_shift(request):
         # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
         try:
             login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
-            login_timestamp = make_aware(
-                login_timestamp
-            )  # Add timezone info to timestamp
+            # Add timezone info to timestamp
+            login_timestamp = localtime(make_aware(login_timestamp))
 
             if logout_timestamp:
                 logout_timestamp = datetime.strptime(
                     logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                 )
-                logout_timestamp = make_aware(
-                    logout_timestamp
-                )  # Add timezone info to timestamp
+                # Add timezone info to timestamp
+                logout_timestamp = localtime(make_aware(logout_timestamp))
         except ValueError as e:
             return Response(
                 {
@@ -1527,7 +1523,7 @@ def clock_in(request):
         )
     except err.MissingStoreObjectOrIDError:
         return Response(
-            {"Error": "Missing store id in request."},
+            {"Error": "Missing store_id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
@@ -1648,7 +1644,7 @@ def clock_out(request):
         )
     except err.MissingStoreObjectOrIDError:
         return Response(
-            {"Error": "Missing store id in request."},
+            {"Error": "Missing store_id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
