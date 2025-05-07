@@ -307,6 +307,11 @@ def update_shift_details(request, id):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
+        elif not activity.store.is_active:
+            return Response(
+                {"Error": "Not authorised to update a shift to an inactive store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         elif activity.employee.is_hidden:
             return Response(
                 {"Error": "Not authorised to interact with a hidden account."},
@@ -534,7 +539,7 @@ def create_new_shift(request):
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
-        if store_id is None:
+        elif store_id is None:
             return JsonResponse(
                 {"Error": "Missing store_id information in request data."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
@@ -563,6 +568,11 @@ def create_new_shift(request):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
+        elif not store.is_active:
+            return Response(
+                {"Error": "Not authorised to interact with an inactive store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         elif not manager.is_manager_of(employee=employee):
             return Response(
                 {
@@ -573,6 +583,11 @@ def create_new_shift(request):
         elif employee.is_hidden:
             return Response(
                 {"Error": "Not authorised to interact with a hidden account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_active:
+            return Response(
+                {"Error": "Not authorised to assign a shift to an inactive account."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -791,7 +806,7 @@ def list_singular_employee_details(request, id):
         manager = User.objects.get(id=manager_id)
 
         # Ensure manager can list employee's info
-        if not manager.is_manager_of(employee=employee):
+        if not manager.is_manager_of(employee=employee, ignore_inactive_stores=False):
             return Response(
                 {
                     "Error": "Not authorised to get employee information of an employee associated to a different store."
@@ -854,10 +869,11 @@ def create_new_employee(request):
 
         # Ensure user is a manager of the store
         if not manager.is_associated_with_store(store=store):
-            return Response(
-                {"Error": "Not authorised to update another store's employee list."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise err.NotAssociatedWithStoreError
+
+        # Ensure store is active
+        elif not store.is_active:
+            raise err.InactiveStoreError
 
         #################### ASSIGNING EXISTING ACCOUNT #########################
 
@@ -1052,6 +1068,16 @@ def create_new_employee(request):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to update another store's employee list."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to update an inactive store's employee list."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -1116,8 +1142,6 @@ def modify_account_information(request, id=None):
                 raise err.InactiveUserError
 
             employee_to_update = employee
-            if not employee.is_active:
-                raise err.InactiveUserError
 
         # Parse data from request
         first_name = str(request.data.get("first_name", None)).strip()
@@ -1816,13 +1840,14 @@ def list_associated_stores(request):
     """
     API view to list all associated stores with the user.
     THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
+    If the user is a manager, then it will list inactive stores the user is associated to.
     """
     try:
         # Get the user object from the session information
         employee = util.api_get_user_object_from_session(request)
 
         # Get the stores and format it for return
-        stores = employee.get_associated_stores()
+        stores = employee.get_associated_stores(show_inactive=employee.is_manager)
         store_data = {store.id: store.code for store in stores}
 
         return JsonResponse(store_data, status=status.HTTP_200_OK)
@@ -1992,6 +2017,7 @@ def list_account_summaries(request):
             ignore_no_hours=ignore_no_hours,
             sort_field=sort_field,
             filter_names=filter_names_list,
+            allow_inactive_store=True,
         )
 
         return JsonResponse(

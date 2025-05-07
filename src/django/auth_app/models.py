@@ -113,20 +113,27 @@ class User(models.Model):
             ).exists()
         return False
 
-    def get_associated_stores(self):
+    def get_associated_stores(self, show_inactive: bool = False):
         """
         Returns a queryset of all ACTIVE stores this user is associated with.
+        - show_inactive: If True, includes inactive stores as well.
         """
-        return Store.objects.filter(user_access__user=self, is_active=True).distinct()
+        qs = Store.objects.filter(user_access__user=self)
+        if not show_inactive:
+            qs = qs.filter(is_active=True)
+        return qs.distinct()
 
-    def is_manager_of(self, employee) -> bool:
+    def is_manager_of(self, employee, ignore_inactive_stores: bool = True) -> bool:
         """
         Returns True if the current user is a manager and shares at least one store with the given employee.
         Accepts a User object or ID for the employee.
+
+        - ignore_inactive_stores: If True, only considers active shared stores. Default True.
         """
         if not self.is_manager or not self.is_active:
             return False
 
+        # Resolve employee object if ID is provided
         if isinstance(employee, int) or (
             isinstance(employee, str) and employee.isdigit()
         ):
@@ -137,9 +144,16 @@ class User(models.Model):
         elif not isinstance(employee, User):
             return False
 
+        # Get store IDs associated with this manager
         shared_store_ids = StoreUserAccess.objects.filter(user=self).values_list(
             "store_id", flat=True
         )
+
+        # Further filter the IDs based on the store's active state
+        if ignore_inactive_stores:
+            shared_store_ids = Store.objects.filter(
+                id__in=shared_store_ids, is_active=True
+            ).values_list("id", flat=True)
 
         return StoreUserAccess.objects.filter(
             user=employee, store_id__in=shared_store_ids

@@ -398,6 +398,7 @@ def get_account_summaries(
     ignore_no_hours,
     sort_field,
     filter_names,
+    allow_inactive_store: bool = False,
 ):
     """
     Retrieve a paginated list of employee account summaries for a specific store.
@@ -411,6 +412,7 @@ def get_account_summaries(
         ignore_no_hours (bool): Whether to exclude employees with zero hours worked.
         sort_field (str): Field to sort by. One of "name", "hours", "age", "deliveries".
         filter_names (List[str]): List of employee names to include (case-insensitive match).
+        allow_inactive_store (bool): Whether to list summaries for an inactive store or return InactiveStoreError. Default False.
 
     Returns:
         Tuple[List[dict], int]: A list of summary dictionaries and the total count.
@@ -419,7 +421,7 @@ def get_account_summaries(
         # Get store object and ensure its active
         store = Store.objects.get(id=int(store_id))
 
-        if not store.is_active:
+        if not store.is_active and not allow_inactive_store:
             raise err.InactiveStoreError
 
         # Convert date strings
