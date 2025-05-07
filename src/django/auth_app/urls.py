@@ -5,6 +5,7 @@ from auth_app import views
 urlpatterns = [
     path("", views.home_directory, name="home"),
     path("manifest.json", views.manifest, name="manifest"),
+    path("sw.js", views.service_worker, name="service_worker"),
     path(
         "sw.js",
         TemplateView.as_view(

@@ -19,6 +19,15 @@ def str_to_bool(value):
     return value.lower() in ["true", "1", "yes"]
 
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+######################################################
+#          PLEASE CHANGE THIS EVERY VERSION          #
+STATIC_CACHE_VER = "v1.1.3"  #
+#  Must be increased for any change to static files  #
+######################################################
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

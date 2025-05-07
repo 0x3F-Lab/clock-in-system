@@ -6,6 +6,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.core.exceptions import ValidationError
+from django.template.response import TemplateResponse
+from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from auth_app.models import User, Store
@@ -13,7 +15,7 @@ from auth_app.utils import manager_required, employee_required
 from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
-from clock_in_system.settings import STATIC_URL, BASE_URL
+from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
 
 logger = logging.getLogger("auth_app")
 
@@ -358,44 +360,25 @@ def offline(request):
 
 
 @require_GET
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def service_worker(request):
+    context = {
+        "STATIC_CACHE_VER": STATIC_CACHE_VER,
+    }
+
+    return TemplateResponse(
+        request, "sw.js", context, content_type="application/javascript"
+    )
+
+
+@require_GET
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def manifest(request):
-    return JsonResponse(
-        {
-            "name": "Clockin App",
-            "short_name": "Clockin",
-            "id": BASE_URL,
-            "start_url": f"{BASE_URL}/?source=pwa",
-            "scope": BASE_URL,
-            "display": "fullscreen",
-            "orientation": "portrait",  # Lock orientation to portrait
-            "theme_color": "#343a40",
-            "background_color": "#1a202c",
-            "description": "Clock-in app for employees to manage shifts and time.",
-            "icons": [
-                {
-                    "src": f"{STATIC_URL}img/favicon/android-chrome-192x192.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
-                },
-                {
-                    "src": f"{STATIC_URL}img/favicon/android-chrome-512x512.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
-                },
-            ],
-            "shortcuts": [
-                {
-                    "name": "Clockin Employee Dash",
-                    "short_name": "Clockin Dash",
-                    "description": "Employee dashboard for clocking in/out.",
-                    "url": "/dashboard/?source=pwa",
-                    "icons": [
-                        {
-                            "src": f"{STATIC_URL}img/favicon/android-chrome-192x192.png",
-                            "sizes": "192x192",
-                        }
-                    ],
-                },
-            ],
-        }
+    context = {
+        "BASE_URL": BASE_URL,
+        "STATIC_URL": STATIC_URL,
+    }
+
+    return TemplateResponse(
+        request, "manifest.json", context, content_type="application/manifest+json"
     )

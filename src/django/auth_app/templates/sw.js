@@ -26,7 +26,7 @@ if (isDevEnvironment) {
   // Set custom cache names
   workbox.core.setCacheNameDetails({
     prefix: 'clockinapp',
-    suffix: 'v1.1.2',
+    suffix: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}",
   });
 
   const OFFLINE_URL = '/offline';
@@ -45,7 +45,6 @@ if (isDevEnvironment) {
     { url: '/static/js/manage_employee_details.js', revision: null },
     { url: '/static/js/manual_clocking.js', revision: null },
     { url: '/static/js/shift_logs.js', revision: null },
-    { url: '/sw.js', revision: null },
   ]);
 
   // For full pages
