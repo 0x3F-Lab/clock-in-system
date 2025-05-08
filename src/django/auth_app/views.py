@@ -3,7 +3,6 @@ import api.exceptions as err
 
 from django.urls import reverse
 from django.contrib import messages
-from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.core.exceptions import ValidationError
 from django.template.response import TemplateResponse
@@ -377,6 +376,7 @@ def manifest(request):
     context = {
         "BASE_URL": BASE_URL,
         "STATIC_URL": STATIC_URL,
+        "OFFLINE_URL": reverse("offline"),
     }
 
     return TemplateResponse(

@@ -1,36 +1,40 @@
+// Load workbox from CDN
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
+
+// Determine if in dev environment
 const isDevEnvironment = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1';
+
+
+// Skip waiting to activate the new SW immediately
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+// Claim clients after the service worker is activated
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+  workbox.navigationPreload.enable();
+});
+
+// Set custom cache names
+workbox.core.setCacheNameDetails({
+  prefix: 'clockinapp',
+  suffix: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}",
+});
+
+// Set offline URL
+const OFFLINE_URL = "{{ OFFLINE_URL|default:'/offline'|escapejs }}";
+
 
 if (isDevEnvironment) {
   console.log('Running in development mode — disabling caching.');
 
-  // Intercept all fetches and just proxy to the network (no caching)
-  self.addEventListener('fetch', event => {
-    event.respondWith(fetch(event.request));
-  });
+  // Set workbox to only use Network Only
+  workbox.routing.setDefaultHandler(new workbox.strategies.NetworkOnly());
+
 
 } else {
-  // Load workbox from CDN
-  importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js');
-
-  // Skip waiting to activate the new SW immediately
-  self.addEventListener('install', (event) => {
-    self.skipWaiting();
-  });
-
-  // Claim clients after the service worker is activated
-  self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
-    workbox.navigationPreload.enable();
-  });
-
-  // Set custom cache names
-  workbox.core.setCacheNameDetails({
-    prefix: 'clockinapp',
-    suffix: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}",
-  });
-
-  const OFFLINE_URL = '/offline';
-
+  // Set routes to precache (i.e. static files)
   workbox.precaching.precacheAndRoute([
     { url: OFFLINE_URL, revision: null },
     { url: '/static/css/styles.css', revision: null },
@@ -54,8 +58,8 @@ if (isDevEnvironment) {
       const reqUrl = new URL(event.request.url);
   
       // If request is for the offline page, just serve from cache directly
-      if (reqUrl.pathname === '/offline') {
-        return caches.match('/offline');
+      if (reqUrl.pathname === OFFLINE_URL) {
+        return caches.match(OFFLINE_URL);
       }
   
       try {
@@ -63,11 +67,11 @@ if (isDevEnvironment) {
         if (preloadResp) return preloadResp;
   
         // Include credentials for fetch
-        return await fetch(event.request, { credentials: 'include' });
+        return await fetch(event.request, { credentials: 'same-origin' });
   
       } catch (err) {
         // Offline — redirect to cached offline page with original path encoded
-        const redirectUrl = new URL('/offline', self.location.origin);
+        const redirectUrl = new URL(OFFLINE_URL, self.location.origin);
         redirectUrl.searchParams.set('prev', reqUrl.pathname);
         return Response.redirect(redirectUrl.href, 302);
       }
@@ -90,7 +94,7 @@ if (isDevEnvironment) {
     ({ url }) => url.pathname.startsWith('/api/'),
     async ({ request }) => {
       try {
-        const reqWithCreds = new Request(request, { credentials: 'include' });
+        const reqWithCreds = new Request(request, { credentials: 'same-origin' });
         return await fetch(reqWithCreds);
       } catch {
         return new Response(JSON.stringify({ Error: 'OFFLINE – request failed.' }), {
