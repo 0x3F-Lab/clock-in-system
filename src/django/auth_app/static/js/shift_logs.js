@@ -285,7 +285,8 @@ function handleShiftDetailsEdit() {
     const loginTimestamp = $('#editLoginTimestamp').val().trim();
     const logoutTimestamp = $('#editLogoutTimestamp').val().trim();
     const isPublicHoliday = ($('#editIsPublicHoliday').prop('checked') === true);
-    const deliveries = $('#editDeliveries').val()
+    const deliveries = ensureSafeInt($('#editDeliveries').val(), 0, null); // Min=0
+    $('#editDeliveries').val(deliveries); // Update if user set it to -ve values.
 
     if (!loginTimestamp) {
       showNotification("Please enter the required field of Login Timestamp.", "danger");

@@ -422,10 +422,11 @@ def update_shift_details(request, id):
                 request.data.get("is_public_holiday", activity.is_public_holiday)
             )
 
-            # Set deliveries (keep same if not given)
+            # Set deliveries (keep same if not given) -- ENSURE >= 0
             try:
-                activity.deliveries = int(
-                    request.data.get("deliveries", activity.deliveries)
+                activity.deliveries = max(
+                    int(request.data.get("deliveries", activity.deliveries)),
+                    0,
                 )
             except ValueError:
                 return JsonResponse(
@@ -545,9 +546,12 @@ def create_new_shift(request):
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
-        # Ensure deliveries is an int
+        # Ensure deliveries is an int and that its >= 0
         try:
-            deliveries = int(request.data.get("deliveries", 0))
+            deliveries = max(
+                int(request.data.get("deliveries", 0)),
+                0,
+            )
         except ValueError as e:
             return Response(
                 {"Error": "Deliveries must be an integer."},
