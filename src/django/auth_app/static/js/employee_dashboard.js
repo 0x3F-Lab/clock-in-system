@@ -168,6 +168,7 @@ async function clockInOutUser() {
 
   const clockingIn = ($("#clockingButton").attr('data-clocking-action')?.toLowerCase() === 'clockin')
   const deliveries = ensureSafeInt($('#deliveries').val(), 0, null);
+  $('#deliveries').val(deliveries); // Update value if its not safe
 
   // Get location data using the helper function
   const locationData = await getLocationData();

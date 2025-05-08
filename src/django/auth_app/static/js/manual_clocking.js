@@ -71,8 +71,12 @@ function toggleClockingButton() {
 
 
 async function handleManualClockingFormSubmission() {
+  // Ensure delivery count is within limits (update the field if not)
+  const deliveries = ensureSafeInt($('#visibleDeliveries').val(), 0, null);
+  $('#visibleDeliveries').val(deliveries);
+
   // Ensure the deliveries is passed to the hidden field
-  $('#id_deliveries').val($('#visibleDeliveries').val());
+  $('#id_deliveries').val(deliveries);
   
   // Get the location data
   const locationData = await getLocationData();
