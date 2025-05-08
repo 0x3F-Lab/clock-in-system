@@ -97,13 +97,18 @@
     crossorigin="anonymous"
   ></script>
 
+  <script src="{% static 'js/global.js' %}"></script>
   <script>
     window.djangoURLs = {
+        login: "{% url 'login' %}",
         listAssociatedStores: "{% url 'api:list_associated_stores' %}",
         {% block extra_urls %}{% endblock %}
     };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      actionSavedNotifications();
+    });
   </script>
-  <script src="{% static 'js/global.js' %}"></script>
 
   <script>
     if ('serviceWorker' in navigator) {

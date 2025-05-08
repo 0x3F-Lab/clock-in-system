@@ -49,6 +49,34 @@ function showNotification(message, type = "info") {
 }
 
 
+// Function to save a single notification which appears on the next page load (or reload) -- ACTIONS NOTIFICATION IF IT CANT SAVE IT
+function saveNotificationForReload(message, type = "info", errorNotification = message) {
+  try {
+    localStorage.setItem("pendingNotification", JSON.stringify({ message, type }));
+    return true;
+
+  } catch (e) {
+    // Show the notification immediately if it fails to save to ensure the user sees it at one point.
+    // Saving can fail when user is in incognito, has turned on higher security, etc.
+    console.warn("Failed to save notification in localStorage:", e);
+    showNotification(errorNotification, type);
+    return false;
+  }
+}
+
+
+// Function to retrieve saved notifications and action them
+function actionSavedNotifications() {
+  const notifData = localStorage.getItem("pendingNotification");
+
+  if (notifData) {
+    const { message, type } = JSON.parse(notifData);
+    showNotification(message, type);
+    localStorage.removeItem("pendingNotification");
+  }
+}
+
+
 // Get the required cookie from document
 function getCookie(name) {
   let cookieValue = null;

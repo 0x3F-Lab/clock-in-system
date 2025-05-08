@@ -369,7 +369,8 @@ function submitAccountInfoModal() {
       hideSpinner();
       const editModal = new bootstrap.Modal(document.getElementById("editModal"));
       editModal.hide();
-      showNotification("Successfully updated account information. Please reload the page to see changes.");
+      const saved = saveNotificationForReload("Successfully updated account information.", "success", "Successfully updated account information. Please reload the page to see changes.");
+      if (saved) {location.reload();}
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
@@ -432,7 +433,8 @@ function submitAccountPassModal() {
 
       const editPassModal = bootstrap.Modal.getInstance(document.getElementById("editPassModal"));
       editPassModal.hide();
-      showNotification("Successfully updated account password. Please login again.");
+      const saved = saveNotificationForReload("Successfully updated account password. Please login again.", "success", "Successfully updated account password. Please login again.");
+      if (saved) {location.href = window.djangoURLs.login;}
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
