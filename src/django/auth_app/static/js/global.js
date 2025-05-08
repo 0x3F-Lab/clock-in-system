@@ -67,12 +67,16 @@ function saveNotificationForReload(message, type = "info", errorNotification = m
 
 // Function to retrieve saved notifications and action them
 function actionSavedNotifications() {
-  const notifData = localStorage.getItem("pendingNotification");
+  try {
+    const notifData = localStorage.getItem("pendingNotification");
 
-  if (notifData) {
-    const { message, type } = JSON.parse(notifData);
-    showNotification(message, type);
-    localStorage.removeItem("pendingNotification");
+    if (notifData) {
+      const { message, type } = JSON.parse(notifData);
+      showNotification(message, type);
+      localStorage.removeItem("pendingNotification");
+    }
+  } catch (e) {
+    // Fail silently
   }
 }
 
