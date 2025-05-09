@@ -43,18 +43,18 @@ def list_store_employee_names(request):
     """
     try:
         # Extract query parameters from the request, with defaults
-        only_active = request.query_params.get("only_active", "true").lower() == "true"
-        ignore_managers = (
-            request.query_params.get("ignore_managers", "false").lower() == "true"
+        only_active = util.str_to_bool(request.query_params.get("only_active", "true"))
+        ignore_managers = util.str_to_bool(
+            request.query_params.get("ignore_managers", "false")
         )
-        order = request.query_params.get("order", "true").lower() == "true"
-        order_by_first_name = (
-            request.query_params.get("order_by_first_name", "true").lower() == "true"
+        order = util.str_to_bool(request.query_params.get("order", "true"))
+        order_by_first_name = util.str_to_bool(
+            request.query_params.get("order_by_first_name", "true")
         )
-        ignore_clocked_in = (
-            request.query_params.get("ignore_clocked_in", "false").lower() == "true"
+        ignore_clocked_in = util.str_to_bool(
+            request.query_params.get("ignore_clocked_in", "false")
         )
-        store_id = request.query_params.get("store_id", None)
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
 
         if store_id is None:
             return Response(
@@ -99,6 +99,13 @@ def list_store_employee_names(request):
         return Response(
             {"Error": "No users found matching the given criteria."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -349,8 +356,12 @@ def update_shift_details(request, id):
         # If UPDATING the activity
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
-            login_timestamp = request.data.get("login_timestamp", None) or None
-            logout_timestamp = request.data.get("logout_timestamp", None) or None
+            login_timestamp = util.clean_param_str(
+                request.data.get("login_timestamp", None)
+            )
+            logout_timestamp = util.clean_param_str(
+                request.data.get("logout_timestamp", None)
+            )
 
             try:
                 if login_timestamp:
@@ -514,12 +525,16 @@ def update_shift_details(request, id):
 def create_new_shift(request):
     try:
         # Parse data from request
-        employee_id = str(request.data.get("employee_id", ""))
+        employee_id = util.clean_param_str(request.data.get("employee_id", None))
         # Type checking done later when converting form
-        login_timestamp = request.data.get("login_timestamp", None) or None
-        logout_timestamp = request.data.get("logout_timestamp", None) or None
+        login_timestamp = util.clean_param_str(
+            request.data.get("login_timestamp", None)
+        )
+        logout_timestamp = util.clean_param_str(
+            request.data.get("logout_timestamp", None)
+        )
         is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
-        store_id = request.data.get("store_id", None)
+        store_id = util.clean_param_str(request.data.get("store_id", None))
 
         # Get the account info of the user requesting this shift info
         manager_id = request.session.get("user_id")
@@ -704,6 +719,13 @@ def create_new_shift(request):
             {"Error": f"Store with the ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -857,12 +879,12 @@ def list_singular_employee_details(request, id):
 def create_new_employee(request):
     try:
         # Parse data from request
-        first_name = str(request.data.get("first_name", "")).strip()
-        last_name = str(request.data.get("last_name", "")).strip()
-        email = str(request.data.get("email", "")).strip().lower()
-        phone_number = str(request.data.get("phone", "")).strip()
-        dob = str(request.data.get("dob", "")).strip()
-        store_id = str(request.data.get("store_id", "")).strip()
+        first_name = util.clean_param_str(request.data.get("first_name", ""))
+        last_name = util.clean_param_str(request.data.get("last_name", ""))
+        email = util.clean_param_str(request.data.get("email", "")).lower()
+        phone_number = util.clean_param_str(request.data.get("phone", ""))
+        dob = util.clean_param_str(request.data.get("dob", ""))
+        store_id = util.clean_param_str(request.data.get("store_id", ""))
 
         # Get the store object
         store = Store.objects.get(id=int(store_id))
@@ -1052,10 +1074,10 @@ def create_new_employee(request):
             status=status.HTTP_201_CREATED,
         )
 
-    except ValueError as e:
+    except ValueError:
         return Response(
             {
-                "Error": "Failed to create a new employee account due to invalid store ID format. Please only use numbers in the ID."
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -1148,10 +1170,10 @@ def modify_account_information(request, id=None):
             employee_to_update = employee
 
         # Parse data from request
-        first_name = str(request.data.get("first_name", None)).strip()
-        last_name = str(request.data.get("last_name", None)).strip()
-        phone = str(request.data.get("phone", None))
-        dob = str(request.data.get("dob", None))
+        first_name = util.clean_param_str(request.data.get("first_name", None))
+        last_name = util.clean_param_str(request.data.get("last_name", None))
+        phone = util.clean_param_str(request.data.get("phone", None))
+        dob = util.clean_param_str(request.data.get("dob", None))
 
         # Save original data for logging
         original = {
@@ -1207,12 +1229,19 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.phone_number = phone.strip()
+            employee_to_update.phone_number = phone
 
         # Validate and update DOB
         if dob:
+            logger.critical("PASSED")
+            if not user.is_manager:
+                return Response(
+                    {"Error": "Not authorised to modify your account date of birth."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             try:
-                parsed_dob = datetime.strptime(dob.strip(), "%Y-%m-%d").date()
+                parsed_dob = datetime.strptime(dob, "%Y-%m-%d").date()
 
                 if parsed_dob >= now().date():
                     return Response(
@@ -1251,6 +1280,13 @@ def modify_account_information(request, id=None):
             {"Error": "Cannot update an incative employee's details."},
             status=status.HTTP_409_CONFLICT,
         )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -1268,8 +1304,10 @@ def modify_account_information(request, id=None):
 def modify_account_status(request, id):
     try:
         # Parse data from request
-        status_type = str(request.data.get("status_type", ""))
-        store_id = str(request.data.get("store_id"))
+        status_type = util.clean_param_str(
+            request.data.get("status_type", None)
+        ).lower()
+        store_id = util.clean_param_str(request.data.get("store_id"))
 
         if not status_type:
             return JsonResponse(
@@ -1297,19 +1335,19 @@ def modify_account_status(request, id):
             )
 
         # Seperate status type modification
-        if status_type.lower() == "deactivate":
+        if status_type == "deactivate":
             employee.is_active = False
 
-        elif status_type.lower() == "activate":
+        elif status_type == "activate":
             employee.is_active = True
 
-        elif status_type.lower() == "reset_password":
+        elif status_type == "reset_password":
             employee.is_setup = False
 
-        elif status_type.lower() == "reset_pin":
+        elif status_type == "reset_pin":
             employee.set_unique_pin()
 
-        elif status_type.lower() == "resign":
+        elif status_type == "resign":
             if not store_id or not store_id.isdigit():
                 return JsonResponse(
                     {"Error": "Invalid store_id provided.", "id": employee.id},
@@ -1379,7 +1417,7 @@ def modify_account_status(request, id):
             f"[UPDATE: USER (ID: {employee.id})] Status update: {status_type.replace('_', ' ').upper()}"
             + (
                 f". Set new PIN to {employee.pin}."
-                if status_type.lower() == "reset_pin"
+                if status_type == "reset_pin"
                 else ""
             )
         )
@@ -1392,6 +1430,13 @@ def modify_account_status(request, id):
         return Response(
             {"Error": f"Employee with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -1410,8 +1455,8 @@ def modify_account_status(request, id):
 def modify_account_password(request):
     try:
         # Parse data from request
-        old_pass = request.data.get("old_pass") or None
-        new_pass = request.data.get("new_pass") or None
+        old_pass = util.clean_param_str(request.data.get("old_pass", None))
+        new_pass = util.clean_param_str(request.data.get("new_pass", None))
 
         if not old_pass or not new_pass:
             return JsonResponse(
@@ -1502,6 +1547,13 @@ def modify_account_password(request):
             {"Error": f"Employee with ID {employee_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -1519,9 +1571,11 @@ def modify_account_password(request):
 def clock_in(request):
     try:
         # Get location data and store
-        location_lat = request.data.get("location_latitude", None)
-        location_long = request.data.get("location_longitude", None)
-        store_id = request.data.get("store_id", None)
+        location_lat = util.clean_param_str(request.data.get("location_latitude", None))
+        location_long = util.clean_param_str(
+            request.data.get("location_longitude", None)
+        )
+        store_id = util.clean_param_str(request.data.get("store_id", None))
 
         # Perform general checks on location data (and if its close to store)
         if not util.check_location_data(
@@ -1616,6 +1670,13 @@ def clock_in(request):
         return Response(
             {"Error": f"Can't clock in to an inactive store."},
             status=status.HTTP_409_CONFLICT,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # General error capture -- including database location errors
@@ -1765,7 +1826,7 @@ def clocked_state_view(request):
     """
     try:
         # Get the store information
-        store_id = request.query_params.get("store_id", None)
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
 
         if store_id is None:
             return Response(
@@ -1827,6 +1888,13 @@ def clocked_state_view(request):
             {"Error": "No active clock-in record found. Please contact an admin."},
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
         logger.critical(
             f"An error occured when trying to get the clocked state of employee ID '{employee.id}' for store ID '{store_id}', giving the error: {str(e)}"
@@ -1886,7 +1954,7 @@ def list_associated_stores(request):
 def list_recent_shifts(request):
     try:
         user_id = request.session.get("user_id")
-        store_id = request.query_params.get("store_id", None)
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
         limit = int(request.query_params.get("limit_days", "7"))
 
         if store_id is None:
@@ -1906,7 +1974,9 @@ def list_recent_shifts(request):
 
     except ValueError:
         return Response(
-            {"Error": "Error converting 'limit_days' to an int, was it set correctly?"},
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
     except Store.DoesNotExist:
@@ -1945,14 +2015,14 @@ def list_account_summaries(request):
         manager_id = request.session.get("user_id")
         manager = User.objects.get(id=manager_id)
 
-        store_id = request.query_params.get("store_id", None)
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
         ignore_no_hours = str_to_bool(
             request.query_params.get("ignore_no_hours", "false")
         )
-        sort_field = str(request.query_params.get("sort", "name"))
-        start_date = request.query_params.get("start", None)
-        end_date = request.query_params.get("end", None)
-        filter_names = str(request.query_params.get("filter", ""))
+        sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
+        start_date = util.clean_param_str(request.query_params.get("start", None))
+        end_date = util.clean_param_str(request.query_params.get("end", None))
+        filter_names = util.clean_param_str(request.query_params.get("filter", ""))
 
         if not store_id or not start_date or not end_date:
             return Response(
@@ -2039,7 +2109,9 @@ def list_account_summaries(request):
             f"A VALUE ERROR occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
         )
         return Response(
-            {"Error": "Error converting a field. Is the request parameters correct?"},
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
     except Store.DoesNotExist:

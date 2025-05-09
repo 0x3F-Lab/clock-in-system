@@ -304,9 +304,6 @@ def employee_dashboard(request):
         "user_email": user.email,
         "user_phone": user.phone_number or None,
         "user_dob": user.birth_date.strftime("%d/%m/%Y") if user.birth_date else None,
-        "user_dob_form_value": (
-            user.birth_date.strftime("%Y-%m-%d") if user.birth_date else None
-        ),
         "user_creation_date": (
             user.created_at.strftime("%d/%m/%Y") if user.created_at else None
         ),

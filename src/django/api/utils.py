@@ -286,4 +286,15 @@ def is_activity_modified(activity: Activity):
 
 def str_to_bool(val):
     # Ensure the value is a boolean by converting properly
-    return str(val).lower() in ["true", "1", "yes"]
+    return str(val).strip().lower() in ["true", "1", "yes"]
+
+
+def clean_param_str(value):
+    """
+    Returns the value as a stripped string or None if the value is None or the empty string.
+    Useful for using to get request params/data values.
+    """
+    if (value is None) or (value is ""):
+        return None
+    else:
+        return str(value).strip()

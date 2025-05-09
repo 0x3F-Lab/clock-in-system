@@ -362,7 +362,6 @@ function submitAccountInfoModal() {
       first_name: $('#editFirstName').val(),
       last_name: $('#editLastName').val(),
       phone: $('#editPhone').val(),
-      dob: $('#editDOB').val(),
     }),
 
     success: function(response) {
