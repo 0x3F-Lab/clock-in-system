@@ -294,7 +294,7 @@ def clean_param_str(value):
     Returns the value as a stripped string or None if the value is None or the empty string.
     Useful for using to get request params/data values.
     """
-    if (value is None) or (value is ""):
+    if (value is None) or (value == ""):
         return None
     else:
         return str(value).strip()
