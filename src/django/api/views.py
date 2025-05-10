@@ -2077,9 +2077,12 @@ def list_account_summaries(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        filter_names_list = [
-            name.strip() for name in filter_names.split(",") if name.strip()
-        ]
+        if filter_names:
+            filter_names_list = [
+                name.strip() for name in filter_names.split(",") if name.strip()
+            ]
+        else:
+            filter_names_list = None
 
         # Get the summaries
         summaries, total = controllers.get_account_summaries(
