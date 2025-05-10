@@ -49,6 +49,38 @@ function showNotification(message, type = "info") {
 }
 
 
+// Function to save a single notification which appears on the next page load (or reload) -- ACTIONS NOTIFICATION IF IT CANT SAVE IT
+function saveNotificationForReload(message, type = "info", errorNotification = message) {
+  try {
+    localStorage.setItem("pendingNotification", JSON.stringify({ message, type }));
+    return true;
+
+  } catch (e) {
+    // Show the notification immediately if it fails to save to ensure the user sees it at one point.
+    // Saving can fail when user is in incognito, has turned on higher security, etc.
+    console.warn("Failed to save notification in localStorage:", e);
+    showNotification(errorNotification, type);
+    return false;
+  }
+}
+
+
+// Function to retrieve saved notifications and action them
+function actionSavedNotifications() {
+  try {
+    const notifData = localStorage.getItem("pendingNotification");
+
+    if (notifData) {
+      const { message, type } = JSON.parse(notifData);
+      showNotification(message, type);
+      localStorage.removeItem("pendingNotification");
+    }
+  } catch (e) {
+    // Fail silently
+  }
+}
+
+
 // Get the required cookie from document
 function getCookie(name) {
   let cookieValue = null;
@@ -297,4 +329,126 @@ function setPaginationValues(offset, totalCount) {
 
   // Update the button controls
   updatePaginationPageButtons();
+}
+
+
+///////////////////// STORE SELECTION PANEL COMPONENT FUNCTIONS /////////////////////////
+
+function populateStoreSelection() {
+  $.ajax({
+    url: `${window.djangoURLs.listAssociatedStores}`,
+    type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+
+    success: function(response) {
+      const $dropdown = $('#storeSelectDropdown');
+      $dropdown.empty(); // Clear previous options
+
+      const keys = Object.keys(response);
+      if (keys.length > 0) {
+        $('#storeSelectionController').removeClass('d-none'); // Ensure whole component is visible
+        keys.forEach(storeID => {
+          const storeCode = response[storeID];
+          const option = `<option value="${storeID}">${storeCode}</option>`;
+          $dropdown.append(option);
+        });
+      } else {
+        $dropdown.append('<option value="">No stores available</option>');
+        $('#storeSelectionController').removeClass('d-none');
+        showNotification("Your account has no stores associated to it. Please contact a store manager to fix this.", "danger");
+      }
+
+      // Ensure first store/option is selected (regardless if there are no stores)
+      $dropdown.prop('selectedIndex', 0);
+
+      // Hide the whole store selection component if only one store in the list
+      if (keys.length <= 1) {
+        $('#storeSelectionController').addClass('d-none');
+      }
+      
+      // Trigger initial update events linked to store selection menu
+      $dropdown.trigger('change');
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to load associated stores due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to load associated stores. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+}
+
+
+function getSelectedStoreID() {
+  const storeID = $('#storeSelectDropdown').val();
+
+  // Return null if storeID is empty, null, or undefined
+  if (!storeID || storeID.trim() === "") {
+    return null;
+  }
+
+  // Return as an int for easy use
+  return parseInt(storeID.trim(), 10);
+}
+
+
+/////////////////// LOCATION FUNCTION FOR CLOCKING IN/OUT /////////////////////////////
+
+// Get the location data of the user
+async function getLocationData() {
+  if ('geolocation' in navigator) {
+    // Check geolocation permissions proactively
+    const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+    
+    if (permissionStatus.state === 'denied') {
+      showNotification("Location access is denied. Please enable it in your browser settings.");
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLat = position.coords.latitude;
+          const userLon = position.coords.longitude;
+
+          resolve([userLat, userLon]);
+        },
+        (error) => {
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              showNotification("Location access is denied. Please enable it in your browser settings.");
+              break;
+            case error.POSITION_UNAVAILABLE:
+              showNotification("Location is unavailable. Please try again later.");
+              break;
+            case error.TIMEOUT:
+              showNotification("Unable to get your location. Please ensure you have a good signal and try again.");
+              break;
+            default:
+              showNotification("An unknown error occurred while retrieving your location.");
+          }
+
+          reject(null);
+        },
+        {
+          enableHighAccuracy: true,  // Request high accuracy for mobile users
+          timeout: 30000,            // Timeout after 30 seconds
+          maximumAge: 45000          // Allow cached location up to 45s old
+        }
+      );
+    });
+  } else {
+    showNotification("Geolocation is not supported by your browser. Cannot clock in/out.");
+    return null;
+  }
 }

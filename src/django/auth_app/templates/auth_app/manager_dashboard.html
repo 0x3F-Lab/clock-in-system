@@ -1,22 +1,74 @@
 {% extends "auth_app/base.html" %}
-
 {% block title %}Pizza Clock-in || Manager Dashboard{% endblock %}
 
+{% block content_container_class %}my-5{% endblock %}
 {% block content %}
-<div class="centered-container">
-    <h1>Manager Dashboard</h1>
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">Manager Dashboard</h1>
+    <p class="lead">Logged in as: <strong>{{ request.session.name|default:"ERROR LOADING USER" }}</strong></p>
+  </div>
 
-    <!-- Display Logged-in User Info -->
-    <p>Welcome, <strong>{{ user.username }}</strong>!</p>
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
 
-    <div class="button-container">
-        <button onclick="location.href=`{% url 'manage_employee_details' %}`">Employee Details</button>
-        <button onclick="location.href=`{% url 'api:weekly_summary_page' %}`">Weekly Summary</button>
-        <button onclick="location.href=`{% url 'manage_shift_logs' %}`">Shift Logs</button>
-        
-        <button onclick="location.href=`{% url 'logout' %}`">Logout</button>
-
-        <button onclick="location.href='/'">Back to Landing Page</button>
+    <div class="col">
+      <a href="{% url 'manage_employee_details' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-users fa-2x mb-3"></i> <!-- Icon for Employee Details -->
+          <h5 class="card-title">Employee Details</h5>
+          <p class="card-text">View and manage employee accounts.</p>
+        </div>
+      </a>
     </div>
+    
+    <div class="col">
+      <a href="{% url 'manage_shift_logs' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-clock fa-2x mb-3"></i> <!-- Icon for Shift Logs -->
+          <h5 class="card-title">Shift Logs</h5>
+          <p class="card-text">Review and edit employee shift history.</p>
+        </div>
+      </a>
+    </div>
+    
+    <div class="col">
+      <a href="{% url 'account_summary' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-file-invoice fa-2x mb-3"></i> <!-- Icon for Account Summary -->
+          <h5 class="card-title">Account Summary</h5>
+          <p class="card-text">Summarise employee hours, deliveries, and more.</p>
+        </div>
+      </a>
+    </div>
+
+    <!-- Disabled Feature Card 1 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm border-0 text-center bg-light text-muted">
+        <div class="card-body">
+          <h5 class="card-title">Shift Rostering</h5>
+          <p class="card-text">Create rosters for future employee shifts.</p>
+          <p>Coming Soon....</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disabled Feature Card 2 -->
+    <div class="col">
+      <div class="card h-100 shadow-sm border-0 text-center bg-light text-muted">
+        <div class="card-body">
+          <h5 class="card-title">Store Files</h5>
+          <p class="card-text">Fill in regular store reports and other documentation.</p>
+          <p>Future Feature....</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="text-center mt-5">
+    <a href="/" class="btn btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left me-2"></i>Back to Landing Page
+    </a>
+  </div>
 </div>
 {% endblock %}

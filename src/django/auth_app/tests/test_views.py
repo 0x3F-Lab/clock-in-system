@@ -12,4 +12,4 @@ def test_home_view(client):
 
     # Check the response
     assert response.status_code == 200  # Ensure the response is HTTP 200 OK
-    assert b"Select Employee" in response.content  # Check if "Login" is in the response
+    assert b"Home Directory" in response.content  # Check if "Login" is in the response

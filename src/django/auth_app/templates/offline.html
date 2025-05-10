@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Pizza Clock-in || Offline</title>
+    {% load static %}
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'img/favicon/apple-touch-icon.png' %}" />
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'img/favicon/favicon-16x16.png' %}" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon/favicon-32x32.png' %}" />
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'img/favicon/android-chrome-192x192.png' %}" />
+    <link rel="icon" type="image/png" sizes="512x512" href="{% static 'img/favicon/android-chrome-512x512.png' %}" />
+    <link rel="shortcut icon" href="{% static 'img/favicon/favicon.ico' %}" />
+    <link rel="manifest" href="{% url 'manifest' %}">
+</head>
+<body style="width: 100%; min-height: 100vh; margin: 0; padding: 0; background: -webkit-linear-gradient(-45deg, #183850 0, #183850 25%, #192C46 50%, #22254C 75%, #22254C 100%);">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+    <img src="{% static 'img/gifs/offline.gif' %}" style="width: 300px; height: auto; margin-bottom: 20px;" />
+
+    <h1 class="glow-pulse" style="color: white; font-family: arial; font-weight: bold; font-size: 50px; letter-spacing: 5px; line-height: 1rem;">OFFLINE</h1>
+
+    <h4 style="color: #f1f1f1; font-family: arial; font-weight: 300; font-size: 16px;">Please check your internet connection.</h4>
+
+    <a href="/" id="retry-btn" style="display: block; margin: 20px 0 0; padding: 15px 30px; background: #2a2e5f; color: white; font-family: arial; letter-spacing: 5px; border-radius: .4rem; text-decoration: none; box-shadow: 0 0 15px #22254C;">RETRY</a>
+  </div>
+
+  <style>
+    @keyframes pulseGlow {
+      0% {
+        text-shadow: 0 0 5px white, 0 0 10px white;
+      }
+      50% {
+        text-shadow: 0 0 10px #ffffff, 0 0 20px #00ffff;
+      }
+      100% {
+        text-shadow: 0 0 5px white, 0 0 10px white;
+      }
+    }
+    
+    .glow-pulse {
+      animation: pulseGlow 3.5s infinite ease-in-out;
+    }
+  </style>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const prev = params.get("prev");
+    if (prev) {
+      document.getElementById("retry-btn").href = prev;
+    }
+
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register("{% static 'sw.js' %}")
+            .then(reg => console.log("Service Worker registered:", reg))
+            .catch(err => console.error("Service Worker registration failed:", err));
+    }
+  </script>
+</body>
+</html>

@@ -1,57 +1,89 @@
 import logging
-import json
+import re
 import api.utils as util
-from api.utils import round_datetime_minute, str_to_bool
-import api.controllers as controllers
 import api.exceptions as err
-from rest_framework.decorators import api_view, renderer_classes
-from rest_framework.response import Response
+import api.controllers as controllers
+
+from datetime import datetime
 from rest_framework import status
-from auth_app.models import User, Activity
-from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
+from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
-from django.db import transaction
-from django.shortcuts import render, get_object_or_404
+from rest_framework.decorators import api_view, renderer_classes
 from django.http import JsonResponse
-from django.middleware.csrf import get_token
+from django.db import transaction, IntegrityError
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import manager_required, api_manager_required
-from django.views.decorators.csrf import ensure_csrf_cookie
+from api.utils import round_datetime_minute, str_to_bool
+from auth_app.models import User, Activity, Store, StoreUserAccess
+from auth_app.utils import api_manager_required, api_employee_required
+from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from clock_in_system.settings import (
     MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+    VALID_NAME_PATTERN,
+    VALID_NAME_LIST_PATTERN,
+    VALID_PHONE_NUMBER_PATTERN,
+    VALID_PASSWORD_PATTERN,
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
 )
 
-from django.db.models import Sum, F, Q, Case, When, DecimalField
-from datetime import datetime, time
-from auth_app.models import Activity, User, KeyValueStore
-from django.db.models.functions import ExtractWeekDay
 
 logger = logging.getLogger("api")
 
 
+@api_manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def list_users_name_view(request):
+def list_store_employee_names(request):
     """
-    API view to fetch a list of users with their IDs and full names.
+    API view to fetch a list of users with their IDs and full names who are related to a certain store.
+    The authenticated user MUST be associated to the store to list their employees.
     """
     try:
         # Extract query parameters from the request, with defaults
-        only_active = request.query_params.get("only_active", "true").lower() == "true"
-        ignore_managers = (
-            request.query_params.get("ignore_managers", "false").lower() == "true"
+        only_active = util.str_to_bool(request.query_params.get("only_active", "true"))
+        ignore_managers = util.str_to_bool(
+            request.query_params.get("ignore_managers", "false")
         )
-        order = request.query_params.get("order", "true").lower() == "true"
-        order_by_first_name = (
-            request.query_params.get("order_by_first_name", "true").lower() == "true"
+        order = util.str_to_bool(request.query_params.get("order", "true"))
+        order_by_first_name = util.str_to_bool(
+            request.query_params.get("order_by_first_name", "true")
         )
-        ignore_clocked_in = (
-            request.query_params.get("ignore_clocked_in", "false").lower() == "true"
+        ignore_clocked_in = util.str_to_bool(
+            request.query_params.get("ignore_clocked_in", "false")
         )
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+
+        if store_id is None:
+            return Response(
+                {"Error": "Missing store_id in request params. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the user information of the manager requesting this info from their session
+        try:
+            user_id = request.session.get("user_id")
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Ensure user is associated with the store
+        if not user.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Cannot list employee names for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # Call the controller function
-        users_list = controllers.get_users_name(
+        users_list = controllers.get_store_employee_names(
+            store_id=store_id,
             only_active=only_active,
             ignore_managers=ignore_managers,
             order=order,
@@ -67,6 +99,13 @@ def list_users_name_view(request):
         return Response(
             {"Error": "No users found matching the given criteria."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -96,9 +135,42 @@ def list_all_shift_details(request):
         except ValueError:
             limit = 25
 
+        # Get store id
+        store_id = request.GET.get("store_id", None)
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing required store_id field in query params. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the account info of the user requesting these shifts
+        user_id = request.session.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Cannot get shift information for an unassociated store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
-        activities_query = Activity.objects.select_related("employee_id").order_by(
-            "-login_timestamp", "employee_id__first_name", "employee_id__last_name"
+        activities_query = (
+            Activity.objects.select_related("employee")
+            .filter(
+                store_id=int(store_id), employee__is_hidden=False
+            )  # Exclude hidden users
+            .order_by("-login_timestamp", "employee__first_name", "employee__last_name")
         )
 
         # Get total
@@ -116,8 +188,8 @@ def list_all_shift_details(request):
             data.append(
                 {
                     "id": act.id,
-                    "employee_first_name": act.employee_id.first_name,
-                    "employee_last_name": act.employee_id.last_name,
+                    "employee_first_name": act.employee.first_name,
+                    "employee_last_name": act.employee.last_name,
                     "login_time": (
                         localtime(act.login_time).strftime("%H:%M")
                         if act.login_time
@@ -171,6 +243,18 @@ def list_singular_shift_details(request, id):
     try:
         act = Activity.objects.get(id=id)
 
+        # Get the account info of the user requesting this shift info
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        if not manager.is_associated_with_store(store=act.store):
+            return Response(
+                {
+                    "Error": "Not authorised to get shift information for an unassociated store."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         activity_data = {
             "id": id,
             "login_timestamp": (
@@ -194,6 +278,13 @@ def list_singular_shift_details(request, id):
             {"Error": f"Shift with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except User.DoesNotExist as e:
+        return Response(
+            {
+                "Error": "Failed to get your account's information for authorisation. Please login again."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -210,48 +301,75 @@ def list_singular_shift_details(request, id):
 @renderer_classes([JSONRenderer])
 def update_shift_details(request, id):
     try:
-        activity = Activity.objects.get(id=id)
+        activity = Activity.objects.select_related("employee", "store").get(id=id)
+
+        # Get the account info of the user requesting this shift info
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        if not manager.is_associated_with_store(store=activity.store):
+            return Response(
+                {
+                    "Error": "Not authorised to update a shift's information for an unassociated store."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not activity.store.is_active:
+            return Response(
+                {"Error": "Not authorised to update a shift to an inactive store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif activity.employee.is_hidden:
+            return Response(
+                {"Error": "Not authorised to interact with a hidden account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Save activity info
+        original = {
+            "id": activity.id,
+            "deliveries": activity.deliveries,
+            "login_time": activity.login_time,
+            "login_timestamp": activity.login_timestamp,
+            "logout_time": activity.logout_time,
+            "logout_timestamp": activity.logout_timestamp,
+            "shift_length_mins": activity.shift_length_mins,
+            "is_public_holiday": activity.is_public_holiday,
+        }
 
         # If DELETING the activity
         if request.method == "DELETE":
-            # Get user
-            user = activity.employee_id
-
-            # Check if user's clocked in state needs to be modified before deleting a shift (i.e. if the shift isnt finished)
-            if not activity.logout_timestamp or not activity.logout_time:
-                other_active_shifts = (
-                    Activity.objects.filter(employee_id=user)
-                    .exclude(id=activity.id)
-                    .filter(Q(logout_time__isnull=True))
-                )  # Dont check timestamp as "clocked_in" uses mainly clockout_time to determine shift length and account clocked state
-
-                # Only change clocked_in to False if no other active shifts
-                if not other_active_shifts.exists():
-                    user.clocked_in = False
-
-            # Ensure both databases are saved successfully, otherwise roll the other back.
             with transaction.atomic():
-                user.save()
                 activity.delete()
 
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+            )
+            logger.debug(
+                f"[DELETE: ACTIVITY (ID: {original['id']})] Login: {original['login_time']} ({original['login_timestamp']}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) -- Deliveries: {original['deliveries']} -- Shift Length: {original['shift_length_mins']} -- PUBLIC HOLIDAY: {original['is_public_holiday']}"
+            )
             return JsonResponse(
                 {"message": "Employee deleted successfully"},
                 status=status.HTTP_200_OK,
             )
 
+        # If UPDATING the activity
         elif (request.method == "POST") or (request.method == "PATCH"):
             # Parse data from request
-            login_timestamp = request.data.get("login_timestamp", None) or None
-            logout_timestamp = request.data.get("logout_timestamp", None) or None
+            login_timestamp = util.clean_param_str(
+                request.data.get("login_timestamp", None)
+            )
+            logout_timestamp = util.clean_param_str(
+                request.data.get("logout_timestamp", None)
+            )
 
             try:
                 if login_timestamp:
                     login_timestamp = datetime.strptime(
                         login_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
-                    login_timestamp = make_aware(
-                        login_timestamp
-                    )  # Add timezone information to timstamp
+                    # Add timezone information to timstamp
+                    login_timestamp = localtime(make_aware(login_timestamp))
                     activity.login_time = round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
                 else:
@@ -264,9 +382,8 @@ def update_shift_details(request, id):
                     logout_timestamp = datetime.strptime(
                         logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                     )
-                    logout_timestamp = make_aware(
-                        logout_timestamp
-                    )  # Add timezone information to timstamp
+                    # Add timezone information to timstamp
+                    logout_timestamp = localtime(make_aware(logout_timestamp))
                     activity.logout_time = round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
                 else:
@@ -284,7 +401,6 @@ def update_shift_details(request, id):
 
             # Get the required variables
             now_date = localtime(now()).date()
-            user = activity.employee_id
 
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
             if (not logout_timestamp) and (login_timestamp.date() != now_date):
@@ -312,25 +428,16 @@ def update_shift_details(request, id):
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
-            # Check when deleting clockout time for a shift the same day, the user's clocked state needs to be modified.
-            elif (not logout_timestamp) and (login_timestamp.date() == now_date):
-                if not user.clocked_in:
-                    user.clocked_in = True
-
-            # Check when setting clock out time, ensure user is not clocked in (ensure its shift on same day otherwise editing older shifts will modify user for newer shifts)
-            elif logout_timestamp and (login_timestamp.date() == now_date):
-                if user.clocked_in:
-                    user.clocked_in = False
-
             # Set public holiday state (keep same if not given)
             activity.is_public_holiday = str_to_bool(
                 request.data.get("is_public_holiday", activity.is_public_holiday)
             )
 
-            # Set deliveries (keep same if not given)
+            # Set deliveries (keep same if not given) -- ENSURE >= 0
             try:
-                activity.deliveries = int(
-                    request.data.get("deliveries", activity.deliveries)
+                activity.deliveries = max(
+                    int(request.data.get("deliveries", activity.deliveries)),
+                    0,
                 )
             except ValueError:
                 return JsonResponse(
@@ -360,11 +467,19 @@ def update_shift_details(request, id):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Ensure both databases are saved successfully, otherwise roll the other back.
+            # Else reset shift length time
+            else:
+                activity.shift_length_mins = 0
+
             with transaction.atomic():
                 activity.save()
-                user.save()
 
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+            )
+            logger.debug(
+                f"[UPDATE: ACTIVITY (ID: {activity.id})] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {original['deliveries']} → {activity.deliveries} -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins} -- PUBLIC HOLIDAY: {original['is_public_holiday']} → {activity.is_public_holiday}"
+            )
             return JsonResponse(
                 {"message": "Shift updated successfully."},
                 status=status.HTTP_202_ACCEPTED,
@@ -386,6 +501,13 @@ def update_shift_details(request, id):
             {"Error": f"Shift with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except User.DoesNotExist as e:
+        return Response(
+            {
+                "Error": "Failed to get your account's information for authorisation. Please login again."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -403,18 +525,27 @@ def update_shift_details(request, id):
 def create_new_shift(request):
     try:
         # Parse data from request
-        employee_id = str(request.data.get("employee_id", ""))
+        employee_id = util.clean_param_str(request.data.get("employee_id", None))
         # Type checking done later when converting form
-        login_timestamp = request.data.get("login_timestamp", None) or None
-        logout_timestamp = request.data.get("logout_timestamp", None) or None
+        login_timestamp = util.clean_param_str(
+            request.data.get("login_timestamp", None)
+        )
+        logout_timestamp = util.clean_param_str(
+            request.data.get("logout_timestamp", None)
+        )
         is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
+        store_id = util.clean_param_str(request.data.get("store_id", None))
 
+        # Get the account info of the user requesting this shift info
+        manager_id = request.session.get("user_id")
         try:
-            deliveries = int(request.data.get("deliveries", 0))
-        except ValueError as e:
+            manager = User.objects.get(id=manager_id)
+        except User.DoesNotExist:
             return Response(
-                {"Error": "Deliveries must be an integer."},
-                status=status.HTTP_417_EXPECTATION_FAILED,
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Check that the request is not missing the employee ID or the login timestamp (REQUIRED)
@@ -424,20 +555,73 @@ def create_new_shift(request):
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
+        elif store_id is None:
+            return JsonResponse(
+                {"Error": "Missing store_id information in request data."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Ensure deliveries is an int and that its >= 0
+        try:
+            deliveries = max(
+                int(request.data.get("deliveries", 0)),
+                0,
+            )
+        except ValueError as e:
+            return Response(
+                {"Error": "Deliveries must be an integer."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Get the employee
+        employee = User.objects.get(id=employee_id)
+
+        # Get the store object to link it
+        store = Store.objects.get(id=store_id)
+
+        # Check user is authorised to interact with the store and the user
+        if not manager.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {
+                    "Error": "Not authorised to create a new shift for an unassociated store."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not store.is_active:
+            return Response(
+                {"Error": "Not authorised to interact with an inactive store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not manager.is_manager_of(employee=employee):
+            return Response(
+                {
+                    "Error": "Not authorised to create a new shift with another store's employee."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif employee.is_hidden:
+            return Response(
+                {"Error": "Not authorised to interact with a hidden account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_active:
+            return Response(
+                {"Error": "Not authorised to assign a shift to an inactive account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         # Ensure the timestamps are in the correct form and are TIMEZONE AWARE (allows comparison)
         try:
             login_timestamp = datetime.strptime(login_timestamp, "%Y-%m-%dT%H:%M:%S")
-            login_timestamp = make_aware(
-                login_timestamp
-            )  # Add timezone info to timestamp
+            # Add timezone info to timestamp
+            login_timestamp = localtime(make_aware(login_timestamp))
 
             if logout_timestamp:
                 logout_timestamp = datetime.strptime(
                     logout_timestamp, "%Y-%m-%dT%H:%M:%S"
                 )
-                logout_timestamp = make_aware(
-                    logout_timestamp
-                )  # Add timezone info to timestamp
+                # Add timezone info to timestamp
+                logout_timestamp = localtime(make_aware(logout_timestamp))
         except ValueError as e:
             return Response(
                 {
@@ -461,7 +645,9 @@ def create_new_shift(request):
             )
 
         # Get the rounded login/logout times
-        login_time = round_datetime_minute(login_timestamp)
+        login_time = round_datetime_minute(
+            login_timestamp
+        )  # Login timestamp MUST be pass to reach this point
         logout_time = None
         if logout_timestamp:
             logout_time = round_datetime_minute(logout_timestamp)
@@ -493,22 +679,31 @@ def create_new_shift(request):
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
-        # Get the employee
-        employee = User.objects.get(id=employee_id)
+            # Set shift length field
+            delta = logout_time - login_time
+            shift_length_mins = int(delta.total_seconds() // 60)
 
         # Create the new activity record
         activity = Activity.objects.create(
-            employee_id=employee,
+            employee=employee,
+            store=store,
             login_time=login_time,
             logout_time=logout_time,
             login_timestamp=login_timestamp,
             logout_timestamp=logout_timestamp,
+            shift_length_mins=shift_length_mins,
             is_public_holiday=is_public_holiday,
             deliveries=deliveries,
         )
 
         activity.save()
 
+        logger.info(
+            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) (under store ID {store.id} [{store.code}])."
+        )
+        logger.debug(
+            f"[CREATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}"
+        )
         return JsonResponse(
             {"message": "Shift created successfully.", "id": activity.id},
             status=status.HTTP_201_CREATED,
@@ -516,8 +711,20 @@ def create_new_shift(request):
 
     except User.DoesNotExist as e:
         return Response(
-            {"Error": f"Employee with ID {id} does not exist."},
+            {"Error": f"Employee with ID {employee_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store with the ID {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -535,6 +742,16 @@ def create_new_shift(request):
 @renderer_classes([JSONRenderer])
 def list_all_employee_details(request):
     try:
+        # Get and validate store_id
+        store_id = request.GET.get("store_id")
+        if not store_id or not store_id.isdigit():
+            return Response(
+                {"Error": "Missing or invalid 'store_id' parameter."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        store_id = int(store_id)
+
         try:
             # enforce min offset = 0
             offset = max(int(request.GET.get("offset", "0")), 0)
@@ -549,13 +766,26 @@ def list_all_employee_details(request):
         except ValueError:
             limit = 25
 
-        # Apply slicing (converted to SQL level by django)
-        employees = User.objects.order_by("first_name", "last_name")[
-            offset : offset + limit
-        ]
+        # Check that the manager has access to this store
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+        if not manager.is_associated_with_store(store_id):
+            return Response(
+                {"Error": "Not authorised to view employee data for this store."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        # Get total
-        total = User.objects.count()
+        # Get user IDs associated with the store
+        associated_user_ids = StoreUserAccess.objects.filter(
+            store_id=store_id
+        ).values_list("user_id", flat=True)
+
+        # Query users
+        employees = User.objects.filter(
+            id__in=associated_user_ids, is_hidden=False
+        ).order_by("first_name", "last_name")[offset : offset + limit]
+
+        total = User.objects.filter(id__in=associated_user_ids, is_hidden=False).count()
 
         employee_data = [
             {
@@ -563,7 +793,8 @@ def list_all_employee_details(request):
                 "first_name": emp.first_name,
                 "last_name": emp.last_name,
                 "email": emp.email,
-                "phone_number": emp.phone_number,
+                "phone_number": emp.phone_number if emp.phone_number else None,
+                "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
                 "pin": emp.pin,
                 "is_active": emp.is_active,
             }
@@ -596,13 +827,31 @@ def list_singular_employee_details(request, id):
     try:
         employee = User.objects.get(id=id)
 
+        # Get manager's info from their session
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        # Ensure manager can list employee's info
+        if not manager.is_manager_of(employee=employee, ignore_inactive_stores=False):
+            return Response(
+                {
+                    "Error": "Not authorised to get employee information of an employee associated to a different store."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif employee.is_hidden:
+            return Response(
+                {"Error": "Not authorised to get information of a hidden account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         employee_data = {
             "id": id,
             "first_name": employee.first_name,
             "last_name": employee.last_name,
             "email": employee.email,
             "phone_number": employee.phone_number,
-            "pin": employee.pin,
+            "dob": employee.birth_date,
             "is_active": employee.is_active,
         }
 
@@ -625,29 +874,399 @@ def list_singular_employee_details(request, id):
 
 
 @api_manager_required
-@api_view(["POST", "PATCH"])
+@api_view(["PUT"])
 @renderer_classes([JSONRenderer])
-def update_employee_details(request, id):
+def create_new_employee(request):
     try:
-        employee = User.objects.get(id=id)
+        # Parse data from request
+        first_name = util.clean_param_str(request.data.get("first_name", ""))
+        last_name = util.clean_param_str(request.data.get("last_name", ""))
+        email = util.clean_param_str(request.data.get("email", "")).lower()
+        phone_number = util.clean_param_str(request.data.get("phone", ""))
+        dob = util.clean_param_str(request.data.get("dob", ""))
+        store_id = util.clean_param_str(request.data.get("store_id", ""))
 
-        if not employee.is_active:
-            raise err.InactiveUserError
+        # Get the store object
+        store = Store.objects.get(id=int(store_id))
+
+        # Get manager account's info
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        # Ensure user is a manager of the store
+        if not manager.is_associated_with_store(store=store):
+            raise err.NotAssociatedWithStoreError
+
+        # Ensure store is active
+        elif not store.is_active:
+            raise err.InactiveStoreError
+
+        #################### ASSIGNING EXISTING ACCOUNT #########################
+
+        # Ensure basic info is given
+        if not email or not store_id:
+            return JsonResponse(
+                {
+                    "Error": "Cannot create a new account due to missing email and store id in the request."
+                },
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # If an account with given email exits, add them to the store
+        if User.objects.filter(email=email).exists():
+            employee = User.objects.get(email=email)
+
+            # Check already assigned to store
+            if employee.is_associated_with_store(store=store):
+                return JsonResponse(
+                    {"Error": "Cannot re-assign a given employee to the same store."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            # Check user cant be modified
+            elif employee.is_hidden:
+                return Response(
+                    {
+                        "Error": "Not authorised to update a hidden account's store association."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            new_association = StoreUserAccess.objects.create(
+                user=employee,
+                store=store,
+            )
+
+            # Save association
+            new_association.save()
+
+            logger.info(
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
+            )
+            logger.debug(
+                f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+            )
+            return JsonResponse(
+                {
+                    "message": f"Existing employee assigned to store {store.code} successfully.",
+                    "id": employee.id,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        ####################### CREATING A NEW ACCOUNT #########################
+
+        # Ensure other required fields are given
+        if not first_name or not last_name:
+            return JsonResponse(
+                {
+                    "Error": "Cannot create a new account due to missing first and last name in the request."
+                },
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # VALIDATE INFORMATION FOR NEW EMPLOYEE
+        if len(first_name) > 100:
+            return Response(
+                {"Error": "First name cannot be longer than 100 characters."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif not re.match(VALID_NAME_PATTERN, first_name):
+            return Response(
+                {
+                    "Error": "Invalid first name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        if len(last_name) > 100:
+            return Response(
+                {"Error": "Last name cannot be longer than 100 characters."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif not re.match(VALID_NAME_PATTERN, last_name):
+            return Response(
+                {
+                    "Error": "Invalid last name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {"Error": "Invalid email format."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        # Create user
+        employee = User.objects.create(
+            first_name=first_name.title(),
+            last_name=last_name.title(),
+            email=email,
+            is_active=True,
+            is_manager=False,
+            is_hidden=False,
+            is_setup=False,
+        )
+
+        # VALIDATE REMAINING NON-ESSENTIAL INFORMATION
+        if phone_number:
+            if len(phone_number) > 15:
+                return Response(
+                    {"Error": "Phone number cannot be longer than 15 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_PHONE_NUMBER_PATTERN, phone_number):
+                return Response(
+                    {
+                        "Error": "Invalid phone number. Only numbers, spaces, hyphens, and plus are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee.phone_number = phone_number
+
+        if dob:
+            try:
+                parsed_dob = datetime.strptime(dob.strip(), "%Y-%m-%d").date()
+
+                if parsed_dob >= now().date():
+                    return Response(
+                        {"Error": "Date of birth must be before today."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+                employee.birth_date = parsed_dob
+
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid DOB format. Expected format is YYYY-MM-DD."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        # ADD THE NEW USER TO THE STORE
+        new_association = StoreUserAccess.objects.create(
+            user=employee,
+            store=store,
+        )
+
+        # Finally save the new employee and their association with a transation to ensure no errors occur
+        with transaction.atomic():
+            # Set employee account pin
+            employee.set_unique_pin()
+            employee.save()
+            new_association.save()
+
+        logger.info(
+            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
+        )
+        logger.debug(
+            f"[CREATE: USER (ID: {employee.id})] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- Phone: {employee.phone_number} -- DOB: {employee.birth_date} -- PIN: {employee.pin} -- MANAGER: {employee.is_manager} -- ACTIVE: {employee.is_active} -- SETUP: {employee.is_setup} -- HIDDEN: {employee.is_hidden}"
+        )
+        logger.debug(
+            f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+        )
+        return JsonResponse(
+            {
+                "message": f"New employee created successfully and assigned to store {store.code}.",
+                "id": employee.id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store with ID {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except IntegrityError as e:
+        logger.critical(
+            f"Failed to create new employee account with email {email} ({first_name} {last_name}) due to an database integrity error, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to update another store's employee list."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to update an inactive store's employee list."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to create new employee account for store ID {store_id} with employee name '{first_name} {last_name}', resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["POST", "PATCH", "PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_information(request, id=None):
+    """
+    API endpoint to either update user's own account or another account if they're a manager and is specified.
+    """
+    try:
+        # Get user information from their session
+        try:
+            user_id = request.session.get("user_id")
+            user = User.objects.get(id=user_id)
+            employee_to_update = user
+        except User.DoesNotExist:
+            return Response(
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if id:
+            employee = User.objects.get(id=id)
+
+            # Check manager is able to modify employee info
+            if not user.is_manager:
+                return Response(
+                    {
+                        "Error": "Not authorised to update another employee's account information."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            elif not user.is_manager_of(employee=id):
+                return Response(
+                    {
+                        "Error": "Not authorised to update another store's employee account information."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            elif employee.is_hidden:
+                return Response(
+                    {
+                        "Error": "Not authorised to update a hidden account's information."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            elif not employee.is_active:
+                raise err.InactiveUserError
+
+            employee_to_update = employee
 
         # Parse data from request
-        employee.first_name = str(request.data.get("first_name", employee.first_name))
-        employee.last_name = str(request.data.get("last_name", employee.last_name))
-        employee.email = str(request.data.get("email", employee.email))
-        employee.phone_number = str(request.data.get("phone", employee.phone_number))
+        first_name = util.clean_param_str(request.data.get("first_name", None))
+        last_name = util.clean_param_str(request.data.get("last_name", None))
+        phone = util.clean_param_str(request.data.get("phone", None))
+        dob = util.clean_param_str(request.data.get("dob", None))
 
-        if request.data.get("pin") is not None:
-            employee.set_pin(str(request.data["pin"]))
+        # Save original data for logging
+        original = {
+            "first_name": employee_to_update.first_name,
+            "last_name": employee_to_update.last_name,
+            "phone": employee_to_update.phone_number,
+            "dob": employee_to_update.birth_date,
+        }
 
-        ########## CHECKS ON THIS IS NEEDED!!!
+        # Validate and update first name
+        if first_name:
+            if len(first_name) > 100:
+                return Response(
+                    {"Error": "First name cannot be longer than 100 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_NAME_PATTERN, first_name):
+                return Response(
+                    {
+                        "Error": "Invalid first name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.first_name = first_name.title()
 
-        employee.save()
+        # Validate and update last name
+        if last_name:
+            if len(last_name) > 100:
+                return Response(
+                    {"Error": "Last name cannot be longer than 100 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_NAME_PATTERN, last_name):
+                return Response(
+                    {
+                        "Error": "Invalid last name. Only letters, spaces, hyphens, and apostrophes are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.last_name = last_name.title()
+
+        # Validate and update phone
+        if phone:
+            if len(phone) > 15:
+                return Response(
+                    {"Error": "Phone number cannot be longer than 15 characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(VALID_PHONE_NUMBER_PATTERN, phone):
+                return Response(
+                    {
+                        "Error": "Invalid phone number. Only numbers, spaces, hyphens, and plus are allowed."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            employee_to_update.phone_number = phone
+
+        # Validate and update DOB
+        if dob:
+            logger.critical("PASSED")
+            if not user.is_manager:
+                return Response(
+                    {"Error": "Not authorised to modify your account date of birth."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            try:
+                parsed_dob = datetime.strptime(dob, "%Y-%m-%d").date()
+
+                if parsed_dob >= now().date():
+                    return Response(
+                        {"Error": "Date of birth must be before today."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+
+                employee_to_update.birth_date = parsed_dob
+
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid DOB format. Expected format is YYYY-MM-DD."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        employee_to_update.save()
+
+        logger.info(
+            f"Account ID {user.id} ({user.first_name} {user.last_name}) updated account information for a USER with ID {employee_to_update.id} ({employee_to_update.first_name} {employee_to_update.last_name})."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee_to_update.id})] Name: {original['first_name']} {original['last_name']} → {employee_to_update.first_name} {employee_to_update.last_name} -- Phone: {original['phone']} → {employee_to_update.phone_number} -- DOB: {original['dob']} → {employee_to_update.birth_date}"
+        )
         return JsonResponse(
-            {"message": "Employee updated successfully."},
+            {"message": "Account information updated successfully."},
             status=status.HTTP_202_ACCEPTED,
         )
 
@@ -660,6 +1279,13 @@ def update_employee_details(request, id):
         return Response(
             {"Error": "Cannot update an incative employee's details."},
             status=status.HTTP_409_CONFLICT,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -675,84 +1301,106 @@ def update_employee_details(request, id):
 @api_manager_required
 @api_view(["PUT"])
 @renderer_classes([JSONRenderer])
-def create_new_employee(request):
-    try:
-        # Parse data from request
-        first_name = str(request.data.get("first_name", ""))
-        last_name = str(request.data.get("last_name", ""))
-        email = str(request.data.get("email", ""))
-        phone_number = str(request.data.get("phone", ""))
-        pin = str(request.data.get("pin", ""))
-
-        ########## CHECKS ON THIS IS NEEDED!!!
-
-        # You can add validation or checks here
-        if not first_name or not last_name or not email:
-            return JsonResponse(
-                {"Error": "Required fields are missing."},
-                status=status.HTTP_417_EXPECTATION_FAILED,
-            )
-
-        # Ensure email is unique
-        if User.objects.filter(email=email).exists():
-            return JsonResponse(
-                {"Error": "Email already exists."},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        # Create user
-        employee = User.objects.create(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            phone_number=phone_number,
-            pin=pin,
-            is_active=True,  # or set as needed
-            is_manager=False,  # presumably a normal employee
-        )
-
-        employee.save()
-
-        return JsonResponse(
-            {"message": "Employee created successfully.", "id": employee.id},
-            status=status.HTTP_201_CREATED,
-        )
-
-    except Exception as e:
-        # Handle any unexpected exceptions
-        logger.critical(
-            f"Failed to create new employee account for email {email}, resulting in the error: {str(e)}"
-        )
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_manager_required
-@api_view(["PUT"])
-@renderer_classes([JSONRenderer])
 def modify_account_status(request, id):
     try:
         # Parse data from request
-        status_type = str(request.data.get("status_type", ""))
+        status_type = util.clean_param_str(
+            request.data.get("status_type", None)
+        ).lower()
+        store_id = util.clean_param_str(request.data.get("store_id"))
 
-        # You can add validation or checks here
         if not status_type:
             return JsonResponse(
                 {"Error": "Required status type field missing."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
-        # Get employee
+        # Get employee and manager
         employee = User.objects.get(id=id)
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
 
-        # If account deactivation
-        if status_type.lower() == "deactivation":
+        # Check account can be modified
+        if not manager.is_manager_of(employee=employee):
+            return Response(
+                {
+                    "Error": "Not authorised to update a different store employee's status."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif employee.is_hidden:
+            return Response(
+                {"Error": "Not authorised to update a hidden account's status."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Seperate status type modification
+        if status_type == "deactivate":
             employee.is_active = False
 
-        elif status_type.lower() == "activation":
+        elif status_type == "activate":
             employee.is_active = True
+
+        elif status_type == "reset_password":
+            employee.is_setup = False
+
+        elif status_type == "reset_pin":
+            employee.set_unique_pin()
+
+        elif status_type == "resign":
+            if not store_id or not store_id.isdigit():
+                return JsonResponse(
+                    {"Error": "Invalid store_id provided.", "id": employee.id},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
+
+            try:
+                store = Store.objects.get(id=int(store_id))
+                if not employee.is_associated_with_store(store=store):
+                    return JsonResponse(
+                        {
+                            "Error": f"Employee with ID {id} is not associated with store ID {store_id}.",
+                            "id": employee.id,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                elif employee.is_clocked_in(store=store):
+                    return JsonResponse(
+                        {
+                            "Error": f"Employee with ID {id} is currently clocked in at the store, cannot resign them.",
+                            "id": employee.id,
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+                # Resign the user
+                association = StoreUserAccess.objects.filter(
+                    user=employee, store=store
+                ).last()
+                association.delete()
+
+                logger.info(
+                    f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) removed STORE ASSOCIATION for employee with ID {employee.id} ({employee.first_name} {employee.last_name}) under the store ID {store.id} [{store.code}]."
+                )
+                logger.debug(
+                    f"[DELETE: STOREUSERACCESS (ID: {association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
+                )
+                return JsonResponse(
+                    {
+                        "message": f"Employee resigned from store ID {store.id} successfully.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_202_ACCEPTED,
+                )
+
+            except Store.DoesNotExist:
+                return JsonResponse(
+                    {
+                        "Error": f"Store with ID {store_id} does not exist.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
 
         else:
             return JsonResponse(
@@ -762,6 +1410,17 @@ def modify_account_status(request, id):
 
         employee.save()
 
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated account status for a USER with ID {employee.id} ({employee.first_name} {employee.last_name}). Type: {status_type.replace('_', ' ').upper()}."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee.id})] Status update: {status_type.replace('_', ' ').upper()}"
+            + (
+                f". Set new PIN to {employee.pin}."
+                if status_type == "reset_pin"
+                else ""
+            )
+        )
         return JsonResponse(
             {"message": "Employee status updated successfully.", "id": employee.id},
             status=status.HTTP_202_ACCEPTED,
@@ -771,6 +1430,13 @@ def modify_account_status(request, id):
         return Response(
             {"Error": f"Employee with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -783,29 +1449,148 @@ def modify_account_status(request, id):
         )
 
 
+@api_employee_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def modify_account_password(request):
+    try:
+        # Parse data from request
+        old_pass = util.clean_param_str(request.data.get("old_pass", None))
+        new_pass = util.clean_param_str(request.data.get("new_pass", None))
+
+        if not old_pass or not new_pass:
+            return JsonResponse(
+                {"Error": "Required old and new password fields are missing."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        old_pass = str(old_pass)
+        new_pass = str(new_pass)
+
+        # Get employee
+        employee_id = request.session.get("user_id")
+        employee = User.objects.get(id=employee_id)
+
+        # Check account can be modified
+        if not employee.is_active:
+            return Response(
+                {"Error": "Not authorised to update an inactive account's password."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_setup:
+            return Response(
+                {
+                    "Error": "Employee account must be setup before the password can be modified."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Validate new password to generate errors to add
+        errors = {"old_pass": [], "new_pass": []}
+        if len(new_pass) < PASSWORD_MIN_LENGTH:
+            errors["new_pass"].append(
+                f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
+            )
+        if len(new_pass) > PASSWORD_MAX_LENGTH:
+            errors["new_pass"].append(
+                f"Password cannot be longer than {PASSWORD_MAX_LENGTH} characters long."
+            )
+        if not re.search(VALID_PASSWORD_PATTERN, new_pass):
+            errors["new_pass"].append(
+                f"Password must contain at least one uppercase letter, one lowercase letter, and one number."
+            )
+
+        # If the old password is not valid
+        if not employee.check_password(raw_password=old_pass):
+            errors["old_pass"].append("Invalid old account password.")
+            return Response(
+                {"Error": "Invalid old account password.", "field_errors": errors},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif employee.check_password(raw_password=new_pass):
+            errors["new_pass"].append("New password cannot match current password.")
+            return Response(
+                {"Error": "Cannot set the same password.", "field_errors": errors},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # If the new password is not valid
+        if len(errors["new_pass"]) > 0:
+            return Response(
+                {"Error": "Invalid new account password.", "field_errors": errors},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Update user password
+        employee.set_password(raw_password=new_pass)
+        employee.save()
+
+        logger.info(
+            f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) updated their password."
+        )
+        logger.debug(
+            f"[UPDATE: USER (ID: {employee.id})] [PASSWORD-CHANGE] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- MANAGER: {employee.is_manager} -- HIDDEN: {employee.is_hidden}"
+        )
+        util.flush_user_sessions(
+            user_id=employee_id
+        )  # FLUSH ALL SESSIONS WITH THE USER'S ID -> FORCE THEM TO RELOGGIN
+        return JsonResponse(
+            {
+                "message": "Employee password updated successfully. Please login again.",
+                "id": employee.id,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    except User.DoesNotExist as e:
+        return Response(
+            {"Error": f"Employee with ID {employee_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        # Handle any unexpected exceptions
+        logger.critical(
+            f"Failed to update employee password for user with ID {employee_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
 @api_view(["POST", "PUT"])
 @renderer_classes([JSONRenderer])
-def clock_in(request, id):
+def clock_in(request):
     try:
-        # Get location data
-        location_lat = request.data.get("location_latitude", None)
-        location_long = request.data.get("location_longitude", None)
+        # Get location data and store
+        location_lat = util.clean_param_str(request.data.get("location_latitude", None))
+        location_long = util.clean_param_str(
+            request.data.get("location_longitude", None)
+        )
+        store_id = util.clean_param_str(request.data.get("store_id", None))
 
         # Perform general checks on location data (and if its close to store)
         if not util.check_location_data(
-            location_lat=location_lat, location_long=location_long
+            location_lat=location_lat, location_long=location_long, store_id=store_id
         ):
-            raise err.InvalidLocationError
+            return Response(
+                {"Error": "Cannot clock in too far from the store's allowed range."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
 
-        # Get hashed pin to check they're authorised
-        pin = request.data.get("pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=pin):
-            raise err.InvalidPinError
+        # Get user id from their session
+        user_id = request.session.get("user_id")
 
         # Clock the user in
-        activity = controllers.handle_clock_in(employee_id=id)
+        activity = controllers.handle_clock_in(employee_id=user_id, store_id=store_id)
 
         # Return the results after serialisation
         return Response(
@@ -816,6 +1601,11 @@ def clock_in(request, id):
         # If the request is missing the location data
         return Response(
             {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.MissingStoreObjectOrIDError:
+        return Response(
+            {"Error": "Missing store_id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
@@ -860,24 +1650,49 @@ def clock_in(request, id):
             {"Error": f"Employee not found with the ID {id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store not found with the ID {store_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
     except err.StartingShiftTooSoonError:
         # If the user is trying to start a shift too soon after their last shift
         return Response(
             {"Error": f"Can't start a shift too soon after your last shift."},
             status=status.HTTP_409_CONFLICT,
         )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": f"Can't clock in to a store you aren't associated to."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": f"Can't clock in to an inactive store."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Exception as e:
         # General error capture -- including database location errors
-        logger.critical(f"An error occured when clocking in employee ID '{id}': {e}")
+        logger.critical(
+            f"An error occured when clocking in employee ID '{user_id}' for store ID '{store_id}', giving the error: {str(e)}"
+        )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
+@api_employee_required
 @api_view(["POST", "PUT"])
 @renderer_classes([JSONRenderer])
-def clock_out(request, id):
+def clock_out(request):
     try:
         # Check if they made any deliveries on clock out
         deliveries = max(
@@ -885,25 +1700,27 @@ def clock_out(request, id):
             0,  # Ensure it's an integer and above 0
         )
 
-        # Get location data
+        # Get location data and store
         location_lat = request.data.get("location_latitude", None)
         location_long = request.data.get("location_longitude", None)
+        store_id = request.data.get("store_id", None)
 
         # Perform general checks on location data (and if its close to store)
         if not util.check_location_data(
-            location_lat=location_lat, location_long=location_long
+            location_lat=location_lat, location_long=location_long, store_id=store_id
         ):
-            raise err.InvalidLocationError
+            return Response(
+                {"Error": "Cannot clock out too far from the store's allowed range."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
 
-        # Get hashed pin to check they're authorised
-        pin = request.data.get("pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=pin):
-            raise err.InvalidPinError
+        # Get user id from their session
+        user_id = request.session.get("user_id")
 
         # Clock the user out
-        activity = controllers.handle_clock_out(employee_id=id, deliveries=deliveries)
+        activity = controllers.handle_clock_out(
+            employee_id=user_id, deliveries=deliveries, store_id=store_id
+        )
 
         # Return the results after serialisation
         return Response(ActivitySerializer(activity).data, status=status.HTTP_200_OK)
@@ -912,6 +1729,11 @@ def clock_out(request, id):
         # If the request is missing the location data
         return Response(
             {"Error": "Missing location data in request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.MissingStoreObjectOrIDError:
+        return Response(
+            {"Error": "Missing store_id in request."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except err.BadLocationDataError:
@@ -947,15 +1769,18 @@ def clock_out(request, id):
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         return Response(
-            {
-                "Error": "No active clock-in record found. The account's state has been reset."
-            },
+            {"Error": "No active clock-in record found. Please contact an admin."},
             status=status.HTTP_417_EXPECTATION_FAILED,
         )
     except User.DoesNotExist:
         # If the user is not found, return 404
         return Response(
             {"Error": f"Employee not found with the ID {id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store not found with the ID {store_id}."},
             status=status.HTTP_404_NOT_FOUND,
         )
     except err.InactiveUserError:
@@ -967,13 +1792,23 @@ def clock_out(request, id):
     except err.ClockingOutTooSoonError:
         # If the user is trying to clock out too soon after clocking in
         return Response(
-            {"Error": f"Can't clock out too soon after clocking in."},
+            {"Error": "Can't clock out too soon after clocking in."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Can't clock out to a store you aren't associated to."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Can't clock out to an inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when trying to clock out employee ID '{id}': {e}"
+            f"An error occured when trying to clock out employee ID '{user_id}' for store ID '{store_id}': {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -981,15 +1816,33 @@ def clock_out(request, id):
         )
 
 
+@api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def clocked_state_view(request, id):
+def clocked_state_view(request):
     """
-    API view to get the clocked-in state of a user by ID.
+    API view to get the clocked-in state of a user by ID for a given store (given in request data).
+    THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
     """
     try:
+        # Get the store information
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing required store_id field in query params to obtain clocked state. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the user object from the session information
+        employee = util.api_get_user_object_from_session(request)
+
         # Get the user's info
-        info = controllers.get_employee_clocked_info(employee_id=id)
+        info = controllers.get_employee_clocked_info(
+            employee_id=employee.id, store_id=store_id
+        )
 
         # Return the info
         return Response(ClockedInfoSerializer(info).data, status=status.HTTP_200_OK)
@@ -997,28 +1850,54 @@ def clocked_state_view(request, id):
     except User.DoesNotExist:
         # Return a 404 if the user does not exist
         return Response(
-            {"Error": f"User not found with ID {id}."}, status=status.HTTP_404_NOT_FOUND
+            {
+                "Error": "The account you have been authenticated with is bugged. Please login again."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        # Return a 404 if the user does not exist
+        return Response(
+            {"Error": "Cannot get clocked info relating to a non-existant store."},
+            status=status.HTTP_404_NOT_FOUND,
         )
     except err.InactiveUserError:
         # If the user is trying to view the data of an inactive account
         return Response(
-            {"Error": "Cannot view information from an inactive account."},
+            {"Error": "Your account is deactivated. Please login again."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Can't get clocked information related to a inactive store."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Can't get clocked information related to a store your unassociated to."
+            },
+            status=status.HTTP_409_CONFLICT,
         )
     except err.NoActiveClockingRecordError:
         # If the user has no active clocking record (their clock-in activity is missing)
         logger.error(
-            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record. Their state has been reset"
+            f"User with ID {id} has a bugged state due to missing activity record to complete a shift record."
         )
         return Response(
-            {
-                "Error": "No active clock-in record found. The account's state has been reset."
-            },
+            {"Error": "No active clock-in record found. Please contact an admin."},
             status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to get the clocked state of employee ID '{id}': {e}"
+            f"An error occured when trying to get the clocked state of employee ID '{employee.id}' for store ID '{store_id}', giving the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1026,222 +1905,237 @@ def clocked_state_view(request, id):
         )
 
 
-@manager_required
-@ensure_csrf_cookie
+@api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def weekly_summary_view(request):
-    start_date_str = request.query_params.get("start_date")
-    end_date_str = request.query_params.get("end_date")
-    employee_ids_str = request.query_params.get("employee_ids")
-
+def list_associated_stores(request):
+    """
+    API view to list all associated stores with the user.
+    THE USER MUST BE LOGGED IN AS IT USES THEIR SESSION INFORMATION TO GET THEIR ID.
+    If the user is a manager, then it will list inactive stores the user is associated to.
+    """
     try:
-        # Handle date range
-        if start_date_str and end_date_str:
-            try:
-                start_day = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                end_day = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        # Get the user object from the session information
+        employee = util.api_get_user_object_from_session(request)
 
-                start_date = make_aware(datetime.combine(start_day, time.min))
-                end_date = make_aware(datetime.combine(end_day, time.max))
+        # Get the stores and format it for return
+        stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+        store_data = {store.id: store.code for store in stores}
 
-                activities = Activity.objects.filter(
-                    login_time__gte=start_date, login_time__lte=end_date
-                )
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            # No date range provided, use last reset date
-            try:
-                kv = KeyValueStore.objects.get(key="last_weekly_summary_reset")
-                last_reset_date = datetime.strptime(kv.value, "%Y-%m-%d").date()
-                last_reset_date = make_aware(
-                    datetime.combine(last_reset_date, time.min)
-                )
-            except KeyValueStore.DoesNotExist:
-                # Fallback date
-                last_reset_date = make_aware(datetime(2023, 3, 15))
+        return JsonResponse(store_data, status=status.HTTP_200_OK)
 
-            activities = Activity.objects.filter(login_time__gte=last_reset_date)
-
-        # Handle employee filter
-        if employee_ids_str:
-            employee_ids = [
-                int(e_id.strip())
-                for e_id in employee_ids_str.split(",")
-                if e_id.strip().isdigit()
-            ]
-            if employee_ids:
-                activities = activities.filter(employee_id__in=employee_ids)
-
-        # Calculate hours by converting shift_length_mins to hours
-        # Note: Exclude public holiday hours from weekday/weekend columns
-        summary = (
-            activities.annotate(day_of_week=ExtractWeekDay("login_time"))
-            .values("employee_id", "employee_id__first_name", "employee_id__last_name")
-            .annotate(
-                weekday_hours=Sum(
-                    Case(
-                        When(
-                            Q(day_of_week__in=[2, 3, 4, 5, 6])
-                            & Q(is_public_holiday=False),
-                            then=F("shift_length_mins") / 60.0,
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                weekend_hours=Sum(
-                    Case(
-                        When(
-                            Q(day_of_week__in=[1, 7]) & Q(is_public_holiday=False),
-                            then=F("shift_length_mins") / 60.0,
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                public_holiday_hours=Sum(
-                    Case(
-                        When(
-                            is_public_holiday=True, then=F("shift_length_mins") / 60.0
-                        ),
-                        default=0,
-                        output_field=DecimalField(decimal_places=2, max_digits=6),
-                    )
-                ),
-                total_hours=Sum(F("shift_length_mins") / 60.0),
-                total_deliveries=Sum("deliveries"),
-            )
-            .order_by("employee_id__first_name", "employee_id__last_name")
-        )
-
-        data = [
-            {
-                "employee_id": item["employee_id"],
-                "first_name": item["employee_id__first_name"],
-                "last_name": item["employee_id__last_name"],
-                "weekday_hours": float(item["weekday_hours"] or 0.0),
-                "weekend_hours": float(item["weekend_hours"] or 0.0),
-                "public_holiday_hours": float(item["public_holiday_hours"] or 0.0),
-                "total_hours": float(item["total_hours"] or 0.0),
-                "total_deliveries": item["total_deliveries"] or 0,
-            }
-            for item in summary
-        ]
-
-        return Response(data, status=status.HTTP_200_OK)
-
-    except Exception as e:
-        logger.critical(f"An error occurred when generating weekly summary: {e}")
-        return Response(
-            {"Error": "Internal error."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@manager_required
-@ensure_csrf_cookie
-@api_view(["POST"])
-@renderer_classes([JSONRenderer])
-def reset_summary_view(request):
-    # If a new date is provided in the POST, use it, otherwise today
-    new_date_str = request.data.get("new_reset_date")
-    if new_date_str:
-        try:
-            # Validate the date format
-            datetime.strptime(new_date_str, "%Y-%m-%d")
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        today_str = new_date_str
-    else:
-        # Default to today if no date provided
-        today_str = now().date().isoformat()
-
-    kv, created = KeyValueStore.objects.get_or_create(
-        key="last_weekly_summary_reset", defaults={"value": today_str}
-    )
-    if not created:
-        kv.value = today_str
-        kv.save()
-
-    return Response(
-        {"message": "Weekly summary reset successfully", "reset_date": today_str},
-        status=status.HTTP_200_OK,
-    )
-
-
-@manager_required
-@ensure_csrf_cookie
-@renderer_classes([JSONRenderer])
-def weekly_summary_page(request):
-    # Return the HTML template
-    return render(request, "auth_app/weekly_summary.html")
-
-
-@api_view(["POST", "PUT"])
-def change_pin(request, id):
-    try:
-        # Get new pin
-        new_pin = request.data.get("new_pin", None)
-
-        # Check if new pin exists
-        if new_pin is None:
-            return Response(
-                {"Error": "Missing new authentication pin."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Get hashed pin to check they're authorised
-        current_pin = request.data.get("current_pin", None)
-
-        # Perform checks against pin in database
-        if not util.check_pin_hash(employee_id=id, pin=current_pin):
-            raise err.InvalidPinError
-
-        # Update the pin
-        employee = User.objects.get(id=id)
-        employee.set_pin(raw_pin=new_pin)
-        employee.save()
-
-        return Response(
-            {"message": f"Pin for account ID {id} has been updated."},
-            status=status.HTTP_200_OK,
-        )
-
-    except err.MissingPinError:
-        # If the request is missing the authentication pin
-        return Response(
-            {"Error": "Missing authentication pin in request."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-    except err.InvalidPinError:
-        # If the authentication pin is invalid
-        return Response(
-            {"Error": "Invalid authentication pin."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
     except User.DoesNotExist:
-        # If the user is not found, return 404
+        # Return a 404 if the user does not exist
         return Response(
-            {"Error": f"Employee not found with the ID {id}."},
+            {
+                "Error": "The account you have been authenticated with is bugged. Please login again."
+            },
             status=status.HTTP_404_NOT_FOUND,
         )
     except err.InactiveUserError:
-        # If the user is trying to change pin of an inactive account
+        # If the user is trying to view the data of an inactive account
         return Response(
-            {"Error": "Cannot change the pin of an inactive account."},
+            {"Error": "Your account is deactivated. Please login again."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
-        # General error capture
-        logger.critical(f"An error occured when changing employee pin: {e}")
+        logger.critical(
+            f"An error occured when trying to get a user ID ({employee.id})'s associated stores, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_recent_shifts(request):
+    try:
+        user_id = request.session.get("user_id")
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+        limit = int(request.query_params.get("limit_days", "7"))
+
+        if store_id is None:
+            return Response(
+                {
+                    "Error": "Missing store_id from the request params. Please try again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the shifts
+        shifts = controllers.get_users_recent_shifts(
+            user_id=user_id, store_id=store_id, time_limit_days=limit
+        )
+
+        return JsonResponse(shifts, safe=False, status=status.HTTP_200_OK)
+
+    except ValueError:
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {
+                "Error": "Failed to get the store information, was the store_id set correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Can't get shift information for stores your unassociated with."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Can't get shift information for inactive stores."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when trying to get recent shifts for employee ID {user_id} associated to the store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_account_summaries(request):
+    try:
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+        ignore_no_hours = str_to_bool(
+            request.query_params.get("ignore_no_hours", "false")
+        )
+        sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
+        start_date = util.clean_param_str(request.query_params.get("start", None))
+        end_date = util.clean_param_str(request.query_params.get("end", None))
+        filter_names = util.clean_param_str(request.query_params.get("filter", ""))
+
+        if not store_id or not start_date or not end_date:
+            return Response(
+                {
+                    "Error": "Missing required request parameters of store_id, start, and end. Please try again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Ensure manager is authorised
+        if not manager.is_associated_with_store(store=store_id):
+            raise err.NotAssociatedWithStoreError
+
+        # Get pagination fields
+        try:
+            # enforce min offset = 0
+            offset = max(int(request.GET.get("offset", "0")), 0)
+        except ValueError:
+            offset = 0
+
+        try:
+            # Enforce min limit = 1 and max limit = 150 (settings controlled)
+            limit = min(
+                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            )
+        except ValueError:
+            limit = 25
+
+        # Validate other given fields
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        VALID_SORT_FIELDS = {"name", "hours", "age", "deliveries"}
+        if sort_field not in VALID_SORT_FIELDS:
+            return Response(
+                {
+                    "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Convert filter_names string to list
+        if filter_names and not re.match(VALID_NAME_LIST_PATTERN, filter_names):
+            return Response(
+                {"Error": "Invalid characters in filter list."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if filter_names:
+            filter_names_list = [
+                name.strip() for name in filter_names.split(",") if name.strip()
+            ]
+        else:
+            filter_names_list = None
+
+        # Get the summaries
+        summaries, total = controllers.get_account_summaries(
+            store_id=store_id,
+            offset=offset,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+            ignore_no_hours=ignore_no_hours,
+            sort_field=sort_field,
+            filter_names=filter_names_list,
+            allow_inactive_store=True,
+        )
+
+        return JsonResponse(
+            {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "results": summaries,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except ValueError:
+        logger.warning(
+            f"A VALUE ERROR occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the store information for ID {store_id}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to get summaries for a unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to get summaries for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,

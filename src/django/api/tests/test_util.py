@@ -1,6 +1,10 @@
 import pytest
 import api.utils as util
-from datetime import datetime
+
+from datetime import datetime, timedelta
+from django.utils.timezone import now
+from auth_app.models import Activity
+from api.utils import is_activity_modified
 
 
 def test_get_distance_from_lat_lon_in_m():
@@ -52,3 +56,37 @@ def test_calculate_shift_length_mins():
 
     shift_length = util.calculate_shift_length_mins(start, end)
     assert shift_length == 480  # 8 hours = 480 minutes
+
+
+@pytest.mark.django_db
+def test_is_activity_modified_within_tolerance():
+    login_time = now()
+    last_updated = login_time + timedelta(seconds=10)  # within 15s buffer
+
+    activity = Activity(login_timestamp=login_time, last_updated_at=last_updated)
+
+    assert not is_activity_modified(activity)
+
+
+@pytest.mark.django_db
+def test_is_activity_modified_outside_tolerance():
+    login_time = now()
+    last_updated = login_time + timedelta(seconds=20)  # beyond 15s buffer
+
+    activity = Activity(login_timestamp=login_time, last_updated_at=last_updated)
+
+    assert is_activity_modified(activity)
+
+
+@pytest.mark.django_db
+def test_is_activity_modified_with_logout_time():
+    logout_time = now()
+    last_updated = logout_time + timedelta(seconds=16)
+
+    activity = Activity(
+        login_timestamp=logout_time - timedelta(hours=2),
+        logout_timestamp=logout_time,
+        last_updated_at=last_updated,
+    )
+
+    assert is_activity_modified(activity)

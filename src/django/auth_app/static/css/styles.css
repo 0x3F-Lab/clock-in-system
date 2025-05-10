@@ -17,6 +17,54 @@ table {
   border-collapse: collapse;
 }
 
+.cell-danger {
+  background-color: #dc3545 !important;
+  color: white;
+}
+
+.vertical-divider {
+  width: 2px;
+  align-self: stretch;
+}
+
+.field-error {
+  color: #dc3545;
+}
+
+.nonfield-error {
+  color: #dc3545;
+}
+
+.panel {
+  background-color: #2d3748;
+  color: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.panel button.disabled {
+  background-color: #718096;
+}
+
+.rounded-5 {
+  border-radius: 1.75rem;
+}
+
+.card-link {
+  transition: all 0.3s ease;
+  border-radius: 1rem;
+}
+
+.card-link:hover {
+  background-color: #f8f9fa !important; /* Light background */
+  color: #000 !important; /* Black text */
+}
+
+.card-link:hover i,
+.card-link:hover h5,
+.card-link:hover p {
+  color: #000 !important;
+}
+
 /* Pagination controller */
 .pagination-gradient .page-link {
   border: none;
@@ -39,6 +87,43 @@ table {
   color: white;
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(107, 92, 231, 0.4);
+}
+
+/* CUSTOM BUTTONS */
+.btn-outline-indigo {
+  color: #6610f2;
+  border: 1px solid #6610f2;
+  background-color: transparent;
+}
+
+.bg-indigo,
+.btn-outline-indigo:hover {
+  background-color: #6610f2;
+  color: #fff;
+}
+
+
+.btn-outline-cyan {
+  color: #0dcaf0;
+  border: 1px solid #0dcaf0;
+  background-color: transparent;
+}
+
+.bg-cyan,
+.btn-outline-cyan:hover {
+  background-color: #0dcaf0;
+  color: #fff;
+}
+
+.btn-outline-orange {
+  color: #d35400;
+  border-color: #d35400;
+}
+
+.bg-orange,
+.btn-outline-orange:hover {
+  background-color: #d35400;
+  color: #fff;
 }
 
 /* If you still want the login box centered, apply flex styling only to the login container */

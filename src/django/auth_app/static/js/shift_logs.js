@@ -1,6 +1,11 @@
 $(document).ready(function() {
-  // Populate the table with all users once the page has loaded
-  updateShiftLogsTable();
+  // Update store selection component
+  populateStoreSelection();
+
+  // Populate the table with all users once the stores have loaded completely
+  $('#storeSelectDropdown').on('change', function() {
+    updateShiftLogsTable();
+  });
 
   // Handle actionable buttons on the page (i.e., edit, create, delete)
   handleActionButtons();
@@ -59,6 +64,9 @@ function deleteShift(activityId) {
   $.ajax({
     url: `${window.djangoURLs.updateShiftDetails}${activityId}/`,
     type: "DELETE",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -92,8 +100,11 @@ function updateShiftLogsTable() {
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -106,12 +117,9 @@ function updateShiftLogsTable() {
 
       // If there are no users returned
       if (shifts.length <= 0) {
-        if ($shiftLogsTable.html().length > 0) {
-          showNotification("Obtained no shifts when updating table.... Keeping table.", "danger");
-        } else {
-          $shiftLogsTable.html(`<tr><td colspan="5">No shifts found.</td></tr>`);
+          $shiftLogsTable.html(`<tr><td colspan="9" class="table-danger">No shifts found</td></tr>`);
           showNotification("Obtained no shifts when updating table.", "danger");
-        }
+          setPaginationValues(0, 1); // Set pagination values to indicate an empty table
 
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
@@ -126,7 +134,7 @@ function updateShiftLogsTable() {
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
               <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
-              <td class="${parseFloat(shift.hours_worked) > 18 ? 'table-danger' : ''}">${shift.hours_worked}</td>
+              <td class="${parseFloat(shift.hours_worked) < 1.0 ? 'cell-danger' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-danger' : '')}">${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>
@@ -138,13 +146,15 @@ function updateShiftLogsTable() {
           $shiftLogsTable.append(row)
         });
         // No need to update edit buttons as that is done dynamically
-        // Set pagination values
-        setPaginationValues(req.offset, req.total);
+        setPaginationValues(req.offset, req.total); // Set pagination values
       }
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
       hideSpinner();
+
+      // Add error data
+      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">ERROR OBTAINING SHIFTS</td></tr>`);
 
       // Extract the error message from the API response if available
       let errorMessage;
@@ -176,8 +186,11 @@ function handleShiftDetailsEdit() {
       $('#editModalEmployeeListContainer').addClass('d-none');
 
       $.ajax({
-        url: `${window.djangoURLs.listSingularShiftDetails}${id}/`,
+        url: `${window.djangoURLs.listSingularShiftDetails}${id}/?store_id=${getSelectedStoreID()}`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -205,28 +218,33 @@ function handleShiftDetailsEdit() {
     } else {
       $('#editModalEmployeeListContainer').removeClass('d-none');
 
+      // Remove old list of users to select from
+      $("#editModalEmployeeList").empty()
+
       $.ajax({
-        url: `${window.djangoURLs.listEmployeeNames}`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
     
-        success: function(req) {
-          // data might be [[1, "John Smith"], [2, "Jane Doe"]], etc.
-          req.forEach(emp => {
-            const userId = emp[0];
-            const fullName = emp[1];
-            $("#editModalEmployeeList").append(`
-              <li
-                class="list-group-item"
-                data-id="${userId}"
-                style="cursor: pointer;"
-              >
-                ${fullName}
-              </li>
-            `);
-          });
+        success: function(response) {
+          // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
+          const keys = Object.keys(response);
+
+          if (keys.length > 0) {
+            keys.forEach(userID => {
+              const name = response[userID];
+              const option = `<li class="list-group-item" data-id="${userID}" style="cursor: pointer;">${name}</li>`;
+              $("#editModalEmployeeList").append(option);
+            });
+          } else {
+            $dropdown.append('<option value="">No stores available</option>');
+            showNotification("There are no employees associated to the selected store.", "danger");
+          }
         },
     
         error: function(jqXHR, textStatus, errorThrown) {
@@ -259,14 +277,16 @@ function handleShiftDetailsEdit() {
   });
 
   // When the edit modal is submitted
-  $('#editModalSubmit').on('click', () => {
+  $('#editModalSubmit').on('click', function (e) {
+    e.preventDefault();
     const id = $('#editActivityId').val();
 
     // Check the form is correctly filled
     const loginTimestamp = $('#editLoginTimestamp').val().trim();
     const logoutTimestamp = $('#editLogoutTimestamp').val().trim();
     const isPublicHoliday = ($('#editIsPublicHoliday').prop('checked') === true);
-    const deliveries = $('#editDeliveries').val()
+    const deliveries = ensureSafeInt($('#editDeliveries').val(), 0, null); // Min=0
+    $('#editDeliveries').val(deliveries); // Update if user set it to -ve values.
 
     if (!loginTimestamp) {
       showNotification("Please enter the required field of Login Timestamp.", "danger");
@@ -280,6 +300,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.updateShiftDetails}${id}/`,
         type: 'POST',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -317,6 +340,9 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.createShift}`,
         type: 'PUT',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -327,6 +353,7 @@ function handleShiftDetailsEdit() {
           logout_timestamp: correctAPITimestamps(logoutTimestamp),
           is_public_holiday: isPublicHoliday,
           deliveries: deliveries,
+          store_id: getSelectedStoreID(),
         }),
     
         success: function(req) {

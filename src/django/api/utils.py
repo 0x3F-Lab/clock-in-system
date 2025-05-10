@@ -3,12 +3,14 @@ import requests
 import logging
 import holidays
 import api.exceptions as err
-import api.controllers as controllers
-from urllib.parse import urlencode
+
 from datetime import timedelta
-from django.core.cache import cache
+from urllib.parse import urlencode
 from django.utils import timezone
-from auth_app.models import User
+from django.core.cache import cache
+from django.contrib.sessions.models import Session
+from django.utils.timezone import make_aware, is_naive
+from auth_app.models import User, Store, Activity
 from clock_in_system.settings import (
     COUNTRY_CODE,
     COUNTRY_SUBDIV_CODE,
@@ -17,6 +19,22 @@ from clock_in_system.settings import (
 )
 
 logger = logging.getLogger("api")
+
+
+def flush_user_sessions(user_id: int):
+    """
+    Helper function to flush all sessions that are for the given user_id
+    """
+    count = 0
+    for session in Session.objects.all():
+        data = session.get_decoded()
+        if data.get("user_id") == int(user_id):
+            session.delete()
+            count += 1
+
+    logger.debug(
+        f"[FLUSH: SESSIONS] [PASSWORD-CHANGE] USER ID: {user_id} -- Num Sessions flushed: {count}"
+    )
 
 
 # Function to check if a given date is a public holiday
@@ -103,6 +121,29 @@ def is_public_holiday(
     return False
 
 
+def api_get_user_object_from_session(request):
+    # Get user's id
+    employee_id = request.session.get("user_id")
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+        if not employee.is_active:
+            request.session.flush()
+            raise err.InactiveUserError
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        logger.error(
+            f"User object could not be obtained from user id in the session info. Session infomration: {request.session}"
+        )
+        raise e
+
+    # Return employee object
+    return employee
+
+
 # Function to round the time to the nearest specified minute
 def round_datetime_minute(dt, rounding_mins=SHIFT_ROUNDING_MINS):
     # Calculate the total number of minutes since midnight
@@ -179,13 +220,14 @@ def get_distance_from_lat_lon_in_m(
     return R * c
 
 
-def check_location_data(location_lat, location_long) -> bool:
+def check_location_data(location_lat, location_long, store_id) -> bool:
     """
     Check the location data given is close enough to the store
 
     Args:
-        lat: Latitude of the user.
-        lon: Longitude of the user.
+        location_lat: Latitude of the user.
+        location_lon: Longitude of the user.
+        store_id: The ID of the Store to check the location against
 
     Returns:
         bool: True if the user is close enough to the store, False otherwise.
@@ -194,6 +236,9 @@ def check_location_data(location_lat, location_long) -> bool:
     if (location_lat is None) or (location_long is None):
         raise err.MissingLocationDataError
 
+    if store_id is None:
+        raise err.MissingStoreObjectOrIDError
+
     # Convert to location floats
     try:
         location_lat = float(location_lat)
@@ -201,42 +246,55 @@ def check_location_data(location_lat, location_long) -> bool:
     except ValueError:
         raise err.BadLocationDataError
 
-    # Get store location and allowable distance
-    (store_lat, store_long) = controllers.get_store_location()
-    allowable_dist = controllers.get_clocking_range_limit()
+    # Get Store Object
+    store = Store.objects.get(id=store_id)
 
     # Obtain distance of user from store
     dist = get_distance_from_lat_lon_in_m(
-        lat1=location_lat, lon1=location_long, lat2=store_lat, lon2=store_long
+        lat1=location_lat,
+        lon1=location_long,
+        lat2=store.location_latitude,
+        lon2=store.location_longitude,
     )
 
-    if dist > allowable_dist:
-        return False
-
-    # Return True on successful location data check
-    return True
-
-
-def check_pin_hash(employee_id: bool, pin) -> bool:
-    # Check if pin was given
-    if pin is None:
-        raise err.MissingPinError
-
-    # Get employee
-    employee = User.objects.get(id=employee_id)
-
-    # Check that they aren't inactive
-    if not employee.is_active:
-        raise err.InactiveUserError
-
-    # Check if pin is valid
-    if employee.check_pin(raw_pin=pin):
+    if int(dist) <= int(store.allowable_clocking_dist_m):
         return True
 
-    # Return False by default on failing check
+    # Return fefault False on unsuccessful location data check
+    return False
+
+
+def is_activity_modified(activity: Activity):
+    """
+    Determine if an activity has been modified after clocking,
+    allowing a 15-second tolerance window.
+    """
+    clock_time = activity.logout_timestamp or activity.login_timestamp
+    last_updated = activity.last_updated_at
+
+    # Ensure both times are timezone-aware
+    if clock_time and is_naive(clock_time):
+        clock_time = make_aware(clock_time)
+    if is_naive(last_updated):
+        last_updated = make_aware(last_updated)
+
+    # Add a 15-second buffer to the clock time
+    if clock_time:
+        return last_updated > (clock_time + timedelta(seconds=15))
     return False
 
 
 def str_to_bool(val):
     # Ensure the value is a boolean by converting properly
-    return str(val).lower() in ["true", "1", "yes"]
+    return str(val).strip().lower() in ["true", "1", "yes"]
+
+
+def clean_param_str(value):
+    """
+    Returns the value as a stripped string or None if the value is None or the empty string.
+    Useful for using to get request params/data values.
+    """
+    if (value is None) or (value == ""):
+        return None
+    else:
+        return str(value).strip()

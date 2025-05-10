@@ -1,6 +1,11 @@
 $(document).ready(function() {
-  // Populate the table with all users once the page has loaded
-  updateEmployeeDetailsTable();
+  // Update store selection component
+  populateStoreSelection();
+
+  // Populate the table with all users once the stores have loaded completely
+  $('#storeSelectDropdown').on('change', function() {
+    updateEmployeeDetailsTable();
+  });
 
   // Handle actionable buttons on the page (i.e., edit, create, delete)
   handleActionButtons();
@@ -27,33 +32,58 @@ function handleActionButtons() {
     openEditModal();
   });
 
-  // When clicking activate button on employee row in table
-  $(document).on('click', '.activateEmployeeBtn', function () {
-    const employeeId = $(this).data('id');
-    updateEmployeeActivationStatus(employeeId, "activation");
+  // Handle initial action click and show confirmation button
+  $(document).on('click', '.actionBtn', function () {
+    const $original = $(this);
+    const employeeID = $original.data('id');
+    const actionType = $original.data('action');
+    const originalIcon = $original.find('i').prop('outerHTML');
+
+    const $confirm = $(`
+      <button class="actionBtnConfirm btn btn-sm btn-danger ms-1 mt-1" 
+              data-id="${employeeID}" 
+              data-action="${actionType}">
+        ${originalIcon} Confirm
+      </button>
+    `);
+
+    $original.replaceWith($confirm);
+
+    // Auto-revert after 3 seconds
+    setTimeout(() => {
+      if ($confirm.parent().length) {
+        $confirm.replaceWith($original);
+      }
+    }, 3000);
   });
 
-  // When clicking deactivate button on employee row in table
-  $(document).on('click', '.deactivateEmployeeBtn', function () {
-    const employeeId = $(this).data('id');
-    updateEmployeeActivationStatus(employeeId, "deactivation");
+  // Handle confirmation click
+  $(document).on('click', '.actionBtnConfirm', function () {
+    const employeeID = $(this).data('id');
+    const actionType = $(this).data('action');
+
+    updateEmployeeStatus(employeeID, actionType);
   });
 }
 
 
-function updateEmployeeActivationStatus(id, type) {
+function updateEmployeeStatus(id, type) {
   // Show spinner before the request
   showSpinner();
 
   $.ajax({
     url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
     type: "PUT",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
     contentType: 'application/json',
     data: JSON.stringify({
-      status_type: type
+      status_type: type,
+      store_id: getSelectedStoreID(),
     }),
 
     success: function(req) {
@@ -61,7 +91,7 @@ function updateEmployeeActivationStatus(id, type) {
       hideSpinner();
       
       updateEmployeeDetailsTable();
-      showNotification("Successfully updated employee activation status.", "success");
+      showNotification("Successfully updated employee status.", "success");
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
@@ -91,8 +121,11 @@ function updateEmployeeDetailsTable() {
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
     type: "GET",
+    xhrFields: {
+      withCredentials: true
+    },
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
@@ -105,19 +138,16 @@ function updateEmployeeDetailsTable() {
 
       // If there are no users returned
       if (employees.length <= 0) {
-        if ($employeeTable.html().length > 0) {
-          showNotification("Obtained no employees when updating table.... Keeping table.", "danger");
-        } else {
-          $employeeTable.html(`<tr><td colspan="5">No employees found.</td></tr>`);
+        $shiftLogsTable.html(`<tr><td colspan="7" class="table-danger">No employees found</td></tr>`);
           showNotification("Obtained no employees when updating table.", "danger");
-        }
+          setPaginationValues(0, 1); // Set pagination values to indicate an empty table
 
       } else {
         $employeeTable.html(""); // Reset inner HTML
         $.each(employees, function(index, employee) {
           const activationButton = employee.is_active
-            ? `<button class="deactivateEmployeeBtn btn btn-sm btn-outline-danger ms-1 mt-1" data-id="${employee.id}" data-type="deactivate"><i class="fa-solid fa-user-slash"></i> Deactivate</button>`
-            : `<button class="activateEmployeeBtn btn btn-sm btn-outline-success ms-1 mt-1" data-id="${employee.id}" data-type="activate"><i class="fa-solid fa-user-check"></i> Activate</button>`;
+            ? `<button class="actionBtn btn btn-sm btn-outline-danger" data-action="deactivate" data-id="${employee.id}"><i class="fa-solid fa-user-xmark"></i> Deactivate</button>`
+            : `<button class="actionBtn btn btn-sm btn-outline-success" data-action="activate" data-id="${employee.id}"><i class="fa-solid fa-user-check"></i> Activate</button>`;
           const rowColour = (!employee.is_active) ? 'table-danger' : '';
 
           const row = `
@@ -125,11 +155,16 @@ function updateEmployeeDetailsTable() {
               <td>${employee.first_name} ${employee.last_name}</td>
               <td class="${!employee.email ? 'table-warning' : ''}">${employee.email || "N/A"}</td>
               <td>${employee.phone_number || "N/A"}</td>
+              <td>${employee.dob || "N/A"}</td>
               <td>${employee.pin}</td>
               <td>
-                <div class="d-flex flex-row">
+                <div class="d-flex flex-row gap-2">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${employee.id}"><i class="fa-solid fa-pen"></i> Edit</button>
                   ${activationButton}
+                  <div class="vertical-divider bg-secondary"></div>
+                  <button class="actionBtn btn btn-sm btn-outline-indigo" data-action="reset_pin" data-id="${employee.id}"><i class="fa-solid fa-key"></i> Reset PIN</button>
+                  <button class="actionBtn btn btn-sm btn-outline-cyan" data-action="reset_password" data-id="${employee.id}"><i class="fa-solid fa-lock"></i> Reset Pass</button>
+                  <button class="actionBtn btn btn-sm btn-outline-orange" data-action="resign" data-id="${employee.id}"><i class="fa-solid fa-user-slash"></i> Resign</button>
                 </div>
               </td>
             </tr>
@@ -144,6 +179,9 @@ function updateEmployeeDetailsTable() {
 
     error: function(jqXHR, textStatus, errorThrown) {
       hideSpinner();
+
+      // Add error row
+      $('#employeeTable tbody').html(`<tr><td colspan="7" class="table-danger">ERROR OBTAINING EMPLOYEES</td></tr>`);
 
       // Extract the error message from the API response if available
       let errorMessage;
@@ -164,9 +202,9 @@ function handleEmployeeDetailsEdit() {
     // Remove old content
     $('#editFirstName').val("");
     $('#editLastName').val("");
-    $('#editEmail').val("");
+    $('#editEmail').val("").prop('disabled', false); // Ensure its enabled for creating a user
     $('#editPhone').val("");
-    $('#editPin').val("");
+    $('#editDOB').val("");
     const id = $('#editEmployeeId').val();
 
     // Attempt to populate the fields by requesting info ONLY IF an ID is supplied. (i.e. not making new user)
@@ -174,6 +212,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.listSingularEmployeeDetails}${id}/`,
         type: 'GET',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -182,9 +223,9 @@ function handleEmployeeDetailsEdit() {
           $('#editEmployeeId').val(req.id);
           $('#editFirstName').val(req.first_name);
           $('#editLastName').val(req.last_name);
-          $('#editEmail').val(req.email);
+          $('#editEmail').val(req.email).prop('disabled', true); // Disable email as manager cant modify email
           $('#editPhone').val(req.phone_number || "");
-          $('#editPin').val(req.pin || "");
+          $('#editDOB').val(req.dob || "");
         },
     
         error: function(jqXHR, textStatus, errorThrown) {
@@ -201,7 +242,8 @@ function handleEmployeeDetailsEdit() {
   });
 
   // When the edit modal is submitted
-  $('#editModalSubmit').on('click', () => {
+  $('#editModalSubmit').on('click', function (e) {
+    e.preventDefault();
     const id = $('#editEmployeeId').val();
 
     // Check the form is correctly filled
@@ -209,12 +251,7 @@ function handleEmployeeDetailsEdit() {
     const lastName = $("#editLastName").val().trim();
     const email = $("#editEmail").val().trim();
     const phone = $("#editPhone").val().trim();
-    const pin = $("#editPin").val().trim();
-
-    if (!firstName || !lastName || !email || !pin) {
-      showNotification("Please enter the required fields of: first name, last name, email and pin.", "danger");
-      return;
-    }
+    const dob = $("#editDOB").val().trim();
 
     showSpinner();
 
@@ -223,6 +260,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.updateEmployeeDetails}${id}/`,
         type: 'POST',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -230,12 +270,11 @@ function handleEmployeeDetailsEdit() {
         data: JSON.stringify({
           first_name: firstName,
           last_name: lastName,
-          email: email,
           phone: phone,
-          pin: pin,
+          dob: dob,
         }),
     
-        success: function(req) {
+        success: function(response) {
           hideSpinner();
           $("#editModal").modal("hide");
           updateEmployeeDetailsTable();
@@ -259,6 +298,9 @@ function handleEmployeeDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.createEmployeeAccount}`,
         type: 'PUT',
+        xhrFields: {
+          withCredentials: true
+        },
         headers: {
           'X-CSRFToken': getCSRFToken(),
         },
@@ -268,14 +310,15 @@ function handleEmployeeDetailsEdit() {
           last_name: lastName,
           email: email,
           phone: phone,
-          pin: pin,
+          dob: dob,
+          store_id: getSelectedStoreID(),
         }),
     
-        success: function(req) {
+        success: function(response) {
           hideSpinner();
           $("#editModal").modal("hide");
           updateEmployeeDetailsTable();
-          showNotification("Successfully created new employee.", "success");
+          showNotification(response.message, "success");
         },
     
         error: function(jqXHR, textStatus, errorThrown) {

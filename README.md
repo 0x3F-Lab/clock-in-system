@@ -45,13 +45,7 @@ This is a Django-based web application for managing employee clock-in and clock-
     ```
     This is not strictly needed, it is purely for inserting the required values into the database.
 
-5. **Inserting the constants into the database**
-    ```bash
-    python ./src/setup_db.py
-    ```
-    Note: This can be performed using the django admin panel.
-
-6. **Setting up pre-commit (Developing)**
+5. **Setting up pre-commit (Developing)**
    
     This will setup the linting process client side before pushes are made to the remote repo. This ensures ease of use for all users without having to re-push with updated linting.
     ```bash
