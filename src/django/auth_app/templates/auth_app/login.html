@@ -2,35 +2,39 @@
 {% block title %}Pizza Clock-in || Login{% endblock %}
 
 
+{% block content_container_class %}flex-fill d-flex flex-column justify-content-center align-items-center py-5{% endblock %}
 {% block content %}
-<div class="d-flex flex-column justify-content-center align-items-center vh-100">
-  <div class="panel rounded shadow p-5">
-    <h2 class="fw-bold text-center">Employee Login</h2>
-    <form method="POST" action="{% url 'login' %}" class="login-form mt-4">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.GET.next }}">
-        <div class="form-group">
-          <label for="{{ form.email.id_for_label }}" class="text-light">Email:</label>
-          {{ form.email }}
-          {% for error in form.email.errors %}
-          <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
-          {% endfor %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.password.id_for_label }}" class="text-light">Password:</label>
-          {{ form.password }}
-          {% for error in form.password.error %}
-          <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
-          {% endfor %}
-        </div>
-        {% for error in form.non_field_errors %}
-        <div class="non-field-error text-danger text-wrap">{{ error|escapejs }}</div>
+<div class="panel rounded shadow p-5">
+  <h2 class="fw-bold text-center">Employee Login</h2>
+
+  <form method="POST" action="{% url 'login' %}" class="login-form mt-4">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.GET.next }}">
+      <div class="form-group">
+        <label for="{{ form.email.id_for_label }}" class="text-light">Email:</label>
+        {{ form.email }}
+        {% for error in form.email.errors %}
+        <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
         {% endfor %}
-        <button type="submit" class="btn btn-lg btn-success w-100 p-3">Login</button>
-        {% include "components/divider_OR.html" %}
-        <!-- <hr class="my-2"> -->
-        <button onclick="location.href=`{% url 'account_setup' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}`" class="btn btn-lg btn-info w-100 p-3">Setup Account</button>
-    </form>
-  </div>
+      </div>
+      <div class="form-group">
+        <label for="{{ form.password.id_for_label }}" class="text-light">Password:</label>
+        {{ form.password }}
+        {% for error in form.password.error %}
+        <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
+        {% endfor %}
+      </div>
+      {% for error in form.non_field_errors %}
+      <div class="non-field-error text-danger text-wrap">{{ error|escapejs }}</div>
+      {% endfor %}
+      <button type="submit" class="btn btn-lg btn-success w-100 p-3">Login</button>
+      {% include "components/divider_OR.html" %}
+      <!-- <hr class="my-2"> -->
+      <button onclick="location.href=`{% url 'account_setup' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}`" class="btn btn-lg btn-info w-100 p-3">Setup Account</button>
+  </form>
 </div>
+
+<button onclick="location.href=`{% url 'home' %}`" class="btn btn-outline-secondary mt-4">
+  <i class="fa-solid fa-arrow-left me-2"></i> Back to Home Directory
+</button>
 {% endblock %}

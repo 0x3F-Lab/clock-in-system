@@ -2,9 +2,19 @@
 {% block title %}Pizza Clock-in || Employee Dashboard{% endblock %}
 
 
+{% block content_container_class %}my-5{% endblock %}
 {% block content %}
-<div class="d-flex flex-column justify-content-center align-items-center vh-100">
-  <h1 class="text-center mb-5 fw-bolder"><u>Manual Clock In/Out</u></h1>
+<div class="text-center mb-4">
+  <h1 class="fw-bolder"><u>Manual Clock In/Out</u></h1>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'home' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Home Directory
+  </button>
+</div>
+
+<div class="d-flex flex-column align-items-center">
   <div class="panel rounded shadow p-5">
     <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
       {% csrf_token %}

@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <meta name="csrf-token" content="{{ csrf_token }}">
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
   <nav class="navbar navbar-expand-sm navbar-dark bg-dark py-3 px-2 shadow-sm">
     <div class="container-fluid">
       <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
