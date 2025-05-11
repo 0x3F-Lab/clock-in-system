@@ -436,7 +436,7 @@ def get_account_summaries(
             employee__is_hidden=False,
         ).select_related(
             "employee"
-        )  # Ensure employee info is also obtained
+        )  # Ensure employee info is also obtained to get account status'
 
         # Apply name filter
         if filter_names:
@@ -479,7 +479,7 @@ def get_account_summaries(
         }
         summary_qs = summary_qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
 
-        total = summary_qs.count()
+        total_summaries = summary_qs.count()
 
         # Apply pagination
         summaries = summary_qs[offset : offset + limit]
@@ -491,6 +491,7 @@ def get_account_summaries(
         # Format output
         summary_list = []
         for row in summaries:
+            # Calculate age based on employee's DOB & current date (rounded to whole numbers)
             birth_date = row["employee__birth_date"]
             age = None
             if birth_date:
@@ -533,15 +534,14 @@ def get_account_summaries(
 
             summary_list.append(
                 {
+                    "employee_id": row["employee__id"],
                     "name": f'{row["employee__first_name"]} {row["employee__last_name"]}',
                     "hours_total": round(
                         (row["total_mins"] or 0) / 60, 2
-                    ),  # Total worked hours
-                    "hours_weekday": round(mins_weekday / 60, 2),  # Weekday hours
-                    "hours_weekend": round(mins_weekend / 60, 2),  # Weekend hours
-                    "hours_public_holiday": round(
-                        mins_public_holiday / 60, 2
-                    ),  # Public Holiday hours
+                    ),  # Total worked hours (incl all hour subdivisions)
+                    "hours_weekday": round(mins_weekday / 60, 2),
+                    "hours_weekend": round(mins_weekend / 60, 2),
+                    "hours_public_holiday": round(mins_public_holiday / 60, 2),
                     "deliveries": row["deliveries"] or 0,
                     "age": age,  # Integer age or None
                     "acc_resigned": not employee.is_associated_with_store(store=store),
@@ -550,7 +550,7 @@ def get_account_summaries(
                 }
             )
 
-        return summary_list, total
+        return summary_list, total_summaries
 
     except (
         Store.DoesNotExist,
