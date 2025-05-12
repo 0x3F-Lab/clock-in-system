@@ -290,7 +290,7 @@ def manual_clocking(request):
 
 @employee_required
 @ensure_csrf_cookie
-@require_http_methods(["GET", "POST"])
+@require_GET
 def employee_dashboard(request):
     user_id = request.session.get("user_id", None)
     user = User.objects.get(id=user_id)
@@ -351,6 +351,7 @@ def manage_account_summary(request):
     return render(request, "auth_app/account_summary.html")
 
 
+@require_GET
 def offline(request):
     return render(request, "offline.html")
 
@@ -360,6 +361,9 @@ def offline(request):
 def service_worker(request):
     context = {
         "STATIC_CACHE_VER": STATIC_CACHE_VER,
+        "BASE_URL": BASE_URL,
+        "STATIC_URL": STATIC_URL,
+        "OFFLINE_URL": reverse("offline"),
     }
 
     return TemplateResponse(

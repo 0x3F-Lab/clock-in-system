@@ -1,9 +1,9 @@
 import pytest
 
 from datetime import timedelta
+from django.test import Client
 from django.urls import reverse
 from django.utils.timezone import now
-from rest_framework.test import APIClient
 from auth_app.models import User, Activity, Store, StoreUserAccess
 
 # Default scope if functional (i.e. after every single test the database resets)
@@ -45,6 +45,27 @@ def employee(db, store):
     employee.save()
 
     return employee
+
+
+@pytest.fixture
+def unsetup_employee(db, store):
+    """
+    Create an active, not-yet-setup employee associated with a store.
+    Intended for testing the account setup process.
+    """
+    user = User.objects.create(
+        first_name="Temp",
+        last_name="User",
+        email="temp.user@example.com",
+        phone_number="0987654321",
+        is_active=True,
+        is_manager=False,
+        is_setup=False,
+    )
+    user.set_unique_pin()
+    user.save()
+
+    return user
 
 
 @pytest.fixture
@@ -146,7 +167,7 @@ def store_associate_inactive_employee(db, store, inactive_employee):
 
 
 @pytest.fixture
-def logged_in_employee(api_client, employee):
+def logged_in_employee(web_client, employee):
     """
     Fixture to log in the employee through the login page, using the Django session system.
     """
@@ -158,19 +179,19 @@ def logged_in_employee(api_client, employee):
     }
 
     # Send a POST request to log the user in
-    response = api_client.post(url, data)
+    response = web_client.post(url, data)
 
     # Assert login was successful (check for a redirect after login)
     assert response.status_code == 302
 
     # Ensure the session is set correctly
-    assert "user_id" in api_client.session
+    assert "user_id" in web_client.session
 
-    return api_client
+    return web_client
 
 
 @pytest.fixture
-def logged_in_manager(api_client, manager):
+def logged_in_manager(web_client, manager):
     """
     Fixture to log in the manager through the login page, using the Django session system.
     """
@@ -180,14 +201,14 @@ def logged_in_manager(api_client, manager):
         "password": "testpassword",
     }
 
-    response = api_client.post(url, data)
+    response = web_client.post(url, data)
     assert response.status_code == 302
-    assert "user_id" in api_client.session
-    return api_client
+    assert "user_id" in web_client.session
+    return web_client
 
 
 @pytest.fixture
-def logged_in_clocked_in_employee(api_client, clocked_in_employee):
+def logged_in_clocked_in_employee(web_client, clocked_in_employee):
     """
     Fixture to log in the clocked in employee through the login page, using the Django session system.
     """
@@ -197,15 +218,15 @@ def logged_in_clocked_in_employee(api_client, clocked_in_employee):
         "password": "testpassword",
     }
 
-    response = api_client.post(url, data)
+    response = web_client.post(url, data)
     assert response.status_code == 302
-    assert "user_id" in api_client.session
-    return api_client
+    assert "user_id" in web_client.session
+    return web_client
 
 
 @pytest.fixture
-def api_client():
+def web_client():
     """
     Return an instance of Django's test client.
     """
-    return APIClient()
+    return Client()

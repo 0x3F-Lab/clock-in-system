@@ -22,8 +22,10 @@ workbox.core.setCacheNameDetails({
   suffix: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}",
 });
 
-// Set offline URL
+// Set URLs
 const OFFLINE_URL = "{{ OFFLINE_URL|default:'/offline'|escapejs }}";
+const STATIC_URL = "{{ STATIC_URL|default:'/static/'|escapejs }}";
+const BASE_URL = "{{ BASE_URL|default:'http://localhost'|escapejs }}";
 
 
 if (isDevEnvironment) {
@@ -37,18 +39,18 @@ if (isDevEnvironment) {
   // Set routes to precache (i.e. static files)
   workbox.precaching.precacheAndRoute([
     { url: OFFLINE_URL, revision: null },
-    { url: '/static/css/styles.css', revision: null },
-    { url: '/static/js/global.js', revision: null },
-    { url: '/static/img/logo.png', revision: null },
-    { url: '/static/favicon.ico', revision: null },
-    { url: '/static/img/favicon/favicon-32x32.png', revision: null },
-    { url: '/static/img/favicon/android-chrome-192x192.png', revision: null },
-    { url: '/static/img/favicon/android-chrome-512x512.png', revision: null },
-    { url: '/static/img/gifs/offline.gif', revision: null },
-    { url: '/static/js/employee_dashboard.js', revision: null },
-    { url: '/static/js/manage_employee_details.js', revision: null },
-    { url: '/static/js/manual_clocking.js', revision: null },
-    { url: '/static/js/shift_logs.js', revision: null },
+    { url: `${STATIC_URL}css/styles.css`, revision: null },
+    { url: `${STATIC_URL}js/global.js`, revision: null },
+    { url: `${STATIC_URL}img/logo.png`, revision: null },
+    { url: `${STATIC_URL}favicon.ico`, revision: null },
+    { url: `${STATIC_URL}img/favicon/favicon-32x32.png`, revision: null },
+    { url: `${STATIC_URL}img/favicon/android-chrome-192x192.png`, revision: null },
+    { url: `${STATIC_URL}img/favicon/android-chrome-512x512.png`, revision: null },
+    { url: `${STATIC_URL}img/gifs/offline.gif`, revision: null },
+    { url: `${STATIC_URL}js/employee_dashboard.js`, revision: null },
+    { url: `${STATIC_URL}js/manage_employee_details.js`, revision: null },
+    { url: `${STATIC_URL}js/manual_clocking.js`, revision: null },
+    { url: `${STATIC_URL}js/shift_logs.js`, revision: null },
   ]);
 
   // For full pages
@@ -80,7 +82,7 @@ if (isDevEnvironment) {
 
   // For static requests
   workbox.routing.registerRoute(
-    ({ url }) => url.pathname.startsWith('/static/'),
+    ({ url }) => url.pathname.startsWith(STATIC_URL),
     new workbox.strategies.CacheFirst({
       cacheName: 'static-resources',
       plugins: [

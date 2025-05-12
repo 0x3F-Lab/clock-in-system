@@ -27,6 +27,7 @@ pre_commit==4.2.0
 psycopg2-binary==2.9.10
 pytest==8.3.5
 pytest-django==4.11.1
+pytest-mock==3.14.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.0
 pytz==2025.2
