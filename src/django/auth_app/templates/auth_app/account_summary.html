@@ -1,0 +1,96 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Shift Logs{% endblock %}
+
+
+{% block content_container_class %}my-5{% endblock %}
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Account Summary</u></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+  </button>
+</div>
+
+<div class="d-flex justify-content-center my-4">
+  {% include "components/store_selection_controller.html" %}
+</div>
+
+<div id="summaryTableController" class="container panel rounded shadow p-5 my-5">
+  <h3 class="mb-4 fw-semibold text-center">Table Controls</h3>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label for="startDate" class="form-label">Start Date</label>
+      <input type="date" id="startDate" class="form-control" />
+    </div>
+    <div class="col-md-6 mt-3 mt-md-0">
+      <label for="endDate" class="form-label">End Date</label>
+      <input type="date" id="endDate" class="form-control" />
+    </div>
+  </div>
+
+  <div class="mb-4">
+    <label class="form-label d-block">Sort By:</label>
+    <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
+      <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
+      <label class="btn btn-outline-info" for="sortName">Name</label>
+
+      <input type="radio" class="btn-check" name="sortField" id="sortHours" value="hours" autocomplete="off">
+      <label class="btn btn-outline-info" for="sortHours">Total Hours</label>
+
+      <input type="radio" class="btn-check" name="sortField" id="sortAge" value="age" autocomplete="off">
+      <label class="btn btn-outline-info" for="sortAge">Age</label>
+
+      <input type="radio" class="btn-check" name="sortField" id="sortDeliv" value="deliveries" autocomplete="off">
+      <label class="btn btn-outline-info" for="sortDeliv">Deliveries</label>
+    </div>
+  </div>
+
+  <div class="form-check form-switch mb-4">
+    <input type="checkbox" id="ignoreNoHours" class="form-check-input p-2" />
+    <label for="ignoreNoHours" class="form-check-label">Ignore Employees With No Hours</label>
+  </div>
+
+  <div class="mb-4">
+    <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
+    <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
+    <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
+  </div>
+
+  <div class="text-center">
+    <button type="button" class="btn btn-lg btn-success" id="summaryTableControllerSubmit">
+      <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
+    </button>
+  </div>
+</div>
+
+<!-- Shift Logs Table -->
+<div class="table-responsive">
+  <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
+    <thead>
+      <tr>
+        <th>Staff Name</th>
+        <th>Weekday Hrs</th>
+        <th>Weekend Hrs</th>
+        <th>Public Hol Hrs</th>
+        <th>Deliveries</th>
+        <th>Total Hours</th>
+        <th>Age</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+{% include "components/pagination_controller.html" %}
+{% endblock %}
+
+{% block extra_urls %}
+    listAccountSummaries: "{% url 'api:list_account_summaries' %}",
+{% endblock %}
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/account_summary.js' %}"></script>
+{% endblock %}

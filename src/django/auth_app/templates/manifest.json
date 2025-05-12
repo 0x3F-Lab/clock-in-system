@@ -1,0 +1,38 @@
+{
+  "name": "Clock-In App",
+  "short_name": "Clock-In",
+  "id": "{{ BASE_URL|default:'http://localhost' }}",
+  "start_url": "{{ BASE_URL|default:'http://localhost' }}/?source=pwa",
+  "scope": "{{ BASE_URL|default:'http://localhost' }}",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "theme_color": "#343a40",
+  "background_color": "#1a202c",
+  "description": "Clock-in app for employees to manage shifts and time.",
+  "icons": [
+    {
+      "src": "{{ STATIC_URL|default:'/static/' }}img/favicon/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "{{ STATIC_URL|default:'/static/' }}img/favicon/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Clock-In Employee Dash",
+      "short_name": "Clock-In Dash",
+      "description": "Employee dashboard for clocking in/out.",
+      "url": "/dashboard/?source=pwa",
+      "icons": [
+        {
+          "src": "{{ STATIC_URL|default:'/static/' }}img/favicon/android-chrome-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

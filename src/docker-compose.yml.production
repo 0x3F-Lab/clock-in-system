@@ -7,6 +7,7 @@ services:
       context: ./django  # Path to your Django directory
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
+      - ~/debug.log:/app/debug.log      # Add file to ensure easy access to the debug log file
     env_file:
       - .env.production
     ports:

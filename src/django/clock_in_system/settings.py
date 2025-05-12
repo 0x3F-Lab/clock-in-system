@@ -19,10 +19,19 @@ def str_to_bool(value):
     return value.lower() in ["true", "1", "yes"]
 
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+######################################################
+#          PLEASE CHANGE THIS EVERY VERSION          #
+STATIC_CACHE_VER = "v1.0.4"  #
+#  Must be increased for any change to static files  #
+######################################################
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-LOGIN_URL = "/manager_login/"
+LOGIN_URL = "/login/"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -34,7 +43,7 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG", "False") == "True"
+DEBUG = os.getenv("DEBUG", "True") == "True"
 
 # Get the BASE_URL from the environment
 BASE_URL = os.getenv(
@@ -99,6 +108,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
+    "widget_tweaks",
     "api",
     "auth_app",
 ]
@@ -215,6 +225,18 @@ FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
+# Define minimum and maximum password length
+PASSWORD_MIN_LENGTH = 6
+PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
+
+# Define a pattern for valid fields
+VALID_NAME_PATTERN = (
+    r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes
+)
+VALID_NAME_LIST_PATTERN = r"^[a-zA-Z\s\-',]+$"  # Allows commas as well
+VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
+VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
@@ -244,12 +266,14 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": "INFO",  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            "level": os.getenv(
+                "LOG_LEVEL_CONSOLE", "INFO"
+            ).upper(),  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
         "file": {
-            "level": "DEBUG",
+            "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
             "filename": "/app/debug.log",
             "formatter": "verbose",

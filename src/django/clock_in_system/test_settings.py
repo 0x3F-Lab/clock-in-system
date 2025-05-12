@@ -16,6 +16,9 @@ DATABASES["default"] = {
     "NAME": ":memory:",  # Use an in-memory SQLite database
 }
 
+# Use cache for session storage in testing
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+
 # Override the Cache setting for testing
 CACHES = {
     "default": {

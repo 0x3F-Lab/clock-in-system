@@ -1,0 +1,61 @@
+{% extends "auth_app/base.html" %}
+
+{% block title %}Pizza Clock-in || Home Directory{% endblock %}
+
+{% block content_container_class %}my-5{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">Home Directory</h1>
+    <p class="lead">Hello, <strong>{{ request.session.name|default:"Guest" }}</strong>!</p>
+  </div>
+
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
+    {% if request.session.user_id %}
+    <div class="col">
+      <a href="{% url 'dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-user-clock fa-2x mb-3"></i>
+          <h5 class="fw-semibold card-title">Employee Dashboard</h5>
+          <p class="card-text">Automatically clock in/out, and view account information and shifts.</p>
+        </div>
+      </a>
+    </div>
+    {% endif %}
+
+    {% if request.session.is_manager %}
+    <div class="col">
+      <a href="{% url 'manager_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-clipboard-list fa-2x mb-3"></i>
+          <h5 class="fw-semibold card-title">Manager Dashboard</h5>
+          <p class="card-text">Manage staff, shifts and other related information for your store.</p>
+        </div>
+      </a>
+    </div>
+    {% endif %}
+
+    <div class="col">
+      <a href="{% url 'manual_clocking' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-keyboard fa-2x mb-3"></i>
+          <h5 class="fw-semibold card-title">Manual Clock-in/out</h5>
+          <p class="card-text">Clock in/out without signing into your account.</p>
+        </div>
+      </a>
+    </div>
+
+    {% if not request.session.user_id %}
+    <div class="col">
+      <a href="{% url 'login' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-right-to-bracket fa-2x mb-3"></i>
+          <h5 class="fw-semibold card-title">Login</h5>
+          <p class="card-text">Log into your account.</p>
+        </div>
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
