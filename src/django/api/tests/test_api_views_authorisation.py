@@ -67,7 +67,7 @@ def test_list_store_employee_names_not_associated(
 
 @pytest.mark.django_db
 def test_list_all_shift_details_not_autorised(
-    api_client, manager, logged_in_employee, store, store_associate_manager, employee
+    manager, logged_in_employee, store, store_associate_manager, employee
 ):
     """
     Test that shift details aren't returned when requesting from an unauthorised account.
@@ -105,7 +105,7 @@ def test_list_all_shift_details_not_autorised(
 
 @pytest.mark.django_db
 def test_list_all_shift_details_not_associated(
-    api_client, manager, logged_in_manager, store, employee
+    manager, logged_in_manager, store, employee
 ):
     """
     Test that shift details aren't returned when requesting for an unassociated store.
@@ -143,7 +143,7 @@ def test_list_all_shift_details_not_associated(
 
 @pytest.mark.django_db
 def test_list_singular_shift_details_unauthorised(
-    api_client, logged_in_employee, store, store_associate_employee, employee
+    logged_in_employee, store, store_associate_employee, employee
 ):
     """
     Test that a non-manager cannot retrieve shift details.
@@ -168,9 +168,7 @@ def test_list_singular_shift_details_unauthorised(
 
 
 @pytest.mark.django_db
-def test_list_singular_shift_details_not_associated(
-    api_client, logged_in_manager, employee, store
-):
+def test_list_singular_shift_details_not_associated(logged_in_manager, employee, store):
     """
     Test that a manager cannot retrieve shift details for an unassociated store.
     """
@@ -195,9 +193,7 @@ def test_list_singular_shift_details_not_associated(
 
 
 @pytest.mark.django_db
-def test_update_shift_details_unauthorised_user(
-    api_client, logged_in_employee, store, employee
-):
+def test_update_shift_details_unauthorised_user(logged_in_employee, store, employee):
     """
     Test that a non-manager (unauthorised) user cannot update shift details.
     """
@@ -229,9 +225,7 @@ def test_update_shift_details_unauthorised_user(
 
 
 @pytest.mark.django_db
-def test_update_shift_details_not_associated_store(
-    api_client, logged_in_manager, store, employee
-):
+def test_update_shift_details_not_associated_store(logged_in_manager, store, employee):
     """
     Test that a manager cannot update shift details for a store they are not associated with.
     """
@@ -264,9 +258,7 @@ def test_update_shift_details_not_associated_store(
 
 
 @pytest.mark.django_db
-def test_create_new_shift_unauthorised_user(
-    api_client, logged_in_employee, store, employee
-):
+def test_create_new_shift_unauthorised_user(logged_in_employee, store, employee):
     """
     Test that a non-manager (unauthorised) user cannot create a new shift.
     """
@@ -294,7 +286,7 @@ def test_create_new_shift_unauthorised_user(
 
 @pytest.mark.django_db
 def test_create_new_shift_not_associated_store(
-    api_client, logged_in_manager, store_associate_employee, employee, store
+    logged_in_manager, store_associate_employee, employee, store
 ):
     """
     Test that a manager cannot create a shift for a store they are not associated with.
@@ -328,7 +320,7 @@ def test_create_new_shift_not_associated_store(
 
 @pytest.mark.django_db
 def test_create_new_shift_unassociated_employee(
-    api_client, logged_in_manager, store_associate_manager, employee, store
+    logged_in_manager, store_associate_manager, employee, store
 ):
     """
     Test that a manager cannot create a shift for a store they are not associated with.
@@ -361,9 +353,7 @@ def test_create_new_shift_unassociated_employee(
 
 
 @pytest.mark.django_db
-def test_list_all_employee_details_unauthorised_user(
-    api_client, logged_in_employee, store
-):
+def test_list_all_employee_details_unauthorised_user(logged_in_employee, store):
     """
     Test that a non-manager (unauthorised) user cannot retrieve employee details.
     """
@@ -379,9 +369,7 @@ def test_list_all_employee_details_unauthorised_user(
 
 
 @pytest.mark.django_db
-def test_list_all_employee_details_not_associated_store(
-    api_client, logged_in_manager, store
-):
+def test_list_all_employee_details_not_associated_store(logged_in_manager, store):
     """
     Test that a manager cannot retrieve employee details for a store they are not associated with.
     """
@@ -403,9 +391,7 @@ def test_list_all_employee_details_not_associated_store(
 
 
 @pytest.mark.django_db
-def test_list_singular_employee_details_unauthorised_user(
-    api_client, logged_in_employee, employee
-):
+def test_list_singular_employee_details_unauthorised_user(logged_in_employee, employee):
     """
     Test that a non-manager (unauthorised) user cannot retrieve employee details.
     """
@@ -421,7 +407,7 @@ def test_list_singular_employee_details_unauthorised_user(
 
 @pytest.mark.django_db
 def test_list_singular_employee_details_not_associated(
-    api_client, logged_in_manager, manager, store, store_associate_manager, employee
+    logged_in_manager, manager, store, store_associate_manager, employee
 ):
     """
     Test that a manager cannot access details of an employee not associated with their store.
@@ -443,7 +429,7 @@ def test_list_singular_employee_details_not_associated(
 
 
 @pytest.mark.django_db
-def test_create_new_employee_unauthorised(api_client, logged_in_employee, store):
+def test_create_new_employee_unauthorised(logged_in_employee, store):
     """
     Test that a non-manager user cannot create a new employee.
     """
@@ -464,7 +450,7 @@ def test_create_new_employee_unauthorised(api_client, logged_in_employee, store)
 
 
 @pytest.mark.django_db
-def test_create_new_employee_not_associated(api_client, logged_in_manager, store):
+def test_create_new_employee_not_associated(logged_in_manager, store):
     """
     Test that a manager cannot create a new employee for a store they are not associated with.
     """
@@ -486,5 +472,71 @@ def test_create_new_employee_not_associated(api_client, logged_in_manager, store
     assert response.status_code == 403
     assert (
         "Not authorised to update another store's employee list."
+        in response.json()["Error"]
+    )
+
+
+@pytest.mark.django_db
+def test_manager_cannot_update_employee_in_other_store(
+    logged_in_manager, store_associate_manager, employee
+):
+    api_client = logged_in_manager
+
+    response = api_client.patch(
+        reverse("api:modify_other_account_information", args=[employee.id]),
+        data={"first_name": "BlockedUpdate"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert (
+        "Not authorised to update another store's employee account information."
+        in response.json()["Error"]
+    )
+
+
+@pytest.mark.django_db
+def test_list_account_summaries_denied_for_employee(
+    logged_in_employee, store, store_associate_employee
+):
+    """
+    Test that an employee cannot access the list_account_summaries endpoint.
+    """
+    api_client = logged_in_employee
+
+    url = reverse("api:list_account_summaries")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+        },
+    )
+
+    assert response.status_code == 403
+    assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_list_account_summaries_manager_not_associated(logged_in_manager, store):
+    """
+    Test that a manager not associated with a store cannot access account summaries for it.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:list_account_summaries")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2024-01-01",
+            "end": "2024-01-31",
+        },
+    )
+
+    assert response.status_code == 403
+    assert (
+        "Not authorised to get summaries for a unassociated store."
         in response.json()["Error"]
     )
