@@ -699,7 +699,7 @@ def test_list_account_summaries_full_hour_breakdown(
     # Deliveries: 2 + 1 + 3 = 6
 
     url = reverse("api:list_account_summaries")
-    start = (today - timedelta(days=8)).strftime("%Y-%m-%d")
+    start = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
 
     response = api_client.get(

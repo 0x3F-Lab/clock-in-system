@@ -62,7 +62,7 @@ function updateSummaryTable() {
               <td>${sum.hours_weekday}</td>
               <td>${sum.hours_weekend}</td>
               <td>${sum.hours_public_holiday}</td>
-              <td>${sum.deliveries || "N/A"}</td>
+              <td>${sum.deliveries != null ? sum.deliveries : "N/A"}</td>
               <td class="${parseFloat(sum.hours_total) > 38 ? 'cell-danger' : ''}">${sum.hours_total}</td>
               <td>${sum.age != null ? sum.age : "N/A"}</td>
             </tr>

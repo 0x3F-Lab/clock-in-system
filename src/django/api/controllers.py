@@ -6,7 +6,7 @@ from typing import Union, Dict
 from datetime import timedelta, datetime
 from django.db import transaction
 from django.db.models import Sum, Q
-from django.utils.timezone import now, localtime
+from django.utils.timezone import now, localtime, make_aware
 from auth_app.models import User, Activity, Store
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -425,8 +425,8 @@ def get_account_summaries(
             raise err.InactiveStoreError
 
         # Convert date strings
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
+        end_dt = make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
 
         # Base queryset
         activities = Activity.objects.filter(
@@ -512,7 +512,8 @@ def get_account_summaries(
 
             # Calculate the hours based on the activity's day type
             for activity in employee_activities:
-                login_time = activity.login_time
+                # ENSURE TIME IS IN LOCAL TIMEZONE FOR CORRECT DAY ALLOCATION!
+                login_time = localtime(activity.login_time)
                 shift_length = activity.shift_length_mins
 
                 # Determine the day of the week
