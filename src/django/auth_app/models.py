@@ -27,7 +27,15 @@ class User(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):
-        return f"[{self.id}] {self.first_name} {self.last_name} ({self.email})"
+        role = ""
+        if self.is_manager:
+            role = " - MANAGER"
+        if self.is_hidden:
+            if self.is_manager:
+                role = " - MANAGER/HIDDEN"
+            role = " - HIDDEN"
+
+        return f"[{self.id}] {self.first_name} {self.last_name} ({self.email}){role}"
 
     # Password management
     def set_password(self, raw_password: str) -> None:
@@ -233,8 +241,15 @@ class StoreUserAccess(models.Model):
         ]
 
     def __str__(self):
-        role = "Manager" if self.user.is_manager else "Employee"
-        return f"{self.user} → {self.store} ({role})"
+        role = "EMPLOYEE"
+        if self.user.is_manager:
+            role = "MANAGER"
+        if self.user.is_hidden:
+            if self.user.is_manager:
+                role = "MANAGER/HIDDEN"
+            role = "HIDDEN"
+
+        return f"{self.user.first_name} {self.user.last_name} [{self.user.id}] → {self.store.code} ({role})"
 
 
 class Activity(models.Model):
@@ -254,4 +269,4 @@ class Activity(models.Model):
     )  # Track modifications outside clocking
 
     def __str__(self):
-        return f"[{self.id}] Clock-in data for {self.employee_id}"
+        return f"[{self.id}] [{self.login_time.date()}] {self.employee.first_name} {self.employee.last_name} ({self.employee_id}) → {self.store.code}"
