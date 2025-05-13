@@ -11,14 +11,14 @@
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.GET.next }}">
       <div class="form-group">
-        <label for="{{ form.email.id_for_label }}" class="text-light">Email:</label>
+        <label for="{{ form.email.id_for_label }}" class="text-light fw-semibold">Email:</label>
         {{ form.email }}
         {% for error in form.email.errors %}
         <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
       <div class="form-group">
-        <label for="{{ form.password.id_for_label }}" class="text-light">Password:</label>
+        <label for="{{ form.password.id_for_label }}" class="text-light fw-semibold">Password:</label>
         {{ form.password }}
         {% for error in form.password.error %}
         <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>

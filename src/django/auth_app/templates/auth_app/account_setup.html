@@ -12,7 +12,12 @@
       
       {% for field in form %}
       <div class="form-group mt-3">
-        <label for="{{ field.id_for_label }}" class="text-light">{{ field.label }}:</label>
+        <label for="{{ field.id_for_label }}" class="text-light fw-semibold w-100 d-flex flex-row align-items-center justify-content-between">
+          <span>{{ field.label }}:</span>
+          {% if not field.field.required %}
+          <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+          {% endif %}
+        </label>
         {{ field }}
         {% for error in field.errors %}
           <div class="fieldError text-danger text-wrap">{{ error|escape }}</div>
