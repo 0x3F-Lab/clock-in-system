@@ -52,6 +52,11 @@
     <label for="ignoreNoHours" class="form-check-label">Ignore Employees With No Hours</label>
   </div>
 
+  <div class="form-check form-switch mb-4">
+    <input type="checkbox" id="legacyStyle" class="form-check-input p-2" />
+    <label for="legacyStyle" class="form-check-label">Use Legacy Table Layout</label>
+  </div>
+
   <div class="mb-4">
     <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
     <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
@@ -65,7 +70,7 @@
   </div>
 </div>
 
-<!-- Shift Logs Table -->
+<!-- Summary Table -->
 <div class="table-responsive">
   <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
     <thead>
@@ -77,6 +82,18 @@
         <th>Deliveries</th>
         <th>Total Hours</th>
         <th>Age</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- LEGACY Summary Table -->
+<div class="table-responsive">
+  <table id="legacySummaryTable" class="d-none table table-hover table-striped table-bordered border-dark text-center align-middle">
+    <thead>
+      <tr>
+        <th class="fs-3">Staff Summary</th>
       </tr>
     </thead>
     <tbody></tbody>
