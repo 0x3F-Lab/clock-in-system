@@ -3,6 +3,7 @@ import api.exceptions as err
 
 from django.urls import reverse
 from django.contrib import messages
+from django.contrib.sitemaps import Sitemap
 from django.shortcuts import render, redirect
 from django.core.exceptions import ValidationError
 from django.template.response import TemplateResponse
@@ -383,3 +384,30 @@ def manifest(request):
     return TemplateResponse(
         request, "manifest.json", context, content_type="application/manifest+json"
     )
+
+
+@require_GET
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def robots(request):
+    context = {"BASE_URL": BASE_URL, "SITEMAP_URL": reverse("sitemap")}
+
+    return TemplateResponse(request, "robots.txt", context, content_type="text/plain")
+
+
+class StaticViewSitemap(Sitemap):
+    changefreq = "weekly"
+
+    def items(self):
+        return ["home", "manual_clocking", "login"]
+
+    def location(self, item):
+        return reverse(item)
+
+    def priority(self, item):
+        if item == "home":
+            return 1.0
+        elif item == "login":
+            return 0.3
+        elif item == "manual_clocking":
+            return 0.7
+        return 0.5
