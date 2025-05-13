@@ -1233,7 +1233,6 @@ def modify_account_information(request, id=None):
 
         # Validate and update DOB
         if dob:
-            logger.critical("PASSED")
             if not user.is_manager:
                 return Response(
                     {"Error": "Not authorised to modify your account date of birth."},
