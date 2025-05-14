@@ -1,8 +1,8 @@
 $(document).ready(function() {
-  // Update store selection component
-  populateStoreSelection();
+  // Initial table update
+  updateEmployeeDetailsTable();
 
-  // Populate the table with all users once the stores have loaded completely
+  // Update the table with all users if user changes store
   $('#storeSelectDropdown').on('change', function() {
     updateEmployeeDetailsTable();
   });

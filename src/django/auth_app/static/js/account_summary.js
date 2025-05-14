@@ -1,9 +1,9 @@
 $(document).ready(function() {
-  // Update store selection component
-  populateStoreSelection();
-
   // Set default date for table controls
   setDefaultDateControls();
+
+  // Initial table update
+  updateSummaryTable();
 
   // Populate the table with all users once the stores have loaded completely
   $('#storeSelectDropdown').on('change', () => {

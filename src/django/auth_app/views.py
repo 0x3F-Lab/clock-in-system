@@ -11,7 +11,11 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
 from auth_app.models import User, Store
-from auth_app.utils import manager_required, employee_required
+from auth_app.utils import (
+    manager_required,
+    employee_required,
+    get_user_associated_stores_from_session,
+)
 from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
@@ -298,6 +302,20 @@ def manual_clocking(request):
 @ensure_csrf_cookie
 @require_GET
 def employee_dashboard(request):
+    associated_stores = None
+    try:
+        associated_stores = get_user_associated_stores_from_session(request=request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+
     user_id = request.session.get("user_id", None)
     user = User.objects.get(id=user_id)
     info = {
@@ -316,6 +334,7 @@ def employee_dashboard(request):
         "user_updated_date": (
             user.updated_at.strftime("%d/%m/%Y") if user.updated_at else None
         ),
+        "associated_stores": associated_stores,
     }
 
     return render(request, "auth_app/employee_dashboard.html", info)
@@ -331,30 +350,80 @@ def home_directory(request):
 @ensure_csrf_cookie
 @require_GET
 def manager_dashboard(request):
-    user_id = request.session.get("user_id")
-    user = User.objects.get(id=user_id)  # Retrieve the logged-in user's details
-    return render(request, "auth_app/manager_dashboard.html", {"user": user})
+    return render(request, "auth_app/manager_dashboard.html")
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_employee_details(request):
-    return render(request, "auth_app/manage_employee_details.html")
+    associated_stores = None
+    try:
+        associated_stores = get_user_associated_stores_from_session(request=request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+
+    return render(
+        request,
+        "auth_app/manage_employee_details.html",
+        {"associated_stores": associated_stores},
+    )
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_shift_logs(request):
-    return render(request, "auth_app/shift_logs.html")
+    associated_stores = None
+    try:
+        associated_stores = get_user_associated_stores_from_session(request=request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+
+    return render(
+        request, "auth_app/shift_logs.html", {"associated_stores": associated_stores}
+    )
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_account_summary(request):
-    return render(request, "auth_app/account_summary.html")
+    associated_stores = None
+    try:
+        associated_stores = get_user_associated_stores_from_session(request=request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+
+    return render(
+        request,
+        "auth_app/account_summary.html",
+        {"associated_stores": associated_stores},
+    )
 
 
 @require_GET

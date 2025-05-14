@@ -1,6 +1,15 @@
-<div id="storeSelectionController" class="panel rounded shadow p-5 d-none">
+<div id="storeSelectionController" class="panel rounded shadow p-5 {% if associated_stores|length == 1 %}d-none{% endif %}">
   <label for="storeSelectDropdown" class="mb-1 fs-5">Select a store:</label>
   <select id="storeSelectDropdown" class="form-select">
-    <option value="">Loading stores...</option>
+    {% if associated_stores %}
+    {% for store_id, store_code in associated_stores.items %}
+    <option value="{{ store_id }}" {% if forloop.first %}selected{% endif %}>
+      {{ store_code }}
+    </option>
+    {% endfor %}
+
+    {% else %}
+    <option value="">No stores available</option>
+    {% endif %}
   </select>
 </div>

@@ -1,6 +1,6 @@
 $(document).ready(function() {
-  // Update store selection component
-  populateStoreSelection();
+  // Initial table update
+  updateShiftLogsTable();
 
   // Populate the table with all users once the stores have loaded completely
   $('#storeSelectDropdown').on('change', function() {
