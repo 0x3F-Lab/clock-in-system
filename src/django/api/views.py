@@ -797,6 +797,7 @@ def list_all_employee_details(request):
                 "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
                 "pin": emp.pin,
                 "is_active": emp.is_active,
+                "is_manager": emp.is_manager,
             }
             for emp in employees
         ]
