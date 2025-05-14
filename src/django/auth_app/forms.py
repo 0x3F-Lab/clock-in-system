@@ -101,6 +101,16 @@ class AccountSetupForm(forms.Form):
             }
         ),
     )
+    password_copy = forms.CharField(
+        label="Retype Password",
+        required=True,
+        widget=forms.PasswordInput(
+            attrs={
+                "placeholder": "Retype your Password",
+                "class": "w-100 form-control form-control-lg",
+            }
+        ),
+    )
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()
@@ -166,6 +176,12 @@ class AccountSetupForm(forms.Form):
                 "Password must contain at least one uppercase letter, one lowercase letter, and one number."
             )
         return password
+
+    def clean_password_copy(self):
+        password = self.cleaned_data.get("password", "")
+        password_copy = self.cleaned_data.get("password_copy", "")
+        if password != password_copy:
+            raise ValidationError("Both password fields must match.")
 
 
 class ManualClockingForm(forms.Form):
