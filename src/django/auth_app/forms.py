@@ -101,7 +101,7 @@ class AccountSetupForm(forms.Form):
             }
         ),
     )
-    password_copy = forms.CharField(
+    retype_password = forms.CharField(
         label="Retype Password",
         required=True,
         widget=forms.PasswordInput(
@@ -177,10 +177,10 @@ class AccountSetupForm(forms.Form):
             )
         return password
 
-    def clean_password_copy(self):
+    def clean_retype_password(self):
         password = self.cleaned_data.get("password", "")
-        password_copy = self.cleaned_data.get("password_copy", "")
-        if password != password_copy:
+        retype_password = self.cleaned_data.get("retype_password", "")
+        if password != retype_password:
             raise ValidationError("Both password fields must match.")
 
 
