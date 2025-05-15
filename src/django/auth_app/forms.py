@@ -71,7 +71,7 @@ class AccountSetupForm(forms.Form):
         ),
     )
     phone_number = forms.CharField(
-        label="Phone Number (Optional)",
+        label="Phone Number",
         required=False,
         widget=forms.TextInput(
             attrs={
@@ -81,7 +81,7 @@ class AccountSetupForm(forms.Form):
         ),
     )
     birth_date = forms.DateField(
-        label="Date of Birth (Optional)",
+        label="Date of Birth",
         required=False,
         widget=forms.DateInput(
             attrs={
