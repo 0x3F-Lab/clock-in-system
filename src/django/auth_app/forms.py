@@ -189,7 +189,7 @@ class ManualClockingForm(forms.Form):
         label="Store PIN",
         required=True,
         max_length=255,
-        widget=forms.TextInput(
+        widget=forms.PasswordInput(
             attrs={
                 "placeholder": "Store PIN",
                 "maxlength": "255",
@@ -201,7 +201,7 @@ class ManualClockingForm(forms.Form):
     employee_pin = forms.CharField(
         label="Employee PIN",
         required=True,
-        widget=forms.TextInput(
+        widget=forms.PasswordInput(
             attrs={
                 "placeholder": "Employee PIN",
                 "class": "w-100 form-control form-control-lg",

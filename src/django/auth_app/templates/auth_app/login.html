@@ -10,6 +10,7 @@
   <form method="POST" action="{% url 'login' %}" class="login-form mt-4">
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.GET.next }}">
+
       <div class="form-group">
         <label for="{{ form.email.id_for_label }}" class="text-light fw-semibold">Email:</label>
         {{ form.email }}
@@ -17,16 +18,24 @@
         <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
+
       <div class="form-group">
         <label for="{{ form.password.id_for_label }}" class="text-light fw-semibold">Password:</label>
-        {{ form.password }}
+        <div class="position-relative w-100">
+          {{ form.password }}
+          <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+            <i class="fa fa-eye cursor-pointer"></i>
+          </button>
+        </div>
         {% for error in form.password.error %}
         <div class="field-error text-danger text-wrap">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
+
       {% for error in form.non_field_errors %}
       <div class="non-field-error text-danger text-wrap">{{ error|escapejs }}</div>
       {% endfor %}
+
       <button type="submit" class="btn btn-lg btn-success w-100 p-3">Login</button>
       {% include "components/divider_OR.html" %}
       <!-- <hr class="my-2"> -->

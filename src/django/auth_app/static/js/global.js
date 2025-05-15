@@ -161,6 +161,19 @@ function hideSpinner() {
 }
 
 
+//////// HANDLE PASSWORD FIELD SHOWING ////////
+
+$(document).on('click', '.toggle-password', function () {
+  const $btn = $(this);
+  const $input = $btn.closest(".position-relative").find("input");
+  const isPassword = $input.attr("type") === "password";
+  const $icon = $btn.find("i");
+
+  $input.attr("type", isPassword ? "text" : "password");
+  $icon.toggleClass("fa-eye fa-eye-slash");
+});
+
+
 ////// PAGINATION CONTROLLER FUNCTIONS //////
 
 
