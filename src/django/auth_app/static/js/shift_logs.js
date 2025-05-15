@@ -1,6 +1,6 @@
 $(document).ready(function() {
-  // Update store selection component
-  populateStoreSelection();
+  // Initial table update
+  updateShiftLogsTable();
 
   // Populate the table with all users once the stores have loaded completely
   $('#storeSelectDropdown').on('change', function() {
@@ -134,7 +134,7 @@ function updateShiftLogsTable() {
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
               <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
-              <td class="${parseFloat(shift.hours_worked) < 1.0 ? 'cell-danger' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-danger' : '')}">${shift.hours_worked}</td>
+              <td class="${(shift.logout_time && parseFloat(shift.hours_worked) < 0.75) ? 'table-danger' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-danger' : '')}">${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>

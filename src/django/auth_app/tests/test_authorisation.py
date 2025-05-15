@@ -134,6 +134,7 @@ def test_account_setup_success(web_client, unsetup_employee):
     data = {
         "email": unsetup_employee.email,
         "password": "NewSecurePass123",
+        "retype_password": "NewSecurePass123",
         "first_name": "UpdatedFirst",
         "last_name": "UpdatedLast",
         "phone_number": "0400000000",

@@ -1,4 +1,8 @@
 $(document).ready(function() {
+  // Initial state & history set
+  updateClockedState();
+  updateShiftHistory();
+
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
     updateClockedState();

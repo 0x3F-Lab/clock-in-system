@@ -21,20 +21,33 @@
       {{ form.deliveries }}
       {{ form.latitude }}
       {{ form.longitude }}
+
       <div class="form-group">
         <label for="{{ form.store_pin.id_for_label }}" class="text-light">Store PIN:</label>
-        {{ form.store_pin }}
+        <div class="position-relative w-100">
+          {{ form.store_pin }}
+          <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+            <i class="fa fa-eye cursor-pointer"></i>
+          </button>
+        </div>
         {% for error in form.store_pin.errors %}
         <div class="field-error">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
+
       <div class="form-group mt-4">
         <label for="{{ form.employee_pin.id_for_label }}" class="text-light">Employee PIN:</label>
-        {{ form.employee_pin }}
-        {% for error in form.employee_pin.error %}
+        <div class="position-relative w-100">
+          {{ form.employee_pin }}
+          <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+            <i class="fa fa-eye cursor-pointer"></i>
+          </button>
+        </div>
+        {% for error in form.employee_pin.errors %}
         <div class="field-error">{{ error|escapejs }}</div>
         {% endfor %}
       </div>
+
       {% for error in form.non_field_errors %}
       <div class="nonfield-error">{{ error|escapejs }}</div>
       {% endfor %}

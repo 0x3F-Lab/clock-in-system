@@ -52,6 +52,11 @@
     <label for="ignoreNoHours" class="form-check-label">Ignore Employees With No Hours</label>
   </div>
 
+  <div class="form-check form-switch mb-4">
+    <input type="checkbox" id="legacyStyle" class="form-check-input p-2" />
+    <label for="legacyStyle" class="form-check-label">Use Legacy Table Layout</label>
+  </div>
+
   <div class="mb-4">
     <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
     <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
@@ -65,7 +70,7 @@
   </div>
 </div>
 
-<!-- Shift Logs Table -->
+<!-- Summary Table -->
 <div class="table-responsive">
   <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
     <thead>
@@ -81,6 +86,38 @@
     </thead>
     <tbody></tbody>
   </table>
+</div>
+
+<!-- LEGACY Summary Table -->
+<div class="table-responsive">
+  <table id="legacySummaryTable" class="d-none table table-hover table-striped table-bordered border-dark text-center align-middle">
+    <thead>
+      <tr>
+        <th class="fs-3">Staff Summary</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div class="container panel rounded shadow p-3 mt-1 mb-3 ">
+  <div class="fw-bold fs-4 text-center">
+    <i class="fa-solid fa-palette me-2"></i>Colour Key
+  </div>
+  <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap justify-content-center">
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-info text-dark mb-0">&nbsp;</span>
+      Store manager account
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-warning text-dark mb-0">&nbsp;</span>
+      Deactivated account
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-danger mb-0">&nbsp;</span>
+      Account resigned from the store
+    </li>
+  </ul>
 </div>
 
 {% include "components/pagination_controller.html" %}

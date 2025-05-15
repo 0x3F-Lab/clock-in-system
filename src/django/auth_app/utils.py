@@ -1,3 +1,5 @@
+import api.exceptions as err
+
 from functools import wraps
 from rest_framework import status
 from django.shortcuts import redirect
@@ -249,3 +251,27 @@ def get_absolute_reverse_url(name):
     return (
         BASE_URL.rstrip("/") + "/" + path.lstrip("/")
     )  # Ensure correct '/' between URL and path
+
+
+def get_user_associated_stores_from_session(request):
+    # Get user's id
+    employee_id = request.session.get("user_id")
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        raise e
+
+    stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+
+    if len(stores) < 1 or not stores:
+        messages.error(
+            request,
+            "Your account has no associated stores. Please contact a store manager.",
+        )
+
+    store_data = {store.id: store.code for store in stores}
+    return store_data

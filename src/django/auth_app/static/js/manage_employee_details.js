@@ -1,8 +1,8 @@
 $(document).ready(function() {
-  // Update store selection component
-  populateStoreSelection();
+  // Initial table update
+  updateEmployeeDetailsTable();
 
-  // Populate the table with all users once the stores have loaded completely
+  // Update the table with all users if user changes store
   $('#storeSelectDropdown').on('change', function() {
     updateEmployeeDetailsTable();
   });
@@ -148,7 +148,8 @@ function updateEmployeeDetailsTable() {
           const activationButton = employee.is_active
             ? `<button class="actionBtn btn btn-sm btn-outline-danger" data-action="deactivate" data-id="${employee.id}"><i class="fa-solid fa-user-xmark"></i> Deactivate</button>`
             : `<button class="actionBtn btn btn-sm btn-outline-success" data-action="activate" data-id="${employee.id}"><i class="fa-solid fa-user-check"></i> Activate</button>`;
-          const rowColour = (!employee.is_active) ? 'table-danger' : '';
+          const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_manager ? 'table-info' : '');
+          console.log(employee)
 
           const row = `
             <tr class="${rowColour}">

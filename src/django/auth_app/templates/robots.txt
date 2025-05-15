@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /api/
+Allow: /
+
+Sitemap: {{ BASE_URL|default:'http://localhost' }}{{ SITEMAP_URL|default:'/sitemap.xml' }}

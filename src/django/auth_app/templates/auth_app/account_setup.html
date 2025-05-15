@@ -12,8 +12,22 @@
       
       {% for field in form %}
       <div class="form-group mt-3">
-        <label for="{{ field.id_for_label }}" class="text-light">{{ field.label }}:</label>
-        {{ field }}
+        <label for="{{ field.id_for_label }}" class="text-light fw-semibold w-100 d-flex flex-row align-items-center justify-content-between">
+          <span>{{ field.label }}:</span>
+          {% if not field.field.required %}
+          <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+          {% endif %}
+        </label>
+
+        <div class="position-relative w-100">
+          {{ field }}
+          {% if field.field.widget.input_type == "password" %}
+          <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+            <i class="fa fa-eye cursor-pointer"></i>
+          </button>
+          {% endif %}
+        </div>
+
         {% for error in field.errors %}
           <div class="fieldError text-danger text-wrap">{{ error|escape }}</div>
         {% endfor %}
