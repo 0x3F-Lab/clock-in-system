@@ -249,6 +249,9 @@ COUNTRY_SUBDIV_CODE = "WA"
 UTC_OFFSET = "8"  # For UTC+8
 
 
+# Default notification expiration date
+NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21
+
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min
 

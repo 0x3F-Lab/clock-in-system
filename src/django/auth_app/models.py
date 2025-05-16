@@ -1,6 +1,9 @@
 import random
+from datetime import timedelta
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
+from clock_in_system.settings import NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS
 
 
 class User(models.Model):
@@ -168,6 +171,9 @@ class User(models.Model):
         ).exists()
 
 
+########################## STORES ##########################
+
+
 class Store(models.Model):
     name = models.CharField(unique=True, max_length=250, null=False)
     code = models.CharField(
@@ -253,6 +259,9 @@ class StoreUserAccess(models.Model):
         return f"{self.user.first_name} {self.user.last_name} [{self.user.id}] → {self.store.code} ({role})"
 
 
+########################## SHIFTS ##########################
+
+
 class Activity(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
@@ -271,3 +280,180 @@ class Activity(models.Model):
 
     def __str__(self):
         return f"[{self.id}] [{self.login_time.date()}] {self.employee.first_name} {self.employee.last_name} ({self.employee_id}) → {self.store.code}"
+
+
+########################## NOTIFICATIONS ##########################
+
+
+def notification_default_expires_on():
+    return (
+        timezone.now() + timedelta(days=NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS)
+    ).date()
+
+
+class Notification(models.Model):
+    class Type(models.TextChoices):
+        SYSTEM_ALERT = "system_alert", "System Alert"
+        MANAGER_NOTE = "manager_note", "Manager Note"
+        SCHEDULE_CHANGE = "schedule_change", "Schedule Change"
+        GENERAL = "general", "General"
+        EMERGENCY = "emergency", "Emergency"
+
+    sender = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="sent_notifications"
+    )
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Optional: If set, limits recipients to this store",
+    )
+    title = models.CharField(
+        max_length=200,
+        null=False,
+        help_text="Short subject or headline for the notification",
+    )
+    message = models.TextField(null=False)
+    notification_type = models.CharField(
+        max_length=50,
+        choices=Type.choices,
+        default=Type.GENERAL,
+        null=False,
+        help_text="The type of notification",
+    )
+    broadcast_to_store = models.BooleanField(
+        default=False,
+        help_text="If True, broadcast to all users in the store. Used only if `store` is set.",
+    )
+    targeted_users = models.ManyToManyField(
+        User,
+        related_name="notifications",
+        through="NotificationReceipt",
+        blank=True,
+        help_text="Used when sending to specific users (USE NOTIFICATION RECEIPTS TO SET)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_on = models.DateField(
+        null=True,
+        blank=True,
+        default=notification_default_expires_on,
+        help_text="Optional expiration date after which the notification is considered inactive",
+    )
+
+    def __str__(self):
+        if self.broadcast_to_store:
+            return f"[{self.id}] Broadcast to {self.store.code} - {self.message[:30]}"
+        return (
+            f"[{self.id}] To {self.targeted_users.count()} users - {self.message[:30]}"
+        )
+
+    @classmethod
+    def send_to_users(
+        cls,
+        users,
+        title,
+        message,
+        notification_type=Type.GENERAL,
+        sender=None,
+        expires_on=None,
+    ):
+        """
+        Create and send a notification to specific users.
+
+        Args:
+            users (iterable of User): List or queryset of User instances to receive the notification.
+            title (str): Short subject or headline for the notification. MAX 200 CHARS
+            message (str): Detailed message content of the notification.
+            notification_type (str): One of `Notification.Type` choices defining the notification category.
+            sender (User or None): Optional User instance who is sending the notification.
+            expires_on (date or datetime or None): Optional expiration date for notification.
+                Defaults to Notification default expiry date if None.
+
+        Returns:
+            Notification: The created Notification instance.
+        """
+        # Set default expiry if none set
+        if expires_at is None:
+            expires_at = notification_default_expires_on()
+
+        notif = cls.objects.create(
+            sender=sender,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            expires_on=expires_on,
+        )
+        receipts = [
+            NotificationReceipt(notification=notif, user=user) for user in users
+        ]
+        NotificationReceipt.objects.bulk_create(receipts)
+        return notif
+
+    @classmethod
+    def broadcast_to_store(
+        cls,
+        store,
+        title,
+        message,
+        notification_type=Type.MANAGER_NOTE,
+        sender=None,
+        expires_on=None,
+    ):
+        """
+        Create and broadcast a notification to all active users in a specific store.
+
+        Args:
+            store (Store): The Store instance to which the notification will be broadcast.
+            title (str): Short subject or headline for the notification. MAX 200 CHARS
+            message (str): Detailed message content of the notification.
+            notification_type (str): One of `Notification.Type` choices defining the notification category.
+            sender (User or None): Optional User instance who is sending the notification.
+            expires_on (date or datetime or None): Optional expiration datetime for notification.
+                Defaults to Notification default expiry date if None.
+
+        Returns:
+            Notification: The created Notification instance.
+        """
+        # Set default expiry if none set
+        if expires_at is None:
+            expires_at = notification_default_expires_on()
+
+        notif = cls.objects.create(
+            sender=sender,
+            store=store,
+            title=title,
+            message=message,
+            notification_type=notification_type,
+            broadcast_to_store=True,
+            expires_on=expires_on,
+        )
+
+        # Get all active users associated with the store
+        users = User.objects.filter(
+            store_access__store=store, is_active=True
+        ).distinct()
+
+        receipts = [
+            NotificationReceipt(notification=notif, user=user) for user in users
+        ]
+        NotificationReceipt.objects.bulk_create(receipts)
+        return notif
+
+
+class NotificationReceipt(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
+    read_at = models.DateTimeField(null=True, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = (
+            "user",
+            "notification",
+        )  # Ensure one receipt per user-notification
+
+    def mark_as_read(self):
+        if not self.read_at:
+            self.read_at = timezone.now()
+            self.save(update_fields=["read_at"])
