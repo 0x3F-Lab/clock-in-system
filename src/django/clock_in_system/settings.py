@@ -177,6 +177,41 @@ else:
         }
     }
 
+############################### CELERY CONFIGURATION ############################################
+CELERY_BROKER_URL = os.getenv(
+    "CELERY_BROKER_URL", "redis://:securepassword@redis:6379/0"
+)  # Redis broker URL (with password if required)
+CELERY_RESULT_BACKEND = os.getenv(
+    "CELERY_RESULTS_BACKEND", "redis://:securepassword@redis:6379/1"
+)  # Use Django's database to store task results
+CELERY_CACHE_BACKEND = "redis"  # Cache backend for storing temporary task states
+CELERY_ACCEPT_CONTENT = ["json"]  # Data format for tasks
+CELERY_TASK_SERIALIZER = "json"  # Serialize task data as JSON
+CELERY_RESULT_SERIALIZER = "json"  # Serialize results as JSON
+CELERY_TIMEZONE = os.getenv(
+    "TZ", "Australia/Perth"
+)  # Set the default timezone (you can change this to your preferred timezone)
+CELERY_ENABLE_UTC = (
+    True  # Enable UTC (best practice for Celery) -- STORES ALL TIMES AS UTC
+)
+
+CELERY_TASK_RESULT_EXPIRES = 345600  # Results expire after 4 days
+CELERY_TASK_DEFAULT_RETRY_DELAY = 30  # Retry delay in seconds
+CELERY_TASK_MAX_RETRIES = 5  # Max number of retries for a task
+CELERY_TASK_TIME_LIMIT = 300  # Max time in seconds for a task to complete
+CELERY_TASK_SOFT_TIME_LIMIT = (
+    240  # Soft limit (will raise SoftTimeLimitExceeded exception)
+)
+
+# Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
+# CELERY_BEAT_SCHEDULE = {
+#     'my_periodic_task': {
+#         'task': 'myapp.tasks.my_periodic_task',  # Path to the task to run periodically
+#         'schedule': crontab(minute='0', hour='0'),  # This will run the task every day at midnight
+#     },
+# }
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -276,7 +311,7 @@ LOGGING = {
         "file": {
             "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
-            "filename": "/app/debug.log",
+            "filename": "./debug.log",
             "formatter": "verbose",
         },
     },
