@@ -170,6 +170,21 @@ class User(models.Model):
             user=employee, store_id__in=shared_store_ids
         ).exists()
 
+    def get_unread_notifications(self):
+        """
+        Returns a queryset of unread Notifications for this user,
+        ordered by newest first.
+        """
+        return (
+            Notification.objects.filter(
+                notificationreceipt__user=self,
+                notificationreceipt__read_at__isnull=True,
+                expires_on__gte=timezone.now().date(),
+            )
+            .distinct()
+            .order_by("-created_at")
+        )
+
 
 ########################## STORES ##########################
 
@@ -348,6 +363,14 @@ class Notification(models.Model):
             f"[{self.id}] To {self.targeted_users.count()} users - {self.message[:30]}"
         )
 
+    def mark_notification_as_read(self, user):
+        receipt = NotificationReceipt.objects.filter(
+            user=user, notification=self
+        ).first()
+        if receipt and receipt.read_at is None:
+            receipt.read_at = timezone.now()
+            receipt.save(update_fields=["read_at"])
+
     @classmethod
     def send_to_users(
         cls,
@@ -416,8 +439,8 @@ class Notification(models.Model):
             Notification: The created Notification instance.
         """
         # Set default expiry if none set
-        if expires_at is None:
-            expires_at = notification_default_expires_on()
+        if expires_on is None:
+            expires_on = notification_default_expires_on()
 
         notif = cls.objects.create(
             sender=sender,
@@ -439,6 +462,37 @@ class Notification(models.Model):
         ]
         NotificationReceipt.objects.bulk_create(receipts)
         return notif
+
+    @classmethod
+    def send_system_notification_to_all(
+        cls, title, message, sender=None, expires_on=None
+    ):
+        """
+        Create and broadcast a notification to all active across the whole site.
+
+        Args:
+            title (str): Short subject or headline for the notification. MAX 200 CHARS
+            message (str): Detailed message content of the notification.
+            sender (User or None): Optional User instance who is sending the notification.
+            expires_on (date or datetime or None): Optional expiration datetime for notification.
+                Defaults to Notification default expiry date if None.
+
+        Returns:
+            Notification: The created Notification instance.
+        """
+        # Set default expiry if none set
+        if expires_on is None:
+            expires_on = notification_default_expires_on()
+
+        users = User.objects.filter(is_active=True)
+        return cls.send_to_users(
+            users=users,
+            title=title,
+            message=message,
+            notification_type=cls.Type.SYSTEM_ALERT,
+            sender=sender,
+            expires_on=expires_on,
+        )
 
 
 class NotificationReceipt(models.Model):
