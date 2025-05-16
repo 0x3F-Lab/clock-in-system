@@ -24,6 +24,7 @@ services:
     command: celery -A your_project worker --loglevel=info
     volumes:
       - ./django:/app:ro
+      - ./django/debug.log:/app/debug.log:rw
     env_file:
       - .env.production
     depends_on:
@@ -37,6 +38,8 @@ services:
     command: celery -A your_project beat --loglevel=info
     volumes:
       - ./django:/app:ro
+      - ./django/debug.log:/app/debug.log:rw
+      - celerybeat-schedule:/app/celerybeat-schedule:rw  # Use named volume for the celerybeat-schedule
     env_file:
       - .env.production
     depends_on:
@@ -71,3 +74,4 @@ services:
 
 volumes:
   static_volume:  # Shared volume for serving static files
+  celerybeat-schedule:  # Named volume for Celery Beat schedule data
