@@ -222,14 +222,17 @@ class Store(models.Model):
         self.code = code
         self.save()
 
-    def get_store_managers(self):
+    def get_store_managers(self, include_hidden=False):
         """
         Returns a queryset of ACTIVE managers who have access to the given store.
+        Args:
+          - include_hidden (bool) = False: Include hidden accounts (super admins) in the list.
         """
         return User.objects.filter(
             store_access__store=self,
             is_manager=True,
             is_active=True,  # Only include active users
+            is_hidden=include_hidden,
         ).distinct()
 
     def is_associated_with_user(self, user):
@@ -390,15 +393,15 @@ class Notification(models.Model):
             message (str): Detailed message content of the notification.
             notification_type (str): One of `Notification.Type` choices defining the notification category.
             sender (User or None): Optional User instance who is sending the notification.
-            expires_on (date or datetime or None): Optional expiration date for notification.
+            expires_on (date or None): Optional expiration date for notification.
                 Defaults to Notification default expiry date if None.
 
         Returns:
             Notification: The created Notification instance.
         """
         # Set default expiry if none set
-        if expires_at is None:
-            expires_at = notification_default_expires_on()
+        if expires_on is None:
+            expires_on = notification_default_expires_on()
 
         notif = cls.objects.create(
             sender=sender,
@@ -414,7 +417,7 @@ class Notification(models.Model):
         return notif
 
     @classmethod
-    def broadcast_to_store(
+    def send_to_store_users(
         cls,
         store,
         title,
@@ -432,7 +435,7 @@ class Notification(models.Model):
             message (str): Detailed message content of the notification.
             notification_type (str): One of `Notification.Type` choices defining the notification category.
             sender (User or None): Optional User instance who is sending the notification.
-            expires_on (date or datetime or None): Optional expiration datetime for notification.
+            expires_on (date or None): Optional expiration date for notification.
                 Defaults to Notification default expiry date if None.
 
         Returns:
@@ -474,7 +477,7 @@ class Notification(models.Model):
             title (str): Short subject or headline for the notification. MAX 200 CHARS
             message (str): Detailed message content of the notification.
             sender (User or None): Optional User instance who is sending the notification.
-            expires_on (date or datetime or None): Optional expiration datetime for notification.
+            expires_on (date or None): Optional expiration date for notification.
                 Defaults to Notification default expiry date if None.
 
         Returns:
