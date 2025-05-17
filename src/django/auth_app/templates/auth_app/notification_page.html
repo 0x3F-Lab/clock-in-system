@@ -63,6 +63,14 @@
                 {% endwith %}
               {% endwith %}
             {% endwith %}
+          {% elif n.type == "automatic_alert" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "Automatic Alert" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
           {% else %}
             {% with "bg-secondary" as badge_class %}
               {% with "General" as type_label %}

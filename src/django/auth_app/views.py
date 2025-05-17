@@ -401,6 +401,16 @@ def notification_page(request):
                     sender=user,
                 )
 
+            elif recipient_group == "site_admins":
+                admins = User.objects.filter(is_active=True, is_hidden=True).distinct()
+                Notification.send_to_users(
+                    users=admins,
+                    title=title,
+                    message=message,
+                    notification_type=notification_type,
+                    sender=user,
+                )
+
             else:
                 messages.error(
                     request, "Failed to send notifications. Are you authorised?"

@@ -228,6 +228,7 @@ class NotificationForm(forms.Form):
         ("store_managers", "Store Managers Only"),
         ("store_employees", "Store Employees (Every active user in the store)"),
         ("all_users", "All Users (Site-wide)"),
+        ("site_admins", "Site Administrators"),
     ]
 
     title = forms.CharField(
@@ -300,7 +301,10 @@ class NotificationForm(forms.Form):
         self.fields["notification_type"].choices = type_choices
 
         # Default: only allow sending to managers
-        recipient_choices = [("store_managers", "Store Managers Only")]
+        recipient_choices = [
+            ("store_managers", "Store Managers Only"),
+            ("site_admins", "Site Administrators"),
+        ]
 
         if user.is_manager:
             # Managers can send to other store employees

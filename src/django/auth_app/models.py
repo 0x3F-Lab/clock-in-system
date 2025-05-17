@@ -312,6 +312,7 @@ def notification_default_expires_on():
 class Notification(models.Model):
     class Type(models.TextChoices):
         SYSTEM_ALERT = "system_alert", "System Alert"
+        AUTOMATIC_ALERT = "automatic_alert", "Automatic Alert"
         MANAGER_NOTE = "manager_note", "Manager Note"
         SCHEDULE_CHANGE = "schedule_change", "Schedule Change"
         GENERAL = "general", "General"

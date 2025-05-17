@@ -301,9 +301,13 @@ def get_default_page_context(request):
     # Get user's notifications
     notifications = []
     for notif in employee.get_unread_notifications().select_related("sender"):
-        if (
+        if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
+            sender = "SYSTEM"
+        elif (
             notif.notification_type == Notification.Type.SYSTEM_ALERT
         ) or not notif.sender:
+            sender = "ADMINISTRATORS"
+        elif notif.sender.is_hidden:
             sender = "ADMINISTRATORS"
         else:
             sender = f"{notif.sender.first_name} {notif.sender.last_name}"
