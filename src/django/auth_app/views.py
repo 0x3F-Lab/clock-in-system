@@ -378,12 +378,12 @@ def notification_page(request):
             notification_type = data["notification_type"]
 
             if recipient_group == "all_users" and user.is_hidden:
-                Notification.send_system_notification_to_all(
+                notif = Notification.send_system_notification_to_all(
                     title=title, message=message, sender=user
                 )
 
             elif recipient_group == "store_employees" and user.is_manager:
-                Notification.send_to_store_users(
+                notif = Notification.send_to_store_users(
                     store=store,
                     title=title,
                     message=message,
@@ -393,7 +393,7 @@ def notification_page(request):
 
             elif recipient_group == "store_managers":
                 managers = store.get_store_managers()
-                Notification.send_to_users(
+                notif = Notification.send_to_users(
                     users=managers,
                     title=title,
                     message=message,
@@ -403,7 +403,7 @@ def notification_page(request):
 
             elif recipient_group == "site_admins":
                 admins = User.objects.filter(is_active=True, is_hidden=True).distinct()
-                Notification.send_to_users(
+                notif = Notification.send_to_users(
                     users=admins,
                     title=title,
                     message=message,
@@ -417,6 +417,12 @@ def notification_page(request):
                 )
 
             messages.success(request, "Successfully sent notifications.")
+            logger.info(
+                f"Employee ID {user.id} ({user.first_name} {user.last_name}) sent notification to group '{recipient_group.upper()}' {f'for the store {store.code}' if store else ''} with title '{title}'."
+            )
+            logger.debug(
+                f"[CREATE: NOTIFICATION (ID: {notif.id if notif else 'ERR'})] [{notification_type}] Employee: {user.first_name} {user.last_name} ({user.id}) → Group: {recipient_group.upper()} {f'({store.code})' if store else ''}"
+            )
             return redirect("notification_page")
 
         else:
