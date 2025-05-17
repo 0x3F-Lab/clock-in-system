@@ -500,7 +500,9 @@ class Notification(models.Model):
 
 
 class NotificationReceipt(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notification_receipts"
+    )
     notification = models.ForeignKey(Notification, on_delete=models.CASCADE)
     read_at = models.DateTimeField(null=True, blank=True)
     received_at = models.DateTimeField(auto_now_add=True)
