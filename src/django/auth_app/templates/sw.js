@@ -51,6 +51,7 @@ if (isDevEnvironment) {
     { url: `${STATIC_URL}js/manage_employee_details.js`, revision: null },
     { url: `${STATIC_URL}js/manual_clocking.js`, revision: null },
     { url: `${STATIC_URL}js/shift_logs.js`, revision: null },
+    { url: `${STATIC_URL}js/notification_page.js`, revision: null },
   ]);
 
   // For full pages
