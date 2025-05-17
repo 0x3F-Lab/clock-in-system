@@ -3,7 +3,7 @@ import re
 from django import forms
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
-from auth_app.models import User
+from auth_app.models import User, Notification, Store
 from clock_in_system.settings import (
     VALID_NAME_PATTERN,
     VALID_PHONE_NUMBER_PATTERN,
@@ -221,3 +221,133 @@ class ManualClockingForm(forms.Form):
     longitude = forms.DecimalField(
         required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
     )
+
+
+class NotificationForm(forms.Form):
+    RECIPIENT_CHOICES = [
+        ("store_managers", "Store Managers Only"),
+        ("store_employees", "Store Employees (Every active user in the store)"),
+        ("all_users", "All Users (Site-wide)"),
+    ]
+
+    title = forms.CharField(
+        max_length=200,
+        required=True,
+        label="Title",
+        widget=forms.TextInput(
+            attrs={"placeholder": "Enter notification title", "class": "w-100"}
+        ),
+    )
+    message = forms.CharField(
+        required=True,
+        label="Message",
+        widget=forms.Textarea(
+            attrs={"rows": 4, "class": "w-100 p-2", "placeholder": "Enter message"}
+        ),
+    )
+    recipient_group = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label="Send To",
+        widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
+    )
+    # THIS TURNS FROM AN ID INPUTTED ON CLIENT SIDE TO A STORE OBJECT ONCE VALIDATED
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True),
+        required=False,
+        widget=forms.HiddenInput(),
+        label="",
+    )
+    notification_type = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label="Notification Type",
+        widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.user = user
+
+        # Limit notification types based on user role
+        type_choices = Notification.Type.choices
+
+        type_choices = [
+            (Notification.Type.GENERAL, Notification.Type.GENERAL.label),
+            (Notification.Type.EMERGENCY, Notification.Type.EMERGENCY.label),
+        ]
+
+        if user.is_manager:
+            type_choices.extend(
+                [
+                    (
+                        Notification.Type.MANAGER_NOTE,
+                        Notification.Type.MANAGER_NOTE.label,
+                    ),
+                    (
+                        Notification.Type.SCHEDULE_CHANGE,
+                        Notification.Type.SCHEDULE_CHANGE.label,
+                    ),
+                ]
+            )
+
+        if user.is_hidden:
+            type_choices.append(
+                (Notification.Type.SYSTEM_ALERT, Notification.Type.SYSTEM_ALERT.label)
+            )
+
+        self.fields["notification_type"].choices = type_choices
+
+        # Default: only allow sending to managers
+        recipient_choices = [("store_managers", "Store Managers Only")]
+
+        if user.is_manager:
+            # Managers can send to other store employees
+            recipient_choices.append(
+                ("store_employees", "Store Employees (Every active user in the store)")
+            )
+
+        if user.is_hidden:
+            # Hidden (super admins) can send to all users site-wide
+            recipient_choices.append(("all_users", "All Users (Site-wide)"))
+        self.fields["recipient_group"].choices = recipient_choices
+
+    def clean_notification_type(self):
+        notification_type = self.cleaned_data.get("notification_type")
+        recipient_group = self.cleaned_data.get("recipient_group")
+
+        # Validate combinations
+        if (
+            notification_type == Notification.Type.MANAGER_NOTE
+            and recipient_group != "store_employees"
+        ):
+            raise ValidationError("Manager Notes can only be sent to Store Employees.")
+
+        if (
+            notification_type == Notification.Type.SYSTEM_ALERT
+            and recipient_group != "all_users"
+        ):
+            raise ValidationError("System Alerts can only be sent to all users.")
+
+        if (
+            notification_type == Notification.Type.SCHEDULE_CHANGE
+            and recipient_group != "store_employees"
+        ):
+            raise ValidationError(
+                "Schedule Change notifications must target store employees."
+            )
+
+        return notification_type
+
+    def clean(self):
+        cleaned_data = super().clean()
+        recipient_group = cleaned_data.get("recipient_group")
+        store = cleaned_data.get("store")
+
+        if recipient_group != "all_users" and not store:
+            raise ValidationError(
+                "You must select a store for store-based notifications."
+            )
+
+        return cleaned_data

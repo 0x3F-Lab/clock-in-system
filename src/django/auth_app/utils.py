@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.contrib import messages
 from django.utils.http import urlencode
-from auth_app.models import User
+from auth_app.models import User, Notification
 from clock_in_system.settings import BASE_URL
 
 
@@ -275,3 +275,56 @@ def get_user_associated_stores_from_session(request):
 
     store_data = {store.id: store.code for store in stores}
     return store_data
+
+
+def get_default_page_context(request):
+    # Get user's id
+    employee_id = request.session.get("user_id")
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        raise e
+
+    # Get associated stores
+    stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+    if len(stores) < 1 or not stores:
+        messages.error(
+            request,
+            "Your account has no associated stores. Please contact a store manager.",
+        )
+    store_data = {store.id: store.code for store in stores}
+
+    # Get user's notifications
+    notifications = []
+    for notif in employee.get_unread_notifications().select_related("sender"):
+        if (
+            notif.notification_type == Notification.Type.SYSTEM_ALERT
+        ) or not notif.sender:
+            sender = "ADMINISTRATORS"
+        else:
+            sender = f"{notif.sender.first_name} {notif.sender.last_name}"
+
+        notifications.append(
+            {
+                "id": notif.id,
+                "title": notif.title,
+                "message": notif.message,
+                "type": notif.notification_type,
+                "sender": sender,
+                "created_at": notif.created_at,
+                "expires_on": notif.expires_on,
+                "store": notif.store.code if notif.store else None,
+                "store_broadcast": notif.broadcast_to_store,
+            }
+        )
+
+    return {
+        "user_id": employee_id,
+        "user_name": employee.first_name,
+        "associated_stores": store_data,
+        "notifications": notifications,
+    }, employee

@@ -10,13 +10,19 @@ from django.template.response import TemplateResponse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
-from auth_app.models import User, Store
+from auth_app.models import User, Store, Notification
 from auth_app.utils import (
     manager_required,
     employee_required,
     get_user_associated_stores_from_session,
+    get_default_page_context,
 )
-from auth_app.forms import LoginForm, ManualClockingForm, AccountSetupForm
+from auth_app.forms import (
+    LoginForm,
+    ManualClockingForm,
+    AccountSetupForm,
+    NotificationForm,
+)
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
@@ -292,6 +298,7 @@ def manual_clocking(request):
                 request, "Failed to clock in/out. Please correct the errors."
             )
 
+    # GET REQUEST (load the page)
     else:
         form = ManualClockingForm()
 
@@ -338,6 +345,84 @@ def employee_dashboard(request):
     }
 
     return render(request, "auth_app/employee_dashboard.html", info)
+
+
+@employee_required
+@ensure_csrf_cookie
+@require_http_methods(["GET", "POST"])
+def notification_page(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    # POST REQUEST (form submission)
+    if request.method == "POST":
+        form = NotificationForm(request.POST, user=user)
+
+        if form.is_valid():
+            data = form.cleaned_data
+            title = data["title"]
+            message = data["message"]
+            store = data.get("store")  # .get() as its optional
+            recipient_group = data["recipient_group"]
+            notification_type = data["notification_type"]
+
+            if recipient_group == "all_users" and user.is_hidden:
+                Notification.send_system_notification_to_all(
+                    title=title, message=message, sender=user
+                )
+
+            elif recipient_group == "store_employees" and user.is_manager:
+                Notification.send_to_store_users(
+                    store=store,
+                    title=title,
+                    message=message,
+                    notification_type=notification_type,
+                    sender=user,
+                )
+
+            elif recipient_group == "store_managers":
+                managers = store.get_store_managers()
+                Notification.send_to_users(
+                    users=managers,
+                    title=title,
+                    message=message,
+                    notification_type=notification_type,
+                    sender=user,
+                )
+
+            else:
+                messages.error(
+                    request, "Failed to send notifications. Are you authorised?"
+                )
+
+            messages.success(request, "Successfully sent notifications.")
+            return redirect("notification_page")
+
+        else:
+            messages.error(
+                request, "Failed to send notifications. Please correct the errors."
+            )
+
+    # GET REQUEST (load the page)
+    else:
+        form = NotificationForm(user=user)
+        logger.critical(context["notifications"])
+
+    # Add the form to the context
+    context["form"] = form
+
+    return render(request, "auth_app/notification_page.html", context)
 
 
 @ensure_csrf_cookie
