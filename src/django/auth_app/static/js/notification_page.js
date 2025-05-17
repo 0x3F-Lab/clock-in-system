@@ -35,32 +35,23 @@ function handleNotificationPageSwitching() {
 }
 
 
-function handleNotificationOpen() {
-  // Listen for any collapse being shown
-  $('.collapse').on('show.bs.collapse', function () {
-    const notifId = $(this).attr('id').split('-')[1];
-    $(`[data-id="${notifId}"]`).removeClass('d-none');
-  });
-
-  // Hide the button when the collapse is closed
-  $('.collapse').on('hide.bs.collapse', function () {
-    const notifId = $(this).attr('id').split('-')[1];
-    $(`[data-id="${notifId}"]`).addClass('d-none');
-  });
-}
-
-
 function handleNotificationMarkAsRead() {
   // Listen for any collapse being shown
   $('.collapse').on('show.bs.collapse', function () {
-    const notifId = $(this).attr('id').split('-')[1];
-    $(`[data-id="${notifId}"]`).removeClass('d-none');
+    const notifID = $(this).attr('id').split('-').pop();
+    $(`[data-id="${notifID}"]`).removeClass('d-none');
   });
 
   // Hide the button when the collapse is closed
   $('.collapse').on('hide.bs.collapse', function () {
-    const notifId = $(this).attr('id').split('-')[1];
-    $(`[data-id="${notifId}"]`).addClass('d-none');
+    const notifID = $(this).attr('id').split('-').pop();
+    $(`[data-id="${notifID}"]`).addClass('d-none');
+  });
+
+  // Handle user pressing 'Mark as Read'
+  $(document).on('click', '.mark-as-read', function () {
+    const ID = $(this).data('id');
+    markNotificationRead(ID);
   });
 }
 
@@ -81,5 +72,47 @@ function handleNotificationSubmission() {
 
     // Submit the form after setting the store ID
     this.submit(); // Native submit to avoid recursion
+  });
+}
+
+
+function markNotificationRead(id) {
+  showSpinner();
+
+  $.ajax({
+    url: `${window.djangoURLs.markNotificationRead}${id}/`,
+    type: "PUT",
+    xhrFields: {
+      withCredentials: true
+    },
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+
+    success: function(req) {
+      hideSpinner();
+
+      // Delete the notification from the page (no need to reload)
+      $(`#notif-${id}`).remove();
+
+      // Update the code
+      count = ensureSafeInt($('#notification-page-count').html(), 0, null);
+      $('#notification-page-count').html(count - 1);
+
+      showNotification("Successfully marked notification as read.", "success");
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      hideSpinner();
+
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to mark notification as read due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to mark notification as read. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
   });
 }

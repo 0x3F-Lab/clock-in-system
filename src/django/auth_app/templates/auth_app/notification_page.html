@@ -26,7 +26,7 @@
 
   <div id="account-notifications" class="col-md-9">
     <div class="panel rounded shadow p-4 mb-4">
-      <h2 class="fw-bold text-center mb-4">Your Notifications{% if notifications|length > 0 %} ({{ notifications|length }}){% endif %}</h2>
+      <h2 class="fw-bold text-center mb-4">Your Notifications{% if notifications|length > 0 %} (<span id="notification-page-count">{{ notifications|length }}</span>){% endif %}</h2>
 
       {% if notifications %}
       <div class="list-group">
@@ -145,6 +145,11 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+
+{% block extra_urls %}
+    markNotificationRead: "{% url 'api:mark_notification_read' 0 %}".slice(0, -2),
 {% endblock %}
 
 

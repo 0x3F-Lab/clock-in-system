@@ -15,7 +15,14 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
 from api.utils import round_datetime_minute, str_to_bool
-from auth_app.models import User, Activity, Store, StoreUserAccess
+from auth_app.models import (
+    User,
+    Activity,
+    Store,
+    StoreUserAccess,
+    Notification,
+    NotificationReceipt,
+)
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from clock_in_system.settings import (
@@ -2135,6 +2142,54 @@ def list_account_summaries(request):
     except Exception as e:
         logger.critical(
             f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["POST", "PUT"])
+@renderer_classes([JSONRenderer])
+def mark_notification_read(request, id):
+    try:
+        # Get user information
+        user_id = request.session.get("user_id")
+
+        # Get notification
+        notif = Notification.objects.get(id=id)
+
+        # Mark the notification as read
+        notif.mark_notification_as_read(user=user_id)
+
+        # Return the results after serialisation
+        return Response({"notification_id": id}, status=status.HTTP_200_OK)
+
+    except User.DoesNotExist:
+        return Response(
+            {"Error": f"Employee not found with the ID {user_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Notification.DoesNotExist:
+        return Response(
+            {"Error": f"Notification ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except NotificationReceipt.DoesNotExist:
+        logger.critical(
+            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}' due to a missing NotificationReceipt."
+        )
+        return Response(
+            {
+                "Error": f"Failed to mark notification {id} as READ due to missing receipt. Please contact a site admin."
+            },
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}', producing the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

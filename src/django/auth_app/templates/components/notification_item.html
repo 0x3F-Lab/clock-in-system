@@ -1,8 +1,9 @@
 <div class="list-group-item list-group-item-action flex-column align-items-start p-3 {{ bg_class }}"
+     id="notif-{{ n.id }}"
      data-bs-toggle="collapse"
-     data-bs-target="#notif-{{ n.id }}"
+     data-bs-target="#notif-info-{{ n.id }}"
      aria-expanded="false"
-     aria-controls="notif-{{ n.id }}"
+     aria-controls="notif-info-{{ n.id }}"
      style="cursor: pointer;">
   
   <div class="d-flex w-100 justify-content-between align-items-start">
@@ -16,14 +17,14 @@
 
     <div class="text-end d-flex flex-column align-items-end">
       <small class="text-muted">{{ n.created_at|date:"M j, Y g:i A" }}</small>
-      <button class="btn btn-sm btn-outline-success mt-1 d-none"
+      <button class="mark-as-read btn btn-sm btn-outline-success mt-1 d-none"
               data-id="{{ n.id }}">
         <i class="fas fa-check-circle me-1"></i> Mark as Read
       </button>
     </div>
   </div>
 
-  <div class="collapse mt-3" id="notif-{{ n.id }}">
+  <div class="collapse mt-3" id="notif-info-{{ n.id }}">
     <div class="card card-body bg-light text-dark">
       <p class="mb-2">{{ n.message }}</p>
       <p class="mb-1"><strong>Expires:</strong> {{ n.expires_on|date:"M j, Y" }}</p>

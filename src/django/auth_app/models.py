@@ -374,6 +374,8 @@ class Notification(models.Model):
         if receipt and receipt.read_at is None:
             receipt.read_at = timezone.now()
             receipt.save(update_fields=["read_at"])
+        elif receipt is None:
+            raise NotificationReceipt.DoesNotExist
 
     @classmethod
     def send_to_users(

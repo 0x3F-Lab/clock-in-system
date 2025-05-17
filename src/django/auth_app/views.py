@@ -427,7 +427,6 @@ def notification_page(request):
     # GET REQUEST (load the page)
     else:
         form = NotificationForm(user=user)
-        logger.critical(context["notifications"])
 
     # Add the form to the context
     context["form"] = form

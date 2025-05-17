@@ -70,4 +70,9 @@ urlpatterns = [
         views.list_associated_stores,
         name="list_associated_stores",
     ),
+    path(
+        "mark-notification-read/<int:id>/",
+        views.mark_notification_read,
+        name="mark_notification_read",
+    ),
 ]
