@@ -12,7 +12,20 @@ self.addEventListener('install', (event) => {
 
 // Claim clients after the service worker is activated
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    (async () => {
+      const cacheNames = await caches.keys();
+      const expectedPrefix = 'clockinapp-{{ STATIC_CACHE_VER|default:"v0"|escapejs }}';
+
+      await Promise.all(
+        cacheNames
+          .filter((name) => !name.startsWith(expectedPrefix))
+          .map((name) => caches.delete(name))
+      );
+    })()
+  );
+
+  self.clients.claim();
   workbox.navigationPreload.enable();
 });
 
@@ -37,20 +50,21 @@ if (isDevEnvironment) {
 
 } else {
   // Set routes to precache (i.e. static files)
+  {% load static %}
   workbox.precaching.precacheAndRoute([
-    { url: OFFLINE_URL, revision: null },
-    { url: `${STATIC_URL}css/styles.css`, revision: null },
-    { url: `${STATIC_URL}js/global.js`, revision: null },
-    { url: `${STATIC_URL}img/logo.png`, revision: null },
-    { url: `${STATIC_URL}favicon.ico`, revision: null },
-    { url: `${STATIC_URL}img/favicon/favicon-32x32.png`, revision: null },
-    { url: `${STATIC_URL}img/favicon/android-chrome-192x192.png`, revision: null },
-    { url: `${STATIC_URL}img/favicon/android-chrome-512x512.png`, revision: null },
-    { url: `${STATIC_URL}img/gifs/offline.gif`, revision: null },
-    { url: `${STATIC_URL}js/employee_dashboard.js`, revision: null },
-    { url: `${STATIC_URL}js/manage_employee_details.js`, revision: null },
-    { url: `${STATIC_URL}js/manual_clocking.js`, revision: null },
-    { url: `${STATIC_URL}js/shift_logs.js`, revision: null },
+    { url: OFFLINE_URL, revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'css/styles.css' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/global.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'img/logo.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'favicon.ico' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'img/favicon/favicon-32x32.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'img/favicon/android-chrome-192x192.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'img/favicon/android-chrome-512x512.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'img/gifs/offline.gif' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/employee_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/manage_employee_details.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/manual_clocking.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/shift_logs.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
   ]);
 
   // For full pages
