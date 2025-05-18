@@ -69,7 +69,7 @@ function updateSummaryTable() {
         $('#summaryTable tbody').html("");
         $.each(summaries, function(index, sum) {
           // Add table information based on the selected style
-          addTableRowInformaiton(legacyStyle, sum);
+          addTableRowInformation(legacyStyle, sum);
         });
         // No need to update edit buttons as that is done dynamically
         setPaginationValues(req.offset, req.total); // Set pagination values
@@ -95,7 +95,7 @@ function updateSummaryTable() {
 }
 
 
-function addTableRowInformaiton(legacyStyle, sum) {
+function addTableRowInformation(legacyStyle, sum) {
   // Set row colour based on desc priority: resigned from store (red), inactive acc (yellow), manager (blue), then white 
   const rowColour = sum.acc_resigned ? 'table-danger' : (!sum.acc_active ? 'table-warning' : (sum.acc_manager ? 'table-info' : ''));
 
