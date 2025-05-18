@@ -9,9 +9,6 @@ $(document).ready(function() {
     updateShiftHistory();
   });
 
-  // Update store selection component
-  populateStoreSelection();
-
   // Handle deliveries adjustment
   handleDeliveryAdjustment();
 
