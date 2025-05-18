@@ -71,7 +71,7 @@ class AccountSetupForm(forms.Form):
         ),
     )
     phone_number = forms.CharField(
-        label="Phone Number (Optional)",
+        label="Phone Number",
         required=False,
         widget=forms.TextInput(
             attrs={
@@ -81,7 +81,7 @@ class AccountSetupForm(forms.Form):
         ),
     )
     birth_date = forms.DateField(
-        label="Date of Birth (Optional)",
+        label="Date of Birth",
         required=False,
         widget=forms.DateInput(
             attrs={
@@ -97,6 +97,16 @@ class AccountSetupForm(forms.Form):
         widget=forms.PasswordInput(
             attrs={
                 "placeholder": "Create a Password",
+                "class": "w-100 form-control form-control-lg",
+            }
+        ),
+    )
+    retype_password = forms.CharField(
+        label="Retype Password",
+        required=True,
+        widget=forms.PasswordInput(
+            attrs={
+                "placeholder": "Retype your Password",
                 "class": "w-100 form-control form-control-lg",
             }
         ),
@@ -167,13 +177,19 @@ class AccountSetupForm(forms.Form):
             )
         return password
 
+    def clean_retype_password(self):
+        password = self.cleaned_data.get("password", "")
+        retype_password = self.cleaned_data.get("retype_password", "")
+        if password != retype_password:
+            raise ValidationError("Both password fields must match.")
+
 
 class ManualClockingForm(forms.Form):
     store_pin = forms.CharField(
         label="Store PIN",
         required=True,
         max_length=255,
-        widget=forms.TextInput(
+        widget=forms.PasswordInput(
             attrs={
                 "placeholder": "Store PIN",
                 "maxlength": "255",
@@ -185,7 +201,7 @@ class ManualClockingForm(forms.Form):
     employee_pin = forms.CharField(
         label="Employee PIN",
         required=True,
-        widget=forms.TextInput(
+        widget=forms.PasswordInput(
             attrs={
                 "placeholder": "Employee PIN",
                 "class": "w-100 form-control form-control-lg",

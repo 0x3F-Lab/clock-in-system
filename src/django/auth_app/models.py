@@ -28,12 +28,12 @@ class User(models.Model):
 
     def __str__(self):
         role = ""
-        if self.is_manager:
-            role = " - MANAGER"
         if self.is_hidden:
             if self.is_manager:
                 role = " - MANAGER/HIDDEN"
             role = " - HIDDEN"
+        elif self.is_manager:
+            role = " - MANAGER"
 
         return f"[{self.id}] {self.first_name} {self.last_name} ({self.email}){role}"
 
@@ -242,12 +242,13 @@ class StoreUserAccess(models.Model):
 
     def __str__(self):
         role = "EMPLOYEE"
-        if self.user.is_manager:
-            role = "MANAGER"
         if self.user.is_hidden:
+            role = "HIDDEN"
             if self.user.is_manager:
                 role = "MANAGER/HIDDEN"
             role = "HIDDEN"
+        elif self.user.is_manager:
+            role = "MANAGER"
 
         return f"{self.user.first_name} {self.user.last_name} [{self.user.id}] → {self.store.code} ({role})"
 

@@ -1,11 +1,20 @@
+from django.contrib.sitemaps.views import sitemap
 from django.views.generic import TemplateView
 from django.urls import path
 from auth_app import views
+
+
+sitemaps = {
+    "static": views.StaticViewSitemap(),
+}
+
 
 urlpatterns = [
     path("", views.home_directory, name="home"),
     path("manifest.json", views.manifest, name="manifest"),
     path("sw.js", views.service_worker, name="service_worker"),
+    path("robots.txt", views.robots, name="robots"),
+    path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="sitemap"),
     path(
         "sw.js",
         TemplateView.as_view(

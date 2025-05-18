@@ -22,7 +22,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.0.4"  #
+STATIC_CACHE_VER = "v1.0.6"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sitemaps",
     "corsheaders",
     "widget_tweaks",
     "api",

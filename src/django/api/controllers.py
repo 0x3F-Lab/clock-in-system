@@ -74,13 +74,14 @@ def get_store_employee_names(
     return {user.id: f"{user.first_name} {user.last_name}" for user in users}
 
 
-def handle_clock_in(employee_id: int, store_id: int) -> Activity:
+def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Activity:
     """
     Handles clocking in an employee by ID.
 
     Args:
         employee_id (int): The employee's ID.
         store_id (int): The store's ID for which the clocking event will register.
+        manual (bool) = False: Whether the clock in is requested via manual clocking page or not. For logging purposes only.
 
     Returns:
         Activity: An activity object containing the information about the clock in.
@@ -133,10 +134,10 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
             )
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
-                f"[CREATE: ACTIVITY (ID: {activity.id})] [CLOCK-IN] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
+                f"[CREATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-IN] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
             )
             return activity
 
@@ -159,7 +160,9 @@ def handle_clock_in(employee_id: int, store_id: int) -> Activity:
         raise e
 
 
-def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activity:
+def handle_clock_out(
+    employee_id: int, deliveries: int, store_id: int, manual: bool = False
+) -> Activity:
     """
     Handles clocking out an employee by ID.
 
@@ -167,6 +170,7 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
         employee_id (int): The employee's ID.
         deliveries (int): Number of deliveries made during the shift.
         store_id (int): The store's ID for which the clocking event will register.
+        manual (bool) = False: Whether the clock out is requested via manual clocking page or not. For logging purposes only.
 
     Returns:
         Activity: An activity object containing the information about the clock out.
@@ -215,10 +219,10 @@ def handle_clock_out(employee_id: int, deliveries: int, store_id: int) -> Activi
             activity.save()
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
-                f"[UPDATE: ACTIVITY (ID: {activity.id})] [CLOCK-OUT] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
+                f"[UPDATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-OUT] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
             )
             return activity
 

@@ -797,6 +797,7 @@ def list_all_employee_details(request):
                 "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
                 "pin": emp.pin,
                 "is_active": emp.is_active,
+                "is_manager": emp.is_manager,
             }
             for emp in employees
         ]
@@ -1233,7 +1234,6 @@ def modify_account_information(request, id=None):
 
         # Validate and update DOB
         if dob:
-            logger.critical("PASSED")
             if not user.is_manager:
                 return Response(
                     {"Error": "Not authorised to modify your account date of birth."},

@@ -161,6 +161,19 @@ function hideSpinner() {
 }
 
 
+//////// HANDLE PASSWORD FIELD SHOWING ////////
+
+$(document).on('click', '.toggle-password', function () {
+  const $btn = $(this);
+  const $input = $btn.closest(".position-relative").find("input");
+  const isPassword = $input.attr("type") === "password";
+  const $icon = $btn.find("i");
+
+  $input.attr("type", isPassword ? "text" : "password");
+  $icon.toggleClass("fa-eye fa-eye-slash");
+});
+
+
 ////// PAGINATION CONTROLLER FUNCTIONS //////
 
 
@@ -333,61 +346,6 @@ function setPaginationValues(offset, totalCount) {
 
 
 ///////////////////// STORE SELECTION PANEL COMPONENT FUNCTIONS /////////////////////////
-
-function populateStoreSelection() {
-  $.ajax({
-    url: `${window.djangoURLs.listAssociatedStores}`,
-    type: "GET",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
-
-    success: function(response) {
-      const $dropdown = $('#storeSelectDropdown');
-      $dropdown.empty(); // Clear previous options
-
-      const keys = Object.keys(response);
-      if (keys.length > 0) {
-        $('#storeSelectionController').removeClass('d-none'); // Ensure whole component is visible
-        keys.forEach(storeID => {
-          const storeCode = response[storeID];
-          const option = `<option value="${storeID}">${storeCode}</option>`;
-          $dropdown.append(option);
-        });
-      } else {
-        $dropdown.append('<option value="">No stores available</option>');
-        $('#storeSelectionController').removeClass('d-none');
-        showNotification("Your account has no stores associated to it. Please contact a store manager to fix this.", "danger");
-      }
-
-      // Ensure first store/option is selected (regardless if there are no stores)
-      $dropdown.prop('selectedIndex', 0);
-
-      // Hide the whole store selection component if only one store in the list
-      if (keys.length <= 1) {
-        $('#storeSelectionController').addClass('d-none');
-      }
-      
-      // Trigger initial update events linked to store selection menu
-      $dropdown.trigger('change');
-    },
-
-    error: function(jqXHR, textStatus, errorThrown) {
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to load associated stores due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to load associated stores. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
-    }
-  });
-}
-
 
 function getSelectedStoreID() {
   const storeID = $('#storeSelectDropdown').val();
