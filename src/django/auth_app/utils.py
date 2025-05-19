@@ -278,10 +278,14 @@ def get_user_associated_stores_from_session(request):
     return store_data
 
 
-def get_default_page_context(request):
+def get_default_page_context(request, include_notifications: bool = False):
     """
     Get the user's context and User object from their user_id stored in their session information.
     If the user is NOT LOGGED IN, it returns an empty context dict and None for the User object.
+
+    Args:
+      - request: The request made to the endpoint by the user.
+      - include_notifications (bool) = False: Whether to include all the physical notifications instead of just the count.
     """
     # Get user's id
     employee_id = request.session.get("user_id", None)
@@ -309,38 +313,50 @@ def get_default_page_context(request):
 
     # Get user's notifications
     notifications = []
-    for notif in employee.get_unread_notifications().select_related("sender"):
-        if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
-            sender = "SYSTEM"
-        elif (
-            notif.notification_type == Notification.Type.SYSTEM_ALERT
-            or notif.notification_type == Notification.Type.ADMIN_NOTE
-        ) or not notif.sender:
-            sender = "ADMIN"
-        elif notif.sender.is_hidden:
-            sender = "ADMIN"
-        else:
-            sender = f"{notif.sender.first_name} {notif.sender.last_name}"
+    notifs = employee.get_unread_notifications().select_related("sender")
 
-        notifications.append(
-            {
-                "id": notif.id,
-                "title": notif.title,
-                "message": notif.message,
-                "type": notif.notification_type,
-                "sender": sender,
-                "created_at": notif.created_at,
-                "expires_on": notif.expires_on,
-                "store": notif.store.code if notif.store else None,
-                "store_broadcast": notif.broadcast_to_store,
-            }
-        )
+    if include_notifications:
+        for notif in notifs:
+            if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
+                sender = "SYSTEM"
+            elif (
+                notif.notification_type == Notification.Type.SYSTEM_ALERT
+                or notif.notification_type == Notification.Type.ADMIN_NOTE
+            ) or not notif.sender:
+                sender = "ADMIN"
+            elif notif.sender.is_hidden:
+                sender = "ADMIN"
+            else:
+                sender = f"{notif.sender.first_name} {notif.sender.last_name}"
 
+            notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": notif.message,
+                    "type": notif.notification_type,
+                    "sender": sender,
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
+                    "store_broadcast": notif.broadcast_to_store,
+                }
+            )
+
+        return {
+            "user_id": employee_id,
+            "user_name": employee.first_name,
+            "associated_stores": store_data,
+            "notifications": notifications,
+            "notification_count": notifs.count(),
+        }, employee
+
+    # Else, dont include notifications (SAVES WORK)
     return {
         "user_id": employee_id,
         "user_name": employee.first_name,
         "associated_stores": store_data,
-        "notifications": notifications,
+        "notification_count": notifs.count(),
     }, employee
 
 

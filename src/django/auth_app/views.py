@@ -384,7 +384,7 @@ def employee_dashboard(request):
 @require_http_methods(["GET", "POST"])
 def notification_page(request):
     try:
-        context, user = get_default_page_context(request)
+        context, user = get_default_page_context(request, include_notifications=True)
     except User.DoesNotExist:
         logger.critical(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(

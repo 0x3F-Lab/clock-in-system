@@ -39,17 +39,15 @@
             <button class="btn btn-lg btn-light border-0 bg-transparent position-relative d-flex align-items-center p-2" type="button" id="userDropdown"
               data-bs-toggle="dropdown" aria-expanded="false">
               <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
-              {% with notifications|length as notif_count %}
-                {% if notif_count > 0 %}
-                  <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-black fs-7">
-                    {% if notif_count > 9 %}
-                      9+
-                    {% else %}
-                      {{ notif_count }}
-                    {% endif %}
-                  </span>
-                {% endif %}
-              {% endwith %}
+              {% if notification_count > 0 %}
+                <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-black fs-7">
+                  {% if notification_count > 9 %}
+                    9+
+                  {% else %}
+                    {{ notification_count }}
+                  {% endif %}
+                </span>
+              {% endif %}
             </button>
 
             <ul class="dropdown-menu dropdown-menu-end shadow p-2 mt-3" aria-labelledby="userDropdown">
@@ -66,22 +64,20 @@
               </li>
               {% endif %}
 
-              {% with notifications|length as notif_count %}
               <li>
                 <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 w-100 fs-5" href="{% url 'notification_page' %}">
                   <span><i class="fa-solid fa-bell me-2"></i> Notifications</span>
-                  {% if notif_count > 0 %}
+                  {% if notification_count > 0 %}
                     <span class="badge bg-danger text-black">
-                      {% if notif_count > 9 %}
+                      {% if notification_count > 9 %}
                         9+
                       {% else %}
-                        {{ notif_count }}
+                        {{ notification_count }}
                       {% endif %}
                     </span>
                   {% endif %}
                 </a>
               </li>
-              {% endwith %}
 
               <li>
                 <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'logout' %}">
