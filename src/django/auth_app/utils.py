@@ -278,8 +278,16 @@ def get_user_associated_stores_from_session(request):
 
 
 def get_default_page_context(request):
+    """
+    Get the user's context and User object from their user_id stored in their session information.
+    If the user is NOT LOGGED IN, it returns an empty context dict and None for the User object.
+    """
     # Get user's id
-    employee_id = request.session.get("user_id")
+    employee_id = request.session.get("user_id", None)
+
+    # If the user is NOT LOGGED IN -> return empty context and NULL user
+    if employee_id is None:
+        return {}, None
 
     # Get employee data to check state
     try:

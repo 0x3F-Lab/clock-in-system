@@ -14,7 +14,6 @@ from auth_app.models import User, Store, Notification
 from auth_app.utils import (
     manager_required,
     employee_required,
-    get_user_associated_stores_from_session,
     get_default_page_context,
 )
 from auth_app.forms import (
@@ -198,6 +197,20 @@ def setup_account(request):
 @ensure_csrf_cookie
 @require_http_methods(["GET", "POST"])
 def manual_clocking(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
     if request.method == "POST":
         form = ManualClockingForm(request.POST)
 
@@ -212,22 +225,26 @@ def manual_clocking(request):
             if deliveries is None:
                 deliveries = 0
 
-            # Get user and store
+            # Get employee and store
             try:
-                user = User.objects.get(pin=employee_pin)
+                employee = User.objects.get(pin=employee_pin)
                 store = Store.objects.get(store_pin=store_pin)
             except (User.DoesNotExist, Store.DoesNotExist):
                 messages.error(request, "Invalid PIN combination.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
 
-            # Ensure user is assigned to the store
-            if not user.is_associated_with_store(store=store):
+            # Ensure employee is assigned to the store
+            if not employee.is_associated_with_store(store=store):
                 messages.error(
                     request, "The employee is not associated with the store."
                 )
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
 
-            # Ensure user is within range of the store's acceptable range
+            # Ensure employee is within range of the store's acceptable range
             dist = get_distance_from_lat_lon_in_m(
                 lat1=store.location_latitude,
                 lon1=store.location_longitude,
@@ -236,13 +253,15 @@ def manual_clocking(request):
             )
             if dist > store.allowable_clocking_dist_m:
                 messages.error(request, "Cannot clock in/out too far from the store.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
 
-            # Clock the user in/out
+            # Clock the employee in/out
             try:
-                if user.is_clocked_in(store=store):
+                if employee.is_clocked_in(store=store):
                     activity = handle_clock_out(
-                        employee_id=user.id,
+                        employee_id=employee.id,
                         deliveries=deliveries,
                         store_id=store.id,
                         manual=True,
@@ -250,41 +269,55 @@ def manual_clocking(request):
                     messages.success(request, "Successfully clocked out.")
                 else:
                     activity = handle_clock_in(
-                        employee_id=user.id, store_id=store.id, manual=True
+                        employee_id=employee.id, store_id=store.id, manual=True
                     )
                     messages.success(request, "Successfully clocked in.")
             except err.NotAssociatedWithStoreError:
                 messages.error(
                     request, "Cannot clock in/out to a non-associated store."
                 )
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except err.InactiveUserError:
                 messages.error(request, "Cannot clock in/out an inactive account.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except err.StartingShiftTooSoonError:
                 messages.error(request, "Cannot clock in too soon after clocking out.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except err.ClockingOutTooSoonError:
                 messages.error(request, "Cannot clock out too soon after clocking in.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except err.InactiveStoreError:
                 messages.error(request, "Cannot clock in/out to an inactive store.")
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except err.NoActiveClockingRecordError:
                 messages.error(
                     request,
                     "Could not clock out user due to bugged user state. State has been reset, please retry.",
                 )
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
             except Exception as e:
                 logger.warning(
-                    f"Failed to manually clock in/out employee with PIN {employee_pin} (ID: {user.id}) for store PIN {store_pin} (Code: {store.code}) due to the error: {e}"
+                    f"Failed to manually clock in/out employee with PIN {employee_pin} (ID: {employee.id}) for store PIN {store_pin} (Code: {store.code}) due to the error: {e}"
                 )
                 messages.error(
                     request,
                     "Could not manually clock in/out user due to internal errors. Please retry.",
                 )
-                return render(request, "auth_app/manual_clocking.html", {"form": form})
+                return render(
+                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                )
 
             # Reset the form
             return render(
@@ -302,16 +335,15 @@ def manual_clocking(request):
     else:
         form = ManualClockingForm()
 
-    return render(request, "auth_app/manual_clocking.html", {"form": form})
+    return render(request, "auth_app/manual_clocking.html", {**context, "form": form})
 
 
 @employee_required
 @ensure_csrf_cookie
 @require_GET
 def employee_dashboard(request):
-    associated_stores = None
     try:
-        associated_stores = get_user_associated_stores_from_session(request=request)
+        context, user = get_default_page_context(request)
     except User.DoesNotExist:
         logger.critical(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -322,9 +354,9 @@ def employee_dashboard(request):
             request,
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
+        return redirect("home")
 
-    user_id = request.session.get("user_id", None)
-    user = User.objects.get(id=user_id)
+    # Get the user's information and add it to existing context
     info = {
         "user_first_name": user.first_name,
         "user_last_name": user.last_name,
@@ -341,10 +373,10 @@ def employee_dashboard(request):
         "user_updated_date": (
             user.updated_at.strftime("%d/%m/%Y") if user.updated_at else None
         ),
-        "associated_stores": associated_stores,
     }
+    context.update(info)
 
-    return render(request, "auth_app/employee_dashboard.html", info)
+    return render(request, "auth_app/employee_dashboard.html", context)
 
 
 @employee_required
@@ -443,23 +475,50 @@ def notification_page(request):
 @ensure_csrf_cookie
 @require_GET
 def home_directory(request):
-    return render(request, "auth_app/home_directory.html")
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/home_directory.html", context)
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manager_dashboard(request):
-    return render(request, "auth_app/manager_dashboard.html")
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/manager_dashboard.html", context)
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_employee_details(request):
-    associated_stores = None
     try:
-        associated_stores = get_user_associated_stores_from_session(request=request)
+        context, user = get_default_page_context(request)
     except User.DoesNotExist:
         logger.critical(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -470,21 +529,17 @@ def manage_employee_details(request):
             request,
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
+        return redirect("home")
 
-    return render(
-        request,
-        "auth_app/manage_employee_details.html",
-        {"associated_stores": associated_stores},
-    )
+    return render(request, "auth_app/manage_employee_details.html", context)
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_shift_logs(request):
-    associated_stores = None
     try:
-        associated_stores = get_user_associated_stores_from_session(request=request)
+        context, user = get_default_page_context(request)
     except User.DoesNotExist:
         logger.critical(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -495,19 +550,17 @@ def manage_shift_logs(request):
             request,
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
+        return redirect("home")
 
-    return render(
-        request, "auth_app/shift_logs.html", {"associated_stores": associated_stores}
-    )
+    return render(request, "auth_app/shift_logs.html", context)
 
 
 @manager_required
 @ensure_csrf_cookie
 @require_GET
 def manage_account_summary(request):
-    associated_stores = None
     try:
-        associated_stores = get_user_associated_stores_from_session(request=request)
+        context, user = get_default_page_context(request)
     except User.DoesNotExist:
         logger.critical(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -518,12 +571,9 @@ def manage_account_summary(request):
             request,
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
+        return redirect("home")
 
-    return render(
-        request,
-        "auth_app/account_summary.html",
-        {"associated_stores": associated_stores},
-    )
+    return render(request, "auth_app/account_summary.html", context)
 
 
 @require_GET
