@@ -126,6 +126,19 @@ table {
   color: #fff;
 }
 
+/* CUSTOM COLOURS */
+.text-indigo {
+  color: #6610f2;
+}
+
+.text-cyan {
+  color: #0dcaf0;
+}
+
+.text-orange {
+  color: #d35400;
+}
+
 /* Notification badge for account icon in navbar */
 .badge.fs-7 {
   padding: 0.45em;

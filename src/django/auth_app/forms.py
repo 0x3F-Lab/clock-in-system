@@ -226,7 +226,10 @@ class ManualClockingForm(forms.Form):
 class NotificationForm(forms.Form):
     RECIPIENT_CHOICES = [
         ("store_managers", "Store Managers Only"),
-        ("store_employees", "Store Employees (Every active user in the store)"),
+        (
+            "store_employees",
+            "Store Employees (Every active user in your selected store)",
+        ),
         ("all_users", "All Users (Site-wide)"),
         ("site_admins", "Site Administrators"),
     ]
@@ -309,7 +312,10 @@ class NotificationForm(forms.Form):
         if user.is_manager:
             # Managers can send to other store employees
             recipient_choices.append(
-                ("store_employees", "Store Employees (Every active user in the store)")
+                (
+                    "store_employees",
+                    "Store Employees (Every active user in your selected store)",
+                )
             )
 
         if user.is_hidden:
