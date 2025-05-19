@@ -25,46 +25,78 @@
 <body class="d-flex flex-column min-vh-100">
   <nav class="navbar navbar-expand-sm navbar-dark bg-dark py-3 px-2 shadow-sm">
     <div class="container-fluid">
-      <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'home' %}">
+      <!-- Logo + Home Link -->
+      <a class="navbar-brand d-flex flex-row align-items-center gap-2" href="{% url 'home' %}">
         <img src="{% static 'img/logo.png' %}" alt="Site Logo" style="height: 40px;">
+        <span class="text-white ms-3"><u><i class="fa-solid fa-house"></i> Home</u></span>
       </a>
-  
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#navbarContent"
-        aria-controls="navbarContent"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-  
-      <div class="collapse navbar-collapse" id="navbarContent">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <!-- You can add nav links here -->
-        </ul>
-  
-        <div class="d-flex flex-sm-row flex-column align-items-center align-items-stretch gap-2 w-100 mt-3 mt-sm-0 justify-content-end">
-          {% if request.session.is_manager %}
-          <a href="{% url 'manager_dashboard' %}" class="btn btn-outline-info d-flex align-items-center">
-            <i class="fa-solid fa-chart-line me-1"></i> Manager Dash
-          </a>
-          {% endif %}
-          {% if request.session.user_id %}
-          <a href="{% url 'dashboard' %}" class="btn btn-outline-success d-flex align-items-center">
-            <i class="fa-solid fa-user-clock me-1"></i> Employee Dash
-          </a>
-          <a href="{% url 'logout' %}" class="btn btn-outline-danger d-flex align-items-center">
-            <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Logout
-          </a>
-          {% else %}
+
+      <!-- Right-side controls -->
+      <div class="d-flex align-items-center ms-auto">
+        {% if request.session.user_id %}
+          <!-- User Dropdown -->
+          <div class="dropdown">
+            <button class="btn btn-lg btn-light border-0 bg-transparent position-relative d-flex align-items-center p-2" type="button" id="userDropdown"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
+              {% with notifications|length as notif_count %}
+                {% if notif_count > 0 %}
+                  <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-black fs-7">
+                    {% if notif_count > 9 %}
+                      9+
+                    {% else %}
+                      {{ notif_count }}
+                    {% endif %}
+                  </span>
+                {% endif %}
+              {% endwith %}
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end shadow p-2 mt-3" aria-labelledby="userDropdown">
+              <li>
+                <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'dashboard' %}">
+                  <i class="fa-solid fa-user-clock me-2"></i> Employee Dash
+                </a>
+              </li>
+              {% if request.session.is_manager %}
+              <li>
+                <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'manager_dashboard' %}">
+                  <i class="fa-solid fa-chart-line me-2"></i> Manager Dash
+                </a>
+              </li>
+              {% endif %}
+
+              {% with notifications|length as notif_count %}
+              <li>
+                <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 w-100 fs-5" href="{% url 'notification_page' %}">
+                  <span><i class="fa-solid fa-bell me-2"></i> Notifications</span>
+                  {% if notif_count > 0 %}
+                    <span class="badge bg-danger text-black">
+                      {% if notif_count > 9 %}
+                        9+
+                      {% else %}
+                        {{ notif_count }}
+                      {% endif %}
+                    </span>
+                  {% endif %}
+                </a>
+              </li>
+              {% endwith %}
+
+              <li>
+                <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'logout' %}">
+                  <i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Logout
+                </a>
+              </li>
+            </ul>
+          </div>
+
+        {% else %}
+          <!-- Login Button -->
           <a href="{% url 'login' %}" class="btn btn-outline-light d-flex align-items-center">
             <i class="fa-solid fa-right-to-bracket me-1"></i> Login
           </a>
-          {% endif %}
-        </div>
+        {% endif %}
       </div>
     </div>
   </nav>

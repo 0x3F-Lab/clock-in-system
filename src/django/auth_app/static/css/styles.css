@@ -126,6 +126,18 @@ table {
   color: #fff;
 }
 
+/* Notification badge for account icon in navbar */
+.badge.fs-7 {
+  padding: 0.45em;
+  min-width: 1.6em;
+  height: 1.6em;
+  line-height: 1.1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50% !important;
+}
+
 /* If you still want the login box centered, apply flex styling only to the login container */
 .login-container {
     display: flex;
@@ -216,17 +228,6 @@ table {
 
 .button-container button:focus {
     outline: none;
-}
-
-/* Employee Dashboard container */
-.employee-dashboard {
-    display: flex;
-    flex-direction: column; /* Stack panels vertically */
-    justify-content: center;
-    align-items: center;
-    width: 100%; /* Make it slightly wider */
-    max-width: 1500px; /* Limit the maximum width */
-    gap: 30px; /* Add spacing between the panels */
 }
 
 /* Left panel styling */
@@ -366,27 +367,6 @@ table {
     border-color: #4CAF50;
 }
 
-/* Login button styling */
-.login-button {
-    width: 100%;
-    padding: 12px;
-    font-size: 1.2rem;
-    border: none;
-    border-radius: 5px;
-    background-color: #4CAF50;
-    color: white;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.login-button:hover {
-    background-color: #45a049;
-}
-
-.login-button:focus {
-    outline: none;
-}
-
 /* Styling for messages */
 .message {
     margin-top: 20px;
@@ -413,142 +393,3 @@ table {
     border-radius: 5px;
     width: 50%;
 }
-
-/* 
-  =====================================
-    Styling the weekly summary filtering options
-  =====================================
-*/
-.filter-card {
-    margin-bottom: 30px;
-    padding: 25px;
-    border: 2px solid #ccc;
-    border-radius: 12px;
-    background-color: #2d3748;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  
-    max-width: 600px;   
-    /* Instead of margin-left: auto; margin-right: auto; */
-    /* just remove it, or explicitly do: */
-    margin-left: 0;
-    margin-right: auto; 
-  }
-  
-  .filter-card h2 {
-    margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 1.5rem;
-    color: #f4f4f9;
-    text-align: left;
-  }
-  
-
-  .filter-group-inline {
-    display: flex;
-    gap: 30px;            
-    margin-bottom: 20px;    
-    flex-wrap: wrap;       
-  }
-  
-  .inline-field {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .filter-group {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 20px;
-  }
-  
-  .filter-group label,
-  .inline-field label,
-  .filter-group-inline label {
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: #f4f4f9;
-    margin-bottom: 10px;
-  }
-  
-  .filter-group input[type="date"],
-  .filter-group input[type="text"],
-  .inline-field input[type="date"] {
-    width: 100%;
-    max-width: 400px;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    font-size: 1.1rem;
-    background-color: #f4f4f9;
-    color: #333;
-    margin-bottom: 10px;
-  }
-  
-  .filter-group input[type="text"]::placeholder {
-    color: #888;
-  }
-  
-
-  .filter-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px; 
-    margin-top: 10px;
-  }
-  
-  .filter-card button {
-    padding: 14px 28px;
-    font-size: 1.1rem;
-    border: none;
-    border-radius: 8px;
-    background-color: #4CAF50;
-    color: white;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-  
-  .filter-card button:hover {
-    background-color: #45a049;
-  }
-  
-  .filter-card button:focus {
-    outline: none;
-  }
-
-
-  .full-page-center {
-    min-height: 100vh;            /* Let it fill the screen height */
-    display: flex;                /* Flex container */
-    flex-direction: column;       /* Stack content vertically (if needed) */
-    justify-content: center;      /* Center vertically */
-    align-items: center;          /* Center horizontally */
-    margin: 0;                    /* Remove default body margin */
-    padding: 0;
-    box-sizing: border-box;       /* Good practice for sizing */
-    background-color: #1a202c;    /* Dark background if you want consistency */
-  }
-  
-  .centered-container {
-    max-width: 1000px;      /* Adjust to the width you prefer */
-    text-align: center;
-    margin: 0 auto;         /* Center horizontally */
-    padding: 20px;          /* Spacing around the content */
-    background-color: #1a202c; /* If you want your dark background here */
-    color: #f4f4f9;         /* Light text color, if desired */
-    box-sizing: border-box; /* Good practice for width calculations */
-  }
-  
-  
-  /* A container that limits the width of the form 
-   and centers it horizontally when inside .full-page-center */
-.form-container {
-    max-width: 400px; /* Adjust as you like (300, 400, 600px, etc.) */
-    width: 100%;
-    padding: 20px;
-    box-sizing: border-box;
-    background-color: #fff; /* optional background for contrast */
-    color: #333;            /* optional text color change */
-    border-radius: 8px;     /* optional rounded corners */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* optional shadow */
-  }
-  
