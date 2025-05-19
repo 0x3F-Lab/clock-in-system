@@ -7,7 +7,22 @@ $(document).ready(function () {
 
   // Function to handle switching between the multiple pages on the notification page (i.e. seeing notifications to sending notifications)
   handleNotificationPageSwitching();
+
+  // Handle message field input -> change current characters
+  $('#id_message').on('input', () => {
+    updateCharCount();
+  });
+
+  // Initial char count update
+  updateCharCount();
 });
+
+
+function updateCharCount() {
+  const max = $('#id_message').attr('maxlength');
+  const len = $('#id_message').val().length;
+  $('#charCount').text(`${len}/${max} Characters`)
+}
 
 
 function handleNotificationPageSwitching() {

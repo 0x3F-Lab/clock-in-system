@@ -433,10 +433,22 @@ def notification_page(request):
                     sender=user,
                 )
 
-            elif recipient_group == "site_admins":
+            elif recipient_group == "site_admins" and user.is_hidden:
                 admins = User.objects.filter(is_active=True, is_hidden=True).distinct()
                 notif = Notification.send_to_users(
                     users=admins,
+                    title=title,
+                    message=message,
+                    notification_type=notification_type,
+                    sender=user,
+                )
+
+            elif recipient_group == "all_managers":
+                managers = User.objects.filter(
+                    is_active=True, is_manager=True
+                ).distinct()
+                notif = Notification.send_to_users(
+                    users=managers,
                     title=title,
                     message=message,
                     notification_type=notification_type,

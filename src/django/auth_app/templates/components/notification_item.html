@@ -26,7 +26,7 @@
 
   <div class="collapse mt-3" id="notif-info-{{ n.id }}">
     <div class="card card-body bg-light text-dark">
-      <p class="mb-2">{{ n.message }}</p>
+      <p class="mb-2">{{ n.message|linebreaksbr }}</p>
       <p class="mb-1"><strong>Expires:</strong> {{ n.expires_on|date:"M j, Y" }}</p>
       <p class="mb-0"><strong>Sent To:</strong>
         {% if n.store_broadcast %}

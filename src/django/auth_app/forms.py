@@ -231,6 +231,7 @@ class NotificationForm(forms.Form):
             "Store Employees (Every active user in your selected store)",
         ),
         ("all_users", "All Users (Site-wide)"),
+        ("all_managers", "All Managers (Site-wide)"),
         ("site_admins", "Site Administrators"),
     ]
 
@@ -245,6 +246,8 @@ class NotificationForm(forms.Form):
     message = forms.CharField(
         required=True,
         label="Message",
+        max_length=750,
+        help_text="Max 750 characters. Newlines and Unicode allowed.",
         widget=forms.Textarea(
             attrs={"rows": 4, "class": "w-100 p-2", "placeholder": "Enter message"}
         ),
@@ -320,7 +323,11 @@ class NotificationForm(forms.Form):
 
         if user.is_hidden:
             # Hidden (super admins) can send to all users site-wide
-            recipient_choices.append(("all_users", "All Users (Site-wide)"))
+            recipient_choices.append(
+                ("all_users", "All Users (Site-wide)"),
+                ("all_managers", "All Managers (Site-wide)"),
+            )
+
         self.fields["recipient_group"].choices = recipient_choices
 
     def clean_notification_type(self):
@@ -350,12 +357,27 @@ class NotificationForm(forms.Form):
 
         return notification_type
 
+    def clean_recipient_group(self):
+        recipient_group = self.cleaned_data.get("recipient_group")
+
+        # Validate options
+        if recipient_group not in self.RECIPIENT_CHOICES:
+            raise ValidationError("Invalid recipient group choice.")
+
+        return recipient_group
+
+    def clean_message(self):
+        msg = self.cleaned_data["message"]
+        if len(msg.strip()) == 0:
+            raise ValidationError("Message cannot be empty or just whitespace.")
+        return msg
+
     def clean(self):
         cleaned_data = super().clean()
         recipient_group = cleaned_data.get("recipient_group")
         store = cleaned_data.get("store")
 
-        if recipient_group != "all_users" and not store:
+        if not store and recipient_group not in ["all_users", "all_managers"]:
             raise ValidationError(
                 "You must select a store for store-based notifications."
             )
