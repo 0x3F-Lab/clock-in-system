@@ -312,10 +312,10 @@ def get_default_page_context(request, include_notifications: bool = False):
     store_data = {store.id: store.code for store in stores}
 
     # Get user's notifications
-    notifications = []
     notifs = employee.get_unread_notifications().select_related("sender")
 
     if include_notifications:
+        notifications = []
         for notif in notifs:
             if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
                 sender = "SYSTEM"

@@ -38,6 +38,12 @@ function handleNotificationPageSwitching() {
 
     notifButton.addClass("active");
     sendButton.removeClass("active");
+
+    try {
+      localStorage.setItem("notificationTab", "notifications");
+    } catch (e) {
+      // Fail silently
+    }
   });
 
   sendButton.on("click", function () {
@@ -46,7 +52,26 @@ function handleNotificationPageSwitching() {
 
     sendButton.addClass("active");
     notifButton.removeClass("active");
+
+    try {
+      localStorage.setItem("notificationTab", "send");
+    } catch (e) {
+      // Fail silently
+    }
   });
+
+  // Check page's last state on page load to ensure user gets directed to same page
+  try {
+    const lastTab = localStorage.getItem("notificationTab");
+    if (lastTab === "send") {
+      sendButton.trigger("click");
+    } else {
+      notifButton.trigger("click");
+    }
+  } catch (e) {
+    // Fail silently if localStorage access throws
+    notifButton.trigger("click");
+  }
 }
 
 

@@ -247,8 +247,8 @@ class NotificationForm(forms.Form):
             "store_employees",
             "Store Employees (Every active user in your selected store)",
         ),
-        ("all_users", "All Users (Site-wide)"),
-        ("all_managers", "All Managers (Site-wide)"),
+        ("all_users", "All Active Users (Site-wide)"),
+        ("all_managers", "All Active Managers (Site-wide)"),
         ("site_admins", "Site Administrators"),
     ]
 
@@ -349,8 +349,10 @@ class NotificationForm(forms.Form):
 
         if user.is_hidden:
             # Hidden (super admins) can send to all users site-wide
-            recipient_choices.append(("all_users", "All Users (Site-wide)"))
-            recipient_choices.append(("all_managers", "All Managers (Site-wide)"))
+            recipient_choices.append(("all_users", "All Active Users (Site-wide)"))
+            recipient_choices.append(
+                ("all_managers", "All Active Managers (Site-wide)")
+            )
 
         self.fields["recipient_group"].choices = recipient_choices
 
