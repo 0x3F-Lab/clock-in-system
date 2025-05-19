@@ -1,8 +1,12 @@
 import re
+import markdown
 
+from bleach import clean
 from django import forms
 from django.utils.timezone import now
+from django.utils.html import linebreaks
 from django.core.exceptions import ValidationError
+from auth_app.utils import sanitise_plain_text
 from auth_app.models import User, Notification, Store
 from clock_in_system.settings import (
     VALID_NAME_PATTERN,
@@ -36,7 +40,8 @@ class LoginForm(forms.Form):
     )
 
     def clean_email(self):
-        return self.cleaned_data.get("email", "").strip().lower()
+        email = self.cleaned_data.get("email", "")
+        return sanitise_plain_text(email).lower()
 
 
 class AccountSetupForm(forms.Form):
@@ -113,7 +118,8 @@ class AccountSetupForm(forms.Form):
     )
 
     def clean_email(self):
-        email = self.cleaned_data.get("email", "").strip().lower()
+        email = self.cleaned_data.get("email", "")
+        email = sanitise_plain_text(email).lower()
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -123,7 +129,7 @@ class AccountSetupForm(forms.Form):
         return email
 
     def clean_first_name(self):
-        first_name = self.cleaned_data.get("first_name", "").strip()
+        first_name = sanitise_plain_text(self.cleaned_data.get("first_name", ""))
         if len(first_name) > 100:
             raise ValidationError(
                 "First name cannot be longer than 100 characters long."
@@ -133,7 +139,7 @@ class AccountSetupForm(forms.Form):
         return first_name.title()
 
     def clean_last_name(self):
-        last_name = self.cleaned_data.get("last_name", "").strip()
+        last_name = sanitise_plain_text(self.cleaned_data.get("last_name", ""))
         if len(last_name) > 100:
             raise ValidationError(
                 "Last name cannot be longer than 100 characters long."
@@ -145,6 +151,7 @@ class AccountSetupForm(forms.Form):
     def clean_phone_number(self):
         phone = self.cleaned_data.get("phone_number", "") or None
         if phone:
+            phone = sanitise_plain_text(phone)
             if len(phone) > 15:
                 raise ValidationError(
                     "Phone number cannot be longer than 15 characters long."
@@ -162,7 +169,7 @@ class AccountSetupForm(forms.Form):
         return dob
 
     def clean_password(self):
-        password = self.cleaned_data.get("password", "")
+        password = sanitise_plain_text(self.cleaned_data.get("password", ""))
         if len(password) < PASSWORD_MIN_LENGTH:
             raise ValidationError(
                 f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
@@ -178,8 +185,10 @@ class AccountSetupForm(forms.Form):
         return password
 
     def clean_retype_password(self):
-        password = self.cleaned_data.get("password", "")
-        retype_password = self.cleaned_data.get("retype_password", "")
+        password = sanitise_plain_text(self.cleaned_data.get("password", ""))
+        retype_password = sanitise_plain_text(
+            self.cleaned_data.get("retype_password", "")
+        )
         if password != retype_password:
             raise ValidationError("Both password fields must match.")
 
@@ -221,6 +230,14 @@ class ManualClockingForm(forms.Form):
     longitude = forms.DecimalField(
         required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
     )
+
+    def clean_store_pin(self):
+        store_pin = sanitise_plain_text(self.cleaned_data.get("store_pin", ""))
+        return store_pin
+
+    def clean_employee_pin(self):
+        employee_pin = sanitise_plain_text(self.cleaned_data.get("employee_pin", ""))
+        return employee_pin
 
 
 class NotificationForm(forms.Form):
@@ -383,10 +400,77 @@ class NotificationForm(forms.Form):
         return recipient_group
 
     def clean_message(self):
-        msg = self.cleaned_data["message"]
-        if len(msg.strip()) == 0:
+        msg = self.cleaned_data["message"].strip()
+
+        # Render markdown to HTML
+        html = markdown.markdown(
+            msg,
+            extensions=[
+                "markdown.extensions.extra",
+                "markdown.extensions.sane_lists",
+            ],
+        )
+
+        # Sanitise rendered HTML (allow only formatting tags)
+        safe_html = clean(
+            html,
+            tags=[
+                "b",
+                "strong",
+                "i",
+                "em",
+                "u",
+                "blockquote",
+                "code",
+                "ul",
+                "ol",
+                "li",
+                "br",
+                "del",
+                "strike",
+            ],
+            attributes={},
+            strip=True,
+        )
+
+        # Remove leading/trailing <br> tags
+        safe_html = re.sub(r"^(<br\s*/?>)+", "", safe_html)
+        safe_html = re.sub(r"(<br\s*/?>)+$", "", safe_html)
+        # Remove leading/trailing empty <p> tags (including whitespace inside)
+        safe_html = re.sub(r"^(<p>\s*</p>)+", "", safe_html)
+        safe_html = re.sub(r"(<p>\s*</p>)+$", "", safe_html)
+
+        # Remove all tags to validate if there's text content
+        bleached_html = clean(safe_html, tags=[], strip=True).strip()
+
+        if len(bleached_html) == 0:
             raise ValidationError("Message cannot be empty or just whitespace.")
-        return msg
+        if len(bleached_html) > 1000:
+            raise ValidationError("Message cannot exceed 1000 characters.")
+
+        return safe_html
+
+    def clean_title(self):
+        title = self.cleaned_data["title"]
+
+        # Render markdown to HTML
+        html = markdown.markdown(title, extensions=["markdown.extensions.extra"])
+
+        # Sanitise rendered HTML (allow only formatting tags)
+        safe_html = clean(
+            html,
+            tags=["b", "strong", "i", "em", "u"],
+            attributes={},
+            strip=True,
+        )
+        bleached_html = clean(safe_html, tags=[], strip=True).strip()
+
+        if len(bleached_html) == 0:
+            raise ValidationError("Title cannot be empty or just whitespace.")
+        if len(bleached_html) > 200:
+            raise ValidationError("Title cannot exceed 200 characters.")
+
+        return safe_html
 
     def clean(self):
         cleaned_data = super().clean()

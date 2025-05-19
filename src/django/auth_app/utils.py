@@ -1,5 +1,6 @@
 import api.exceptions as err
 
+from bleach import clean
 from functools import wraps
 from rest_framework import status
 from django.shortcuts import redirect
@@ -341,3 +342,7 @@ def get_default_page_context(request):
         "associated_stores": store_data,
         "notifications": notifications,
     }, employee
+
+
+def sanitise_plain_text(value: str) -> str:
+    return clean(value, tags=[], strip=True).strip()

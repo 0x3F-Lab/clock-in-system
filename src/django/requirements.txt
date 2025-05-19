@@ -3,6 +3,7 @@ asgiref==3.8.1
 async-timeout==5.0.1
 billiard==4.2.1
 black==25.1.0
+bleach==6.2.0
 celery==5.5.2
 certifi==2025.1.31
 cfgv==3.4.0
@@ -25,6 +26,7 @@ identify==2.6.10
 idna==3.10
 iniconfig==2.1.0
 kombu==5.5.3
+Markdown==3.8
 mypy-extensions==1.0.0
 nodeenv==1.9.1
 packaging==25.0
@@ -53,3 +55,4 @@ urllib3==2.4.0
 vine==5.1.0
 virtualenv==20.30.0
 wcwidth==0.2.13
+webencodings==0.5.1
