@@ -313,10 +313,11 @@ def get_default_page_context(request):
             sender = "SYSTEM"
         elif (
             notif.notification_type == Notification.Type.SYSTEM_ALERT
+            or notif.notification_type == Notification.Type.ADMIN_NOTE
         ) or not notif.sender:
-            sender = "ADMINISTRATORS"
+            sender = "ADMIN"
         elif notif.sender.is_hidden:
-            sender = "ADMINISTRATORS"
+            sender = "ADMIN"
         else:
             sender = f"{notif.sender.first_name} {notif.sender.last_name}"
 

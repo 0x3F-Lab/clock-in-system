@@ -300,8 +300,17 @@ class NotificationForm(forms.Form):
             )
 
         if user.is_hidden:
-            type_choices.append(
-                (Notification.Type.SYSTEM_ALERT, Notification.Type.SYSTEM_ALERT.label)
+            type_choices.extend(
+                [
+                    (
+                        Notification.Type.SYSTEM_ALERT,
+                        Notification.Type.SYSTEM_ALERT.label,
+                    ),
+                    (
+                        Notification.Type.ADMIN_NOTE,
+                        Notification.Type.ADMIN_NOTE.label,
+                    ),
+                ]
             )
 
         self.fields["notification_type"].choices = type_choices
@@ -323,16 +332,15 @@ class NotificationForm(forms.Form):
 
         if user.is_hidden:
             # Hidden (super admins) can send to all users site-wide
-            recipient_choices.append(
-                ("all_users", "All Users (Site-wide)"),
-                ("all_managers", "All Managers (Site-wide)"),
-            )
+            recipient_choices.append(("all_users", "All Users (Site-wide)"))
+            recipient_choices.append(("all_managers", "All Managers (Site-wide)"))
 
         self.fields["recipient_group"].choices = recipient_choices
 
     def clean_notification_type(self):
         notification_type = self.cleaned_data.get("notification_type")
         recipient_group = self.cleaned_data.get("recipient_group")
+        print(recipient_group)
 
         # Validate combinations
         if (
@@ -341,13 +349,15 @@ class NotificationForm(forms.Form):
         ):
             raise ValidationError("Manager Notes can only be sent to Store Employees.")
 
-        if (
+        elif (
             notification_type == Notification.Type.SYSTEM_ALERT
-            and recipient_group != "all_users"
+            and recipient_group not in ["all_users", "all_managers"]
         ):
-            raise ValidationError("System Alerts can only be sent to all users.")
+            raise ValidationError(
+                "System Alerts can only be sent to all users or all managers."
+            )
 
-        if (
+        elif (
             notification_type == Notification.Type.SCHEDULE_CHANGE
             and recipient_group != "store_employees"
         ):
@@ -355,13 +365,19 @@ class NotificationForm(forms.Form):
                 "Schedule Change notifications must target store employees."
             )
 
+        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
+            raise ValidationError("Cannot use message type Automatic Alert.")
+
+        elif notification_type not in Notification.Type:
+            raise ValidationError("Invalid notification type.")
+
         return notification_type
 
     def clean_recipient_group(self):
         recipient_group = self.cleaned_data.get("recipient_group")
 
         # Validate options
-        if recipient_group not in self.RECIPIENT_CHOICES:
+        if not any(key == recipient_group for key, _ in self.RECIPIENT_CHOICES):
             raise ValidationError("Invalid recipient group choice.")
 
         return recipient_group
