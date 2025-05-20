@@ -138,7 +138,6 @@ def test_update_shift_details_success(
     api_client = logged_in_manager
     login_time = localtime(now() - timedelta(hours=2))
     logout_time = localtime(now() - timedelta(hours=1))
-    print(logout_time)
 
     activity = Activity.objects.create(
         employee=employee,
@@ -154,7 +153,6 @@ def test_update_shift_details_success(
     new_logout_time = localtime(now() - timedelta(minutes=30)).replace(
         second=0, microsecond=0
     )
-    print(new_logout_time)
     response = api_client.patch(
         reverse("api:update_shift_details", args=[activity.id]),
         data={
@@ -644,13 +642,10 @@ def test_list_account_summaries_full_hour_breakdown(
 
     # Setup reference times
     weekday = today - timedelta(days=(today.weekday() - 0) % 7)  # Last Monday
-    print(weekday.weekday())
     weekend = today - timedelta(days=(today.weekday() - 5) % 7)  # Last Saturday
-    print(weekend.weekday())
     holiday = today - timedelta(
         days=(today.weekday() - 4) % 7
     )  # Last Friday which will be counted as a "public holiday"
-    print(holiday.weekday())
 
     activities = [
         # Weekday activity 3HRS
