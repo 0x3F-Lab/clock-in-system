@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 
 def str_to_bool(value):
@@ -31,7 +32,7 @@ STATIC_CACHE_VER = "v1.1.0"  #
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-LOGIN_URL = "/login/"
+LOGIN_URL = "/login"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -110,6 +111,7 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "corsheaders",
     "widget_tweaks",
+    "django_celery_beat",
     "api",
     "auth_app",
 ]
@@ -191,9 +193,7 @@ CELERY_RESULT_SERIALIZER = "json"  # Serialize results as JSON
 CELERY_TIMEZONE = os.getenv(
     "TZ", "Australia/Perth"
 )  # Set the default timezone (you can change this to your preferred timezone)
-CELERY_ENABLE_UTC = (
-    True  # Enable UTC (best practice for Celery) -- STORES ALL TIMES AS UTC
-)
+CELERY_ENABLE_UTC = False  # Keep local time (for schedules)
 
 CELERY_TASK_RESULT_EXPIRES = 345600  # Results expire after 4 days
 CELERY_TASK_DEFAULT_RETRY_DELAY = 30  # Retry delay in seconds
@@ -204,12 +204,12 @@ CELERY_TASK_SOFT_TIME_LIMIT = (
 )
 
 # Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
-# CELERY_BEAT_SCHEDULE = {
-#     'my_periodic_task': {
-#         'task': 'myapp.tasks.my_periodic_task',  # Path to the task to run periodically
-#         'schedule': crontab(minute='0', hour='0'),  # This will run the task every day at midnight
-#     },
-# }
+CELERY_BEAT_SCHEDULE = {
+    "check_clocked_in_users": {
+        "task": "auth_app.tasks.check_clocked_in_users",
+        "schedule": crontab(hour=13, minute=28),
+    },
+}
 
 
 # Password validation
@@ -306,9 +306,7 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": os.getenv(
-                "LOG_LEVEL_CONSOLE", "INFO"
-            ).upper(),  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            "level": os.getenv("LOG_LEVEL_CONSOLE", "INFO").upper(),
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
@@ -316,6 +314,12 @@ LOGGING = {
             "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
             "filename": "./debug.log",
+            "formatter": "verbose",
+        },
+        "tasks": {
+            "level": os.getenv("LOG_LEVEL_TASKS_FILE", "DEBUG").upper(),
+            "class": "logging.FileHandler",
+            "filename": "./tasks.log",
             "formatter": "verbose",
         },
     },
@@ -336,12 +340,12 @@ LOGGING = {
             "propagate": False,
         },
         "celery": {  # Celery-specific logger
-            "handlers": ["console"],
+            "handlers": ["console", "tasks"],
             "level": "INFO",
             "propagate": False,
         },
-        "celery.beat": {  # Celery Beat-specific logger
-            "handlers": ["console"],
+        "celery_beat": {  # Celery Beat-specific logger
+            "handlers": ["console", "tasks"],
             "level": "INFO",
             "propagate": False,
         },

@@ -1,3 +1,5 @@
+import re
+import markdown
 import api.exceptions as err
 
 from bleach import clean
@@ -362,3 +364,64 @@ def get_default_page_context(request, include_notifications: bool = False):
 
 def sanitise_plain_text(value: str) -> str:
     return clean(value, tags=[], strip=True).strip()
+
+
+def sanitise_markdown_message_text(value: str) -> str:
+    """
+    Function to sanitise and apply markdown conversions to notification messages.
+    """
+    # Render markdown to HTML
+    html = markdown.markdown(
+        value.strip(),
+        extensions=[
+            "markdown.extensions.extra",
+            "markdown.extensions.sane_lists",
+        ],
+    )
+
+    # Sanitise rendered HTML (allow only formatting tags)
+    safe_html = clean(
+        html,
+        tags=[
+            "b",
+            "strong",
+            "i",
+            "em",
+            "u",
+            "blockquote",
+            "code",
+            "ul",
+            "ol",
+            "li",
+            "br",
+            "del",
+            "strike",
+        ],
+        attributes={},
+        strip=True,
+    )
+
+    # Remove leading/trailing <br> tags
+    safe_html = re.sub(r"^(<br\s*/?>)+", "", safe_html)
+    safe_html = re.sub(r"(<br\s*/?>)+$", "", safe_html)
+    # Remove leading/trailing empty <p> tags (including whitespace inside)
+    safe_html = re.sub(r"^(<p>\s*</p>)+", "", safe_html)
+    safe_html = re.sub(r"(<p>\s*</p>)+$", "", safe_html)
+
+    return safe_html
+
+
+def sanitise_markdown_title_text(value: str) -> str:
+    """
+    Function to sanitise and apply markdown conversions to notification titles.
+    """
+    # Render markdown to HTML
+    html = markdown.markdown(value.strip(), extensions=["markdown.extensions.extra"])
+
+    # Sanitise rendered HTML (allow only formatting tags)
+    return clean(
+        html,
+        tags=["b", "strong", "i", "em", "u", "code", "del", "strike"],
+        attributes={},
+        strip=True,
+    )

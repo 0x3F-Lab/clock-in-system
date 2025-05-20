@@ -36,6 +36,7 @@ services:
     command: celery -A clock_in_system worker --loglevel=info
     volumes:
       - ./django/debug.log:/app/debug.log:rw
+      - ./django/tasks.log:/app/tasks.log:rw
     env_file:
       - .env
     depends_on:
@@ -45,9 +46,10 @@ services:
   celery-beat:
     container_name: CeleryBeat
     build: ./django
-    command: celery -A clock_in_system beat --loglevel=info
+    command: celery -A clock_in_system beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - ./django/debug.log:/app/debug.log:rw
+      - ./django/tasks.log:/app/tasks.log:rw
     env_file:
       - .env
     depends_on:

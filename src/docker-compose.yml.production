@@ -8,6 +8,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
       - ~/debug.log:/app/debug.log      # Add file to ensure easy access to the debug log file
+      - ~/tasks.log:/app/tasks.log
     env_file:
       - .env.production
     ports:
@@ -24,6 +25,7 @@ services:
     command: celery -A your_project worker --loglevel=info
     volumes:
       - ./django/debug.log:/app/debug.log:rw
+      - ./django/tasks.log:/app/tasks.log:rw
     env_file:
       - .env.production
     depends_on:
@@ -34,9 +36,10 @@ services:
     container_name: celerybeat
     restart: always
     image: django
-    command: celery -A your_project beat --loglevel=info
+    command: celery -A your_project beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - ./django/debug.log:/app/debug.log:rw
+      - ./django/tasks.log:/app/tasks.log:rw
     env_file:
       - .env.production
     depends_on:
