@@ -54,14 +54,16 @@ BASE_URL = os.getenv(
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
 
 # Cookies
-SESSION_COOKIE_AGE = 604800  # 7 days
+SESSION_COOKIE_AGE = 691200  # 8 days
+SESSION_SAVE_EVERY_REQUEST = True  # Reset session expiry on each request
 SESSION_EXPIRE_AT_BROWSER_CLOSE = (
     False  # Set to True if you want the session to end on browser close
 )
 
 # Secure cookie settings
-CSRF_USE_SESSIONS = False  # Disabled as it can break for some users who disable presistent sessions/cookies.
-CSRF_COOKIE_AGE = 604800
+# True means CSRF token is saved in user's session and NO COOKIE IS SENT -> this should be fine as the token is RENDERED on the page instead of read from cookies
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_AGE = 691200  # 8 days
 CSRF_COOKIE_SECURE = str_to_bool(
     os.getenv("CSRF_COOKIE_SECURE", "False")
 )  # Use True in production to send cookies over HTTPS only
@@ -120,6 +122,9 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    # Custom middleware (after CSRF, but before authentication)
+    "auth_app.middleware.SessionExpiryLoggingMiddleware",
+    "auth_app.middleware.CustomCSRFMiddleware",  # Override default CSRF behavior
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -293,6 +298,11 @@ LOGGING = {
             "propagate": False,
         },
         "auth_app": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "middleware": {
             "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,

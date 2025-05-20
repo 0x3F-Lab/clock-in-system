@@ -24,6 +24,7 @@ def manager_required(view_func):
         # Redirect to login if they havent already
         if not user_id:
             url = create_redirection_url_for_login_including_return(request)
+            messages.error(request, "Please login to access this page.")
             return redirect(url)
 
         # Get employee data to check state
@@ -137,6 +138,7 @@ def employee_required(view_func):
         # Redirect to login if they havent already
         if not user_id:
             url = create_redirection_url_for_login_including_return(request)
+            messages.error(request, "Please login to access this page.")
             return redirect(url)
 
         # Get employee data to check state
