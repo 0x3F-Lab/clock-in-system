@@ -1,7 +1,7 @@
 import random
 from datetime import timedelta
 from django.db import models
-from django.utils import timezone
+from django.utils.timezone import now, localtime
 from django.contrib.auth.hashers import make_password, check_password
 from clock_in_system.settings import NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS
 
@@ -179,7 +179,7 @@ class User(models.Model):
             Notification.objects.filter(
                 notificationreceipt__user=self,
                 notificationreceipt__read_at__isnull=True,
-                expires_on__gte=timezone.now().date(),
+                expires_on__gte=localtime(now()).date(),
             )
             .distinct()
             .order_by("-created_at")
@@ -235,6 +235,14 @@ class Store(models.Model):
             is_hidden=include_hidden,
         ).distinct()
 
+    def get_clocked_in_employees(self):
+        """
+        Returns a queryset of users who are currently clocked in at this store.
+        """
+        return User.objects.filter(
+            activity__store=self, activity__logout_time__isnull=True
+        ).distinct()
+
     def is_associated_with_user(self, user):
         """
         Checks if the store is associated with the given user (either way).
@@ -281,7 +289,9 @@ class StoreUserAccess(models.Model):
 
 
 class Activity(models.Model):
-    employee = models.ForeignKey(User, on_delete=models.CASCADE)
+    employee = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="activities"
+    )
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
     login_time = models.DateTimeField(null=False)  # Rounds in time
     logout_time = models.DateTimeField(
@@ -303,10 +313,8 @@ class Activity(models.Model):
 ########################## NOTIFICATIONS ##########################
 
 
-def notification_default_expires_on():
-    return (
-        timezone.now() + timedelta(days=NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS)
-    ).date()
+def notification_default_expires_on(days=NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS):
+    return (localtime(now()) + timedelta(days=days)).date()
 
 
 class Notification(models.Model):
@@ -373,7 +381,7 @@ class Notification(models.Model):
             user=user, notification=self
         ).first()
         if receipt and receipt.read_at is None:
-            receipt.read_at = timezone.now()
+            receipt.read_at = localtime(now())
             receipt.save(update_fields=["read_at"])
         elif receipt is None:
             raise NotificationReceipt.DoesNotExist
@@ -518,5 +526,5 @@ class NotificationReceipt(models.Model):
 
     def mark_as_read(self):
         if not self.read_at:
-            self.read_at = timezone.now()
+            self.read_at = localtime(now())
             self.save(update_fields=["read_at"])
