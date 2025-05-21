@@ -368,14 +368,22 @@ def sanitise_plain_text(value: str) -> str:
 
 def sanitise_markdown_message_text(value: str) -> str:
     """
-    Function to sanitise and apply markdown conversions to notification messages.
+    USED FOR NOTIFICATION MESSAGES!!
+    Sanitises and formats markdown-like text such that:
+    - Each line becomes a <p>...</p>
+    - Single newlines become a <br> inside a <p>...</p> block
+    - Double newlines are made into seperate <p>...</p> structures
     """
+    if not value:
+        return ""
+
     # Render markdown to HTML
     html = markdown.markdown(
         value.strip(),
         extensions=[
             "markdown.extensions.extra",
             "markdown.extensions.sane_lists",
+            "markdown.extensions.nl2br",
         ],
     )
 
@@ -388,6 +396,7 @@ def sanitise_markdown_message_text(value: str) -> str:
             "i",
             "em",
             "u",
+            "p",
             "blockquote",
             "code",
             "ul",
@@ -407,6 +416,8 @@ def sanitise_markdown_message_text(value: str) -> str:
     # Remove leading/trailing empty <p> tags (including whitespace inside)
     safe_html = re.sub(r"^(<p>\s*</p>)+", "", safe_html)
     safe_html = re.sub(r"(<p>\s*</p>)+$", "", safe_html)
+    # Remove unneeded new lines and carriage returns after the fact (anything left over)
+    safe_html = re.sub(r"\s*[\r\n]+\s*", "", safe_html)
 
     return safe_html
 
@@ -415,6 +426,9 @@ def sanitise_markdown_title_text(value: str) -> str:
     """
     Function to sanitise and apply markdown conversions to notification titles.
     """
+    # Remove unneeded new lines and carriage returns
+    value = re.sub(r"\s*[\r\n]+\s*", "", value)
+
     # Render markdown to HTML
     html = markdown.markdown(value.strip(), extensions=["markdown.extensions.extra"])
 

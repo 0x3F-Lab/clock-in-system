@@ -235,13 +235,22 @@ class Store(models.Model):
             is_hidden=include_hidden,
         ).distinct()
 
-    def get_clocked_in_employees(self):
+    def get_clocked_in_employees(self, include_inactive=True):
         """
         Returns a queryset of users who are currently clocked in at this store.
+        Ignores HIDDEN accounts.
+        Args:
+          - include_inactive (bool) = True: Whether to include inactive User accounts or not.
         """
+        active_employee_ids = Activity.objects.filter(
+            store=self, logout_time__isnull=True
+        ).values_list("employee_id", flat=True)
+
+        if include_inactive:
+            return User.objects.filter(id__in=active_employee_ids, is_hidden=False)
         return User.objects.filter(
-            activity__store=self, activity__logout_time__isnull=True
-        ).distinct()
+            id__in=active_employee_ids, is_hidden=False, is_active=True
+        )
 
     def is_associated_with_user(self, user):
         """
