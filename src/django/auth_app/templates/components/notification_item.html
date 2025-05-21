@@ -31,7 +31,7 @@
       <p class="mb-1"><strong>Expires:</strong> {{ n.expires_on|date:"M j, Y" }}</p>
       <p class="mb-0"><strong>Sent To:</strong>
         {% if n.store_broadcast %}
-          All Store Managers for store <code>{{ n.store }}</code>
+          All Store Employees for store <code>{{ n.store }}</code>
         {% elif n.type == "system_alert" %}
           All Users (Site-wide)
         {% else %}

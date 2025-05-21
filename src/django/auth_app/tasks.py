@@ -2,40 +2,22 @@ import logging
 import auth_app.utils as util
 
 from celery import shared_task
-from django.db.models import Prefetch
-from auth_app.models import (
-    Store,
-    Activity,
-    Notification,
-    notification_default_expires_on,
-)
+from auth_app.models import Store, Notification, notification_default_expires_on
 
 
 # Get the loggers
 logger_celery = logging.getLogger("celery")  # For the tasks themselves
-logger_beats = logging.getLogger(
-    "celery_beats"
-)  # For the schedules (starting/stopping)
+logger_beat = logging.getLogger("celery_beat")  # For the schedules (starting/stopping)
 
 
 @shared_task
 def check_clocked_in_users():
-    logger_beats.info(f"[AUTOMATED] Running task `chceck_clocked_in_users`.")
+    logger_beat.info(f"[AUTOMATED] Running task `check_clocked_in_users`.")
 
     total_count = 0
 
-    for store in Store.objects.prefetch_related(
-        Prefetch(
-            "user_access__user__activities",
-            queryset=Activity.objects.filter(logout_time__isnull=True).order_by(
-                "-login_time"
-            ),
-            to_attr="active_activities",
-        )
-    ):
-        print(store.code)
-        clocked_in_employees = store.get_clocked_in_employees()
-        print(len(clocked_in_employees))
+    for store in Store.objects.filter(is_active=True).all():
+        clocked_in_employees = store.get_clocked_in_employees(include_inactive=True)
 
         if not clocked_in_employees:
             continue  # Skip stores with no clocked-in employees
@@ -45,19 +27,11 @@ def check_clocked_in_users():
 
         # Notify each employee individually
         for emp in clocked_in_employees:
-            act = getattr(emp, "active_activities", [None])[0]
-
-            if not act:
-                logger_celery.critical(
-                    f"[LATE-CLOCK-OUT] No active shift found for employee {emp.id} ({emp.first_name} {emp.last_name}) even though they appeared as clocked out for store [{store.code}]."
-                )
-                continue
-
             emp_title = util.sanitise_markdown_title_text(
                 f"You forgot to clock out of store `{store.code}`"
             )
             emp_msg = util.sanitise_markdown_message_text(
-                f"Our system shows you're still clocked in under the store `{store.code}`.\nYou clocked in at {act.login_time}.\n\nYour respective manager(s) have been notified.\nPlease correct this if it's a mistake."
+                f"Our system shows you're still clocked in under the store `{store.code}`.\nYour respective manager(s) have been notified.\n\nPlease correct this if it's a mistake."
             )
             Notification.send_to_users(
                 users=[emp],
@@ -66,20 +40,20 @@ def check_clocked_in_users():
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 expires_on=notification_default_expires_on(7),
             )
-            logger_celery.debug(
-                f"[LATE-CLOCK-OUT] Sent notification to employee {emp.id} ({emp.get_full_name()})."
+            logger_beat.debug(
+                f"[LATE-CLOCK-OUT] Sent notification to employee ID {emp.id} ({emp.first_name} {emp.last_name}) for Store {store.code}."
             )
 
         # Notify store managers with summary
         employee_names = "\n".join(
-            f"- {emp.first_name} {emp.last_name} ({emp.email})"
+            f"<li>{emp.first_name} {emp.last_name} ({emp.email}){' [INACTIVE ACCOUNT]' if not emp.is_active else ''}</li>"
             for emp in clocked_in_employees
         )
         str_title = util.sanitise_markdown_title_text(
-            f"Clock-out Alert: Employees Still Clocked In [`{store.code}`]"
+            f"[`{store.code}`] Clock-out Alert: Employees Still Clocked In"
         )
         str_msg = util.sanitise_markdown_message_text(
-            f"The following employees are still clocked in for the store `{store.code}`:\n{employee_names}\n\nThe respective employees have been notified.\nPlease correct this if it's a mistake."
+            f"The following employees are still clocked in for the store `{store.code}`:\n<ul>{employee_names}</ul>\n\nThe respective employees have been notified.\nPlease correct this if it's a mistake."
         )
         Notification.send_to_users(
             users=store.get_store_managers(),
@@ -88,10 +62,10 @@ def check_clocked_in_users():
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             expires_on=notification_default_expires_on(7),
         )
-        logger_celery.debug(
+        logger_beat.debug(
             f"[LATE-CLOCK-OUT] Sent manager notification for store {store.code}."
         )
 
-    logger_celery.info(
+    logger_beat.info(
         f"Finished running task `chceck_clocked_in_users` and found {total_count} users still clocked in. Sent message(s) to respective managers."
     )

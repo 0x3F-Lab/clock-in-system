@@ -204,10 +204,11 @@ CELERY_TASK_SOFT_TIME_LIMIT = (
 )
 
 # Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
+### !! TO ENSURE TASKS ARE CORRECTLY SET ON TIME, THE DOCKER COMPOSE MUST BE REBUILT WITH `--build` !!
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
-        "schedule": crontab(hour=13, minute=28),
+        "schedule": crontab(hour=23, minute=0),
     },
 }
 
@@ -346,7 +347,7 @@ LOGGING = {
         },
         "celery_beat": {  # Celery Beat-specific logger
             "handlers": ["console", "tasks"],
-            "level": "INFO",
+            "level": "DEBUG",
             "propagate": False,
         },
     },
