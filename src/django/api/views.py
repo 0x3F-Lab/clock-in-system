@@ -2257,6 +2257,18 @@ def send_employee_notification(request, id):
         # Get manager info
         manager = util.api_get_user_object_from_session(request=request)
 
+        # Check manager can send message to user
+        if not manager.is_manager_of(employee=employee):
+            return Response(
+                {
+                    "Error": "Not authorised to send a message to an unassociated employee."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        elif not employee.is_active:
+            raise err.InactiveUserError
+
         # Get title and message
         title = util.clean_param_str(request.data.get("title", None))
         msg = util.clean_param_str(request.data.get("message", None))
@@ -2326,14 +2338,8 @@ def send_employee_notification(request, id):
         return Response({"notification_id": notif.id}, status=status.HTTP_201_CREATED)
 
     except err.InactiveUserError:
-        # If the user is trying to clock out an inactive account
         return Response(
             {"Error": "Not authorised to send a message to an inactive account."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    except err.NotAssociatedWithStoreError:
-        return Response(
-            {"Error": "Cannot send a message to an unrelated employee."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
