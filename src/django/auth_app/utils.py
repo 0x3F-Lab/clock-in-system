@@ -428,6 +428,9 @@ def sanitise_markdown_title_text(value: str) -> str:
     """
     Function to sanitise and apply markdown conversions to notification titles.
     """
+    if not value:
+        return ""
+
     # Remove unneeded new lines and carriage returns
     value = re.sub(r"\s*[\r\n]+\s*", "", value)
 

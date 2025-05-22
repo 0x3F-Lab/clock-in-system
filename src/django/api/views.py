@@ -15,7 +15,7 @@ from django.db import transaction, IntegrityError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from api.utils import round_datetime_minute, str_to_bool
+from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
 from auth_app.models import (
     User,
     Activity,
@@ -51,15 +51,17 @@ def list_store_employee_names(request):
     """
     try:
         # Extract query parameters from the request, with defaults
-        only_active = util.str_to_bool(request.query_params.get("only_active", "true"))
-        ignore_managers = util.str_to_bool(
+        only_active = util.util.str_to_bool(
+            request.query_params.get("only_active", "true")
+        )
+        ignore_managers = util.util.str_to_bool(
             request.query_params.get("ignore_managers", "false")
         )
-        order = util.str_to_bool(request.query_params.get("order", "true"))
-        order_by_first_name = util.str_to_bool(
+        order = util.util.str_to_bool(request.query_params.get("order", "true"))
+        order_by_first_name = util.util.str_to_bool(
             request.query_params.get("order_by_first_name", "true")
         )
-        ignore_clocked_in = util.str_to_bool(
+        ignore_clocked_in = util.util.str_to_bool(
             request.query_params.get("ignore_clocked_in", "false")
         )
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
@@ -378,7 +380,7 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     login_timestamp = localtime(make_aware(login_timestamp))
-                    activity.login_time = round_datetime_minute(login_timestamp)
+                    activity.login_time = util.round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
                 else:
                     return Response(
@@ -392,7 +394,7 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     logout_timestamp = localtime(make_aware(logout_timestamp))
-                    activity.logout_time = round_datetime_minute(logout_timestamp)
+                    activity.logout_time = util.round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
                 else:
                     # If manually deleting start time, set logout time to null
@@ -437,7 +439,7 @@ def update_shift_details(request, id):
                 )
 
             # Set public holiday state (keep same if not given)
-            activity.is_public_holiday = str_to_bool(
+            activity.is_public_holiday = util.str_to_bool(
                 request.data.get("is_public_holiday", activity.is_public_holiday)
             )
 
@@ -541,7 +543,9 @@ def create_new_shift(request):
         logout_timestamp = util.clean_param_str(
             request.data.get("logout_timestamp", None)
         )
-        is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
+        is_public_holiday = util.str_to_bool(
+            request.data.get("is_public_holiday", False)
+        )
         store_id = util.clean_param_str(request.data.get("store_id", None))
 
         # Get the account info of the user requesting this shift info
@@ -653,12 +657,12 @@ def create_new_shift(request):
             )
 
         # Get the rounded login/logout times
-        login_time = round_datetime_minute(
+        login_time = util.round_datetime_minute(
             login_timestamp
         )  # Login timestamp MUST be pass to reach this point
         logout_time = None
         if logout_timestamp:
-            logout_time = round_datetime_minute(logout_timestamp)
+            logout_time = util.round_datetime_minute(logout_timestamp)
 
         # Ensure minimum shift length is achieve between login and logout
         if logout_timestamp:
@@ -2057,7 +2061,7 @@ def list_account_summaries(request):
         manager = User.objects.get(id=manager_id)
 
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
-        ignore_no_hours = str_to_bool(
+        ignore_no_hours = util.str_to_bool(
             request.query_params.get("ignore_no_hours", "false")
         )
         sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
@@ -2197,6 +2201,11 @@ def mark_notification_read(request, id):
         # Mark the notification as read
         notif.mark_notification_as_read(user=user_id)
 
+        # Logging
+        logger.debug(
+            f"[UPDATE: NOTIFICATION (ID: {notif.id})] [MARK-READ] User ID: {user_id} || Type: {notif.notification_type} -- Title: {notif.title}"
+        )
+
         # Return the results after serialisation
         return Response({"notification_id": id}, status=status.HTTP_200_OK)
 
@@ -2224,6 +2233,113 @@ def mark_notification_read(request, id):
         # General error capture -- including database location errors
         logger.critical(
             f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}', producing the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def send_employee_notification(request, id):
+    try:
+        # Get employee info
+        try:
+            employee = User.objects.get(id=id)
+        except User.DoesNotExist:
+            return Response(
+                {"Error": f"Employee not found with the ID {id}."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Get manager info
+        manager = util.api_get_user_object_from_session(request=request)
+
+        # Get title and message
+        title = util.clean_param_str(request.data.get("title", None))
+        msg = util.clean_param_str(request.data.get("message", None))
+        notification_type = util.clean_param_str(
+            request.data.get("notification_type", None)
+        )
+        # Check title and message provided
+        if title is None or msg is None:
+            return Response(
+                {"Error": "Must provide a notification title and message."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check notification type provided
+        elif notification_type is None:
+            return Response(
+                {"Error": "Must provide a notification type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check notification type
+        elif notification_type not in Notification.Type:
+            return Response(
+                {"Error": "Invalid notification type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
+            return Response(
+                {"Error": "Not authorised to use AUTOMATIC_ALERT notification type."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        elif (
+            notification_type
+            in [Notification.Type.SYSTEM_ALERT, Notification.Type.ADMIN_NOTE]
+            and not manager.is_hidden
+        ):
+            return Response(
+                {
+                    "Error": f"Not authorised to use {notification_type.upper()} notification type."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Clean title and message
+        str_title = sanitise_markdown_title_text(title)
+        str_msg = sanitise_markdown_message_text(msg)
+
+        notif = Notification.send_to_users(
+            users=[employee],
+            title=str_title,
+            message=str_msg,
+            notification_type=notification_type,
+            sender=manager,
+        )
+
+        # Logging
+        logger.info(
+            f"Manager {manager.id} ({manager.first_name} {manager.last_name}) sent a message to employee {employee.id} ({employee.first_name} {employee.last_name}) of type '{notification_type.upper()}'."
+        )
+        logger.debug(
+            f"[CREATE: NOTIFICATION (ID: {notif.id})] [INDIVIDUAL-MESSAGE] Manager: {manager.id} ({manager.first_name} {manager.last_name}) >>> Employee: {employee.id} ({employee.first_name} {employee.last_name}) || Type: {notification_type.upper()} -- Title: {title} -- Msg (char_len={len(msg)}): {msg[:25]}...."
+        )
+
+        # Return the notification ID after creating message
+        return Response({"notification_id": notif.id}, status=status.HTTP_201_CREATED)
+
+    except err.InactiveUserError:
+        # If the user is trying to clock out an inactive account
+        return Response(
+            {"Error": "Not authorised to send a message to an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Cannot send a message to an unrelated employee."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when manager ID '{manager.id}' ({manager.first_name} {manager.last_name}) tried to send a message to employee ID '{id}' : {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},
