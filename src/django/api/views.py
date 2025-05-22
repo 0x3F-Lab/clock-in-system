@@ -51,17 +51,15 @@ def list_store_employee_names(request):
     """
     try:
         # Extract query parameters from the request, with defaults
-        only_active = util.util.str_to_bool(
-            request.query_params.get("only_active", "true")
-        )
-        ignore_managers = util.util.str_to_bool(
+        only_active = util.str_to_bool(request.query_params.get("only_active", "true"))
+        ignore_managers = util.str_to_bool(
             request.query_params.get("ignore_managers", "false")
         )
-        order = util.util.str_to_bool(request.query_params.get("order", "true"))
-        order_by_first_name = util.util.str_to_bool(
+        order = util.str_to_bool(request.query_params.get("order", "true"))
+        order_by_first_name = util.str_to_bool(
             request.query_params.get("order_by_first_name", "true")
         )
-        ignore_clocked_in = util.util.str_to_bool(
+        ignore_clocked_in = util.str_to_bool(
             request.query_params.get("ignore_clocked_in", "false")
         )
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
