@@ -3,7 +3,10 @@ from datetime import timedelta
 from django.db import models
 from django.utils.timezone import now, localtime
 from django.contrib.auth.hashers import make_password, check_password
-from clock_in_system.settings import NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS
+from clock_in_system.settings import (
+    NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS,
+    NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS,
+)
 
 
 class User(models.Model):
@@ -323,7 +326,15 @@ class Activity(models.Model):
 
 
 def notification_default_expires_on(days=NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS):
+    # Enforce maximum expiry
+    days = min(days, NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS)
     return (localtime(now()) + timedelta(days=days)).date()
+
+
+def get_max_expiry_date():
+    return (
+        localtime(now()) + timedelta(days=NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS)
+    ).date()
 
 
 class Notification(models.Model):
@@ -420,9 +431,11 @@ class Notification(models.Model):
         Returns:
             Notification: The created Notification instance.
         """
-        # Set default expiry if none set
+        # Set default expiry if none set (enforce max expiry)
         if expires_on is None:
             expires_on = notification_default_expires_on()
+        else:
+            expires_on = min(expires_on, get_max_expiry_date())
 
         notif = cls.objects.create(
             sender=sender,
@@ -462,9 +475,11 @@ class Notification(models.Model):
         Returns:
             Notification: The created Notification instance.
         """
-        # Set default expiry if none set
+        # Set default expiry if none set (enforce max expiry)
         if expires_on is None:
             expires_on = notification_default_expires_on()
+        else:
+            expires_on = min(expires_on, get_max_expiry_date())
 
         notif = cls.objects.create(
             sender=sender,
@@ -504,9 +519,11 @@ class Notification(models.Model):
         Returns:
             Notification: The created Notification instance.
         """
-        # Set default expiry if none set
+        # Set default expiry if none set (enforce max expiry)
         if expires_on is None:
             expires_on = notification_default_expires_on()
+        else:
+            expires_on = min(expires_on, get_max_expiry_date())
 
         users = User.objects.filter(is_active=True)
         return cls.send_to_users(
