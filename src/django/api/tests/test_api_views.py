@@ -620,7 +620,7 @@ def test_list_account_summaries_success(
     data = response.json()
     assert "results" in data
     assert isinstance(data["results"], list)
-    assert data["total"] == 1
+    assert data["total"] == 2  # INCLUDES MANAGER
 
     emp = data["results"][0]
     assert emp["employee_id"] == clocked_in_employee.id
@@ -704,6 +704,7 @@ def test_list_account_summaries_full_hour_breakdown(
             "start": start,
             "end": end,
             "sort": "name",
+            "ignore_no_hours": "true",
         },
     )
 

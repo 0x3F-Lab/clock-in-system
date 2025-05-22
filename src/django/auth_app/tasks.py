@@ -20,7 +20,7 @@ logger_celery = logging.getLogger("celery")  # For the tasks themselves
 logger_beat = logging.getLogger("celery_beat")  # For the schedules (starting/stopping)
 
 
-################################### TIME-BASED AUTOMATED TASKS ##############################################
+################################### SCHEDULED AUTOMATED TASKS ##############################################
 
 
 @shared_task
@@ -152,7 +152,7 @@ def deactivate_unassigned_users():
         return
 
 
-############################################ NON-TIME-BASED AUTOMATED TASKS ########################################################################
+############################################ NON-SCHEDULED AUTOMATED TASKS ########################################################################
 
 
 @shared_task
