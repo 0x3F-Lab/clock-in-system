@@ -215,6 +215,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "auth_app.tasks.check_clocked_in_users",
         "schedule": crontab(hour=23, minute=0),
     },
+    "delete_old_notifications": {
+        "task": "auth_app.tasks.delete_old_notifications",
+        "schedule": crontab(hour=2, minute=0, day_of_week=2),  # Tues
+    },
+    "deactivate_unassigned_users": {
+        "task": "auth_app.tasks.deactivate_unassigned_users",
+        "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
+    },
 }
 
 
@@ -257,6 +265,7 @@ UTC_OFFSET = "8"  # For UTC+8
 
 # Default notification expiration date
 NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21
+NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 30
 
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min

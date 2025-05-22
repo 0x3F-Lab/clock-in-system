@@ -3,6 +3,7 @@ import re
 import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
+import auth_app.tasks as tasks
 
 from datetime import datetime
 from rest_framework import status
@@ -1343,16 +1344,48 @@ def modify_account_status(request, id):
 
         # Seperate status type modification
         if status_type == "deactivate":
+            if not employee.is_active:
+                return JsonResponse(
+                    {
+                        "Error": "Employee account is already deactivated.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
             employee.is_active = False
+            employee.save()
+            tasks.notify_managers_account_deactivated.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "activate":
+            if employee.is_active:
+                return JsonResponse(
+                    {
+                        "Error": "Employee account is already activated.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
             employee.is_active = True
+            employee.save()
+            tasks.notify_managers_account_activated.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "reset_password":
             employee.is_setup = False
+            employee.save()
+            tasks.notify_employee_account_reset_password.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "reset_pin":
             employee.set_unique_pin()
+            employee.save()
+            tasks.notify_employee_account_reset_pin.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "resign":
             if not store_id or not store_id.isdigit():
@@ -1386,6 +1419,9 @@ def modify_account_status(request, id):
                 ).last()
                 association.delete()
 
+                tasks.notify_managers_account_resigned.delay(
+                    user_id=employee.id, store_id=store.id, manager_id=manager.id
+                )
                 logger.info(
                     f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) removed STORE ASSOCIATION for employee with ID {employee.id} ({employee.first_name} {employee.last_name}) under the store ID {store.id} [{store.code}]."
                 )
@@ -1414,8 +1450,6 @@ def modify_account_status(request, id):
                 {"Error": "Invalid status type to modify.", "id": employee.id},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-
-        employee.save()
 
         logger.info(
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated account status for a USER with ID {employee.id} ({employee.first_name} {employee.last_name}). Type: {status_type.replace('_', ' ').upper()}."
