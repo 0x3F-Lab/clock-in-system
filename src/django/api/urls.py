@@ -75,4 +75,9 @@ urlpatterns = [
         views.mark_notification_read,
         name="mark_notification_read",
     ),
+    path(
+        "send-employee-message/<int:id>/",
+        views.send_employee_notification,
+        name="send_employee_message",
+    ),
 ]

@@ -15,6 +15,11 @@ $(document).ready(function() {
 
   // Activate the pagination system (set the update function)
   handlePagination({updateFunc: updateEmployeeDetailsTable});
+
+  // Attach event to MESSAGE field of message modal to update char count
+  $('#msg_message').on('input', () => {
+    updateCharCount();
+  });
 });
 
 
@@ -124,10 +129,22 @@ function openWarningModal(id, actionType, name) {
 
 function openMessageModal(id, name) {
   // Reset the modal
+  $('#msg_title').val('');
+  $('#msg_message').val('');
+  $('#msg_type').val('general'); // Reset type as well
   $('#sendMsgModalSubmit').off(); // Remove all past events
+  updateCharCount(); // Reset count
 
+  // Add employee name
+  $('#sendMsgModalEmployee').text(name);
+
+  // Add event to form submission
   $('#sendMsgModalSubmit').on('click', () => {
-    sendMessage(id);
+    const result = sendMessage(id);
+    // Dont hide the menu if its errored
+    if (result === false) {
+      return;
+    }
     msgModal.hide();
   });
 
@@ -428,10 +445,19 @@ function handleEmployeeDetailsEdit() {
 
 
 function sendMessage(id) {
+  const title = $('#msg_title').val();
+  const msg = $('#msg_message').val();
+  const type = $('#msg_type').val();
+
+  if (title.trim() === "" || msg.trim() === "") {
+    showNotification("Cannot send a message without a title or message.", "error");
+    return false;
+  }
+
   showSpinner();
 
   $.ajax({
-    url: `${window.djangoURLs.sendMessage}${id}/`,
+    url: `${window.djangoURLs.sendEmployeeMessage}${id}/`,
     type: "POST",
     xhrFields: {
       withCredentials: true
@@ -439,6 +465,12 @@ function sendMessage(id) {
     headers: {
       'X-CSRFToken': getCSRFToken(), // Include CSRF token
     },
+    contentType: 'application/json',
+    data: JSON.stringify({
+      "title": title,
+      "message": msg,
+      "notification_type": type,
+    }),
 
     success: function(resp) {
       hideSpinner();
@@ -458,4 +490,12 @@ function sendMessage(id) {
       showNotification(errorMessage, "danger");
     }
   });
+}
+
+
+// Helper function
+function updateCharCount() {
+  const max = $('#msg_message').attr('maxlength');
+  const len = $('#msg_message').val().length;
+  $('#charCount').text(`${len}/${max} Characters`)
 }

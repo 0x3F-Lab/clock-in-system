@@ -181,32 +181,36 @@
       </div>
 
       <div class="modal-body">
-        <form id="editForm" class="px-1">
-          <input type="hidden" id="editEmployeeId" name="editEmployeeId">
+        <div class="fs-4 fw-semibold text-center">
+          For: <span id="sendMsgModalEmployee">ERR</span>
+        </div>
 
-          <div class="mb-3">
-            <label for="editEmail" class="form-label fw-semibold">Email</label>
-            <input type="email" class="form-control" id="editEmail" name="editEmail" required>
+        <form id="sendMsgForm" class="px-1">
+          <div class="form-group mt-3">
+            <label for="msg_title" class="form-label text-light fw-semibold w-100">Title:</label>
+            <input type="text" class="form-control w-100" id="msg_title" name="msg_title" maxlength="200" placeholder="Enter notification title" required>
           </div>
 
-          <div class="mb-3">
-            <label for="editFirstName" class="form-label fw-semibold">First Name</label>
-            <input type="text" class="form-control" id="editFirstName" name="first_name" required>
+          <div class="form-group mt-3">
+            <label for="msg_message" class="form-label text-light fw-semibold w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Message:</span>
+              <em><small id="charCount" class="text-light-emphasis fs-6 ms-2">0/MAX Characters</small></em>
+            </label>
+            <!-- ADJUST MAX LENGTH HERE! -->
+            <textarea class="p-2 w-100" id="msg_message" name="msg_message" maxlength="750" cols="40" rows="4" placeholder="Enter message" required></textarea>
           </div>
 
-          <div class="mb-3">
-            <label for="editLastName" class="form-label fw-semibold">Last Name</label>
-            <input type="text" class="form-control" id="editLastName" name="last_name" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="editPhone" class="form-label fw-semibold">Phone</label>
-            <input type="text" class="form-control" id="editPhone" name="phone_number">
-          </div>
-
-          <div class="mb-3">
-            <label for="editDOB" class="form-label fw-semibold">Date of Birth</label>
-            <input type="date" class="form-control" id="editDOB" name="birth_date">
+          <div class="form-group my-3">
+            <label for="msg_type" class="form-label text-light fw-semibold w-100">Notification Type:</label>
+            <select type="text" class="form-select w-100 p-2" id="msg_type" name="msg_type" maxlength="200" required>
+              <option value="general" selected>General</option>
+              <option value="emergency">Emergency</option>
+              <option value="manager_note">Manager Note</option>
+              <option value="schedule_change">Schedule Change</option>
+              {% if user_is_hidden == True %}
+              <option value="admin_note">Admin Note</option>
+              {% endif %}
+            </select>
           </div>
         </form>
       </div>
@@ -215,8 +219,7 @@
         <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
           <div><i class="fas fa-circle-info"></i></div>
           <div>
-            <p class="m-0">Existing accounts will be added to the selected store.</p>
-            <p class="m-0">A new account is only created if none is found.</p>
+            <p class="m-0">Cannot undo a sent message.</p>
           </div>
         </div>
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
@@ -238,6 +241,7 @@
     updateEmployeeDetails: "{% url 'api:modify_other_account_information' 0 %}".slice(0, -2),
     createEmployeeAccount: "{% url 'api:create_new_employee' %}",
     modifyAccountStatus: "{% url 'api:modify_account_status' 0 %}".slice(0, -2),
+    sendEmployeeMessage: "{% url 'api:send_employee_message' 0 %}".slice(0, -2),
 {% endblock %}
 
 

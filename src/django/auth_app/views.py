@@ -543,6 +543,9 @@ def manage_employee_details(request):
         )
         return redirect("home")
 
+    # Add admin flag used to determine level of notification types to show
+    context["user_is_hidden"] = user.is_hidden
+
     return render(request, "auth_app/manage_employee_details.html", context)
 
 

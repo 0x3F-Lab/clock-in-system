@@ -2333,7 +2333,10 @@ def send_employee_notification(request, id):
         )
 
         # Return the notification ID after creating message
-        return Response({"notification_id": notif.id}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"notification_id": notif.id, "employee_name": employee.first_name},
+            status=status.HTTP_201_CREATED,
+        )
 
     except err.InactiveUserError:
         return Response(
