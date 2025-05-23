@@ -50,7 +50,7 @@
     }
 
     window.addEventListener('online', () => {
-      window.location.reload();
+      window.location.href = prev;
     });
 
     if ('serviceWorker' in navigator) {
