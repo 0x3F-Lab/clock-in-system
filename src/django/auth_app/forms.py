@@ -265,8 +265,8 @@ class NotificationForm(forms.Form):
     message = forms.CharField(
         required=True,
         label="Message",
-        max_length=750,
-        help_text="Max 750 characters. Newlines and Unicode allowed.",
+        max_length=1000,
+        help_text="Max 1000 characters. Newlines and Unicode allowed.",
         widget=forms.Textarea(
             attrs={"rows": 4, "class": "w-100 p-2", "placeholder": "Enter message"}
         ),
