@@ -50,13 +50,25 @@
     }
 
     window.addEventListener('online', () => {
-      window.location.href = prev;
+      if (!prev) return;
+      try {
+        const offlinePath = new URL("{% url 'offline' %}", window.location.origin).pathname;
+        const prevUrl = new URL(prev, window.location.origin);
+        // Prevent redirection to offline page
+        if (prevUrl.pathname === offlinePath) {
+          console.log("Skipping redirect: prev was the offline page.");
+          return;
+        }
+        window.location.href = prev;
+      } catch (e) {
+        console.warn("Invalid prev URL, not redirecting.");
+      }
     });
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register("{% static 'sw.js' %}")
-            .then(reg => console.log("Service Worker registered:", reg))
-            .catch(err => console.error("Service Worker registration failed:", err));
+      navigator.serviceWorker.register("{% static 'sw.js' %}")
+        .then(reg => console.log("Service Worker registered:", reg))
+        .catch(err => console.error("Service Worker registration failed:", err));
     }
   </script>
 </body>
