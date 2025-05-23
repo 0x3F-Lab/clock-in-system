@@ -135,7 +135,7 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             )
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED IN under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
                 f"[CREATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-IN] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
@@ -220,7 +220,7 @@ def handle_clock_out(
             activity.save()
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED OUT under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
                 f"[UPDATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-OUT] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins -- PUBLIC HOLIDAY: {activity.is_public_holiday}"

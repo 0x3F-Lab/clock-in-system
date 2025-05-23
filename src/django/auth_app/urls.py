@@ -28,7 +28,7 @@ urlpatterns = [
     path("dashboard", views.employee_dashboard, name="dashboard"),
     path("notifications", views.notification_page, name="notification_page"),
     path(
-        "manage_employee_details/",
+        "manage_employee_details",
         views.manage_employee_details,
         name="manage_employee_details",
     ),
