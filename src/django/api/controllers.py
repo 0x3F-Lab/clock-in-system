@@ -5,7 +5,8 @@ import api.utils as util
 from typing import Union, Dict
 from datetime import timedelta, datetime
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models.functions import Coalesce
+from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.models import User, Activity, Store
 from clock_in_system.settings import (
@@ -134,7 +135,7 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             )
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED IN under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
                 f"[CREATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-IN] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
@@ -219,7 +220,7 @@ def handle_clock_out(
             activity.save()
 
             logger.info(
-                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) created a new ACTIVITY (CLOCKED IN) under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
+                f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED OUT under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
             logger.debug(
                 f"[UPDATE: ACTIVITY (ID: {activity.id})] [{'MANUAL ' if manual else ''}CLOCK-OUT] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) -- Store ID: {store.id} [{store.code}] -- Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins -- PUBLIC HOLIDAY: {activity.is_public_holiday}"
@@ -432,122 +433,130 @@ def get_account_summaries(
         start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
         end_dt = make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
 
-        # Base queryset
-        activities = Activity.objects.filter(
-            store_id=int(store_id),
-            login_time__date__gte=start_dt,
-            login_time__date__lte=end_dt,
-            employee__is_hidden=False,
-        ).select_related(
-            "employee"
-        )  # Ensure employee info is also obtained to get account status'
+        # All employees for the store
+        employees_qs = User.objects.filter(
+            store_access__store_id=store.id,
+            is_hidden=False,
+        ).distinct()
 
-        # Apply name filter
+        # Apply name filters
         if filter_names:
             name_filter = Q()
             for name in filter_names:
-                name_filter |= Q(employee__first_name__icontains=name) | Q(
-                    employee__last_name__icontains=name
+                name_filter |= Q(first_name__icontains=name) | Q(
+                    last_name__icontains=name
                 )
-            activities = activities.filter(name_filter)
+            employees_qs = employees_qs.filter(name_filter)
 
-        # Aggregate by employee
-        summary_qs = activities.values(
-            "employee__id",
-            "employee__first_name",
-            "employee__last_name",
-            "employee__birth_date",
-        ).annotate(
-            total_mins=Sum("shift_length_mins"),
-            deliveries=Sum("deliveries"),
+        # Subqueries for total_mins and deliveries per employee
+        activity_base = Activity.objects.filter(
+            store_id=store.id,
+            login_time__date__gte=start_dt,
+            login_time__date__lte=end_dt,
+            employee=OuterRef("pk"),
         )
 
-        # Exclude no-hour employees if needed
+        # Annotate employees with total mins and deliveries
+        employees_qs = employees_qs.annotate(
+            total_mins=Coalesce(
+                Subquery(
+                    activity_base.values("employee")
+                    .annotate(total=Sum("shift_length_mins"))
+                    .values("total")[:1]
+                ),
+                Value(0),
+                output_field=IntegerField(),
+            ),
+            deliveries=Coalesce(
+                Subquery(
+                    activity_base.values("employee")
+                    .annotate(total=Sum("deliveries"))
+                    .values("total")[:1]
+                ),
+                Value(0),
+                output_field=IntegerField(),
+            ),
+        )
+
+        # Ignore users with 0 mins if flag is set
         if ignore_no_hours:
-            summary_qs = summary_qs.filter(total_mins__gt=0)
+            employees_qs = employees_qs.filter(total_mins__gt=0)
 
-        # Sorting logic
+        # Sorting
         sort_map = {
-            "name": ("employee__first_name", "employee__last_name", "-total_mins"),
-            "hours": ("-total_mins", "employee__first_name", "employee__last_name"),
-            "age": (
-                "employee__birth_date",
-                "employee__first_name",
-                "employee__last_name",
-            ),
-            "deliveries": (
-                "-deliveries",
-                "employee__first_name",
-                "employee__last_name",
-            ),
+            "name": ("first_name", "last_name", "-total_mins"),
+            "hours": ("-total_mins", "first_name", "last_name"),
+            "age": ("birth_date", "first_name", "last_name"),
+            "deliveries": ("-deliveries", "first_name", "last_name"),
         }
-        summary_qs = summary_qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+        employees_qs = employees_qs.order_by(
+            *sort_map.get(sort_field, sort_map["name"])
+        )
 
-        total_summaries = summary_qs.count()
+        # Total count before pagination
+        total_summaries = employees_qs.count()
 
-        # Apply pagination
-        summaries = summary_qs[offset : offset + limit]
+        # Apply pagination (now DB-level)
+        paginated_employees = employees_qs[offset : offset + limit]
 
-        # Prefetch all related employees
-        employee_ids = [row["employee__id"] for row in summaries]
-        employees = User.objects.filter(id__in=employee_ids).in_bulk()
-
-        # Format output
         summary_list = []
-        for row in summaries:
+        for employee in paginated_employees:
             # Calculate age based on employee's DOB & current date (rounded to whole numbers)
-            birth_date = row["employee__birth_date"]
             age = None
-            if birth_date:
+            if employee.birth_date:
                 today = now().date()
                 age = (
                     today.year
-                    - birth_date.year
-                    - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                    - employee.birth_date.year
+                    - (
+                        (today.month, today.day)
+                        < (employee.birth_date.month, employee.birth_date.day)
+                    )
                 )
 
-            # Calculate hours for weekdays, weekends, and public holidays
-            mins_weekday = 0
-            mins_weekend = 0
-            mins_public_holiday = 0
-
             # Get all activities for this employee within the date range
-            employee_activities = activities.filter(employee_id=row["employee__id"])
+            emp_activities = Activity.objects.filter(
+                store_id=store.id,
+                employee_id=employee.id,
+                login_time__date__gte=start_dt,
+                login_time__date__lte=end_dt,
+            )
+
+            # Calculate hours for weekdays, weekends, and public holidays
+            mins_weekday = mins_weekend = mins_public_holiday = 0
 
             # Calculate the hours based on the activity's day type
-            for activity in employee_activities:
+            for act in emp_activities:
+                # Skip shift if its not finished
+                if act.logout_time is None:
+                    continue
+
                 # ENSURE TIME IS IN LOCAL TIMEZONE FOR CORRECT DAY ALLOCATION!
-                login_time = localtime(activity.login_time)
-                shift_length = activity.shift_length_mins
+                login_time = localtime(act.login_time)
+                shift_length = act.shift_length_mins or 0
 
                 # Determine the day of the week
-                day_of_week = login_time.weekday()  # Monday=0, Sunday=6
-
-                # Check for public holiday
-                if activity.is_public_holiday:
+                if act.is_public_holiday:
                     mins_public_holiday += shift_length
 
+                day_of_week = login_time.weekday()  # Monday=0, Sunday=6
+
                 # Weekday (Mon-Fri)
-                if day_of_week >= 0 and day_of_week <= 4:
+                if day_of_week < 5:
                     mins_weekday += shift_length
                 # Weekend (Sat-Sun)
                 else:
                     mins_weekend += shift_length
 
-            # Fetch additional employee data (acc_resigned, acc_active, acc_manager, dob)
-            employee = employees.get(row["employee__id"])
-
             summary_list.append(
                 {
-                    "employee_id": row["employee__id"],
-                    "name": f'{row["employee__first_name"]} {row["employee__last_name"]}',
-                    "hours_total": round(
-                        (row["total_mins"] or 0) / 60, 2
-                    ),  # Total worked hours (incl all hour subdivisions)
+                    "employee_id": employee.id,
+                    "name": f"{employee.first_name} {employee.last_name}",
+                    "hours_total": round(employee.total_mins / 60, 2),
                     "hours_weekday": round(mins_weekday / 60, 2),
                     "hours_weekend": round(mins_weekend / 60, 2),
                     "hours_public_holiday": round(mins_public_holiday / 60, 2),
-                    "deliveries": row["deliveries"] or 0,
+                    "deliveries": employee.deliveries,
                     "age": age,  # Integer age or None
                     "acc_resigned": not employee.is_associated_with_store(store=store),
                     "acc_active": employee.is_active,

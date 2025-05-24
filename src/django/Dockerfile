@@ -5,7 +5,10 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y gcc libpq-dev
+RUN apt-get update
+
+# Upgrade pip, setuptools, and wheel to the latest versions
+RUN pip install --upgrade pip setuptools wheel
 
 # Copy project files
 COPY . .

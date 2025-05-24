@@ -70,4 +70,14 @@ urlpatterns = [
         views.list_associated_stores,
         name="list_associated_stores",
     ),
+    path(
+        "mark-notification-read/<int:id>/",
+        views.mark_notification_read,
+        name="mark_notification_read",
+    ),
+    path(
+        "send-employee-message/<int:id>/",
+        views.send_employee_notification,
+        name="send_employee_message",
+    ),
 ]

@@ -1,9 +1,13 @@
 import re
+import markdown
+import auth_app.utils as util
 
+from bleach import clean
 from django import forms
 from django.utils.timezone import now
+from django.utils.html import linebreaks
 from django.core.exceptions import ValidationError
-from auth_app.models import User
+from auth_app.models import User, Notification, Store
 from clock_in_system.settings import (
     VALID_NAME_PATTERN,
     VALID_PHONE_NUMBER_PATTERN,
@@ -36,7 +40,8 @@ class LoginForm(forms.Form):
     )
 
     def clean_email(self):
-        return self.cleaned_data.get("email", "").strip().lower()
+        email = self.cleaned_data.get("email", "")
+        return util.sanitise_plain_text(email).lower()
 
 
 class AccountSetupForm(forms.Form):
@@ -113,7 +118,8 @@ class AccountSetupForm(forms.Form):
     )
 
     def clean_email(self):
-        email = self.cleaned_data.get("email", "").strip().lower()
+        email = self.cleaned_data.get("email", "")
+        email = util.sanitise_plain_text(email).lower()
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -123,7 +129,7 @@ class AccountSetupForm(forms.Form):
         return email
 
     def clean_first_name(self):
-        first_name = self.cleaned_data.get("first_name", "").strip()
+        first_name = util.sanitise_plain_text(self.cleaned_data.get("first_name", ""))
         if len(first_name) > 100:
             raise ValidationError(
                 "First name cannot be longer than 100 characters long."
@@ -133,7 +139,7 @@ class AccountSetupForm(forms.Form):
         return first_name.title()
 
     def clean_last_name(self):
-        last_name = self.cleaned_data.get("last_name", "").strip()
+        last_name = util.sanitise_plain_text(self.cleaned_data.get("last_name", ""))
         if len(last_name) > 100:
             raise ValidationError(
                 "Last name cannot be longer than 100 characters long."
@@ -145,6 +151,7 @@ class AccountSetupForm(forms.Form):
     def clean_phone_number(self):
         phone = self.cleaned_data.get("phone_number", "") or None
         if phone:
+            phone = util.sanitise_plain_text(phone)
             if len(phone) > 15:
                 raise ValidationError(
                     "Phone number cannot be longer than 15 characters long."
@@ -162,7 +169,7 @@ class AccountSetupForm(forms.Form):
         return dob
 
     def clean_password(self):
-        password = self.cleaned_data.get("password", "")
+        password = util.sanitise_plain_text(self.cleaned_data.get("password", ""))
         if len(password) < PASSWORD_MIN_LENGTH:
             raise ValidationError(
                 f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
@@ -178,8 +185,10 @@ class AccountSetupForm(forms.Form):
         return password
 
     def clean_retype_password(self):
-        password = self.cleaned_data.get("password", "")
-        retype_password = self.cleaned_data.get("retype_password", "")
+        password = util.sanitise_plain_text(self.cleaned_data.get("password", ""))
+        retype_password = util.sanitise_plain_text(
+            self.cleaned_data.get("retype_password", "")
+        )
         if password != retype_password:
             raise ValidationError("Both password fields must match.")
 
@@ -221,3 +230,218 @@ class ManualClockingForm(forms.Form):
     longitude = forms.DecimalField(
         required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
     )
+
+    def clean_store_pin(self):
+        store_pin = util.sanitise_plain_text(self.cleaned_data.get("store_pin", ""))
+        return store_pin
+
+    def clean_employee_pin(self):
+        employee_pin = util.sanitise_plain_text(
+            self.cleaned_data.get("employee_pin", "")
+        )
+        return employee_pin
+
+
+class NotificationForm(forms.Form):
+    RECIPIENT_CHOICES = [
+        ("store_managers", "Store Managers Only"),
+        (
+            "store_employees",
+            "Store Employees (Every active user in your selected store)",
+        ),
+        ("all_users", "All Active Users (Site-wide)"),
+        ("all_managers", "All Active Managers (Site-wide)"),
+        ("site_admins", "Site Administrators"),
+    ]
+
+    title = forms.CharField(
+        max_length=200,
+        required=True,
+        label="Title",
+        widget=forms.TextInput(
+            attrs={"placeholder": "Enter notification title", "class": "w-100"}
+        ),
+    )
+    message = forms.CharField(
+        required=True,
+        label="Message",
+        max_length=1000,
+        help_text="Max 1000 characters. Newlines and Unicode allowed.",
+        widget=forms.Textarea(
+            attrs={"rows": 4, "class": "w-100 p-2", "placeholder": "Enter message"}
+        ),
+    )
+    recipient_group = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label="Send To",
+        widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
+    )
+    # THIS TURNS FROM AN ID INPUTTED ON CLIENT SIDE TO A STORE OBJECT ONCE VALIDATED
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True),
+        required=False,
+        widget=forms.HiddenInput(),
+        label="",
+    )
+    notification_type = forms.ChoiceField(
+        choices=[],
+        required=True,
+        label="Notification Type",
+        widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.user = user
+
+        # Limit notification types based on user role
+        type_choices = Notification.Type.choices
+
+        type_choices = [
+            (Notification.Type.GENERAL, Notification.Type.GENERAL.label),
+            (Notification.Type.EMERGENCY, Notification.Type.EMERGENCY.label),
+        ]
+
+        if user.is_manager:
+            type_choices.extend(
+                [
+                    (
+                        Notification.Type.MANAGER_NOTE,
+                        Notification.Type.MANAGER_NOTE.label,
+                    ),
+                    (
+                        Notification.Type.SCHEDULE_CHANGE,
+                        Notification.Type.SCHEDULE_CHANGE.label,
+                    ),
+                ]
+            )
+
+        if user.is_hidden:
+            type_choices.extend(
+                [
+                    (
+                        Notification.Type.SYSTEM_ALERT,
+                        Notification.Type.SYSTEM_ALERT.label,
+                    ),
+                    (
+                        Notification.Type.ADMIN_NOTE,
+                        Notification.Type.ADMIN_NOTE.label,
+                    ),
+                ]
+            )
+
+        self.fields["notification_type"].choices = type_choices
+
+        # Default: only allow sending to managers
+        recipient_choices = [
+            ("store_managers", "Store Managers Only"),
+            ("site_admins", "Site Administrators"),
+        ]
+
+        if user.is_manager:
+            # Managers can send to other store employees
+            recipient_choices.append(
+                (
+                    "store_employees",
+                    "Store Employees (Every active user in your selected store)",
+                )
+            )
+
+        if user.is_hidden:
+            # Hidden (super admins) can send to all users site-wide
+            recipient_choices.append(("all_users", "All Active Users (Site-wide)"))
+            recipient_choices.append(
+                ("all_managers", "All Active Managers (Site-wide)")
+            )
+
+        self.fields["recipient_group"].choices = recipient_choices
+
+    def clean_notification_type(self):
+        notification_type = self.cleaned_data.get("notification_type")
+        recipient_group = self.cleaned_data.get("recipient_group")
+        print(recipient_group)
+
+        # Validate combinations
+        if (
+            notification_type == Notification.Type.MANAGER_NOTE
+            and recipient_group != "store_employees"
+        ):
+            raise ValidationError("Manager Notes can only be sent to Store Employees.")
+
+        elif (
+            notification_type == Notification.Type.SYSTEM_ALERT
+            and recipient_group not in ["all_users", "all_managers"]
+        ):
+            raise ValidationError(
+                "System Alerts can only be sent to all users or all managers."
+            )
+
+        elif (
+            notification_type == Notification.Type.SCHEDULE_CHANGE
+            and recipient_group != "store_employees"
+        ):
+            raise ValidationError(
+                "Schedule Change notifications must target store employees."
+            )
+
+        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
+            raise ValidationError("Cannot use message type Automatic Alert.")
+
+        elif notification_type not in Notification.Type:
+            raise ValidationError("Invalid notification type.")
+
+        return notification_type
+
+    def clean_recipient_group(self):
+        recipient_group = self.cleaned_data.get("recipient_group")
+
+        # Validate options
+        if not any(key == recipient_group for key, _ in self.RECIPIENT_CHOICES):
+            raise ValidationError("Invalid recipient group choice.")
+
+        return recipient_group
+
+    def clean_message(self):
+        msg = self.cleaned_data["message"]
+
+        # Sanitise rendered HTML and apply markdowns
+        safe_html = util.sanitise_markdown_message_text(msg)
+
+        # Remove all tags to validate if there's text content
+        bleached_html = clean(safe_html, tags=[], strip=True).strip()
+
+        if len(bleached_html) == 0:
+            raise ValidationError("Message cannot be empty or just whitespace.")
+        if len(bleached_html) > 1000:
+            raise ValidationError("Message cannot exceed 1000 characters.")
+
+        return safe_html
+
+    def clean_title(self):
+        title = self.cleaned_data["title"]
+
+        # Sanitise rendered HTML and apply markdowns
+        safe_html = util.sanitise_markdown_title_text(title)
+
+        bleached_html = clean(safe_html, tags=[], strip=True).strip()
+
+        if len(bleached_html) == 0:
+            raise ValidationError("Title cannot be empty or just whitespace.")
+        if len(bleached_html) > 200:
+            raise ValidationError("Title cannot exceed 200 characters.")
+
+        return safe_html
+
+    def clean(self):
+        cleaned_data = super().clean()
+        recipient_group = cleaned_data.get("recipient_group")
+        store = cleaned_data.get("store")
+
+        if not store and recipient_group not in ["all_users", "all_managers"]:
+            raise ValidationError(
+                "You must select a store for store-based notifications."
+            )
+
+        return cleaned_data

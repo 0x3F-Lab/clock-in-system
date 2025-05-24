@@ -29,6 +29,7 @@ jobs:
           echo -e "\nPOSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> ./src/.env.production
           echo -e "\nPOSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./src/.env.production
           echo -e "\nDJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> ./src/.env.production
+          echo -e "\nREDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> ./src/.env.production
 
       - name: Build Docker images
         run: |

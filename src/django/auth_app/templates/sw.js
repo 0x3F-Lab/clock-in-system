@@ -52,7 +52,7 @@ if (isDevEnvironment) {
   // Set routes to precache (i.e. static files)
   {% load static %}
   workbox.precaching.precacheAndRoute([
-    { url: OFFLINE_URL, revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{{ OFFLINE_URL|default:'/offline'|escapejs }}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'css/styles.css' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/global.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'img/logo.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
@@ -65,6 +65,7 @@ if (isDevEnvironment) {
     { url: "{% static 'js/manage_employee_details.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/manual_clocking.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/shift_logs.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/notification_page.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
   ]);
 
   // For full pages
@@ -72,24 +73,42 @@ if (isDevEnvironment) {
     ({ request }) => request.mode === 'navigate',
     async ({ event }) => {
       const reqUrl = new URL(event.request.url);
-  
-      // If request is for the offline page, just serve from cache directly
+
+      // If already requesting the offline page directly
       if (reqUrl.pathname === OFFLINE_URL) {
-        return caches.match(OFFLINE_URL);
+        const cachedOffline = await caches.match(OFFLINE_URL);
+        if (cachedOffline) {
+          return cachedOffline;
+        }
+
+        // Fallback if offline page wasn't cached
+        return new Response('Offline – page not available. Please fix your connection.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' },
+        });
       }
-  
+
+      // Other resources/pages
       try {
         const preloadResp = await event.preloadResponse;
         if (preloadResp) return preloadResp;
-  
-        // Include credentials for fetch
+
+        // Attempt normal fetch with credentials if resource not cached
         return await fetch(event.request, { credentials: 'same-origin' });
-  
+
       } catch (err) {
-        // Offline — redirect to cached offline page with original path encoded
-        const redirectUrl = new URL(OFFLINE_URL, self.location.origin);
-        redirectUrl.searchParams.set('prev', reqUrl.pathname);
-        return Response.redirect(redirectUrl.href, 302);
+        const cachedOffline = await caches.match(OFFLINE_URL);
+        if (cachedOffline) {
+          const redirectUrl = new URL(OFFLINE_URL, self.location.origin);
+          redirectUrl.searchParams.set('prev', reqUrl.pathname);
+          return Response.redirect(redirectUrl.href, 302);
+        }
+
+        // Fallback if offline page wasn't cached
+        return new Response('Offline – page not available. Please fix your connection.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' },
+        });
       }
     }
   );

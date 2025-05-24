@@ -1,13 +1,18 @@
+import re
+import markdown
 import api.exceptions as err
 
+from bleach import clean
 from functools import wraps
 from rest_framework import status
+from datetime import date, datetime
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.urls import reverse
 from django.contrib import messages
 from django.utils.http import urlencode
-from auth_app.models import User
+from django.utils.timezone import now, localtime, is_aware
+from auth_app.models import User, Notification
 from clock_in_system.settings import BASE_URL
 
 
@@ -277,3 +282,267 @@ def get_user_associated_stores_from_session(request):
 
     store_data = {store.id: store.code for store in stores}
     return store_data
+
+
+def get_default_page_context(request, include_notifications: bool = False):
+    """
+    Get the user's context and User object from their user_id stored in their session information.
+    If the user is NOT LOGGED IN, it returns an empty context dict and None for the User object.
+
+    Args:
+      - request: The request made to the endpoint by the user.
+      - include_notifications (bool) = False: Whether to include all the physical notifications instead of just the count.
+    """
+    # Get user's id
+    employee_id = request.session.get("user_id", None)
+
+    # If the user is NOT LOGGED IN -> return empty context and NULL user
+    if employee_id is None:
+        return {}, None
+
+    # Get employee data to check state
+    try:
+        employee = User.objects.get(id=employee_id)
+
+    except User.DoesNotExist as e:
+        request.session.flush()
+        raise e
+
+    # Get associated stores
+    stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+    if len(stores) < 1 or not stores:
+        messages.error(
+            request,
+            "Your account has no associated stores. Please contact a store manager.",
+        )
+    store_data = {store.id: store.code for store in stores}
+
+    # Get user's notifications
+    notifs = employee.get_unread_notifications().select_related("sender")
+
+    if include_notifications:
+        notifications = []
+        for notif in notifs:
+            if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
+                sender = "SYSTEM"
+            elif (
+                notif.notification_type == Notification.Type.SYSTEM_ALERT
+                or notif.notification_type == Notification.Type.ADMIN_NOTE
+            ) or not notif.sender:
+                sender = "ADMIN"
+            elif notif.sender.is_hidden:
+                sender = "ADMIN"
+            else:
+                sender = f"{notif.sender.first_name} {notif.sender.last_name}"
+
+            notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": add_placeholder_text(
+                        string=notif.message, user_obj=employee
+                    ),
+                    "type": notif.notification_type,
+                    "sender": sender,
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
+                    "store_broadcast": notif.broadcast_to_store,
+                }
+            )
+
+        return {
+            "user_id": employee_id,
+            "user_name": employee.first_name,
+            "associated_stores": store_data,
+            "notifications": notifications,
+            "notification_count": notifs.count(),
+        }, employee
+
+    # Else, dont include notifications (SAVES WORK)
+    return {
+        "user_id": employee_id,
+        "user_name": employee.first_name,
+        "associated_stores": store_data,
+        "notification_count": notifs.count(),
+    }, employee
+
+
+def sanitise_plain_text(value: str) -> str:
+    return clean(value, tags=[], strip=True).strip()
+
+
+def sanitise_markdown_message_text(value: str) -> str:
+    """
+    USED FOR NOTIFICATION MESSAGES!!
+    Sanitises and formats markdown-like text such that:
+    - Each line becomes a <p>...</p>
+    - Single newlines become a <br> inside a <p>...</p> block
+    - Double newlines are made into seperate <p>...</p> structures
+    """
+    if not value:
+        return ""
+
+    # Render markdown to HTML
+    html = markdown.markdown(
+        value.strip(),
+        extensions=[
+            "markdown.extensions.extra",
+            "markdown.extensions.sane_lists",
+            "markdown.extensions.nl2br",
+            "underline",
+        ],
+    )
+
+    # Sanitise rendered HTML (allow only formatting tags)
+    safe_html = clean(
+        html,
+        tags=[
+            "b",
+            "strong",
+            "i",
+            "em",
+            "u",
+            "p",
+            "blockquote",
+            "code",
+            "ul",
+            "ol",
+            "li",
+            "br",
+            "del",
+            "strike",
+        ],
+        attributes={},
+        strip=True,
+    )
+
+    # Remove leading/trailing <br> tags
+    safe_html = re.sub(r"^(<br\s*/?>)+", "", safe_html)
+    safe_html = re.sub(r"(<br\s*/?>)+$", "", safe_html)
+    # Remove leading/trailing empty <p> tags (including whitespace inside)
+    safe_html = re.sub(r"^(<p>\s*</p>)+", "", safe_html)
+    safe_html = re.sub(r"(<p>\s*</p>)+$", "", safe_html)
+    # Remove unneeded new lines and carriage returns after the fact (anything left over)
+    safe_html = re.sub(r"\s*[\r\n]+\s*", "", safe_html)
+
+    return safe_html
+
+
+def sanitise_markdown_title_text(value: str) -> str:
+    """
+    Function to sanitise and apply markdown conversions to notification titles.
+    """
+    if not value:
+        return ""
+
+    # Remove unneeded new lines and carriage returns
+    value = re.sub(r"\s*[\r\n]+\s*", "", value)
+
+    # Render markdown to HTML
+    html = markdown.markdown(
+        value.strip(), extensions=["markdown.extensions.extra", "underline"]
+    )
+
+    # Sanitise rendered HTML (allow only formatting tags)
+    return clean(
+        html,
+        tags=["b", "strong", "i", "em", "u", "code", "del", "strike"],
+        attributes={},
+        strip=True,
+    )
+
+
+def add_placeholder_text(string: str, user_obj: User) -> str:
+    """
+    Function to replace all available placeholders with their respective strings.
+    If no user object is given, then default values will replace the placeholders.
+    Args:
+      - string (str): The string text to replace placeholders with their respective text.
+      - user_obj (User): The User object of the user the placeholders will be based upon. REQUIRED!
+
+    Placeholders:
+      - %user.first_name% => User's first name (Default='Employee')
+      - %user.last_name% => User's last name (Default='')
+      - %user.role% => 'Employee', 'Manager', 'Site Admin' based on user's permissions (Default='Employee')
+      - %user.active_state% => 'ACTIVE' or 'INACTIVE' (Default='UNKNOWN')
+      - %user.creation_date% => User's account creation date as DD/MM/YYYY (Default='UNKNOWN')
+      - %user.birth_date% => User's birth date as DD/MM/YYYY or 'N/A' (Default='UNKNOWN')
+      - %user.phone% => User's phone number or 'N/A' (Default='N/A')
+      - %user.email% => User's email address (Default='UNKNOWN')
+      - %user.clocked_in_global% => If user is clocked in to ANY store (Default='UNKNOWN')
+      - %user.store_count% => Number of stores associated to the user (Default='0')
+      - %user.unread_notifications_count% => Number of unread notifications for the user (Default='UNKNOWN')
+      - %server.date% => Date of the server DD/MM/YYYY
+      - %server.time% => Time of the server HH:MM
+    """
+    default_replace = False
+    if user_obj is None or not isinstance(user_obj, User):
+        default_replace = True
+
+    def format_date(date_obj):
+        if not date_obj:
+            return "UNKNOWN"
+        elif isinstance(date_obj, datetime):
+            # Ensure it's timezone-aware before using localtime
+            dt = localtime(date_obj) if is_aware(date_obj) else date_obj
+            return dt.strftime("%d/%m/%Y")
+        elif isinstance(date_obj, date):
+            return date_obj.strftime("%d/%m/%Y")
+
+        return "UNKNOWN"
+
+    def get_user_role(user: User):
+        if user.is_hidden:
+            return "Site Admin"
+        elif user.is_manager:
+            return "Manager"
+        return "Employee"
+
+    placeholder_funcs = {
+        "%user.first_name%": lambda: (
+            "Employee" if default_replace else user_obj.first_name or "Employee"
+        ),
+        "%user.last_name%": lambda: "" if default_replace else user_obj.last_name or "",
+        "%user.role%": lambda: (
+            "Employee" if default_replace else get_user_role(user_obj)
+        ),
+        "%user.active_state%": lambda: (
+            "UNKNOWN"
+            if default_replace
+            else ("ACTIVE" if user_obj.is_active else "INACTIVE")
+        ),
+        "%user.creation_date%": lambda: (
+            "UNKNOWN" if default_replace else format_date(user_obj.created_at)
+        ),
+        "%user.birth_date%": lambda: (
+            "UNKNOWN" if default_replace else format_date(user_obj.birth_date)
+        ),
+        "%user.phone%": lambda: (
+            "N/A" if default_replace else (user_obj.phone_number or "N/A")
+        ),
+        "%user.email%": lambda: (
+            "UNKNOWN" if default_replace else user_obj.email or "UNKNOWN"
+        ),
+        "%user.clocked_in_global%": lambda: (
+            "UNKNOWN"
+            if default_replace
+            else ("Yes" if user_obj.is_clocked_in() else "No")
+        ),
+        "%user.store_count%": lambda: (
+            "0" if default_replace else str(user_obj.get_associated_stores().count())
+        ),
+        "%user.unread_notifications_count%": lambda: (
+            "UNKNOWN"
+            if default_replace
+            else str(user_obj.get_unread_notifications().count())
+        ),
+        "%server.date%": lambda: localtime(now()).strftime("%d/%m/%Y"),
+        "%server.time%": lambda: localtime(now()).strftime("%H:%M"),
+    }
+
+    for placeholder, value_fn in placeholder_funcs.items():
+        if placeholder in string:
+            string = string.replace(placeholder, value_fn())
+
+    return string
