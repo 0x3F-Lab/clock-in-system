@@ -390,6 +390,7 @@ def sanitise_markdown_message_text(value: str) -> str:
             "markdown.extensions.extra",
             "markdown.extensions.sane_lists",
             "markdown.extensions.nl2br",
+            "underline",
         ],
     )
 
@@ -439,7 +440,9 @@ def sanitise_markdown_title_text(value: str) -> str:
     value = re.sub(r"\s*[\r\n]+\s*", "", value)
 
     # Render markdown to HTML
-    html = markdown.markdown(value.strip(), extensions=["markdown.extensions.extra"])
+    html = markdown.markdown(
+        value.strip(), extensions=["markdown.extensions.extra", "underline"]
+    )
 
     # Sanitise rendered HTML (allow only formatting tags)
     return clean(
