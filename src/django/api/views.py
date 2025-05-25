@@ -2205,7 +2205,7 @@ def mark_notification_read(request, id):
         )
 
         # Return the results after serialisation
-        return Response({"notification_id": id}, status=status.HTTP_200_OK)
+        return Response({"notification_id": id}, status=status.HTTP_202_ACCEPTED)
 
     except User.DoesNotExist:
         return Response(
