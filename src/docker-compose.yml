@@ -46,7 +46,7 @@ services:
   celery-beat:
     container_name: CeleryBeat
     build: ./django
-    command: celery -A clock_in_system beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: celery -A clock_in_system beat --loglevel=info
     volumes:
       - ./django/debug.log:/app/debug.log:rw
       - ./django/tasks.log:/app/tasks.log:rw

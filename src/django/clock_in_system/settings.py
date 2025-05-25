@@ -210,6 +210,7 @@ CELERY_TASK_SOFT_TIME_LIMIT = (
 
 # Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
 ### !! TO ENSURE TASKS ARE CORRECTLY SET ON TIME, THE DOCKER COMPOSE MUST BE REBUILT WITH `--build` !!
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
