@@ -391,10 +391,8 @@ class Notification(models.Model):
 
     def __str__(self):
         if self.broadcast_to_store:
-            return f"[{self.id}] Broadcast to {self.store.code} - {self.message[:30]}"
-        return (
-            f"[{self.id}] To {self.targeted_users.count()} users - {self.message[:30]}"
-        )
+            return f"[{self.id}] [{self.notification_type.upper()}] Broadcast to {self.store.code} - **{self.title}**: {self.message[:30]}"
+        return f"[{self.id}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
 
     def mark_notification_as_read(self, user):
         receipt = NotificationReceipt.objects.filter(
