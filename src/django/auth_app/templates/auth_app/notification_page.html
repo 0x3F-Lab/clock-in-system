@@ -18,10 +18,6 @@
         Notification Settings
       </button>
     </div>
-
-    <div class="d-flex justify-content-center my-4">
-      {% include "components/store_selection_controller.html" %}
-    </div>
   </div>
 
   <!-- Sub-Page: Account Notifications -->
@@ -136,11 +132,11 @@
           {% endif %}
         {% endfor %}
 
-        {% for error in form.non_field_errors %}
-        <div class="nonFieldErrors text-danger text-wrap">{{ error|escape }}</div>
-        {% endfor %}
-
         <button type="submit" class="btn btn-lg btn-success w-100 p-3 mt-5">Send Notification</button>
+
+        {% for error in form.non_field_errors %}
+        <div class="nonFieldErrors text-danger text-wrap mt-2">{{ error|escape }}</div>
+        {% endfor %}
 
         <hr>
 

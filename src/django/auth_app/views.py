@@ -26,6 +26,7 @@ from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
 
+
 logger = logging.getLogger("auth_app")
 
 
@@ -399,79 +400,96 @@ def notification_page(request):
 
     # POST REQUEST (form submission)
     if request.method == "POST":
-        form = NotificationForm(request.POST, user=user)
+        try:
+            form = NotificationForm(request.POST, user=user)
 
-        if form.is_valid():
-            data = form.cleaned_data
-            title = data["title"]
-            message = data["message"]
-            store = data.get("store")  # .get() as its optional
-            recipient_group = data["recipient_group"]
-            notification_type = data["notification_type"]
+            if form.is_valid():
+                data = form.cleaned_data
+                title = data["title"]
+                message = data["message"]
+                store = data.get("store")  # .get() as its optional
+                recipient_group = data["recipient_group"]
+                notification_type = data["notification_type"]
 
-            if recipient_group == "all_users" and user.is_hidden:
-                notif = Notification.send_system_notification_to_all(
-                    title=title, message=message, sender=user
+                if recipient_group == "all_users" and user.is_hidden:
+                    notif = Notification.send_system_notification_to_all(
+                        title=title, message=message, sender=user
+                    )
+
+                elif recipient_group == "store_employees" and user.is_manager:
+                    notif = Notification.send_to_store_users(
+                        store=store,
+                        title=title,
+                        message=message,
+                        notification_type=notification_type,
+                        sender=user,
+                    )
+
+                elif recipient_group == "store_managers":
+                    managers = store.get_store_managers()
+                    notif = Notification.send_to_users(
+                        users=managers,
+                        title=title,
+                        message=message,
+                        notification_type=notification_type,
+                        sender=user,
+                    )
+
+                elif recipient_group == "site_admins":
+                    admins = User.objects.filter(
+                        is_active=True, is_hidden=True
+                    ).distinct()
+                    notif = Notification.send_to_users(
+                        users=admins,
+                        title=title,
+                        message=message,
+                        notification_type=notification_type,
+                        sender=user,
+                    )
+
+                elif recipient_group == "all_managers" and user.is_hidden:
+                    managers = User.objects.filter(
+                        is_active=True, is_manager=True
+                    ).distinct()
+                    notif = Notification.send_to_users(
+                        users=managers,
+                        title=title,
+                        message=message,
+                        notification_type=notification_type,
+                        sender=user,
+                    )
+
+                else:
+                    messages.error(
+                        request, "Failed to send notifications. Are you authorised?"
+                    )
+                    return render(
+                        request,
+                        "auth_app/notification_page.html",
+                        {**context, "form": form},
+                    )
+
+                messages.success(request, "Successfully sent notifications.")
+                logger.info(
+                    f"Employee ID {user.id} ({user.first_name} {user.last_name}) sent notification to group '{recipient_group.upper()}' {f'for the store {store.code}' if store else ''} with title '{title}'."
                 )
-
-            elif recipient_group == "store_employees" and user.is_manager:
-                notif = Notification.send_to_store_users(
-                    store=store,
-                    title=title,
-                    message=message,
-                    notification_type=notification_type,
-                    sender=user,
+                logger.debug(
+                    f"[CREATE: NOTIFICATION (ID: {notif.id if notif else 'ERR'})] [{notification_type}] Employee: {user.first_name} {user.last_name} ({user.id}) → Group: {recipient_group.upper()} {f'({store.code})' if store else ''}"
                 )
-
-            elif recipient_group == "store_managers":
-                managers = store.get_store_managers()
-                notif = Notification.send_to_users(
-                    users=managers,
-                    title=title,
-                    message=message,
-                    notification_type=notification_type,
-                    sender=user,
-                )
-
-            elif recipient_group == "site_admins" and user.is_hidden:
-                admins = User.objects.filter(is_active=True, is_hidden=True).distinct()
-                notif = Notification.send_to_users(
-                    users=admins,
-                    title=title,
-                    message=message,
-                    notification_type=notification_type,
-                    sender=user,
-                )
-
-            elif recipient_group == "all_managers":
-                managers = User.objects.filter(
-                    is_active=True, is_manager=True
-                ).distinct()
-                notif = Notification.send_to_users(
-                    users=managers,
-                    title=title,
-                    message=message,
-                    notification_type=notification_type,
-                    sender=user,
-                )
+                return redirect("notification_page")
 
             else:
                 messages.error(
-                    request, "Failed to send notifications. Are you authorised?"
+                    request, "Failed to send notifications. Please correct the errors."
                 )
 
-            messages.success(request, "Successfully sent notifications.")
-            logger.info(
-                f"Employee ID {user.id} ({user.first_name} {user.last_name}) sent notification to group '{recipient_group.upper()}' {f'for the store {store.code}' if store else ''} with title '{title}'."
+        except Exception as e:
+            logger.critical(
+                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}"
             )
-            logger.debug(
-                f"[CREATE: NOTIFICATION (ID: {notif.id if notif else 'ERR'})] [{notification_type}] Employee: {user.first_name} {user.last_name} ({user.id}) → Group: {recipient_group.upper()} {f'({store.code})' if store else ''}"
-            )
-            return redirect("notification_page")
-
-        else:
             messages.error(
-                request, "Failed to send notifications. Please correct the errors."
+                request,
+                "Failed to send your message due to internal server errors. Please try again later.",
             )
 
     # GET REQUEST (load the page)

@@ -2,11 +2,16 @@ $(document).ready(function () {
   // Handle button(s) to mark a notification as read (dismiss it)
   handleNotificationMarkAsRead();
 
-  // Function to handle submisison of notification messages (page form)
-  handleNotificationSubmission();
-
   // Function to handle switching between the multiple pages on the notification page (i.e. seeing notifications to sending notifications)
   handleNotificationPageSwitching();
+
+  // Handle changing recipient group -> hide/show store field
+  $('#id_recipient_group').on('change', () => {
+    handleRecipientGroupChange();
+  });
+
+  // Initial recipient group update
+  handleRecipientGroupChange();
 
   // Handle message field input -> change current characters
   $('#id_message').on('input', () => {
@@ -75,6 +80,18 @@ function handleNotificationPageSwitching() {
 }
 
 
+// Show/hide the store selector based on recipient group
+function handleRecipientGroupChange() {
+  recipient = $('#id_recipient_group').val()
+  if (recipient === "store_managers" || recipient === "store_employees") {
+    $('#id_store').closest('.form-group').removeClass('d-none');
+
+  } else {
+    $('#id_store').closest('.form-group').addClass('d-none');
+  }
+}
+
+
 function handleNotificationMarkAsRead() {
   // Listen for any collapse being shown
   $('.collapse').on('show.bs.collapse', function () {
@@ -92,26 +109,6 @@ function handleNotificationMarkAsRead() {
   $(document).on('click', '.mark-as-read', function () {
     const ID = $(this).data('id');
     markNotificationRead(ID);
-  });
-}
-
-
-function handleNotificationSubmission() {
-  $("form").on("submit", function (e) {
-    e.preventDefault(); // Prevent the default form submit
-
-    const storeID = getSelectedStoreID();
-
-    if (!storeID) {
-      showNotification("Please select a store before submitting a message.", "danger");
-      return;
-    }
-
-    // Set the value of the hidden input
-    $(this).find("input[name='store']").val(storeID);
-
-    // Submit the form after setting the store ID
-    this.submit(); // Native submit to avoid recursion
   });
 }
 

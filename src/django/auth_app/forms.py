@@ -1,11 +1,9 @@
 import re
-import markdown
 import auth_app.utils as util
 
 from bleach import clean
 from django import forms
 from django.utils.timezone import now
-from django.utils.html import linebreaks
 from django.core.exceptions import ValidationError
 from auth_app.models import User, Notification, Store
 from clock_in_system.settings import (
@@ -277,12 +275,11 @@ class NotificationForm(forms.Form):
         label="Send To",
         widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
     )
-    # THIS TURNS FROM AN ID INPUTTED ON CLIENT SIDE TO A STORE OBJECT ONCE VALIDATED
-    store = forms.ModelChoiceField(
-        queryset=Store.objects.filter(is_active=True),
+    store = forms.ChoiceField(
+        choices=[],
         required=False,
-        widget=forms.HiddenInput(),
-        label="",
+        widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
+        label="Store",
     )
     notification_type = forms.ChoiceField(
         choices=[],
@@ -296,7 +293,16 @@ class NotificationForm(forms.Form):
 
         self.user = user
 
-        # Limit notification types based on user role
+        # STORE CHOICES -------------------
+        if user is not None:
+            active_stores = user.get_associated_stores()
+            self.fields["store"].choices = [
+                (store.id, store.code) for store in active_stores
+            ]
+        else:
+            self.fields["store"].choices = [("", "--- No available stores ---")]
+
+        # NOTIFICATION TYPE CHOICES ---------------------
         type_choices = Notification.Type.choices
 
         type_choices = [
@@ -334,6 +340,7 @@ class NotificationForm(forms.Form):
 
         self.fields["notification_type"].choices = type_choices
 
+        # RECIPIENT CHOICES ---------------------------
         # Default: only allow sending to managers
         recipient_choices = [
             ("store_managers", "Store Managers Only"),
@@ -358,10 +365,61 @@ class NotificationForm(forms.Form):
 
         self.fields["recipient_group"].choices = recipient_choices
 
+    def clean_store(self):
+        store_id = self.cleaned_data.get("store")
+
+        if not store_id:
+            # If no store provided for store-based message
+            if self.cleaned_data.get("recipient_group") in [
+                "store_managers",
+                "store_employees",
+            ]:
+                raise ValidationError("Store not provided for store-based message.")
+            return None
+
+        # Validate that the store is in the allowed list for this user
+        if not self.user:
+            raise ValidationError("User is not authenticated or provided.")
+
+        # Get user's allowed stores
+        allowed_store_ids = {
+            str(store.id) for store in self.user.get_associated_stores()
+        }
+
+        if str(store_id) not in allowed_store_ids:
+            raise ValidationError("You do not have permission to select this store.")
+
+        # Confirm store exists and is active
+        try:
+            return Store.objects.get(id=store_id, is_active=True)
+        except Store.DoesNotExist:
+            raise ValidationError("Selected store is invalid or inactive.")
+
     def clean_notification_type(self):
         notification_type = self.cleaned_data.get("notification_type")
         recipient_group = self.cleaned_data.get("recipient_group")
-        print(recipient_group)
+
+        # Validate that the type is in the allowed list for this user
+        if not self.user:
+            raise ValidationError("User is not authenticated or provided.")
+
+        if (
+            notification_type
+            in [Notification.Type.MANAGER_NOTE, Notification.Type.SCHEDULE_CHANGE]
+        ) and (not self.user.is_manager):
+            raise ValidationError("Not authorised to use that notification type.")
+
+        elif (
+            notification_type
+            in [Notification.Type.SYSTEM_ALERT, Notification.Type.ADMIN_NOTE]
+        ) and (not self.user.is_hidden):
+            raise ValidationError("Not authorised to use that notification type.")
+
+        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
+            raise ValidationError("Not authorised to use that notification type.")
+
+        elif notification_type not in Notification.Type:
+            raise ValidationError("Invalid notification type.")
 
         # Validate combinations
         if (
@@ -386,12 +444,6 @@ class NotificationForm(forms.Form):
                 "Schedule Change notifications must target store employees."
             )
 
-        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
-            raise ValidationError("Cannot use message type Automatic Alert.")
-
-        elif notification_type not in Notification.Type:
-            raise ValidationError("Invalid notification type.")
-
         return notification_type
 
     def clean_recipient_group(self):
@@ -400,6 +452,18 @@ class NotificationForm(forms.Form):
         # Validate options
         if not any(key == recipient_group for key, _ in self.RECIPIENT_CHOICES):
             raise ValidationError("Invalid recipient group choice.")
+
+        # Validate that the recipient group is in the allowed list for this user
+        if not self.user:
+            raise ValidationError("User is not authenticated or provided.")
+
+        elif (recipient_group == "store_employees") and (not self.user.is_manager):
+            raise ValidationError("Not authorised to use that recipient group.")
+
+        elif (recipient_group in ["all_users", "all_managers"]) and (
+            not self.user.is_hidden
+        ):
+            raise ValidationError("Not authorised to use that notification type.")
 
         return recipient_group
 
