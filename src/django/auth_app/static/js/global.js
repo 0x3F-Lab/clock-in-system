@@ -96,7 +96,7 @@ function setupVisibilityReload(maxIdleMinutes) {
         const minutesAway = (now - lastHiddenTime) / 1000 / 60;
 
         if (minutesAway > maxIdleMinutes) {
-          location.reload();
+          location.href = location.href;
         }
       }
       lastHiddenTime = null; // Reset after checking
