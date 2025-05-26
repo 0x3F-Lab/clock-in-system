@@ -4,7 +4,7 @@ from datetime import timedelta
 from django.test import Client
 from django.urls import reverse
 from django.utils.timezone import now
-from auth_app.models import User, Activity, Store, StoreUserAccess
+from auth_app.models import User, Activity, Store, StoreUserAccess, Notification
 
 # Default scope if functional (i.e. after every single test the database resets)
 
@@ -140,6 +140,20 @@ def manager(db, store):
     manager.save()
 
     return manager
+
+
+@pytest.fixture
+def notification_all(employee, inactive_employee, clocked_in_employee, manager):
+    """
+    Creates a notification and sends it to all users in the DB with respective receipts
+    """
+    # Make a notification with no sender (from system)
+    notif = Notification.send_system_notification_to_all(
+        title="System Notification",
+        message="This is a system notification to all users.",
+    )
+
+    return notif
 
 
 @pytest.fixture

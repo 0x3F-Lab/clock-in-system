@@ -76,6 +76,7 @@ function openWarningModal(id, actionType, name) {
       <p>This resets their pin to a UNIQUE random 6-didgit PIN for the employee to use.</p>
       <p>You cannot chose a custom PIN due to PIN constraints.</p>
       <p>You cannot go back to an old PIN or cycle between PINs.</p>
+      <p><em>A notification will be sent to the respective user informing them of this change.</em></p>
     `;
     $('#notrevertibleBanner').removeClass('d-none');
 
@@ -86,6 +87,7 @@ function openWarningModal(id, actionType, name) {
       <p>This does not affect any other account information or history.</p>
       <p>The user can still clock in/out manually without setting up their account.</p>
       <p>Be warned that the user can change their DOB on the setup page.</p>
+      <p><em>A notification will be sent to the respective user informing them of this change.</em></p>
     `;
     $('#notrevertibleBanner').removeClass('d-none');
   
@@ -95,6 +97,7 @@ function openWarningModal(id, actionType, name) {
       <p>This means that the employee can no longer interact with the store.</p>
       <p>If the employee is still clocked in, then they can no longer clock out.</p>
       <p>To UNDO this and re-assign the employee to the store again, you must '+ Add New Employee' and then use their email (no need for the other information).</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
     `;
     $('#revertibleBanner').removeClass('d-none');
   
@@ -103,6 +106,7 @@ function openWarningModal(id, actionType, name) {
       <p>You are about to DEACTIVATE an Employee account.</p>
       <p>This "freeze's" the account such that they cannot login or clock in/out.</p>
       <p>This affects every store the employee is assigned to - its GLOBAL.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
     `;
     $('#revertibleBanner').removeClass('d-none');
 
@@ -111,6 +115,7 @@ function openWarningModal(id, actionType, name) {
       <p>You are about to ACTIVATE an Employee account.</p>
       <p>This "unfreeze's" the account such that they can now again login or clock in/out.</p>
       <p>This affects every store the employee is assigned to - its GLOBAL.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
     `;
     $('#revertibleBanner').removeClass('d-none');
   }

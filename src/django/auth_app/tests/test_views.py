@@ -22,7 +22,7 @@ def test_employee_dashboard_success(logged_in_employee, employee):
     """
     client = logged_in_employee
 
-    url = reverse("dashboard")  # Adjust if named differently
+    url = reverse("dashboard")
     response = client.get(url)
 
     assert response.status_code == 200
@@ -43,6 +43,27 @@ def test_employee_dashboard_success(logged_in_employee, employee):
     if employee.updated_at:
         updated_str = employee.updated_at.strftime("%d/%m/%Y")
         assert updated_str in content
+
+
+@pytest.mark.django_db
+def test_notification_page_success(logged_in_employee, employee, notification_all):
+    """
+    Test that an authenticated employee can successfully access the notification page.
+    """
+    client = logged_in_employee
+
+    url = reverse("notification_page")
+    response = client.get(url)
+
+    assert response.status_code == 200
+    content = response.content.decode()
+
+    assert "Your Notifications (1)" in content  # 1 for the all notif
+
+    # Assure the buttons exist
+    assert "Notifications" in content
+    assert "Notification Settings" in content
+    assert "Send Messages" in content
 
 
 @pytest.mark.django_db
