@@ -18,7 +18,7 @@ class User(models.Model):
     )  # CharField to handle leading zeros
     pin = models.CharField(max_length=6, unique=True, null=True)
     password = models.CharField(
-        max_length=256, null=True
+        max_length=256, null=True, blank=True
     )  # Allow nullable for non-setup accounts
     birth_date = models.DateField(blank=True, default=None, null=True)
     is_active = models.BooleanField(default=False, null=False)
