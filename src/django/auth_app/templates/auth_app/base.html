@@ -40,7 +40,7 @@
               data-bs-toggle="dropdown" aria-expanded="false">
               <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
               {% if notification_count > 0 %}
-                <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-black fs-7">
+                <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-light fs-7">
                   {% if notification_count > 9 %}
                     9+
                   {% else %}
@@ -68,7 +68,7 @@
                 <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 w-100 fs-5" href="{% url 'notification_page' %}">
                   <span><i class="fa-solid fa-bell me-2"></i> Notifications</span>
                   {% if notification_count > 0 %}
-                    <span class="badge bg-danger text-black">
+                    <span class="badge bg-danger text-light">
                       {% if notification_count > 9 %}
                         9+
                       {% else %}
