@@ -81,7 +81,7 @@ def check_clocked_in_users():
             )
 
         logger_beat.info(
-            f"Finished running task `chceck_clocked_in_users` and found {total_count} users still clocked in. Sent message(s) to respective managers."
+            f"Finished running task `check_clocked_in_users` and found {total_count} users still clocked in. Sent message(s) to respective managers."
         )
 
     except Exception as e:
@@ -298,7 +298,7 @@ def notify_managers_and_employee_account_resigned(
     user_id: int, store_id: int, manager_id: int
 ):
     logger_beat.info(
-        f"[AUTOMATED] Running task `notify_managers_account_resigned` due to an account being resigned from store ID '{store_id}' by manager ID '{manager_id}'."
+        f"[AUTOMATED] Running task `notify_managers_and_employee_account_resigned` due to an account being resigned from store ID '{store_id}' by manager ID '{manager_id}'."
     )
 
     try:
@@ -378,12 +378,12 @@ def notify_managers_and_employee_account_resigned(
         )
 
         logger_beat.info(
-            f"Finished running task `notify_managers_account_resigned` and notified the employee and their respective store managers."
+            f"Finished running task `notify_managers_and_employee_account_resigned` and notified the employee and their {store.get_store_managers().count()} store managers."
         )
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_resigned` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_resigned` due to the error: {e}"
         )
         return
 
@@ -393,7 +393,7 @@ def notify_managers_and_employee_account_assigned(
     user_id: int, store_id: int, manager_id: int
 ):
     logger_beat.info(
-        f"[AUTOMATED] Running task `notify_managers_account_assigned` due to an account being resigned from store ID '{store_id}' by manager ID '{manager_id}'."
+        f"[AUTOMATED] Running task `notify_managers_and_employee_account_assigned` due to an account being resigned from store ID '{store_id}' by manager ID '{manager_id}'."
     )
 
     try:
@@ -473,12 +473,12 @@ def notify_managers_and_employee_account_assigned(
         )
 
         logger_beat.info(
-            f"Finished running task `notify_managers_account_assigned` and notified the employee and their respective store managers."
+            f"Finished running task `notify_managers_and_employee_account_assigned` and notified the employee and their {store.get_store_managers().count()} store managers."
         )
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_assigned` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_assigned` due to the error: {e}"
         )
         return
 
@@ -534,7 +534,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
         )
 
         logger_beat.info(
-            f"Finished running task `notify_employee_account_reset_pin` and notified store managers."
+            f"Finished running task `notify_employee_account_reset_pin` and notified the user {user.first_name} {user.last_name} (ID: {user.id})."
         )
 
     except Exception as e:
@@ -594,7 +594,7 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
         )
 
         logger_beat.info(
-            f"Finished running task `notify_employee_account_reset_password` and notified store managers."
+            f"Finished running task `notify_employee_account_reset_password` and notified the user {user.first_name} {user.last_name} (ID: {user.id})."
         )
 
     except Exception as e:

@@ -951,6 +951,11 @@ def create_new_employee(request):
             # Save association
             new_association.save()
 
+            # Send a notification
+            tasks.notify_managers_and_employee_account_assigned.delay(
+                user_id=employee.id, store_id=store.id, manager_id=manager.id
+            )
+
             logger.info(
                 f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
             )
@@ -1011,17 +1016,6 @@ def create_new_employee(request):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        # Create user
-        employee = User.objects.create(
-            first_name=first_name.title(),
-            last_name=last_name.title(),
-            email=email,
-            is_active=True,
-            is_manager=False,
-            is_hidden=False,
-            is_setup=False,
-        )
-
         # VALIDATE REMAINING NON-ESSENTIAL INFORMATION
         if phone_number:
             if len(phone_number) > 15:
@@ -1055,6 +1049,17 @@ def create_new_employee(request):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
+        # Create user
+        employee = User.objects.create(
+            first_name=first_name.title(),
+            last_name=last_name.title(),
+            email=email,
+            is_active=True,
+            is_manager=False,
+            is_hidden=False,
+            is_setup=False,
+        )
+
         # ADD THE NEW USER TO THE STORE
         new_association = StoreUserAccess.objects.create(
             user=employee,
@@ -1067,6 +1072,11 @@ def create_new_employee(request):
             employee.set_unique_pin()
             employee.save()
             new_association.save()
+
+        # Send notifications
+        tasks.notify_managers_and_employee_account_assigned.delay(
+            user_id=employee.id, store_id=store.id, manager_id=manager.id
+        )
 
         logger.info(
             f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
@@ -1421,7 +1431,7 @@ def modify_account_status(request, id):
                 ).last()
                 association.delete()
 
-                tasks.notify_managers_account_resigned.delay(
+                tasks.notify_managers_and_employee_account_resigned.delay(
                     user_id=employee.id, store_id=store.id, manager_id=manager.id
                 )
                 logger.info(
