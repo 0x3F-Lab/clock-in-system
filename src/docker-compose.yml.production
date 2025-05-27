@@ -7,8 +7,7 @@ services:
       context: ./django  # Path to your Django directory
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
-      - ~/debug.log:/app/debug.log      # Add file to ensure easy access to the debug log file
-      - ~/tasks.log:/app/tasks.log
+      - ~/logs/:/app/logs:rw            # Add file to ensure easy access to the debug log file
     env_file:
       - .env.production
     ports:
@@ -24,8 +23,7 @@ services:
     image: django  # Reuse the same Django image
     command: celery -A clock_in_system worker --loglevel=info
     volumes:
-      - ./django/debug.log:/app/debug.log:rw
-      - ./django/tasks.log:/app/tasks.log:rw
+      - ./django/logs/:/app/logs:rw
     env_file:
       - .env.production
     depends_on:
@@ -38,8 +36,7 @@ services:
     image: django
     command: celery -A clock_in_system beat --loglevel=info
     volumes:
-      - ./django/debug.log:/app/debug.log:rw
-      - ./django/tasks.log:/app/tasks.log:rw
+      - ./django/logs/:/app/logs:rw
     env_file:
       - .env.production
     depends_on:

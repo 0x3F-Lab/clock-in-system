@@ -329,13 +329,13 @@ LOGGING = {
         "file": {
             "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
-            "filename": "./debug.log",
+            "filename": "./logs/debug.log",
             "formatter": "verbose",
         },
         "tasks": {
             "level": os.getenv("LOG_LEVEL_TASKS_FILE", "DEBUG").upper(),
             "class": "logging.FileHandler",
-            "filename": "./tasks.log",
+            "filename": "./logs/tasks.log",
             "formatter": "verbose",
         },
     },

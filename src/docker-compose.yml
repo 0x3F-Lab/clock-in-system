@@ -35,8 +35,7 @@ services:
     build: ./django
     command: celery -A clock_in_system worker --loglevel=info
     volumes:
-      - ./django/debug.log:/app/debug.log:rw
-      - ./django/tasks.log:/app/tasks.log:rw
+      - ./django/logs/:/app/logs:rw
     env_file:
       - .env
     depends_on:
@@ -48,8 +47,7 @@ services:
     build: ./django
     command: celery -A clock_in_system beat --loglevel=info
     volumes:
-      - ./django/debug.log:/app/debug.log:rw
-      - ./django/tasks.log:/app/tasks.log:rw
+      - ./django/logs/:/app/logs:rw
     env_file:
       - .env
     depends_on:
