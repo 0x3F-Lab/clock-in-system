@@ -520,7 +520,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
         )
 
         str_msg = util.sanitise_markdown_message_text(
-            f"Your account PIN has been reset to a new random PIN by the manager **{manager.first_name} {manager.last_name}**"
+            f"Your account PIN has been reset to a new random PIN by the manager **{manager.first_name} {manager.last_name}**."
             + extra_note
             + "\n\nAs your account PIN has been changed, please see your dashboard to find the new PIN.\nYou must use this new pin to manually clock in/out."
             + "\n\n_Note: Your old PIN cannot be recovered by store managers, please do not ask site admins unless necessary._"
@@ -580,10 +580,10 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
             else ""
         )
         str_msg = util.sanitise_markdown_message_text(
-            f"Your account password has been reset by the manager **{manager.first_name} {manager.last_name}**"
+            f"Your account password has been reset by the manager **{manager.first_name} {manager.last_name}**."
             + extra_note
             + "\n\nThis would have caused you to be logged out of your account and forced to re-setup your account."
-            + "\nThis action has not deleted or reset any other account information or shift history. If you believe this is false, please feel free to contact the site admins."
+            + "\nThis action has not deleted or reset any other account information or shift history. If you believe it has, please feel free to contact the site admins."
         )
         Notification.send_to_users(
             users=[user],
