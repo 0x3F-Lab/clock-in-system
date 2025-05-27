@@ -307,13 +307,13 @@ class Activity(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
     login_time = models.DateTimeField(null=False)  # Rounds in time
     logout_time = models.DateTimeField(
-        null=True
+        null=True, blank=True
     )  # Nullable to allow for ongoing shifts
     shift_length_mins = models.IntegerField(default=0, null=False)
     is_public_holiday = models.BooleanField(default=False, null=False)
     deliveries = models.IntegerField(default=0, null=False)
     login_timestamp = models.DateTimeField(null=True)
-    logout_timestamp = models.DateTimeField(null=True)
+    logout_timestamp = models.DateTimeField(null=True, blank=True)
     last_updated_at = models.DateTimeField(
         auto_now=True, null=False
     )  # Track modifications outside clocking
@@ -348,7 +348,11 @@ class Notification(models.Model):
         EMERGENCY = "emergency", "Emergency"
 
     sender = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="sent_notifications"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sent_notifications",
     )
     store = models.ForeignKey(
         Store,
@@ -383,8 +387,7 @@ class Notification(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     expires_on = models.DateField(
-        null=True,
-        blank=True,
+        null=False,
         default=notification_default_expires_on,
         help_text="Optional expiration date after which the notification is considered inactive",
     )
