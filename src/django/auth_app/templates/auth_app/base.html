@@ -28,7 +28,7 @@
       <!-- Logo + Home Link -->
       <a class="navbar-brand d-flex flex-row align-items-center gap-2" href="{% url 'home' %}">
         <img src="{% static 'img/logo.png' %}" alt="Site Logo" style="height: 40px;">
-        <span class="text-white ms-3"><u><i class="fa-solid fa-house"></i> Home</u></span>
+        <span class="text-white ms-3"><i class="fa-solid fa-house"></i> <u>Home</u></span>
       </a>
 
       <!-- Right-side controls -->
@@ -36,11 +36,11 @@
         {% if request.session.user_id %}
           <!-- User Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-lg btn-light border-0 bg-transparent position-relative d-flex align-items-center p-2" type="button" id="userDropdown"
+            <button class="btn btn-lg h-100 btn-light border-0 bg-transparent position-relative d-flex align-items-center p-2" type="button" id="userDropdown"
               data-bs-toggle="dropdown" aria-expanded="false">
               <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
               {% if notification_count > 0 %}
-                <span class="position-absolute top-0 start-100 translate-middle badge bg-danger text-light fs-7">
+                <span class="notification-badge position-absolute top-0 start-100 badge bg-danger text-light fs-7">
                   {% if notification_count > 9 %}
                     9+
                   {% else %}

@@ -893,8 +893,8 @@ def create_new_employee(request):
         first_name = util.clean_param_str(request.data.get("first_name", ""))
         last_name = util.clean_param_str(request.data.get("last_name", ""))
         email = util.clean_param_str(request.data.get("email", "")).lower()
-        phone_number = util.clean_param_str(request.data.get("phone", ""))
-        dob = util.clean_param_str(request.data.get("dob", ""))
+        phone_number = util.clean_param_str(request.data.get("phone", "")) or None
+        dob = util.clean_param_str(request.data.get("dob", "")) or None
         store_id = util.clean_param_str(request.data.get("store_id", ""))
 
         # Get the store object
@@ -1030,8 +1030,8 @@ def create_new_employee(request):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee.phone_number = phone_number
 
+        parsed_dob = None
         if dob:
             try:
                 parsed_dob = datetime.strptime(dob.strip(), "%Y-%m-%d").date()
@@ -1041,7 +1041,6 @@ def create_new_employee(request):
                         {"Error": "Date of birth must be before today."},
                         status=status.HTTP_412_PRECONDITION_FAILED,
                     )
-                employee.birth_date = parsed_dob
 
             except ValueError:
                 return Response(
@@ -1054,6 +1053,8 @@ def create_new_employee(request):
             first_name=first_name.title(),
             last_name=last_name.title(),
             email=email,
+            phone_number=phone_number,
+            birth_date=parsed_dob,
             is_active=True,
             is_manager=False,
             is_hidden=False,

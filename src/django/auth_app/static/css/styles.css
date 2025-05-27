@@ -65,6 +65,10 @@ table {
   color: #000 !important;
 }
 
+.notification-badge {
+  transform: translate(-70%, -50%);
+}
+
 /* Pagination controller */
 .pagination-gradient .page-link {
   border: none;
