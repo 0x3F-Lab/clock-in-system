@@ -43,6 +43,7 @@ jobs:
         run: |
           scp -i ~/.ssh/id_rsa ./src/docker-compose.yml.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/docker-compose.yml
           scp -i ~/.ssh/id_rsa ./src/../src/.env.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "cp /home/ubuntu/.env.production /home/ubuntu/.env"
           scp -i ~/.ssh/id_rsa django_image.tar.gz ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
 
       - name: Transfer Nginx configuration to server
