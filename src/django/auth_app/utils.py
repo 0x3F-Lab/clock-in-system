@@ -338,7 +338,6 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
-                    "store_broadcast": notif.broadcast_to_store,
                 }
             )
 
@@ -360,7 +359,6 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
-                    "store_broadcast": notif.broadcast_to_store,
                 }
             )
 
@@ -381,7 +379,6 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
-                    "store_broadcast": notif.broadcast_to_store,
                 }
             )
 
@@ -441,27 +438,30 @@ def get_notification_receiver_name(
       - notif (Notification): The notification object.
       - is_received (bool) = True: If the user has recieved this notification or has sent it.
     """
-    if notif.notification_type == Notification.Type.SYSTEM_ALERT:
-        return "All users on the site"
-    if notif.broadcast_to_store == True and notif.store:
+    if (
+        notif.recipient_group == Notification.RecipientType.STORE_EMPLOYEES
+        and notif.store
+    ):
         return f"All Store Employees for store <code>{notif.store.code}</code>"
-    elif not notif.broadcast_to_store and notif.store:
+    elif (
+        notif.recipient_group == Notification.RecipientType.STORE_MANAGERS
+        and notif.store
+    ):
         return f"All Store Managers for store <code>{notif.store.code}</code>"
+    elif notif.recipient_group == Notification.RecipientType.ALL_USERS:
+        return "All active users on the site"
+    elif notif.recipient_group == Notification.RecipientType.ALL_MANAGERS:
+        return "All active managers on the site"
+    elif notif.recipient_group == Notification.RecipientType.SITE_ADMINS:
+        return "All active site admins"
+    elif notif.recipient_group == Notification.RecipientType.INDIVIDUAL:
+        return "You only"
 
-    # Pull targeted users (via NotificationReceipts, not M2M)
-    recipients = User.objects.filter(
-        notification_receipts__notification=notif
-    ).distinct()
-    non_hidden = recipients.filter(is_hidden=False)
-
-    if not non_hidden.exists() and recipients.exists():
-        return "All site admins"
-    elif recipients.count() == 1:
-        if is_received:
-            return "You only"
-        user = recipients.first()
-        return f"{user.first_name} {user.last_name}"
+    # 'OTHER' option, etc.
     else:
+        recipients = User.objects.filter(
+            notification_receipts__notification=notif
+        ).distinct()
         return f"{recipients.count()} Employees"
 
 

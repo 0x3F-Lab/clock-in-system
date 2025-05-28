@@ -150,15 +150,15 @@ class NotificationAdmin(admin.ModelAdmin):
         "title",
         "notification_type",
         "sender",
+        "recipient_group",
         "recipient_count",
         "store_code",
-        "broadcast_to_store",
         "created_at",
         "expires_on",
     )
     list_filter = (
         "notification_type",
-        "broadcast_to_store",
+        "recipient_group",
         "store__code",
         ExpiryStatusFilter,
     )

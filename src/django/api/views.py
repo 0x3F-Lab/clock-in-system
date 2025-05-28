@@ -2332,6 +2332,7 @@ def send_employee_notification(request, id):
             title=str_title,
             message=str_msg,
             notification_type=notification_type,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
             sender=manager,
         )
 

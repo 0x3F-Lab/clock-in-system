@@ -411,12 +411,18 @@ def notification_page(request):
                 recipient_group = data["recipient_group"]
                 notification_type = data["notification_type"]
 
-                if recipient_group == "all_users" and user.is_hidden:
+                if (
+                    recipient_group == Notification.RecipientType.ALL_USERS
+                    and user.is_hidden
+                ):
                     notif = Notification.send_system_notification_to_all(
                         title=title, message=message, sender=user
                     )
 
-                elif recipient_group == "store_employees" and user.is_manager:
+                elif (
+                    recipient_group == Notification.RecipientType.STORE_EMPLOYEES
+                    and user.is_manager
+                ):
                     notif = Notification.send_to_store_users(
                         store=store,
                         title=title,
@@ -425,18 +431,19 @@ def notification_page(request):
                         sender=user,
                     )
 
-                elif recipient_group == "store_managers":
+                elif recipient_group == Notification.RecipientType.STORE_MANAGERS:
                     managers = store.get_store_managers()
                     notif = Notification.send_to_users(
                         users=managers,
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.STORE_MANAGERS,
                         sender=user,
                         store=store,  # Used to identify receivers in text
                     )
 
-                elif recipient_group == "site_admins":
+                elif recipient_group == Notification.RecipientType.SITE_ADMINS:
                     admins = User.objects.filter(
                         is_active=True, is_hidden=True
                     ).distinct()
@@ -445,10 +452,14 @@ def notification_page(request):
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.SITE_ADMINS,
                         sender=user,
                     )
 
-                elif recipient_group == "all_managers" and user.is_hidden:
+                elif (
+                    recipient_group == Notification.RecipientType.ALL_MANAGERS
+                    and user.is_hidden
+                ):
                     managers = User.objects.filter(
                         is_active=True, is_manager=True
                     ).distinct()
@@ -457,6 +468,7 @@ def notification_page(request):
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.ALL_MANAGERS,
                         sender=user,
                     )
 
