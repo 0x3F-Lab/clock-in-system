@@ -38,4 +38,5 @@ urlpatterns = [
     path("dashboard", views.employee_dashboard, name="dashboard"),
     path("login", views.login, name="login"),
     path("setup", views.setup_account, name="account_setup"),
+    path("schedule_dashboard", views.schedule_dashboard, name="schedule_dashboard"),
 ]

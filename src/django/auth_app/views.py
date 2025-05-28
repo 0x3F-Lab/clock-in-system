@@ -668,3 +668,6 @@ class StaticViewSitemap(Sitemap):
         elif item == "manual_clocking":
             return 0.7
         return 0.5
+
+def schedule_dashboard(request):
+    return render(request, "auth_app/schedule_dashboard.html")
