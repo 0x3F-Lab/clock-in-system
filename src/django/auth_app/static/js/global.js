@@ -80,6 +80,30 @@ function actionSavedNotifications() {
   }
 }
 
+// Function to setup ability for page to RELOAD after set period of inactivity
+function setupVisibilityReload(maxIdleMinutes) {
+  let lastHiddenTime = null;
+
+  $(document).on("visibilitychange", function () {
+    if (document.hidden) {
+      // Store the time when the tab was hidden
+      lastHiddenTime = Date.now();
+
+    } else {
+      // Tab has become visible again
+      if (lastHiddenTime) {
+        const now = Date.now();
+        const minutesAway = (now - lastHiddenTime) / 1000 / 60;
+
+        if (minutesAway > maxIdleMinutes) {
+          location.href = location.href;
+        }
+      }
+      lastHiddenTime = null; // Reset after checking
+    }
+  });
+}
+
 
 // Get the required cookie from document
 function getCookie(name) {

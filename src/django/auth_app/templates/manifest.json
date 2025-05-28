@@ -4,7 +4,7 @@
   "id": "{{ BASE_URL|default:'http://localhost' }}",
   "start_url": "{{ BASE_URL|default:'http://localhost' }}/?source=pwa",
   "scope": "{{ BASE_URL|default:'http://localhost' }}",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait",
   "theme_color": "#343a40",
   "background_color": "#1a202c",

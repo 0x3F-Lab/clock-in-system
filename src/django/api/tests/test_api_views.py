@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from datetime import date, timedelta
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
@@ -138,7 +139,6 @@ def test_update_shift_details_success(
     api_client = logged_in_manager
     login_time = localtime(now() - timedelta(hours=2))
     logout_time = localtime(now() - timedelta(hours=1))
-    print(logout_time)
 
     activity = Activity.objects.create(
         employee=employee,
@@ -154,7 +154,6 @@ def test_update_shift_details_success(
     new_logout_time = localtime(now() - timedelta(minutes=30)).replace(
         second=0, microsecond=0
     )
-    print(new_logout_time)
     response = api_client.patch(
         reverse("api:update_shift_details", args=[activity.id]),
         data={
@@ -309,7 +308,10 @@ def test_list_singular_employee_details_success(
 
 
 @pytest.mark.django_db
-def test_create_new_employee_success(logged_in_manager, store, store_associate_manager):
+@patch("auth_app.tasks.notify_managers_and_employee_account_assigned.delay")
+def test_create_new_employee_success(
+    mock_delay, logged_in_manager, store, store_associate_manager
+):
     """
     Test that a manager can successfully create a new employee and associate them to their store.
     """
@@ -332,11 +334,13 @@ def test_create_new_employee_success(logged_in_manager, store, store_associate_m
     data = response.json()
     assert "id" in data
     assert data["message"].startswith("New employee created successfully")
+    mock_delay.assert_called_once()
 
 
 @pytest.mark.django_db
+@patch("auth_app.tasks.notify_managers_and_employee_account_assigned.delay")
 def test_create_new_employee_assign_existing(
-    logged_in_manager, store, store_associate_manager, employee
+    mock_delay, logged_in_manager, store, store_associate_manager, employee
 ):
     """
     Test that a manager can assign an existing employee to their store if not already associated.
@@ -359,6 +363,7 @@ def test_create_new_employee_assign_existing(
     data = response.json()
     assert data["message"].startswith("Existing employee assigned to store")
     assert data["id"] == employee.id
+    mock_delay.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -622,7 +627,7 @@ def test_list_account_summaries_success(
     data = response.json()
     assert "results" in data
     assert isinstance(data["results"], list)
-    assert data["total"] == 1
+    assert data["total"] == 2  # INCLUDES MANAGER
 
     emp = data["results"][0]
     assert emp["employee_id"] == clocked_in_employee.id
@@ -644,13 +649,10 @@ def test_list_account_summaries_full_hour_breakdown(
 
     # Setup reference times
     weekday = today - timedelta(days=(today.weekday() - 0) % 7)  # Last Monday
-    print(weekday.weekday())
     weekend = today - timedelta(days=(today.weekday() - 5) % 7)  # Last Saturday
-    print(weekend.weekday())
     holiday = today - timedelta(
         days=(today.weekday() - 4) % 7
     )  # Last Friday which will be counted as a "public holiday"
-    print(holiday.weekday())
 
     activities = [
         # Weekday activity 3HRS
@@ -709,6 +711,7 @@ def test_list_account_summaries_full_hour_breakdown(
             "start": start,
             "end": end,
             "sort": "name",
+            "ignore_no_hours": "true",
         },
     )
 

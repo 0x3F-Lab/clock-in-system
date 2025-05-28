@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 
 def str_to_bool(value):
@@ -22,7 +23,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.0.8"  #
+STATIC_CACHE_VER = "v1.1.0"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -31,7 +32,7 @@ STATIC_CACHE_VER = "v1.0.8"  #
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-LOGIN_URL = "/login/"
+LOGIN_URL = "/login"
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -112,6 +113,7 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "corsheaders",
     "widget_tweaks",
+    "django_celery_beat",
     "api",
     "auth_app",
 ]
@@ -182,6 +184,49 @@ else:
         }
     }
 
+############################### CELERY CONFIGURATION ############################################
+CELERY_BROKER_URL = os.getenv(
+    "CELERY_BROKER_URL", "redis://:securepassword@redis:6379/0"
+)  # Redis broker URL (with password if required)
+CELERY_RESULT_BACKEND = os.getenv(
+    "CELERY_RESULTS_BACKEND", "redis://:securepassword@redis:6379/1"
+)  # Use Django's database to store task results
+CELERY_CACHE_BACKEND = "redis"  # Cache backend for storing temporary task states
+CELERY_ACCEPT_CONTENT = ["json"]  # Data format for tasks
+CELERY_TASK_SERIALIZER = "json"  # Serialize task data as JSON
+CELERY_RESULT_SERIALIZER = "json"  # Serialize results as JSON
+CELERY_TIMEZONE = os.getenv(
+    "TZ", "Australia/Perth"
+)  # Set the default timezone (you can change this to your preferred timezone)
+CELERY_ENABLE_UTC = False  # Keep local time (for schedules)
+
+CELERY_TASK_RESULT_EXPIRES = 345600  # Results expire after 4 days
+CELERY_TASK_DEFAULT_RETRY_DELAY = 30  # Retry delay in seconds
+CELERY_TASK_MAX_RETRIES = 5  # Max number of retries for a task
+CELERY_TASK_TIME_LIMIT = 300  # Max time in seconds for a task to complete
+CELERY_TASK_SOFT_TIME_LIMIT = (
+    240  # Soft limit (will raise SoftTimeLimitExceeded exception)
+)
+
+# Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
+### !! TO ENSURE TASKS ARE CORRECTLY SET ON TIME, THE DOCKER COMPOSE MUST BE REBUILT WITH `--build` !!
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "check_clocked_in_users": {
+        "task": "auth_app.tasks.check_clocked_in_users",
+        "schedule": crontab(hour=23, minute=0),
+    },
+    "delete_old_notifications": {
+        "task": "auth_app.tasks.delete_old_notifications",
+        "schedule": crontab(hour=2, minute=0, day_of_week=2),  # Tues
+    },
+    "deactivate_unassigned_users": {
+        "task": "auth_app.tasks.deactivate_unassigned_users",
+        "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
+    },
+}
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -218,6 +263,10 @@ COUNTRY_CODE = "AU"
 COUNTRY_SUBDIV_CODE = "WA"
 UTC_OFFSET = "8"  # For UTC+8
 
+
+# Default notification expiration date
+NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21
+NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 30
 
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min
@@ -258,58 +307,72 @@ STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesSto
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "[{levelname}] [{module}] {asctime}: {message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "[{levelname}] {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "level": os.getenv(
-                "LOG_LEVEL_CONSOLE", "INFO"
-            ).upper(),  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "file": {
-            "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
-            "class": "logging.FileHandler",
-            "filename": "/app/debug.log",
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "DEBUG",  # Minimum level this logger will process
-            "propagate": False,
-        },
-        "api": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "auth_app": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "middleware": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-    },
-    "root": {  # Root logger for broader debugging
-        "handlers": ["console"],
-        "level": "DEBUG",
-    },
-}
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "formatters": {
+#         "verbose": {
+#             "format": "[{levelname}] [{module}] {asctime}: {message}",
+#             "style": "{",
+#         },
+#         "simple": {
+#             "format": "[{levelname}] {message}",
+#             "style": "{",
+#         },
+#     },
+#     "handlers": {
+#         "console": {
+#             "level": os.getenv("LOG_LEVEL_CONSOLE", "INFO").upper(),
+#             "class": "logging.StreamHandler",
+#             "formatter": "verbose",
+#         },
+#         "file": {
+#             "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
+#             "class": "logging.FileHandler",
+#             "filename": "./logs/debug.log",
+#             "formatter": "verbose",
+#         },
+#         "tasks": {
+#             "level": os.getenv("LOG_LEVEL_TASKS_FILE", "DEBUG").upper(),
+#             "class": "logging.FileHandler",
+#             "filename": "./logs/tasks.log",
+#             "formatter": "verbose",
+#         },
+#     },
+#     "loggers": {
+#         "django": {
+#             "handlers": ["console"],
+#             "level": "DEBUG",  # Minimum level this logger will process
+#             "propagate": False,
+#         },
+#         "api": {
+#             "handlers": ["console", "file"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "auth_app": {
+#             "handlers": ["console", "file"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "celery": {  # Celery-specific logger
+#             "handlers": ["console", "tasks"],
+#             "level": "INFO",
+#             "propagate": False,
+#         },
+#         "celery_beat": {  # Celery Beat-specific logger
+#             "handlers": ["console", "tasks"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "middleware": {
+#             "handlers": ["console", "file"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#     },
+#     "root": {  # Root logger for broader debugging
+#         "handlers": ["console"],
+#         "level": "DEBUG",
+#     },
+# }

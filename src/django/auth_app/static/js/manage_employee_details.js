@@ -15,6 +15,14 @@ $(document).ready(function() {
 
   // Activate the pagination system (set the update function)
   handlePagination({updateFunc: updateEmployeeDetailsTable});
+
+  // Attach event to MESSAGE field of message modal to update char count
+  $('#msg_message').on('input', () => {
+    updateCharCount();
+  });
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(45); // 45 minutes
 });
 
 
@@ -32,38 +40,124 @@ function handleActionButtons() {
     openEditModal();
   });
 
-  // Handle initial action click and show confirmation button
+  // Handle clicking an action button -> open WARNING modal
   $(document).on('click', '.actionBtn', function () {
-    const $original = $(this);
-    const employeeID = $original.data('id');
-    const actionType = $original.data('action');
-    const originalIcon = $original.find('i').prop('outerHTML');
-
-    const $confirm = $(`
-      <button class="actionBtnConfirm btn btn-sm btn-danger ms-1 mt-1" 
-              data-id="${employeeID}" 
-              data-action="${actionType}">
-        ${originalIcon} Confirm
-      </button>
-    `);
-
-    $original.replaceWith($confirm);
-
-    // Auto-revert after 3 seconds
-    setTimeout(() => {
-      if ($confirm.parent().length) {
-        $confirm.replaceWith($original);
-      }
-    }, 3000);
-  });
-
-  // Handle confirmation click
-  $(document).on('click', '.actionBtnConfirm', function () {
     const employeeID = $(this).data('id');
+    const employeeName = $(this).data('name');
     const actionType = $(this).data('action');
-
-    updateEmployeeStatus(employeeID, actionType);
+    
+    openWarningModal(employeeID, actionType, employeeName);
   });
+
+  // Handle clicking on the Message button -> open Message modal
+  $(document).on('click', '.messageBtn', function () {
+    const employeeID = $(this).data('id');
+    const employeeName = $(this).data('name');
+    
+    openMessageModal(employeeID, employeeName);
+  });
+}
+
+
+function openEditModal() {
+  const editModal = new bootstrap.Modal(document.getElementById("editModal"));
+  editModal.show();
+}
+
+
+function openWarningModal(id, actionType, name) {
+  // Reset the modal
+  $('#notrevertibleBanner').addClass('d-none');
+  $('#revertibleBanner').addClass('d-none');
+  $('#warningModalSubmit').off(); // Remove all past events
+
+  // Add the info
+  let info
+  if (actionType.toLowerCase() === "reset_pin") {
+     info = `
+      <p>You are about to reset an Employee's PIN.</p>
+      <p>This resets their pin to a UNIQUE random 6-didgit PIN for the employee to use.</p>
+      <p>You cannot chose a custom PIN due to PIN constraints.</p>
+      <p>You cannot go back to an old PIN or cycle between PINs.</p>
+      <p><em>A notification will be sent to the respective user informing them of this change.</em></p>
+    `;
+    $('#notrevertibleBanner').removeClass('d-none');
+
+  } else if (actionType.toLowerCase() === "reset_password") {
+    info = `
+      <p>You are about to reset an Employee's account password.</p>
+      <p>This resets their account to a non-setup state, allowing them to re-setup their account.</p>
+      <p>This does not affect any other account information or history.</p>
+      <p>The user can still clock in/out manually without setting up their account.</p>
+      <p>Be warned that the user can change their DOB on the setup page.</p>
+      <p><em>A notification will be sent to the respective user informing them of this change.</em></p>
+    `;
+    $('#notrevertibleBanner').removeClass('d-none');
+  
+  } else if (actionType.toLowerCase() === "resign") {
+    info = `
+      <p>You are about to RESIGN an Employee from your selected store.</p>
+      <p>This means that the employee can no longer interact with the store.</p>
+      <p>If the employee is still clocked in, then they can no longer clock out.</p>
+      <p>To UNDO this and re-assign the employee to the store again, you must '+ Add New Employee' and then use their email (no need for the other information).</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
+    `;
+    $('#revertibleBanner').removeClass('d-none');
+  
+  } else if (actionType.toLowerCase() === "deactivate") {
+    info = `
+      <p>You are about to DEACTIVATE an Employee account.</p>
+      <p>This "freeze's" the account such that they cannot login or clock in/out.</p>
+      <p>This affects every store the employee is assigned to - its GLOBAL.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
+    `;
+    $('#revertibleBanner').removeClass('d-none');
+
+  } else if (actionType.toLowerCase() === "activate") {
+    info = `
+      <p>You are about to ACTIVATE an Employee account.</p>
+      <p>This "unfreeze's" the account such that they can now again login or clock in/out.</p>
+      <p>This affects every store the employee is assigned to - its GLOBAL.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
+    `;
+    $('#revertibleBanner').removeClass('d-none');
+  }
+
+  $('#warningModalText').html(info);
+  $('#warningModalEmployeeName').text(name);
+  $('#warningModalSubmit').on('click', () => {
+    updateEmployeeStatus(id, actionType);
+    warningModal.hide();
+  });
+
+  const warningModal = new bootstrap.Modal(document.getElementById("warningModal"));
+  warningModal.show();
+}
+
+
+function openMessageModal(id, name) {
+  // Reset the modal
+  $('#msg_title').val('');
+  $('#msg_message').val('');
+  $('#msg_type').val('general'); // Reset type as well
+  $('#sendMsgModalSubmit').off(); // Remove all past events
+  updateCharCount(); // Reset count
+
+  // Add employee name
+  $('#sendMsgModalEmployee').text(name);
+
+  // Add event to form submission
+  $('#sendMsgModalSubmit').on('click', () => {
+    const result = sendMessage(id);
+    // Dont hide the menu if its errored
+    if (result === false) {
+      return;
+    }
+    msgModal.hide();
+  });
+
+  const msgModal = new bootstrap.Modal(document.getElementById("sendMsgModal"));
+  msgModal.show();
 }
 
 
@@ -111,12 +205,6 @@ function updateEmployeeStatus(id, type) {
 }
 
 
-function openEditModal() {
-  const editModal = new bootstrap.Modal(document.getElementById("editModal"));
-  editModal.show();
-}
-
-
 function updateEmployeeDetailsTable() {
   showSpinner();
 
@@ -146,10 +234,9 @@ function updateEmployeeDetailsTable() {
         $employeeTable.html(""); // Reset inner HTML
         $.each(employees, function(index, employee) {
           const activationButton = employee.is_active
-            ? `<button class="actionBtn btn btn-sm btn-outline-danger" data-action="deactivate" data-id="${employee.id}"><i class="fa-solid fa-user-xmark"></i> Deactivate</button>`
-            : `<button class="actionBtn btn btn-sm btn-outline-success" data-action="activate" data-id="${employee.id}"><i class="fa-solid fa-user-check"></i> Activate</button>`;
+            ? `<button type="button" class="dropdown-item actionBtn text-warning" data-action="deactivate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-xmark me-2"></i> Deactivate</button>`
+            : `<button type="button" class="dropdown-item actionBtn text-success" data-action="activate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-check me-2"></i> Activate</button>`;
           const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_manager ? 'table-info' : '');
-          console.log(employee)
 
           const row = `
             <tr class="${rowColour}">
@@ -159,13 +246,40 @@ function updateEmployeeDetailsTable() {
               <td>${employee.dob || "N/A"}</td>
               <td>${employee.pin}</td>
               <td>
-                <div class="d-flex flex-row gap-2">
-                  <button class="editBtn btn btn-sm btn-outline-primary" data-id="${employee.id}"><i class="fa-solid fa-pen"></i> Edit</button>
-                  ${activationButton}
-                  <div class="vertical-divider bg-secondary"></div>
-                  <button class="actionBtn btn btn-sm btn-outline-indigo" data-action="reset_pin" data-id="${employee.id}"><i class="fa-solid fa-key"></i> Reset PIN</button>
-                  <button class="actionBtn btn btn-sm btn-outline-cyan" data-action="reset_password" data-id="${employee.id}"><i class="fa-solid fa-lock"></i> Reset Pass</button>
-                  <button class="actionBtn btn btn-sm btn-outline-orange" data-action="resign" data-id="${employee.id}"><i class="fa-solid fa-user-slash"></i> Resign</button>
+                <div class="d-flex flex-row gap-2 align-items-center">
+                  <button class="editBtn btn btn-sm btn-outline-primary" data-id="${employee.id}">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </button>
+
+                  <button class="btn btn-sm btn-outline-success messageBtn" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}">
+                    <i class="fa-solid fa-paper-plane"></i> Message
+                  </button>
+
+                  <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle px-3 py-3" data-bs-toggle="dropdown" aria-expanded="false">
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        ${activationButton}
+                      </li>
+                      <li>
+                        <button class="dropdown-item actionBtn text-indigo" data-action="reset_pin" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}">
+                          <i class="fa-solid fa-key me-2"></i> Reset PIN
+                        </button>
+                      </li>
+                      <li>
+                        <button class="dropdown-item actionBtn text-cyan" data-action="reset_password" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}">
+                          <i class="fa-solid fa-lock me-2"></i> Reset Password
+                        </button>
+                      </li>
+                      <li>
+                        <button class="dropdown-item actionBtn text-danger" data-action="resign" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}">
+                          <i class="fa-solid fa-user-slash me-2"></i> Resign
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               </td>
             </tr>
@@ -335,4 +449,61 @@ function handleEmployeeDetailsEdit() {
       });
     }
   });
+}
+
+
+function sendMessage(id) {
+  const title = $('#msg_title').val();
+  const msg = $('#msg_message').val();
+  const type = $('#msg_type').val();
+
+  if (title.trim() === "" || msg.trim() === "") {
+    showNotification("Cannot send a message without a title or message.", "error");
+    return false;
+  }
+
+  showSpinner();
+
+  $.ajax({
+    url: `${window.djangoURLs.sendEmployeeMessage}${id}/`,
+    type: "POST",
+    xhrFields: {
+      withCredentials: true
+    },
+    headers: {
+      'X-CSRFToken': getCSRFToken(), // Include CSRF token
+    },
+    contentType: 'application/json',
+    data: JSON.stringify({
+      "title": title,
+      "message": msg,
+      "notification_type": type,
+    }),
+
+    success: function(resp) {
+      hideSpinner();
+      showNotification(`Successfully sent message to ${resp.employee_name}.`, "success");
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      hideSpinner();
+
+      // Extract the error message from the API response if available
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to send employee message due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to send employee message. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+}
+
+
+// Helper function
+function updateCharCount() {
+  const max = $('#msg_message').attr('maxlength');
+  const len = $('#msg_message').val().length;
+  $('#charCount').text(`${len}/${max} Characters`)
 }

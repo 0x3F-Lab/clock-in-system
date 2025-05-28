@@ -1,0 +1,336 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Notification Page{% endblock %}
+
+
+{% block content_container_class %}container-fluid py-5{% endblock %}
+{% block content %}
+<div class="row">
+  <!-- Sidebar Navigation -->
+  <div class="col-md-3 mb-4 mb-md-0 d-flex flex-column align-items-center">
+    <div class="list-group shadow-sm w-100">
+      <button id="notification-page-btn" class="list-group-item list-group-item-action active">
+        Notifications
+      </button>
+      <button id="read-notification-page-btn" class="list-group-item list-group-item-action">
+        Read Notifications
+      </button>
+      <button id="sent-notification-page-btn" class="list-group-item list-group-item-action">
+        Sent Notifications
+      </button>
+      <button id="send-msg-page-btn" class="list-group-item list-group-item-action">
+        Send Messages
+      </button>
+      <button id="settings-page-btn" class="list-group-item list-group-item-action disabled">
+        Notification Settings
+      </button>
+    </div>
+  </div>
+
+  <!-- Sub-Page: Account Notifications -->
+  <div id="account-notifications" class="col-md-9">
+    <div class="panel rounded shadow p-4 mb-4">
+      <h2 class="fw-bold text-center mb-4">Your <u>Unread</u> Notifications (<span id="notification-page-count">{{ notification_count }}</span>)</h2>
+
+      {% if notifications.unread %}
+      <div class="list-group">
+        {% for n in notifications.unread %}
+          {% if n.type == "emergency" %}
+            {% with "bg-danger" as badge_class %}
+              {% with "Emergency" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "manager_note" %}
+            {% with "bg-primary" as badge_class %}
+              {% with "Manager Note" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "schedule_change" %}
+            {% with "bg-warning" as badge_class %}
+              {% with "Schedule Change" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "system_alert" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "System Alert" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "automatic_alert" %}
+            {% with "bg-orange" as badge_class %}
+              {% with "Automatic Alert" as type_label %}
+                {% with "bg-warning-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "admin_note" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "Admin Note" as type_label %}
+                {% with "bg-info-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% else %}
+            {% with "bg-secondary" as badge_class %}
+              {% with "General" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="unread" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% else %}
+      <div class="list-group">
+        <div class="list-group-item list-group-item-action flex-column align-items-start p-3 bg-light text-muted">
+          <div class="d-flex w-100 justify-content-between align-items-center">
+            <h5 class="mb-1">
+              <i class="fas fa-bell-slash me-2"></i>No Unread Notifications
+            </h5>
+          </div>
+          <small class="mt-2">You're all caught up. New notifications will appear here.</small>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sub-Page: ALREADY READ Account Notifications -->
+  <div id="account-read-notifications" class="col-md-9">
+    <div class="panel rounded shadow p-4 mb-4">
+      <h2 class="fw-bold text-center mb-4">Your <u>Read</u> Notifications (<span id="read-notification-page-count">{{ notifications.read_count }}</span>)</h2>
+
+      {% if notifications.read %}
+      <div class="list-group">
+        {% for n in notifications.read %}
+          {% if n.type == "emergency" %}
+            {% with "bg-danger" as badge_class %}
+              {% with "Emergency" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "manager_note" %}
+            {% with "bg-primary" as badge_class %}
+              {% with "Manager Note" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "schedule_change" %}
+            {% with "bg-warning" as badge_class %}
+              {% with "Schedule Change" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "system_alert" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "System Alert" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "automatic_alert" %}
+            {% with "bg-orange" as badge_class %}
+              {% with "Automatic Alert" as type_label %}
+                {% with "bg-warning-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "admin_note" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "Admin Note" as type_label %}
+                {% with "bg-info-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% else %}
+            {% with "bg-secondary" as badge_class %}
+              {% with "General" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="read" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% else %}
+      <div class="list-group">
+        <div class="list-group-item list-group-item-action flex-column align-items-start p-3 bg-light text-muted">
+          <div class="d-flex w-100 justify-content-between align-items-center">
+            <h5 class="mb-1">
+              <i class="fas fa-bell-slash me-2"></i>No Read Notifications
+            </h5>
+          </div>
+          <small class="mt-2">You have no past notifications. Notifications marked as read will appear here.</small>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sub-Page: SENT Account Notifications -->
+  <div id="account-sent-notifications" class="col-md-9">
+    <div class="panel rounded shadow p-4 mb-4">
+      <h2 class="fw-bold text-center mb-4">Your <u>Sent</u> Notifications (<span id="sent-notification-page-count">{{ notifications.sent_count }}</span>)</h2>
+
+      {% if notifications.sent %}
+      <div class="list-group">
+        {% for n in notifications.sent %}
+          {% if n.type == "emergency" %}
+            {% with "bg-danger" as badge_class %}
+              {% with "Emergency" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "manager_note" %}
+            {% with "bg-primary" as badge_class %}
+              {% with "Manager Note" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "schedule_change" %}
+            {% with "bg-warning" as badge_class %}
+              {% with "Schedule Change" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "system_alert" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "System Alert" as type_label %}
+                {% with "bg-danger-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "automatic_alert" %}
+            {% with "bg-orange" as badge_class %}
+              {% with "Automatic Alert" as type_label %}
+                {% with "bg-warning-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% elif n.type == "admin_note" %}
+            {% with "bg-indigo" as badge_class %}
+              {% with "Admin Note" as type_label %}
+                {% with "bg-info-subtle" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% else %}
+            {% with "bg-secondary" as badge_class %}
+              {% with "General" as type_label %}
+                {% with "bg-light" as bg_class %}
+                  {% include "components/notification_item.html" with type="sent" %}
+                {% endwith %}
+              {% endwith %}
+            {% endwith %}
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      {% else %}
+      <div class="list-group">
+        <div class="list-group-item list-group-item-action flex-column align-items-start p-3 bg-light text-muted">
+          <div class="d-flex w-100 justify-content-between align-items-center">
+            <h5 class="mb-1">
+              <i class="fas fa-bell-slash me-2"></i>No Sent Notifications
+            </h5>
+          </div>
+          <small class="mt-2">You have no sent notifications. Notifications sent from your account will appear here.</small>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sub-Page: Send Notifications -->
+  <div id="send-notification-form" class="col-md-9 d-none">
+    <div class="panel rounded shadow p-4 mb-4">
+      <h2 class="fw-bold text-center">Send Notification</h2>
+      <form method="POST" action="{% url 'notification_page' %}" class="mt-4">
+        {% csrf_token %}
+        {% for field in form %}
+          {% if not field.is_hidden %}
+            <div class="form-group mt-3">
+              <label for="{{ field.id_for_label }}" class="text-light fw-semibold w-100 d-flex flex-row align-items-center justify-content-between">
+                <span>{{ field.label }}:</span>
+                {% if field.name == "message" %}
+                <em><small id="charCount" class="text-light-emphasis fs-6 ms-2">0/MAX Characters</small></em>
+                {% endif %}
+              </label>
+
+              <div class="position-relative w-100">
+                {{ field }}
+              </div>
+
+              {% for error in field.errors %}
+                <div class="fieldError text-danger text-wrap">{{ error|escape }}</div>
+              {% endfor %}
+            </div>
+          {% else %}
+            {{ field }}
+          {% endif %}
+        {% endfor %}
+
+        <button type="submit" class="btn btn-lg btn-success w-100 p-3 mt-5">Send Notification</button>
+
+        {% for error in form.non_field_errors %}
+        <div class="nonFieldErrors text-danger text-wrap mt-2">{{ error|escape }}</div>
+        {% endfor %}
+
+        <hr>
+
+        <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2">
+          <div><i class="fas fa-circle-info"></i></div>
+          <div>
+            <p class="m-0">Messages expire after 3 weeks by default.</p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_urls %}
+    markNotificationRead: "{% url 'api:mark_notification_read' 0 %}".slice(0, -2),
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/notification_page.js' %}"></script>
+{% endblock %}

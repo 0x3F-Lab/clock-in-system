@@ -3,6 +3,7 @@ import re
 import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
+import auth_app.tasks as tasks
 
 from datetime import datetime
 from rest_framework import status
@@ -14,8 +15,15 @@ from django.db import transaction, IntegrityError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from api.utils import round_datetime_minute, str_to_bool
-from auth_app.models import User, Activity, Store, StoreUserAccess
+from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
+from auth_app.models import (
+    User,
+    Activity,
+    Store,
+    StoreUserAccess,
+    Notification,
+    NotificationReceipt,
+)
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from clock_in_system.settings import (
@@ -343,10 +351,10 @@ def update_shift_details(request, id):
                 activity.delete()
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )
             logger.debug(
-                f"[DELETE: ACTIVITY (ID: {original['id']})] Login: {original['login_time']} ({original['login_timestamp']}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) -- Deliveries: {original['deliveries']} -- Shift Length: {original['shift_length_mins']} -- PUBLIC HOLIDAY: {original['is_public_holiday']}"
+                f"[DELETE: ACTIVITY (ID: {original['id']})] [MANUAL] Login: {original['login_time']} ({original['login_timestamp']}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) -- Deliveries: {original['deliveries']} -- Shift Length: {original['shift_length_mins']}mins -- PUBLIC HOLIDAY: {original['is_public_holiday']}"
             )
             return JsonResponse(
                 {"message": "Employee deleted successfully"},
@@ -370,7 +378,7 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     login_timestamp = localtime(make_aware(login_timestamp))
-                    activity.login_time = round_datetime_minute(login_timestamp)
+                    activity.login_time = util.round_datetime_minute(login_timestamp)
                     activity.login_timestamp = login_timestamp
                 else:
                     return Response(
@@ -384,7 +392,7 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     logout_timestamp = localtime(make_aware(logout_timestamp))
-                    activity.logout_time = round_datetime_minute(logout_timestamp)
+                    activity.logout_time = util.round_datetime_minute(logout_timestamp)
                     activity.logout_timestamp = logout_timestamp
                 else:
                     # If manually deleting start time, set logout time to null
@@ -429,7 +437,7 @@ def update_shift_details(request, id):
                 )
 
             # Set public holiday state (keep same if not given)
-            activity.is_public_holiday = str_to_bool(
+            activity.is_public_holiday = util.str_to_bool(
                 request.data.get("is_public_holiday", activity.is_public_holiday)
             )
 
@@ -475,10 +483,10 @@ def update_shift_details(request, id):
                 activity.save()
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) (under store ID {activity.store.id} [{activity.store.code}])."
+                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )
             logger.debug(
-                f"[UPDATE: ACTIVITY (ID: {activity.id})] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {original['deliveries']} → {activity.deliveries} -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins} -- PUBLIC HOLIDAY: {original['is_public_holiday']} → {activity.is_public_holiday}"
+                f"[UPDATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {original['deliveries']} → {activity.deliveries} -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins} -- PUBLIC HOLIDAY: {original['is_public_holiday']} → {activity.is_public_holiday}"
             )
             return JsonResponse(
                 {"message": "Shift updated successfully."},
@@ -533,7 +541,9 @@ def create_new_shift(request):
         logout_timestamp = util.clean_param_str(
             request.data.get("logout_timestamp", None)
         )
-        is_public_holiday = str_to_bool(request.data.get("is_public_holiday", False))
+        is_public_holiday = util.str_to_bool(
+            request.data.get("is_public_holiday", False)
+        )
         store_id = util.clean_param_str(request.data.get("store_id", None))
 
         # Get the account info of the user requesting this shift info
@@ -645,12 +655,12 @@ def create_new_shift(request):
             )
 
         # Get the rounded login/logout times
-        login_time = round_datetime_minute(
+        login_time = util.round_datetime_minute(
             login_timestamp
         )  # Login timestamp MUST be pass to reach this point
         logout_time = None
         if logout_timestamp:
-            logout_time = round_datetime_minute(logout_timestamp)
+            logout_time = util.round_datetime_minute(logout_timestamp)
 
         # Ensure minimum shift length is achieve between login and logout
         if logout_timestamp:
@@ -699,10 +709,10 @@ def create_new_shift(request):
         activity.save()
 
         logger.info(
-            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) (under store ID {store.id} [{store.code}])."
+            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."
         )
         logger.debug(
-            f"[CREATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}"
+            f"[CREATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins"
         )
         return JsonResponse(
             {"message": "Shift created successfully.", "id": activity.id},
@@ -883,8 +893,8 @@ def create_new_employee(request):
         first_name = util.clean_param_str(request.data.get("first_name", ""))
         last_name = util.clean_param_str(request.data.get("last_name", ""))
         email = util.clean_param_str(request.data.get("email", "")).lower()
-        phone_number = util.clean_param_str(request.data.get("phone", ""))
-        dob = util.clean_param_str(request.data.get("dob", ""))
+        phone_number = util.clean_param_str(request.data.get("phone", "")) or None
+        dob = util.clean_param_str(request.data.get("dob", "")) or None
         store_id = util.clean_param_str(request.data.get("store_id", ""))
 
         # Get the store object
@@ -940,6 +950,11 @@ def create_new_employee(request):
 
             # Save association
             new_association.save()
+
+            # Send a notification
+            tasks.notify_managers_and_employee_account_assigned.delay(
+                user_id=employee.id, store_id=store.id, manager_id=manager.id
+            )
 
             logger.info(
                 f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
@@ -1001,17 +1016,6 @@ def create_new_employee(request):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        # Create user
-        employee = User.objects.create(
-            first_name=first_name.title(),
-            last_name=last_name.title(),
-            email=email,
-            is_active=True,
-            is_manager=False,
-            is_hidden=False,
-            is_setup=False,
-        )
-
         # VALIDATE REMAINING NON-ESSENTIAL INFORMATION
         if phone_number:
             if len(phone_number) > 15:
@@ -1026,8 +1030,8 @@ def create_new_employee(request):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee.phone_number = phone_number
 
+        parsed_dob = None
         if dob:
             try:
                 parsed_dob = datetime.strptime(dob.strip(), "%Y-%m-%d").date()
@@ -1037,13 +1041,25 @@ def create_new_employee(request):
                         {"Error": "Date of birth must be before today."},
                         status=status.HTTP_412_PRECONDITION_FAILED,
                     )
-                employee.birth_date = parsed_dob
 
             except ValueError:
                 return Response(
                     {"Error": "Invalid DOB format. Expected format is YYYY-MM-DD."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
+
+        # Create user
+        employee = User.objects.create(
+            first_name=first_name.title(),
+            last_name=last_name.title(),
+            email=email,
+            phone_number=phone_number,
+            birth_date=parsed_dob,
+            is_active=True,
+            is_manager=False,
+            is_hidden=False,
+            is_setup=False,
+        )
 
         # ADD THE NEW USER TO THE STORE
         new_association = StoreUserAccess.objects.create(
@@ -1057,6 +1073,11 @@ def create_new_employee(request):
             employee.set_unique_pin()
             employee.save()
             new_association.save()
+
+        # Send notifications
+        tasks.notify_managers_and_employee_account_assigned.delay(
+            user_id=employee.id, store_id=store.id, manager_id=manager.id
+        )
 
         logger.info(
             f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
@@ -1336,16 +1357,48 @@ def modify_account_status(request, id):
 
         # Seperate status type modification
         if status_type == "deactivate":
+            if not employee.is_active:
+                return JsonResponse(
+                    {
+                        "Error": "Employee account is already deactivated.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
             employee.is_active = False
+            employee.save()
+            tasks.notify_managers_account_deactivated.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "activate":
+            if employee.is_active:
+                return JsonResponse(
+                    {
+                        "Error": "Employee account is already activated.",
+                        "id": employee.id,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
             employee.is_active = True
+            employee.save()
+            tasks.notify_managers_account_activated.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "reset_password":
             employee.is_setup = False
+            employee.save()
+            tasks.notify_employee_account_reset_password.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "reset_pin":
             employee.set_unique_pin()
+            employee.save()
+            tasks.notify_employee_account_reset_pin.delay(
+                user_id=employee.id, manager_id=manager.id
+            )
 
         elif status_type == "resign":
             if not store_id or not store_id.isdigit():
@@ -1379,6 +1432,9 @@ def modify_account_status(request, id):
                 ).last()
                 association.delete()
 
+                tasks.notify_managers_and_employee_account_resigned.delay(
+                    user_id=employee.id, store_id=store.id, manager_id=manager.id
+                )
                 logger.info(
                     f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) removed STORE ASSOCIATION for employee with ID {employee.id} ({employee.first_name} {employee.last_name}) under the store ID {store.id} [{store.code}]."
                 )
@@ -1407,8 +1463,6 @@ def modify_account_status(request, id):
                 {"Error": "Invalid status type to modify.", "id": employee.id},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-
-        employee.save()
 
         logger.info(
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated account status for a USER with ID {employee.id} ({employee.first_name} {employee.last_name}). Type: {status_type.replace('_', ' ').upper()}."
@@ -2016,7 +2070,7 @@ def list_account_summaries(request):
         manager = User.objects.get(id=manager_id)
 
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
-        ignore_no_hours = str_to_bool(
+        ignore_no_hours = util.str_to_bool(
             request.query_params.get("ignore_no_hours", "false")
         )
         sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
@@ -2135,6 +2189,176 @@ def list_account_summaries(request):
     except Exception as e:
         logger.critical(
             f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["POST", "PUT"])
+@renderer_classes([JSONRenderer])
+def mark_notification_read(request, id):
+    try:
+        # Get user information
+        user_id = request.session.get("user_id")
+
+        # Get notification
+        notif = Notification.objects.get(id=id)
+
+        # Mark the notification as read
+        notif.mark_notification_as_read(user=user_id)
+
+        # Logging
+        logger.debug(
+            f"[UPDATE: NOTIFICATION (ID: {notif.id})] [MARK-READ] User ID: {user_id} || Type: {notif.notification_type} -- Title: {notif.title}"
+        )
+
+        # Return the results after serialisation
+        return Response({"notification_id": id}, status=status.HTTP_202_ACCEPTED)
+
+    except User.DoesNotExist:
+        return Response(
+            {"Error": f"Employee not found with the ID {user_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Notification.DoesNotExist:
+        return Response(
+            {"Error": f"Notification ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except NotificationReceipt.DoesNotExist:
+        logger.critical(
+            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}' due to a missing NotificationReceipt."
+        )
+        return Response(
+            {
+                "Error": f"Failed to mark notification {id} as READ due to missing receipt. Please contact a site admin."
+            },
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}', producing the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+def send_employee_notification(request, id):
+    try:
+        # Get employee info
+        try:
+            employee = User.objects.get(id=id)
+        except User.DoesNotExist:
+            return Response(
+                {"Error": f"Employee not found with the ID {id}."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Get manager info
+        manager = util.api_get_user_object_from_session(request=request)
+
+        # Check manager can send message to user
+        if not manager.is_manager_of(employee=employee):
+            return Response(
+                {
+                    "Error": "Not authorised to send a message to an unassociated employee."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        elif not employee.is_active:
+            raise err.InactiveUserError
+
+        # Get title and message
+        title = util.clean_param_str(request.data.get("title", None))
+        msg = util.clean_param_str(request.data.get("message", None))
+        notification_type = util.clean_param_str(
+            request.data.get("notification_type", None)
+        )
+        # Check title and message provided
+        if title is None or msg is None:
+            return Response(
+                {"Error": "Must provide a notification title and message."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check notification type provided
+        elif notification_type is None:
+            return Response(
+                {"Error": "Must provide a notification type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check notification type
+        elif notification_type not in Notification.Type:
+            return Response(
+                {"Error": "Invalid notification type."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        elif notification_type == Notification.Type.AUTOMATIC_ALERT:
+            return Response(
+                {"Error": "Not authorised to use AUTOMATIC_ALERT notification type."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        elif (
+            notification_type
+            in [Notification.Type.SYSTEM_ALERT, Notification.Type.ADMIN_NOTE]
+            and not manager.is_hidden
+        ):
+            return Response(
+                {
+                    "Error": f"Not authorised to use {notification_type.upper()} notification type."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Clean title and message
+        str_title = sanitise_markdown_title_text(title)
+        str_msg = sanitise_markdown_message_text(msg)
+
+        notif = Notification.send_to_users(
+            users=[employee],
+            title=str_title,
+            message=str_msg,
+            notification_type=notification_type,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
+            sender=manager,
+        )
+
+        # Logging
+        logger.info(
+            f"Manager {manager.id} ({manager.first_name} {manager.last_name}) sent a message to employee {employee.id} ({employee.first_name} {employee.last_name}) of type '{notification_type.upper()}'."
+        )
+        logger.debug(
+            f"[CREATE: NOTIFICATION (ID: {notif.id})] [INDIVIDUAL-MESSAGE] Manager: {manager.id} ({manager.first_name} {manager.last_name}) >>> Employee: {employee.id} ({employee.first_name} {employee.last_name}) || Type: {notification_type.upper()} -- Title: {title} -- Msg (char_len={len(msg)}): {msg[:25]}...."
+        )
+
+        # Return the notification ID after creating message
+        return Response(
+            {"notification_id": notif.id, "employee_name": employee.first_name},
+            status=status.HTTP_201_CREATED,
+        )
+
+    except err.InactiveUserError:
+        return Response(
+            {"Error": "Not authorised to send a message to an inactive account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        # General error capture -- including database location errors
+        logger.critical(
+            f"An error occured when manager ID '{manager.id}' ({manager.first_name} {manager.last_name}) tried to send a message to employee ID '{id}' : {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

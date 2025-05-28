@@ -63,7 +63,7 @@
     <div id="userAccountInfo text-wrap">
       <h4 class="text-center fw-bold mb-3">Employee Details</h4>
       <p>
-        <span class="fw-medium">Name:</span> {{ user_first_name }} {{user_last_name}}
+        <span class="fw-medium">Name:</span> {{ user_first_name|escape }} {{ user_last_name|escape }}
         {% if user_is_manager %}
         <span class="text-danger fw-semibold">(MANAGER)</span>
         {% endif %}
@@ -72,16 +72,16 @@
         {% endif %}
       </p>
 
-      <p><span class="fw-medium">Email:</span> {{ user_email }}</p>
+      <p><span class="fw-medium">Email:</span> {{ user_email|escape }}</p>
       {% if user_phone %}
-      <p><span class="fw-medium">Phone:</span> {{ user_phone }}</p>
+      <p><span class="fw-medium">Phone:</span> {{ user_phone|escape }}</p>
       {% endif %}
       {% if user_dob %}
-      <p><span class="fw-medium">DOB:</span> {{ user_dob }}</p>
+      <p><span class="fw-medium">DOB:</span> {{ user_dob|escape }}</p>
       {% endif %}
-      <p><span class="fw-medium">Join Date:</span> {{ user_creation_date }}</p>
+      <p><span class="fw-medium">Join Date:</span> {{ user_creation_date|escape }}</p>
       {% if user_updated_date %}
-      <p><span class="fw-medium">Acc Last Updated:</span> {{ user_updated_date }}</p>
+      <p><span class="fw-medium">Acc Last Updated:</span> {{ user_updated_date|escape }}</p>
       {% endif %}
       {% if user_associated_store_count > 1 %}
       <p><span class="fw-medium"># of Associated Stores:</span> {{ user_associated_store_count }}</p>
@@ -113,18 +113,18 @@
         <form id="editForm" class="px-1">
           <div class="mb-3">
             <label for="editFirstName" class="form-label fw-semibold">First Name:</label>
-            <input type="text" class="form-control" id="editFirstName" name="first_name" required {% if user_first_name %}value={{ user_first_name }}{% endif %}>
+            <input type="text" class="form-control" id="editFirstName" name="first_name" required {% if user_first_name %}value={{ user_first_name|escape }}{% endif %}>
           </div>
           <div class="my-3">
             <label for="editLastName" class="form-label fw-semibold">Last Name:</label>
-            <input type="text" class="form-control" id="editLastName" name="last_name" required {% if user_last_name %}value={{ user_last_name }}{% endif %}>
+            <input type="text" class="form-control" id="editLastName" name="last_name" required {% if user_last_name %}value={{ user_last_name|escape }}{% endif %}>
           </div>
           <div class="my-3">
             <label for="editPhone" class="text-light w-100 fw-semibold d-flex flex-row align-items-center justify-content-between form-label">
               <span>Phone Number:</span>
               <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
             </label>
-            <input type="tel" class="form-control" id="editPhone" name="phone_number" {% if user_phone %}value={{ user_phone }}{% endif %}>
+            <input type="tel" class="form-control" id="editPhone" name="phone_number" {% if user_phone %}value={{ user_phone|escape }}{% endif %}>
           </div>
         </form>
       </div>
@@ -133,7 +133,7 @@
         <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
           <div><i class="fas fa-circle-info"></i></div>
           <div>
-            <p class="m-0">Cannot edit account PIN or email.</p>
+            <p class="m-0">Cannot edit account PIN, DOB or email.</p>
             <p class="m-0">Please contact a store manager or site admin to change these.</p>
           </div>
         </div>
@@ -161,18 +161,33 @@
       </div>
 
       <div class="modal-body">
-        <form id="editForm" class="px-1">
+        <form id="editPassForm" class="px-1">
           <div class="mb-3">
             <label for="editOldPass" class="form-label fw-semibold">Old Password</label>
-            <input type="password" class="form-control" id="editOldPass" name="old_pass" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editOldPass" name="old_pass" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
           </div>
           <div class="my-3">
             <label for="editNewPass" class="form-label fw-semibold">New Password</label>
-            <input type="password" class="form-control" id="editNewPass" name="old_pass" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editNewPass" name="old_pass" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
           </div>
           <div class="my-3">
             <label for="editNewPassCopy" class="form-label fw-semibold">Repeat New Password</label>
-            <input type="password" class="form-control" id="editNewPassCopy" name="old_pass_copy" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editNewPassCopy" name="old_pass_copy" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
             <div id="repeatPassWarning" class="field-error d-none mt-1">Both new password fields must match.</div>
           </div>
         </form>

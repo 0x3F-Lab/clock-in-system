@@ -41,6 +41,9 @@ $(document).ready(function() {
     e.preventDefault();
     submitAccountPassModal();
   });
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(30); // 30 minutes
 });
 
 
