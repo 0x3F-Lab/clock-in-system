@@ -433,6 +433,7 @@ def notification_page(request):
                         message=message,
                         notification_type=notification_type,
                         sender=user,
+                        store=store,  # Used to identify receivers in text
                     )
 
                 elif recipient_group == "site_admins":

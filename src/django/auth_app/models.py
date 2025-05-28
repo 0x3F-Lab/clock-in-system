@@ -203,6 +203,17 @@ class User(models.Model):
             .order_by("-created_at")
         )
 
+    def get_sent_notifications(self):
+        """
+        Returns a queryset of SENT notifications for this user,
+        ordered by newest first.
+        """
+        return (
+            self.sent_notifications.filter(expires_on__gte=localtime(now()).date())
+            .distinct()
+            .order_by("-created_at")
+        )
+
 
 ########################## STORES ##########################
 
@@ -431,6 +442,7 @@ class Notification(models.Model):
         notification_type=Type.GENERAL,
         sender=None,
         expires_on=None,
+        store=None,
     ):
         """
         Create and send a notification to specific users.
@@ -443,6 +455,7 @@ class Notification(models.Model):
             sender (User or None): Optional User instance who is sending the notification.
             expires_on (date or None): Optional expiration date for notification.
                 Defaults to Notification default expiry date if None.
+            store (Store or None): ONLY INCLUDE THIS IF SENDING TO STORE MANAGERS (TO BE ABLE TO TRACK WHAT STORE ITS FOR)
 
         Returns:
             Notification: The created Notification instance.
@@ -455,6 +468,8 @@ class Notification(models.Model):
 
         notif = cls.objects.create(
             sender=sender,
+            store=store,
+            broadcast_to_store=False,
             title=title,
             message=message,
             notification_type=notification_type,
@@ -549,6 +564,7 @@ class Notification(models.Model):
             notification_type=cls.Type.SYSTEM_ALERT,
             sender=sender,
             expires_on=expires_on,
+            store=None,
         )
 
 

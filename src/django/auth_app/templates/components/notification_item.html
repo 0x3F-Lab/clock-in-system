@@ -12,12 +12,12 @@
         <span class="badge {{ badge_class }} me-2">{{ type_label }}</span>
         {{ n.title|safe }}
       </h5>
-      <small class="text-muted">From: {{ n.sender }}</small>
+      <small class="text-muted">From: {% if type == "sent" %}You{% else %}{{ n.sender }}{% endif %}</small>
     </div>
 
     <div class="text-end d-flex flex-column align-items-end">
       <small class="text-muted">{{ n.created_at|date:"M j, Y g:i A" }}</small>
-      {% if not is_read %}
+      {% if type == "unread" %}
       <button class="mark-as-read btn btn-sm btn-outline-success mt-1 d-none"
               data-id="{{ n.id }}">
         <i class="fas fa-check-circle me-1"></i> Mark as Read
@@ -31,15 +31,7 @@
       {{ n.message|safe }}
       <hr>
       <p class="mb-1"><strong>Expires:</strong> {{ n.expires_on|date:"M j, Y" }}</p>
-      <p class="mb-0"><strong>Sent To:</strong>
-        {% if n.store_broadcast %}
-          All Store Employees for store <code>{{ n.store }}</code>
-        {% elif n.type == "system_alert" %}
-          All Users (Site-wide)
-        {% else %}
-          You directly
-        {% endif %}
-      </p>
+      <p class="mb-0"><strong>Sent To:</strong> {{ n.receiver|safe }}</p>
     </div>
   </div>
 </div>

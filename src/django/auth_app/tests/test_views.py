@@ -63,7 +63,8 @@ def test_notification_page_success(logged_in_employee, employee, notification_al
 
     # Assure the buttons exist
     assert "Notifications" in content
-    assert "Read Notifications"
+    assert "Read Notifications" in content
+    assert "Sent Notifications" in content
     assert "Notification Settings" in content
     assert "Send Messages" in content
 

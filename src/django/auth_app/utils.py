@@ -332,6 +332,9 @@ def get_default_page_context(request, include_notifications: bool = False):
                     ),
                     "type": notif.notification_type,
                     "sender": get_notification_sender_name(notif=notif),
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=True
+                    ),
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
@@ -351,6 +354,30 @@ def get_default_page_context(request, include_notifications: bool = False):
                     ),
                     "type": notif.notification_type,
                     "sender": get_notification_sender_name(notif=notif),
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=True
+                    ),
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
+                    "store_broadcast": notif.broadcast_to_store,
+                }
+            )
+
+        sent_notifications = []
+        sent_notifs = employee.get_sent_notifications()
+        for notif in sent_notifs:
+            sent_notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": add_placeholder_text(
+                        string=notif.message, user_obj=employee
+                    ),
+                    "type": notif.notification_type,
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=False
+                    ),
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
@@ -366,6 +393,8 @@ def get_default_page_context(request, include_notifications: bool = False):
                 "unread": unread_notifications,
                 "read": read_notifications,
                 "read_count": read_notifs.count(),
+                "sent": sent_notifications,
+                "sent_count": sent_notifs.count(),
             },
             "notification_count": unread_notifs.count(),
         }, employee
@@ -396,8 +425,44 @@ def get_notification_sender_name(notif: Notification) -> str:
         return "ADMIN"
     elif notif.sender.is_hidden:
         return "ADMIN"
+    elif notif.sender.is_manager:
+        return f"{notif.sender.first_name} {notif.sender.last_name} [Manager]"
     else:
         return f"{notif.sender.first_name} {notif.sender.last_name}"
+
+
+def get_notification_receiver_name(
+    notif: Notification, is_received: bool = True
+) -> str:
+    """
+    Get the notification receiver or replace it with an appropriate string for
+    certain cases depending if its a SENT or RECIEVED notification.
+    Args:
+      - notif (Notification): The notification object.
+      - is_received (bool) = True: If the user has recieved this notification or has sent it.
+    """
+    if notif.notification_type == Notification.Type.SYSTEM_ALERT:
+        return "All users on the site"
+    if notif.broadcast_to_store == True and notif.store:
+        return f"All Store Employees for store <code>{notif.store.code}</code>"
+    elif not notif.broadcast_to_store and notif.store:
+        return f"All Store Managers for store <code>{notif.store.code}</code>"
+
+    # Pull targeted users (via NotificationReceipts, not M2M)
+    recipients = User.objects.filter(
+        notification_receipts__notification=notif
+    ).distinct()
+    non_hidden = recipients.filter(is_hidden=False)
+
+    if not non_hidden.exists() and recipients.exists():
+        return "All site admins"
+    elif recipients.count() == 1:
+        if is_received:
+            return "You only"
+        user = recipients.first()
+        return f"{user.first_name} {user.last_name}"
+    else:
+        return f"{recipients.count()} Employees"
 
 
 def sanitise_plain_text(value: str) -> str:

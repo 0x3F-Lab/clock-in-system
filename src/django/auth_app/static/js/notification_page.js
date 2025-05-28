@@ -31,75 +31,53 @@ function updateCharCount() {
 
 
 function handleNotificationPageSwitching() {
-  const notifPanel = $("#account-notifications");
-  const readNotifPanel = $('#account-read-notifications');
-  const sendPanel = $("#send-notification-form");
+  const panels = {
+    notifications: $("#account-notifications"),
+    read_notifications: $("#account-read-notifications"),
+    sent_notifications: $("#account-sent-notifications"),
+    send: $("#send-notification-form"),
+  };
 
-  const notifButton = $("#notification-page-btn");
-  const readNotifButton = $('#read-notification-page-btn')
-  const sendButton = $("#send-msg-page-btn");
+  const buttons = {
+    notifications: $("#notification-page-btn"),
+    read_notifications: $("#read-notification-page-btn"),
+    sent_notifications: $("#sent-notification-page-btn"),
+    send: $("#send-msg-page-btn"),
+  };
 
-  notifButton.on("click", function () {
-    notifPanel.removeClass("d-none");
-    readNotifPanel.addClass("d-none");
-    sendPanel.addClass("d-none");
+  function switchTab(tabName) {
+    $.each(panels, function(_, panel) {
+      panel.addClass("d-none");
+    });
 
-    notifButton.addClass("active");
-    readNotifButton.removeClass("active");
-    sendButton.removeClass("active");
+    $.each(buttons, function(_, button) {
+      button.removeClass("active");
+    });
 
-    try {
-      localStorage.setItem("notificationTab", "notifications");
-    } catch (e) {
-      // Fail silently
-    }
-  });
-
-  readNotifButton.on("click", function () {
-    notifPanel.addClass("d-none");
-    readNotifPanel.removeClass("d-none");
-    sendPanel.addClass("d-none");
-
-    notifButton.removeClass("active");
-    readNotifButton.addClass("active");
-    sendButton.removeClass("active");
+    panels[tabName].removeClass("d-none");
+    buttons[tabName].addClass("active");
 
     try {
-      localStorage.setItem("notificationTab", "read_notifications");
-    } catch (e) {
-      // Fail silently
-    }
-  });
+      localStorage.setItem("notificationTab", tabName);
+    } catch (e) {}
+  }
 
-  sendButton.on("click", function () {
-    sendPanel.removeClass("d-none");
-    readNotifPanel.addClass("d-none");
-    notifPanel.addClass("d-none");
-
-    sendButton.addClass("active");
-    readNotifButton.removeClass("active");
-    notifButton.removeClass("active");
-
-    try {
-      localStorage.setItem("notificationTab", "send");
-    } catch (e) {
-      // Fail silently
-    }
+  $.each(buttons, function(tabName, button) {
+    button.on("click", function () {
+      switchTab(tabName);
+    });
   });
 
   // Check page's last state on page load to ensure user gets directed to same page
   try {
     const lastTab = localStorage.getItem("notificationTab");
-    if (lastTab === "send") {
-      sendButton.trigger("click");
-    } else if (lastTab === "read_notifications") {
-      readNotifButton.trigger("click");
+    if (buttons[lastTab]) {
+      buttons[lastTab].trigger("click");
     } else {
-      notifButton.trigger("click");
+      buttons["notifications"].trigger("click");
     }
   } catch (e) {
-    // Fail silently if localStorage access throws
-    notifButton.trigger("click");
+    buttons["notifications"].trigger("click");
   }
 }
 
