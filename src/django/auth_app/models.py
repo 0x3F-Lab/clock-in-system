@@ -188,6 +188,21 @@ class User(models.Model):
             .order_by("-created_at")
         )
 
+    def get_read_notifications(self):
+        """
+        Returns a queryset of READ Notifications for this user,
+        ordered by newest first.
+        """
+        return (
+            Notification.objects.filter(
+                notificationreceipt__user=self,
+                notificationreceipt__read_at__isnull=False,
+                expires_on__gte=localtime(now()).date(),
+            )
+            .distinct()
+            .order_by("-created_at")
+        )
+
 
 ########################## STORES ##########################
 

@@ -32,16 +32,20 @@ function updateCharCount() {
 
 function handleNotificationPageSwitching() {
   const notifPanel = $("#account-notifications");
+  const readNotifPanel = $('#account-read-notifications');
   const sendPanel = $("#send-notification-form");
 
-  const notifButton = $(".list-group-item:contains('Notifications')");
-  const sendButton = $(".list-group-item:contains('Send Messages')");
+  const notifButton = $("#notification-page-btn");
+  const readNotifButton = $('#read-notification-page-btn')
+  const sendButton = $("#send-msg-page-btn");
 
   notifButton.on("click", function () {
     notifPanel.removeClass("d-none");
+    readNotifPanel.addClass("d-none");
     sendPanel.addClass("d-none");
 
     notifButton.addClass("active");
+    readNotifButton.removeClass("active");
     sendButton.removeClass("active");
 
     try {
@@ -51,11 +55,29 @@ function handleNotificationPageSwitching() {
     }
   });
 
+  readNotifButton.on("click", function () {
+    notifPanel.addClass("d-none");
+    readNotifPanel.removeClass("d-none");
+    sendPanel.addClass("d-none");
+
+    notifButton.removeClass("active");
+    readNotifButton.addClass("active");
+    sendButton.removeClass("active");
+
+    try {
+      localStorage.setItem("notificationTab", "read_notifications");
+    } catch (e) {
+      // Fail silently
+    }
+  });
+
   sendButton.on("click", function () {
     sendPanel.removeClass("d-none");
+    readNotifPanel.addClass("d-none");
     notifPanel.addClass("d-none");
 
     sendButton.addClass("active");
+    readNotifButton.removeClass("active");
     notifButton.removeClass("active");
 
     try {
@@ -70,6 +92,8 @@ function handleNotificationPageSwitching() {
     const lastTab = localStorage.getItem("notificationTab");
     if (lastTab === "send") {
       sendButton.trigger("click");
+    } else if (lastTab === "read_notifications") {
+      readNotifButton.trigger("click");
     } else {
       notifButton.trigger("click");
     }

@@ -17,10 +17,12 @@
 
     <div class="text-end d-flex flex-column align-items-end">
       <small class="text-muted">{{ n.created_at|date:"M j, Y g:i A" }}</small>
+      {% if not is_read %}
       <button class="mark-as-read btn btn-sm btn-outline-success mt-1 d-none"
               data-id="{{ n.id }}">
         <i class="fas fa-check-circle me-1"></i> Mark as Read
       </button>
+      {% endif %}
     </div>
   </div>
 

@@ -318,24 +318,12 @@ def get_default_page_context(request, include_notifications: bool = False):
     store_data = {store.id: store.code for store in stores}
 
     # Get user's notifications
-    notifs = employee.get_unread_notifications().select_related("sender")
+    unread_notifs = employee.get_unread_notifications().select_related("sender")
 
     if include_notifications:
-        notifications = []
-        for notif in notifs:
-            if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
-                sender = "SYSTEM"
-            elif (
-                notif.notification_type == Notification.Type.SYSTEM_ALERT
-                or notif.notification_type == Notification.Type.ADMIN_NOTE
-            ) or not notif.sender:
-                sender = "ADMIN"
-            elif notif.sender.is_hidden:
-                sender = "ADMIN"
-            else:
-                sender = f"{notif.sender.first_name} {notif.sender.last_name}"
-
-            notifications.append(
+        unread_notifications = []
+        for notif in unread_notifs:
+            unread_notifications.append(
                 {
                     "id": notif.id,
                     "title": notif.title,
@@ -343,7 +331,26 @@ def get_default_page_context(request, include_notifications: bool = False):
                         string=notif.message, user_obj=employee
                     ),
                     "type": notif.notification_type,
-                    "sender": sender,
+                    "sender": get_notification_sender_name(notif=notif),
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
+                    "store_broadcast": notif.broadcast_to_store,
+                }
+            )
+
+        read_notifications = []
+        read_notifs = employee.get_read_notifications().select_related("sender")
+        for notif in read_notifs:
+            read_notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": add_placeholder_text(
+                        string=notif.message, user_obj=employee
+                    ),
+                    "type": notif.notification_type,
+                    "sender": get_notification_sender_name(notif=notif),
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
@@ -355,8 +362,12 @@ def get_default_page_context(request, include_notifications: bool = False):
             "user_id": employee_id,
             "user_name": employee.first_name,
             "associated_stores": store_data,
-            "notifications": notifications,
-            "notification_count": notifs.count(),
+            "notifications": {
+                "unread": unread_notifications,
+                "read": read_notifications,
+                "read_count": read_notifs.count(),
+            },
+            "notification_count": unread_notifs.count(),
         }, employee
 
     # Else, dont include notifications (SAVES WORK)
@@ -364,8 +375,29 @@ def get_default_page_context(request, include_notifications: bool = False):
         "user_id": employee_id,
         "user_name": employee.first_name,
         "associated_stores": store_data,
-        "notification_count": notifs.count(),
+        "notification_count": unread_notifs.count(),
     }, employee
+
+
+def get_notification_sender_name(notif: Notification) -> str:
+    """
+    Get the notification sender or replace it with an appropriate string for
+    certain cases.
+    A Notification object must be given.
+    """
+    if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
+        return "SYSTEM"
+    elif (
+        notif.notification_type == Notification.Type.SYSTEM_ALERT
+        or notif.notification_type == Notification.Type.ADMIN_NOTE
+    ):
+        return "ADMIN"
+    elif not notif.sender:
+        return "ADMIN"
+    elif notif.sender.is_hidden:
+        return "ADMIN"
+    else:
+        return f"{notif.sender.first_name} {notif.sender.last_name}"
 
 
 def sanitise_plain_text(value: str) -> str:
