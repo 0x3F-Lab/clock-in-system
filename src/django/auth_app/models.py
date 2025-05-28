@@ -555,3 +555,26 @@ class NotificationReceipt(models.Model):
         if not self.read_at:
             self.read_at = localtime(now())
             self.save(update_fields=["read_at"])
+
+########################## SCHEDULING ##########################
+
+class Shift(models.Model):
+    employee    = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shifts')
+    store       = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='shifts')
+    date        = models.DateField()
+    start_time  = models.TimeField()
+    end_time    = models.TimeField()
+    role        = models.CharField(max_length=100, blank=True)
+
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date', 'start_time']
+        # prevent exact duplicates:
+        unique_together = [('employee', 'store', 'date', 'start_time')]
+
+    def __str__(self):
+        return (f"{self.employee.first_name} {self.employee.last_name} – "
+                f"{self.date} {self.start_time:%H:%M}–{self.end_time:%H:%M} "
+                f"@ {self.store.code} ({self.role})")
