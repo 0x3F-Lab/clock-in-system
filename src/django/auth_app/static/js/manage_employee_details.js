@@ -20,6 +20,9 @@ $(document).ready(function() {
   $('#msg_message').on('input', () => {
     updateCharCount();
   });
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(45); // 45 minutes
 });
 
 

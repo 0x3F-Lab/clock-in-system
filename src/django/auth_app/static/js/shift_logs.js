@@ -15,6 +15,9 @@ $(document).ready(function() {
 
   // Activate the pagination system (set the update function)
   handlePagination({updateFunc: updateShiftLogsTable});
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(45); // 45 minutes
 });
 
 
