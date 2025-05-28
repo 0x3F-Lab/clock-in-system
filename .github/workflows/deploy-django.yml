@@ -30,6 +30,8 @@ jobs:
           echo -e "\nPOSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./src/.env.production
           echo -e "\nDJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> ./src/.env.production
           echo -e "\nREDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> ./src/.env.production
+          echo -e "\nCELERY_BROKER_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/0" >> ./src/.env.production
+          echo -e "\nCELERY_RESULT_BACKEND=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/1" >> ./src/.env.production
 
       - name: Build Docker images
         run: |
