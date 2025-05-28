@@ -1,3 +1,45 @@
 {% extends "auth_app/base.html" %}
 {% block title %}Pizza Clock-in || Schedule Dashboard{% endblock %}
+{% load custom_tags %}
 
+{% block content_container_class %}my-5{% endblock %}
+
+{% block content %}
+  <h2 class="mb-4 text-center">Week of {{ week_start|date:"M j, Y" }}</h2>
+
+  <div class="overflow-auto">
+    <div class="d-flex">
+      {% for day in days %}
+        <div class="card me-3" style="min-width: 220px;">
+          <div class="card-header text-center bg-indigo text-white">
+            {{ day|date:"D, M j" }}
+          </div>
+          <div class="card-body p-2">
+            {% for shift in schedule_data|get_item:day %}
+              <div class="mb-2 p-2 border rounded">
+                <strong>{{ shift.employee.first_name }} {{ shift.employee.last_name }}</strong><br>
+                <small class="d-block">
+                  {{ shift.start_time|time:"g:i A" }} – {{ shift.end_time|time:"g:i A" }}
+                </small>
+                {% if shift.role %}
+                  <small class="text-muted d-block">{{ shift.role }}</small>
+                {% endif %}
+              </div>
+            {% empty %}
+              <p class="text-muted text-center my-4">No shifts</p>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between mt-4">
+    <a class="btn btn-outline-primary" href="?week={{ previous_week|date:'Y-m-d' }}">
+      ← Previous Week
+    </a>
+    <a class="btn btn-outline-primary" href="?week={{ next_week|date:'Y-m-d' }}">
+      Next Week →
+    </a>
+  </div>
+{% endblock %}
