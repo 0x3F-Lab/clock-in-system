@@ -164,15 +164,30 @@
         <form id="editPassForm" class="px-1">
           <div class="mb-3">
             <label for="editOldPass" class="form-label fw-semibold">Old Password</label>
-            <input type="password" class="form-control" id="editOldPass" name="old_pass" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editOldPass" name="old_pass" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
           </div>
           <div class="my-3">
             <label for="editNewPass" class="form-label fw-semibold">New Password</label>
-            <input type="password" class="form-control" id="editNewPass" name="old_pass" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editNewPass" name="old_pass" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
           </div>
           <div class="my-3">
             <label for="editNewPassCopy" class="form-label fw-semibold">Repeat New Password</label>
-            <input type="password" class="form-control" id="editNewPassCopy" name="old_pass_copy" required>
+            <div class="position-relative w-100">
+              <input type="password" class="form-control" id="editNewPassCopy" name="old_pass_copy" required>
+              <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                <i class="fa fa-eye cursor-pointer"></i>
+              </button>
+            </div>
             <div id="repeatPassWarning" class="field-error d-none mt-1">Both new password fields must match.</div>
           </div>
         </form>
