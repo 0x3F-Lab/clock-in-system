@@ -422,13 +422,23 @@ class NotificationForm(forms.Form):
         # Validate combinations
         if (
             notification_type == Notification.Type.MANAGER_NOTE
-            and recipient_group != "store_employees"
+            and recipient_group
+            not in [
+                Notification.RecipientType.STORE_EMPLOYEES,
+                Notification.RecipientType.SITE_ADMINS,
+            ]
         ):
-            raise ValidationError("Manager Notes can only be sent to Store Employees.")
+            raise ValidationError(
+                "Manager Notes can only be sent to Store Employees or Site Admins."
+            )
 
         elif (
             notification_type == Notification.Type.SYSTEM_ALERT
-            and recipient_group not in ["all_users", "all_managers"]
+            and recipient_group
+            not in [
+                Notification.RecipientType.ALL_USERS,
+                Notification.RecipientType.ALL_MANAGERS,
+            ]
         ):
             raise ValidationError(
                 "System Alerts can only be sent to all users or all managers."
@@ -436,10 +446,10 @@ class NotificationForm(forms.Form):
 
         elif (
             notification_type == Notification.Type.SCHEDULE_CHANGE
-            and recipient_group != "store_employees"
+            and recipient_group != Notification.RecipientType.STORE_EMPLOYEES
         ):
             raise ValidationError(
-                "Schedule Change notifications must target store employees."
+                "Schedule Change can only be sent to store employees."
             )
 
         return notification_type
