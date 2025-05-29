@@ -1,6 +1,7 @@
 import logging
 import api.exceptions as err
 
+from rest_framework import status
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.sitemaps import Sitemap
@@ -51,7 +52,12 @@ def login(request):
                 user = User.objects.get(email=email)  # Look up the user by email
             except User.DoesNotExist:
                 messages.error(request, "Invalid credentials.")
-                return render(request, "auth_app/login.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             # Ensure user can log into their account
             if not user.is_active:
@@ -59,7 +65,12 @@ def login(request):
                     request,
                     "Cannot log into a deactivated account. Please contact a store manager.",
                 )
-                return render(request, "auth_app/login.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             elif not user.is_setup:
                 messages.error(request, "Please setup your account to login.")
@@ -80,11 +91,22 @@ def login(request):
                     return redirect("home")  # fallback after login
 
             else:
-                # Return error (no need to render here, use final render at end)
                 messages.error(request, "Invalid Credentials.")
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         else:
             messages.error(request, "Failed to login. Please correct the errors.")
+            return render(
+                request,
+                "auth_app/login.html",
+                {"form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
 
     else:
         form = LoginForm()
@@ -119,7 +141,10 @@ def setup_account(request):
                         "Cannot setup an inactive account. Please contact a store manager.",
                     )
                     return render(
-                        request, "auth_app/account_setup.html", {"form": form}
+                        request,
+                        "auth_app/account_setup.html",
+                        {"form": form},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
                     )
 
                 # Set password
@@ -151,13 +176,23 @@ def setup_account(request):
 
             except User.DoesNotExist:
                 messages.error(request, "Invalid account email.")
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             except ValidationError as e:
                 messages.error(request, "Invalid data while saving the account.")
                 logger.warning(
                     f"Failed to setup account with email {email} ({first_name} {last_name}) due to a database validation error, producing the error: {e}"
                 )
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             except Exception as e:
                 messages.error(
                     request,
@@ -166,7 +201,12 @@ def setup_account(request):
                 logger.critical(
                     f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}"
                 )
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
             # Log the user in by setting session data
             request.session["user_id"] = user.id
@@ -182,6 +222,12 @@ def setup_account(request):
         else:
             messages.error(
                 request, "Failed to setup employee account. Please correct the errors."
+            )
+            return render(
+                request,
+                "auth_app/account_setup.html",
+                {"form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
     else:
@@ -233,16 +279,22 @@ def manual_clocking(request):
             except (User.DoesNotExist, Store.DoesNotExist):
                 messages.error(request, "Invalid PIN combination.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             # Ensure employee is assigned to the store
             if not employee.is_associated_with_store(store=store):
                 messages.error(
-                    request, "The employee is not associated with the store."
+                    request, "Cannot clock in/out to a non-associated store."
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
             # Ensure employee is within range of the store's acceptable range
@@ -255,7 +307,10 @@ def manual_clocking(request):
             if dist > store.allowable_clocking_dist_m:
                 messages.error(request, "Cannot clock in/out too far from the store.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_411_LENGTH_REQUIRED,
                 )
 
             # Clock the employee in/out
@@ -278,27 +333,42 @@ def manual_clocking(request):
                     request, "Cannot clock in/out to a non-associated store."
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
             except err.InactiveUserError:
                 messages.error(request, "Cannot clock in/out an inactive account.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
             except err.StartingShiftTooSoonError:
                 messages.error(request, "Cannot clock in too soon after clocking out.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_409_CONFLICT,
                 )
             except err.ClockingOutTooSoonError:
                 messages.error(request, "Cannot clock out too soon after clocking in.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_409_CONFLICT,
                 )
             except err.InactiveStoreError:
                 messages.error(request, "Cannot clock in/out to an inactive store.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
             except err.NoActiveClockingRecordError:
                 messages.error(
@@ -306,7 +376,10 @@ def manual_clocking(request):
                     "Could not clock out user due to bugged user state. State has been reset, please retry.",
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
             except Exception as e:
                 logger.warning(
@@ -317,7 +390,10 @@ def manual_clocking(request):
                     "Could not manually clock in/out user due to internal errors. Please retry.",
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
             # Reset the form
@@ -325,11 +401,18 @@ def manual_clocking(request):
                 request,
                 "auth_app/manual_clocking.html",
                 {**context, "form": ManualClockingForm()},
+                status=status.HTTP_202_ACCEPTED,
             )
 
         else:
             messages.error(
                 request, "Failed to clock in/out. Please correct the errors."
+            )
+            return render(
+                request,
+                "auth_app/manual_clocking.html",
+                {**context, "form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
     # GET REQUEST (load the page)

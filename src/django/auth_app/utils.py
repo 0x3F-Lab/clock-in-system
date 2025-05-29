@@ -89,7 +89,7 @@ def api_manager_required(view_func):
         if not user_id:
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Get employee data to check state
@@ -194,7 +194,7 @@ def api_employee_required(view_func):
         if not user_id:
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Get employee data to check state
