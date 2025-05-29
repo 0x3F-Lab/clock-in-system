@@ -434,7 +434,7 @@ class Notification(models.Model):
     )
 
     def __str__(self):
-        return f"[{self.id}] [{self.recipient_group.upper()}]] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
+        return f"[{self.id}] [{self.recipient_group.upper()}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
 
     def mark_notification_as_read(self, user):
         receipt = NotificationReceipt.objects.filter(
