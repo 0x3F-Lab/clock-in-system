@@ -25,6 +25,9 @@ from auth_app.forms import (
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
+from django.utils import timezone
+from datetime import timedelta, date
+from .models import Shift
 
 
 logger = logging.getLogger("auth_app")
@@ -670,4 +673,54 @@ class StaticViewSitemap(Sitemap):
         return 0.5
 
 def schedule_dashboard(request):
-    return render(request, "auth_app/schedule_dashboard.html")
+
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+    # Week selection
+    week_param = request.GET.get("week")
+    if week_param:
+        week_start = date.fromisoformat(week_param)
+    else:
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    shifts = (
+        Shift.objects
+             .filter(date__range=(week_start, week_end))
+             .select_related("employee", "store")
+    )
+
+    days = [week_start + timedelta(days=i) for i in range(7)]
+
+    # Grouping
+    schedule_data = {
+        day: [s for s in shifts if s.date == day]
+        for day in days
+    }
+
+    # Compute prev/next week links
+    previous_week = week_start - timedelta(days=7)
+    next_week     = week_start + timedelta(days=7)
+
+    context.update({
+        "week_start":   week_start,
+        "days":         days,
+        "schedule_data": schedule_data,
+        "previous_week": previous_week,
+        "next_week":     next_week,
+        })
+
+    # Render with all the context your template expects
+    return render(request, "auth_app/schedule_dashboard.html", context)

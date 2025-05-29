@@ -2,9 +2,12 @@
 {% block title %}Pizza Clock-in || Schedule Dashboard{% endblock %}
 {% load custom_tags %}
 
+
 {% block content_container_class %}my-5{% endblock %}
 
 {% block content %}
+  {% include "components/store_selection_controller.html" %}
+
   <h2 class="mb-4 text-center">Week of {{ week_start|date:"M j, Y" }}</h2>
 
   <div class="overflow-auto">
