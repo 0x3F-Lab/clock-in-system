@@ -672,6 +672,7 @@ class StaticViewSitemap(Sitemap):
             return 0.7
         return 0.5
 
+
 def schedule_dashboard(request):
 
     try:
@@ -696,31 +697,28 @@ def schedule_dashboard(request):
         week_start = today - timedelta(days=today.weekday())
     week_end = week_start + timedelta(days=6)
 
-    shifts = (
-        Shift.objects
-             .filter(date__range=(week_start, week_end))
-             .select_related("employee", "store")
+    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
+        "employee", "store"
     )
 
     days = [week_start + timedelta(days=i) for i in range(7)]
 
     # Grouping
-    schedule_data = {
-        day: [s for s in shifts if s.date == day]
-        for day in days
-    }
+    schedule_data = {day: [s for s in shifts if s.date == day] for day in days}
 
     # Compute prev/next week links
     previous_week = week_start - timedelta(days=7)
-    next_week     = week_start + timedelta(days=7)
+    next_week = week_start + timedelta(days=7)
 
-    context.update({
-        "week_start":   week_start,
-        "days":         days,
-        "schedule_data": schedule_data,
-        "previous_week": previous_week,
-        "next_week":     next_week,
-        })
+    context.update(
+        {
+            "week_start": week_start,
+            "days": days,
+            "schedule_data": schedule_data,
+            "previous_week": previous_week,
+            "next_week": next_week,
+        }
+    )
 
     # Render with all the context your template expects
     return render(request, "auth_app/schedule_dashboard.html", context)
