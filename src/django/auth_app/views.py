@@ -563,6 +563,7 @@ def notification_page(request):
                         request,
                         "auth_app/notification_page.html",
                         {**context, "form": form},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 messages.success(request, "Successfully sent notifications.")
@@ -578,6 +579,12 @@ def notification_page(request):
                 messages.error(
                     request, "Failed to send notifications. Please correct the errors."
                 )
+                return render(
+                    request,
+                    "auth_app/notification_page.html",
+                    {**context, "form": form},
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
 
         except Exception as e:
             logger.critical(
@@ -586,6 +593,12 @@ def notification_page(request):
             messages.error(
                 request,
                 "Failed to send your message due to internal server errors. Please try again later.",
+            )
+            return render(
+                request,
+                "auth_app/notification_page.html",
+                {**context, "form": form},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     # GET REQUEST (load the page)
