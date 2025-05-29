@@ -10,38 +10,19 @@
   <h2 class="mb-4 text-center">Week of {{ week_start|date:"M j, Y" }}</h2>
 
   <style>
-    
-    /* Mobile: single column vertical scroll */
+    /* Base styles */
+    .scroll-container { overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; }
+    .scroll-container::-webkit-scrollbar { display: none; }
+    /* Mobile: vertical stack */
     @media (max-width: 991.98px) {
-      .scroll-container {
-        overflow-x: visible !important;
-      }
-      .scroll-container .d-flex {
-        flex-direction: column;
-      }
-      .scroll-container .card {
-        width: 100%;
-        margin-bottom: 1rem;
-      }
+      .scroll-container .d-flex { flex-direction: column; }
+      .scroll-container .card { width: 100%; margin-bottom: 1rem; }
     }
-
-    /* Desktop: show all 7 cards in one row, no scroll */
+    /* Desktop: single row */
     @media (min-width: 992px) {
-      .scroll-container {
-        overflow-x: visible !important;
-      }
-      .scroll-container .d-flex {
-        justify-content: space-between;
-      }
-      .scroll-container .card {
-        flex: 1 1 auto;
-        min-width: 0;
-        width: calc((100% - 6rem) / 7);
-        margin-right: 1rem;
-      }
-      .scroll-container .card:last-child {
-        margin-right: 0;
-      }
+      .scroll-container .d-flex { justify-content: space-between; }
+      .scroll-container .card { flex: 1 1 auto; min-width: 0; width: calc((100% - 6rem)/7); margin-right: 1rem; }
+      .scroll-container .card:last-child { margin-right: 0; }
     }
   </style>
 
