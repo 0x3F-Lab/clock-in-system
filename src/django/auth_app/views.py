@@ -324,7 +324,7 @@ def manual_clocking(request):
             return render(
                 request,
                 "auth_app/manual_clocking.html",
-                {"form": ManualClockingForm(), "activity": activity},
+                {**context, "form": ManualClockingForm()},
             )
 
         else:
