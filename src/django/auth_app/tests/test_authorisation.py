@@ -43,7 +43,7 @@ def test_login_invalid_credentials_shows_error(web_client, employee):
         url, {"email": employee.email, "password": "wrongpassword"}
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 403
     assert b"Invalid Credentials" in response.content
     assert "auth_app/login.html" in [t.name for t in response.templates]
 
@@ -91,7 +91,7 @@ def test_login_inactive_user(web_client, inactive_employee):
 
     response = web_client.post(url, data)
 
-    assert response.status_code == 200
+    assert response.status_code == 409
     assert b"Cannot log into a deactivated account" in response.content
 
     messages = list(get_messages(response.wsgi_request))

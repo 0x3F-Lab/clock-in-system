@@ -90,7 +90,7 @@ def test_manual_clocking_successful_clock_in(
     assert employee.is_clocked_in(store=store) == False
 
     response = client.post(url, data)
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert b"Successfully clocked in." in response.content
 
     employee.refresh_from_db()
@@ -108,7 +108,7 @@ def test_manual_clocking_invalid_pin_combination(client, store):
     }
 
     response = client.post(url, data)
-    assert response.status_code == 200
+    assert response.status_code == 401
     assert b"Invalid PIN combination." in response.content
 
 
@@ -125,7 +125,7 @@ def test_manual_clocking_user_not_associated(mocker, client, store, employee):
     }
 
     response = client.post(url, data)
-    assert b"not associated with the store" in response.content
+    assert b"Cannot clock in/out to a non-associated store." in response.content
 
 
 @pytest.mark.django_db
