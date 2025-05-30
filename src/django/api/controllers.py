@@ -354,8 +354,8 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         # Fetch relevant activity records
         shifts = (
             Activity.objects.select_related("store")
-            .filter(employee=user, store=store, login_timestamp__gte=time_threshold)
-            .order_by("-login_timestamp")
+            .filter(employee=user, store=store, login_time__gte=time_threshold)
+            .order_by("-login_time")
         )
 
         # Format results
@@ -433,9 +433,14 @@ def get_account_summaries(
         start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
         end_dt = make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
 
-        # All employees for the store
+        # All employees for the store OR who have worked at the store within the period (if resigned)
         employees_qs = User.objects.filter(
-            store_access__store_id=store.id,
+            Q(store_access__store_id=store.id)
+            | Q(
+                activities__store_id=store.id,
+                activities__login_time__date__gte=start_dt.date(),
+                activities__login_time__date__lte=end_dt.date(),
+            ),
             is_hidden=False,
         ).distinct()
 
@@ -598,9 +603,13 @@ def check_new_shift_too_soon(
     """
     try:
         # Get the last clock-out activity for the employee
-        last_activity = Activity.objects.filter(
-            employee=employee, store=store, logout_timestamp__isnull=False
-        ).last()
+        last_activity = (
+            Activity.objects.filter(
+                employee=employee, store=store, logout_timestamp__isnull=False
+            )
+            .order_by("-logout_timestamp")
+            .first()
+        )
 
         if not last_activity:
             # No previous clock-out record found, allow clock-in
@@ -640,11 +649,7 @@ def check_clocking_out_too_soon(
     """
     try:
         # Get the last activity for the employee
-        last_activity = (
-            Activity.objects.filter(employee=employee, store=store)
-            .order_by("-login_timestamp")
-            .first()
-        )  # Order by latest clock-in/out
+        last_activity = employee.get_last_active_activity_for_store(store=store.id)
 
         if not last_activity:
             # No previous clock-in or clock-out record found, allow clock-in

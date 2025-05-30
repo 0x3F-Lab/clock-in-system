@@ -110,7 +110,7 @@ class User(models.Model):
         elif isinstance(store, Store):
             activities = activities.filter(store=store)
 
-        return activities.last()  # Returns None if no match
+        return activities.order_by("-login_time").first()  # Returns None if no match
 
     def is_associated_with_store(self, store) -> bool:
         """
@@ -331,7 +331,7 @@ class Activity(models.Model):
         User, on_delete=models.CASCADE, related_name="activities"
     )
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
-    login_time = models.DateTimeField(null=False)  # Rounds in time
+    login_time = models.DateTimeField(null=False, db_index=True)  # Rounds in time
     logout_time = models.DateTimeField(
         null=True, blank=True
     )  # Nullable to allow for ongoing shifts
