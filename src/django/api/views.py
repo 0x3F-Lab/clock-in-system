@@ -337,10 +337,10 @@ def update_shift_details(request, id):
         original = {
             "id": activity.id,
             "deliveries": activity.deliveries,
-            "login_time": activity.login_time,
-            "login_timestamp": activity.login_timestamp,
-            "logout_time": activity.logout_time,
-            "logout_timestamp": activity.logout_timestamp,
+            "login_time": localtime(activity.login_time),
+            "login_timestamp": localtime(activity.login_timestamp),
+            "logout_time": localtime(activity.logout_time),
+            "logout_timestamp": localtime(activity.logout_timestamp),
             "shift_length_mins": activity.shift_length_mins,
             "is_public_holiday": activity.is_public_holiday,
         }
