@@ -5,7 +5,7 @@ import api.utils as util
 from typing import Union, Dict
 from datetime import timedelta, datetime
 from django.db import transaction
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Concat
 from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.models import User, Activity, Store
@@ -444,13 +444,16 @@ def get_account_summaries(
             is_hidden=False,
         ).distinct()
 
+        # Annotate full_name for better filtering
+        employees_qs = employees_qs.annotate(
+            full_name=Concat("first_name", Value(" "), "last_name")
+        )
+
         # Apply name filters
         if filter_names:
             name_filter = Q()
             for name in filter_names:
-                name_filter |= Q(first_name__icontains=name) | Q(
-                    last_name__icontains=name
-                )
+                name_filter |= Q(full_name__icontains=name)
             employees_qs = employees_qs.filter(name_filter)
 
         # Subqueries for total_mins and deliveries per employee
@@ -556,7 +559,7 @@ def get_account_summaries(
             summary_list.append(
                 {
                     "employee_id": employee.id,
-                    "name": f"{employee.first_name} {employee.last_name}",
+                    "name": employee.full_name,
                     "hours_total": round(employee.total_mins / 60, 2),
                     "hours_weekday": round(mins_weekday / 60, 2),
                     "hours_weekend": round(mins_weekend / 60, 2),
