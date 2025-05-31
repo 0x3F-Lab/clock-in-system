@@ -224,9 +224,15 @@ function handlePagination(config) {
   });
 
   $('#pageLimitInput').on('change', () => {
-    $('#paginationVariables').attr('data-future-offset', 0); // Reset offset to start
+    resetPaginationValues();
     updateFunc(); // Refresh the table with new limit
   });
+}
+
+
+function resetPaginationValues() {
+  // DOESNT CALL THE UPDATE FUNCTION -- MUST BE DONE MANUALLY!
+  $('#paginationVariables').attr('data-future-offset', 0); // Reset offset to start
 }
 
 

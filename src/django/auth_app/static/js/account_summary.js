@@ -7,11 +7,13 @@ $(document).ready(function() {
 
   // Populate the table with all users once the stores have loaded completely
   $('#storeSelectDropdown').on('change', () => {
+    resetPaginationValues();
     updateSummaryTable();
   });
 
   // Handle table controls submission
   $('#summaryTableControllerSubmit').on('click', () => {
+    resetPaginationValues();
     updateSummaryTable();
   });
 
