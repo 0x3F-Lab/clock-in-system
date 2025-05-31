@@ -129,35 +129,9 @@ def list_store_employee_names(request):
 @renderer_classes([JSONRenderer])
 def list_all_shift_details(request):
     try:
-        try:
-            # enforce min offset = 0
-            offset = max(int(request.GET.get("offset", "0")), 0)
-        except ValueError:
-            offset = 0
-
-        try:
-            # Enforce min limit = 1 and max limit = 150 (settings controlled)
-            limit = min(
-                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
-            )
-        except ValueError:
-            limit = 25
-
-        # Get store id
-        store_id = request.GET.get("store_id", None)
-
-        if store_id is None:
-            return Response(
-                {
-                    "Error": "Missing required store_id field in query params. Please retry."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         # Get the account info of the user requesting these shifts
-        user_id = request.session.get("user_id")
         try:
-            user = User.objects.get(id=user_id)
+            user = util.api_get_user_object_from_session(request)
         except User.DoesNotExist:
             return Response(
                 {
@@ -166,74 +140,122 @@ def list_all_shift_details(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not user.is_associated_with_store(store=int(store_id)):
+        # Get store id
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+        if store_id is None:
             return Response(
-                {"Error": "Cannot get shift information for an unassociated store."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Query & order: by login_timestamp DESC, then first_name, last_name ASC (JOIN TABLE WITH USERS TO GET THEIR INFO AS WELL)
-        activities_query = (
-            Activity.objects.select_related("employee")
-            .filter(
-                store_id=int(store_id), employee__is_hidden=False
-            )  # Exclude hidden users
-            .order_by("-login_timestamp", "employee__first_name", "employee__last_name")
-        )
-
-        # Get total
-        total = activities_query.count()
-
-        # Ensure slicing happens on DB level for most performance
-        activities = activities_query[offset : offset + limit]
-
-        data = []
-        for act in activities:
-            hours_decimal = (
-                (act.shift_length_mins / 60.0) if act.shift_length_mins else 0.0
-            )
-
-            data.append(
                 {
-                    "id": act.id,
-                    "employee_first_name": act.employee.first_name,
-                    "employee_last_name": act.employee.last_name,
-                    "login_time": (
-                        localtime(act.login_time).strftime("%H:%M")
-                        if act.login_time
-                        else None
-                    ),
-                    "logout_time": (
-                        localtime(act.logout_time).strftime("%H:%M")
-                        if act.logout_time
-                        else None
-                    ),
-                    "is_public_holiday": act.is_public_holiday,
-                    "login_timestamp": (
-                        localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
-                        if act.login_timestamp
-                        else None
-                    ),
-                    "logout_timestamp": (
-                        localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
-                        if act.logout_timestamp
-                        else None
-                    ),
-                    "deliveries": act.deliveries,
-                    "hours_worked": f"{hours_decimal:.2f}",
-                }
+                    "Error": "Missing required store_id field in query params. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        elif not user.is_associated_with_store(store=int(store_id)):
+            raise err.NotAssociatedWithStoreError
+
+        # Get pagination values
+        offset, limit = util.get_pagination_values_from_request(request)
+
+        # Get remaining param settings
+        only_public_hol = util.str_to_bool(
+            request.query_params.get("only_pub", "false")
+        )
+        hide_deactivated = util.str_to_bool(
+            request.query_params.get("hide_deactive", "false")
+        )
+        hide_resigned = util.str_to_bool(
+            request.query_params.get("hide_resign", "false")
+        )
+        sort_field = util.clean_param_str(request.query_params.get("sort", "time"))
+        start_date = util.clean_param_str(request.query_params.get("start", None))
+        end_date = util.clean_param_str(request.query_params.get("end", None))
+        filter_names = util.clean_param_str(request.query_params.get("filter", ""))
+
+        if start_date is None or end_date is None:
+            return Response(
+                {"Error": "Missing start or end date."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Validate other given fields
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            datetime.strptime(end_date, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        VALID_SORT_FIELDS = {"time", "name", "length", "delivery"}
+        if sort_field not in VALID_SORT_FIELDS:
+            return Response(
+                {
+                    "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
+                },
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Convert filter_names string to list
+        try:
+            filter_names_list = util.get_filter_list_from_string(filter_names)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid characters in filter list."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        results, total = controllers.get_shift_summaries(
+            store_id=store_id,
+            offset=offset,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+            sort_field=sort_field,
+            filter_names=filter_names_list,
+            only_public_hol=only_public_hol,
+            hide_deactivated=hide_deactivated,
+            hide_resigned=hide_resigned,
+            allow_inactive_store=True,  # ONLY MANAGERS ACCESS THIS PAGE -- no need to check perms
+        )
 
         return JsonResponse(
             {
                 "total": total,
                 "offset": offset,
                 "limit": limit,
-                "results": data,
+                "results": results,
             },
             status=status.HTTP_200_OK,
         )
 
+    except ValueError:
+        logger.warning(
+            f"A VALUE ERROR occured when trying to get shift summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_412_PRECONDITION_FAILED,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the store information for ID {store_id}."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Not authorised to get shift information for an unassociated store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to get shift information for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -2090,29 +2112,23 @@ def list_account_summaries(request):
         if not manager.is_associated_with_store(store=store_id):
             raise err.NotAssociatedWithStoreError
 
-        # Get pagination fields
-        try:
-            # enforce min offset = 0
-            offset = max(int(request.GET.get("offset", "0")), 0)
-        except ValueError:
-            offset = 0
-
-        try:
-            # Enforce min limit = 1 and max limit = 150 (settings controlled)
-            limit = min(
-                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
-            )
-        except ValueError:
-            limit = 25
+        # Get pagination values
+        offset, limit = util.get_pagination_values_from_request(request)
 
         # Validate other given fields
+        if start_date is None or end_date is None:
+            return Response(
+                {"Error": "Missing start or end date."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
         try:
             datetime.strptime(start_date, "%Y-%m-%d")
             datetime.strptime(end_date, "%Y-%m-%d")
         except ValueError:
             return Response(
                 {"Error": "Invalid date format. Use YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
         VALID_SORT_FIELDS = {"name", "hours", "age", "deliveries"}
@@ -2121,22 +2137,17 @@ def list_account_summaries(request):
                 {
                     "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
         # Convert filter_names string to list
-        if filter_names and not re.match(VALID_NAME_LIST_PATTERN, filter_names):
+        try:
+            filter_names_list = util.get_filter_list_from_string(filter_names)
+        except ValueError:
             return Response(
                 {"Error": "Invalid characters in filter list."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-
-        if filter_names:
-            filter_names_list = [
-                name.strip() for name in filter_names.split(",") if name.strip()
-            ]
-        else:
-            filter_names_list = None
 
         # Get the summaries
         summaries, total = controllers.get_account_summaries(
@@ -2148,7 +2159,7 @@ def list_account_summaries(request):
             ignore_no_hours=ignore_no_hours,
             sort_field=sort_field,
             filter_names=filter_names_list,
-            allow_inactive_store=True,
+            allow_inactive_store=True,  # ONLY MANAGERS ACCESS THIS PAGE - no need to check user perms
         )
 
         return JsonResponse(
@@ -2169,12 +2180,12 @@ def list_account_summaries(request):
             {
                 "Error": "Could not convert a value into an integer. Did you set your values correctly?"
             },
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_412_PRECONDITION_FAILED,
         )
     except Store.DoesNotExist:
         return Response(
             {"Error": f"Failed to get the store information for ID {store_id}."},
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_409_CONFLICT,
         )
     except err.NotAssociatedWithStoreError:
         return Response(

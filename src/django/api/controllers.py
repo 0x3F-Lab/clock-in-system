@@ -2,7 +2,7 @@ import logging
 import api.exceptions as err
 import api.utils as util
 
-from typing import Union, Dict
+from typing import Union, Dict, List, Dict, Tuple
 from datetime import timedelta, datetime
 from django.db import transaction
 from django.db.models.functions import Coalesce, Concat
@@ -394,6 +394,141 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         raise e
 
 
+def get_shift_summaries(
+    store_id: int,
+    offset: int,
+    limit: int,
+    start_date: str,
+    end_date: str,
+    sort_field: str,
+    filter_names: List[str],
+    only_public_hol: bool,
+    hide_deactivated: bool,
+    hide_resigned: bool,
+    allow_inactive_store: bool = False,
+) -> Tuple[List[dict], int]:
+    """
+    Retrieves paginated shift activity records for a store.
+
+    Args:
+        store_id (int): The store ID.
+        offset (int): Pagination offset.
+        limit (int): Pagination limit.
+        start_date (str): Filter start date (YYYY-MM-DD).
+        end_date (str): Filter end date (YYYY-MM-DD).
+        sort_field (str): One of "time", "name", "length", "delivery".
+        filter_names (List[str]): Case-insensitive names to include.
+        only_public_hol (bool): Filter for public holidays only.
+        hide_deactivated (bool): Exclude deactivated employees.
+        hide_resigned (bool): Exclude resigned employees.
+        allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
+
+    Returns:
+        Tuple[List[dict], int]: List of results, and total count.
+    """
+    # Get store object and ensure its active
+    store = Store.objects.get(id=int(store_id))
+
+    if not store.is_active and not allow_inactive_store:
+        raise err.InactiveStoreError
+
+    # Initial queryset
+    qs = Activity.objects.select_related("employee").filter(
+        store_id=store_id, employee__is_hidden=False
+    )
+
+    # Filter dates
+    if start_date:
+        qs = qs.filter(login_time__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(login_time__date__lte=end_date)
+
+    # Annotate full_name for better filtering
+    qs = qs.annotate(
+        full_name=Concat("employee__first_name", Value(" "), "employee__last_name")
+    )
+
+    # Filter by names
+    if filter_names:
+        name_filters = Q()
+        for name in filter_names:
+            name_filters |= Q(full_name__icontains=name)
+        qs = qs.filter(name_filters)
+
+    # Apply extra filters
+    if only_public_hol:
+        qs = qs.filter(is_public_holiday=True)
+    if hide_deactivated:
+        qs = qs.filter(employee__is_active=True)
+    if hide_resigned:
+        qs = qs.filter(employee__store_access__store_id=store_id)
+
+    # Sorting
+    sort_map = {
+        "time": ("-login_timestamp", "employee__first_name", "employee__last_name"),
+        "name": ("employee__first_name", "employee__last_name", "-login_timestamp"),
+        "length": (
+            "-shift_length_mins",
+            "-login_timestamp",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+        "delivery": (
+            "-deliveries",
+            "-login_timestamp",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+    }
+    qs = qs.order_by(*sort_map.get(sort_field, sort_map["time"]))
+
+    # Total count before pagination
+    total = qs.count()
+
+    # Apply pagination (now DB-level)
+    qs = qs[offset : offset + limit]
+
+    results = []
+    for act in qs:
+        hours_decimal = (act.shift_length_mins / 60.0) if act.shift_length_mins else 0.0
+        results.append(
+            {
+                "id": act.id,
+                "emp_first_name": act.employee.first_name,
+                "emp_last_name": act.employee.last_name,
+                "emp_active": act.employee.is_active,
+                "emp_resigned": not act.employee.is_associated_with_store(
+                    store=store_id
+                ),
+                "login_time": (
+                    localtime(act.login_time).strftime("%H:%M")
+                    if act.login_time
+                    else None
+                ),
+                "logout_time": (
+                    localtime(act.logout_time).strftime("%H:%M")
+                    if act.logout_time
+                    else None
+                ),
+                "is_public_holiday": act.is_public_holiday,
+                "login_timestamp": (
+                    localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                    if act.login_timestamp
+                    else None
+                ),
+                "logout_timestamp": (
+                    localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                    if act.logout_timestamp
+                    else None
+                ),
+                "deliveries": act.deliveries,
+                "hours_worked": f"{hours_decimal:.2f}",
+            }
+        )
+
+    return results, total
+
+
 def get_account_summaries(
     store_id,
     offset,
@@ -404,7 +539,7 @@ def get_account_summaries(
     sort_field,
     filter_names,
     allow_inactive_store: bool = False,
-):
+) -> Tuple[List[dict], int]:
     """
     Retrieve a paginated list of employee account summaries for a specific store.
 

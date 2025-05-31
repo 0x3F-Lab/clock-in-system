@@ -130,6 +130,42 @@ table {
   color: #fff;
 }
 
+/* CUSTOM TABLE COLOURS */
+.table-purple {
+  background-color: #e8cdec !important;
+  color: black;
+}
+
+.table-red {
+  background-color: #ff3b3b !important;
+  color: black;
+}
+
+.table-orange {
+  background-color: #fff3e0 !important;
+  color: black;
+}
+
+.table-teal {
+  background-color: #e0f2f1 !important;
+  color: black;
+}
+
+.table-pink {
+  background-color: #f3ceda !important;
+  color: black;
+}
+
+.table-indigo {
+  background-color: #e8eaf6 !important;
+  color: black;
+}
+
+.table-lime {
+  background-color: #f9fbe7 !important;
+  color: black;
+}
+
 /* CUSTOM COLOURS */
 .text-indigo {
   color: #6610f2;
