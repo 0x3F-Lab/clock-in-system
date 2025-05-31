@@ -52,6 +52,7 @@ def check_clocked_in_users():
                     title=emp_title,
                     message=emp_msg,
                     notification_type=Notification.Type.AUTOMATIC_ALERT,
+                    recipient_group=Notification.RecipientType.INDIVIDUAL,
                     expires_on=notification_default_expires_on(7),
                 )
                 logger_beat.debug(
@@ -74,6 +75,7 @@ def check_clocked_in_users():
                 title=str_title,
                 message=str_msg,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
+                recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
             )
             logger_beat.debug(
@@ -86,7 +88,7 @@ def check_clocked_in_users():
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `chceck_clocked_in_users` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {e}"
         )
         return
 
@@ -210,6 +212,7 @@ def notify_managers_account_deactivated(user_id: int, manager_id: int):
                 title=str_title,
                 message=str_msg,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
+                recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
             )
 
@@ -279,6 +282,7 @@ def notify_managers_account_activated(user_id: int, manager_id: int):
                 title=str_title,
                 message=str_msg,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
+                recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
             )
 
@@ -354,6 +358,7 @@ def notify_managers_and_employee_account_resigned(
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
         )
 
@@ -374,6 +379,7 @@ def notify_managers_and_employee_account_resigned(
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
             expires_on=notification_default_expires_on(7),
         )
 
@@ -448,6 +454,7 @@ def notify_managers_and_employee_account_assigned(
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
         )
 
@@ -469,6 +476,7 @@ def notify_managers_and_employee_account_assigned(
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
             expires_on=notification_default_expires_on(7),
         )
 
@@ -530,6 +538,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
             expires_on=notification_default_expires_on(7),
         )
 
@@ -590,6 +599,7 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
             title=str_title,
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
             expires_on=notification_default_expires_on(7),
         )
 
