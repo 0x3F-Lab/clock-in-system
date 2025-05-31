@@ -1,4 +1,7 @@
 $(document).ready(function() {
+  // Set default date for table controls
+  setDefaultDateControls();
+
   // Initial table update
   updateShiftLogsTable();
 
@@ -395,6 +398,20 @@ function handleShiftDetailsEdit() {
       });
     }
   });
+}
+
+
+function setDefaultDateControls() {
+  // AIM OF THIS FUNCTION IS TO SET THE DATE LIMITS TO A FULL MONTH
+  const end = new Date(); // today
+  const start = new Date(end); // clone today's date
+
+  // Subtract one month
+  start.setMonth(start.getMonth() - 1);
+
+  // Set the dates
+  $('#startDate').val(formatDateForInput(start));
+  $('#endDate').val(formatDateForInput(end));
 }
 
 
