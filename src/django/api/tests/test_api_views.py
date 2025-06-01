@@ -47,7 +47,12 @@ def test_list_store_employee_names_success(
 
 @pytest.mark.django_db
 def test_list_all_shift_details_success(
-    manager, logged_in_manager, store, store_associate_manager, employee
+    manager,
+    logged_in_manager,
+    store,
+    store_associate_manager,
+    employee,
+    store_associate_employee,
 ):
     """
     Test that shift details are returned correctly for a store the user is associated with.
@@ -77,6 +82,8 @@ def test_list_all_shift_details_success(
             "store_id": store.id,
             "offset": 0,
             "limit": 10,
+            "start": login_time.date(),
+            "end": logout_time.date(),
         },
     )
 
@@ -90,8 +97,10 @@ def test_list_all_shift_details_success(
 
     shift = data["results"][0]
     assert shift["id"] == activity.id
-    assert shift["employee_first_name"] == employee.first_name
-    assert shift["employee_last_name"] == employee.last_name
+    assert shift["emp_first_name"] == employee.first_name
+    assert shift["emp_last_name"] == employee.last_name
+    assert shift["emp_active"] == True
+    assert shift["emp_resigned"] == False
     assert shift["deliveries"] == 4
     assert shift["hours_worked"] == "3.00"
 
