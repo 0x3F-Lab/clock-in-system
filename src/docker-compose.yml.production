@@ -21,7 +21,7 @@ services:
     image: django  # Reuse the same Django image
     command: celery -A clock_in_system worker --loglevel=info
     volumes:
-      - ./django/logs/:/app/logs:rw
+      - ~/logs/:/app/logs:rw
     env_file:
       - .env.production
     depends_on:
@@ -34,7 +34,7 @@ services:
     image: django
     command: celery -A clock_in_system beat --loglevel=info
     volumes:
-      - ./django/logs/:/app/logs:rw
+      - ~/logs/:/app/logs:rw
     env_file:
       - .env.production
     depends_on:
