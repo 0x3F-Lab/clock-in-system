@@ -205,7 +205,7 @@ def list_all_shift_details(request):
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
-        results, total = controllers.get_shift_summaries(
+        results, total = controllers.get_all_shifts(
             store_id=store_id,
             offset=offset,
             limit=limit,
@@ -774,75 +774,104 @@ def create_new_shift(request):
 @renderer_classes([JSONRenderer])
 def list_all_employee_details(request):
     try:
-        # Get and validate store_id
-        store_id = request.GET.get("store_id")
-        if not store_id or not store_id.isdigit():
+        # Get the account info of the user requesting these shifts
+        try:
+            manager = util.api_get_user_object_from_session(request)
+        except User.DoesNotExist:
             return Response(
-                {"Error": "Missing or invalid 'store_id' parameter."},
+                {
+                    "Error": "Failed to get your account's information for authorisation. Please login again."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        store_id = int(store_id)
-
-        try:
-            # enforce min offset = 0
-            offset = max(int(request.GET.get("offset", "0")), 0)
-        except ValueError:
-            offset = 0
-
-        try:
-            # Enforce min limit = 1 and max limit = 150 (settings controlled)
-            limit = min(
-                max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
-            )
-        except ValueError:
-            limit = 25
-
-        # Check that the manager has access to this store
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
-        if not manager.is_associated_with_store(store_id):
+        # Get store id
+        store_id = util.clean_param_str(request.query_params.get("store_id", None))
+        if store_id is None:
             return Response(
-                {"Error": "Not authorised to view employee data for this store."},
-                status=status.HTTP_403_FORBIDDEN,
+                {
+                    "Error": "Missing required store_id field in query params. Please retry."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get user IDs associated with the store
-        associated_user_ids = StoreUserAccess.objects.filter(
-            store_id=store_id
-        ).values_list("user_id", flat=True)
+        elif not manager.is_associated_with_store(store=int(store_id)):
+            raise err.NotAssociatedWithStoreError
 
-        # Query users
-        employees = User.objects.filter(
-            id__in=associated_user_ids, is_hidden=False
-        ).order_by("first_name", "last_name")[offset : offset + limit]
+        # Get pagination values
+        offset, limit = util.get_pagination_values_from_request(request)
 
-        total = User.objects.filter(id__in=associated_user_ids, is_hidden=False).count()
+        # Get remaining param settings
+        hide_deactivated = util.str_to_bool(
+            request.query_params.get("hide_deactive", "false")
+        )
+        sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
+        filter_names = util.clean_param_str(request.query_params.get("filter", ""))
 
-        employee_data = [
-            {
-                "id": emp.id,
-                "first_name": emp.first_name,
-                "last_name": emp.last_name,
-                "email": emp.email,
-                "phone_number": emp.phone_number if emp.phone_number else None,
-                "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
-                "pin": emp.pin,
-                "is_active": emp.is_active,
-                "is_manager": emp.is_manager,
-            }
-            for emp in employees
-        ]
+        # Validate other given fields
+        VALID_SORT_FIELDS = {"name", "age", "acc_age"}
+        if sort_field not in VALID_SORT_FIELDS:
+            return Response(
+                {
+                    "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
+                },
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Convert filter_names string to list
+        try:
+            filter_names_list = util.get_filter_list_from_string(filter_names)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid characters in filter list."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        results, total = controllers.get_all_employee_details(
+            store_id=store_id,
+            offset=offset,
+            limit=limit,
+            sort_field=sort_field,
+            filter_names=filter_names_list,
+            hide_deactivated=hide_deactivated,
+            allow_inactive_store=True,  # ONLY MANAGERS ACCESS THIS PAGE -- no need to check perms
+        )
+
         return JsonResponse(
             {
                 "total": total,
                 "offset": offset,
                 "limit": limit,
-                "results": employee_data,
+                "results": results,
             },
             status=status.HTTP_200_OK,
         )
 
+    except ValueError:
+        logger.warning(
+            f"A VALUE ERROR occured when trying to get shift summaries for store ID {store_id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {
+                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
+            },
+            status=status.HTTP_412_PRECONDITION_FAILED,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the store information for ID {store_id}."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to view employee data for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to get shift information for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(

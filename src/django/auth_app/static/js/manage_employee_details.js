@@ -4,6 +4,13 @@ $(document).ready(function() {
 
   // Update the table with all users if user changes store
   $('#storeSelectDropdown').on('change', function() {
+    resetPaginationValues();
+    updateEmployeeDetailsTable();
+  });
+
+  // Handle table controls submission
+  $('#tableControllerSubmit').on('click', () => {
+    resetPaginationValues();
     updateEmployeeDetailsTable();
   });
 
@@ -207,9 +214,12 @@ function updateEmployeeStatus(id, type) {
 
 function updateEmployeeDetailsTable() {
   showSpinner();
+  const sort = $('#sortFields input[type="radio"]:checked').val();
+  const filter = $('#filterNames').val();
+  const hideDeactive = $('#hideDeactivated').is(':checked');
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
+    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&sort=${sort}&hide_deactive=${hideDeactive}&filter=${filter}`,
     type: "GET",
     xhrFields: {
       withCredentials: true

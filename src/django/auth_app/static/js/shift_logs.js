@@ -111,7 +111,6 @@ function deleteShift(activityId) {
 
 function updateShiftLogsTable() {
   showSpinner();
-
   const startDate = $('#startDate').val();
   const endDate = $('#endDate').val();
   const sort = $('#sortFields input[type="radio"]:checked').val();

@@ -394,7 +394,90 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         raise e
 
 
-def get_shift_summaries(
+def get_all_employee_details(
+    store_id: int,
+    offset: int,
+    limit: int,
+    sort_field: str,
+    filter_names: List[str],
+    hide_deactivated: bool,
+    allow_inactive_store: bool = False,
+) -> Tuple[List[dict], int]:
+    """
+    Returns a paginated list of employee details for a store.
+
+    Args:
+        store_id (int): Store ID.
+        offset (int): Pagination offset.
+        limit (int): Pagination limit.
+        sort_field (str): "name", "age", or "acc_age".
+        filter_names (List[str]): List of names (case-insensitive) to include.
+        hide_deactivated (bool): If True, hide deactivated employees.
+        allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
+
+    Returns:
+        Tuple[List[dict], int]: (results, total count)
+    """
+    # Get and validate store
+    store = Store.objects.get(id=int(store_id))
+
+    if not store.is_active and not allow_inactive_store:
+        raise err.InactiveStoreError
+
+    # Get all users for the store
+    qs = User.objects.filter(
+        store_access__store_id=store_id, is_hidden=False
+    ).distinct()
+
+    # Hide deactivated if requested
+    if hide_deactivated:
+        qs = qs.filter(is_active=True)
+
+    # Annotate full_name for better filtering
+    qs = qs.annotate(full_name=Concat("first_name", Value(" "), "last_name"))
+
+    # Name filtering
+    if filter_names:
+        name_filters = Q()
+        for name in filter_names:
+            name_filters |= Q(full_name__icontains=name)
+        qs = qs.filter(name_filters)
+
+    # Sorting
+    sort_map = {
+        "name": ("first_name", "last_name", "birth_date"),
+        "age": ("birth_date", "first_name", "last_name"),
+        "acc_age": ("created_at", "first_name", "last_name"),
+    }
+    qs = qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+
+    # Total count before pagination
+    total = qs.count()
+
+    # Paginate on DB level
+    qs = qs[offset : offset + limit]
+
+    # Construct result
+    results = []
+    for emp in qs:
+        results.append(
+            {
+                "id": emp.id,
+                "first_name": emp.first_name,
+                "last_name": emp.last_name,
+                "email": emp.email,
+                "phone_number": emp.phone_number or None,
+                "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
+                "pin": emp.pin,
+                "is_active": emp.is_active,
+                "is_manager": emp.is_manager,
+            }
+        )
+
+    return results, total
+
+
+def get_all_shifts(
     store_id: int,
     offset: int,
     limit: int,
