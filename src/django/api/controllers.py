@@ -2,7 +2,7 @@ import logging
 import api.exceptions as err
 import api.utils as util
 
-from typing import Union, Dict, List, Dict, Tuple
+from typing import Union, Dict, List, Dict, Tuple, Union
 from datetime import timedelta, datetime
 from django.db import transaction
 from django.db.models.functions import Coalesce, Concat
@@ -395,12 +395,12 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
 
 
 def get_all_employee_details(
-    store_id: int,
+    store_id: Union[str, int],
     offset: int,
     limit: int,
     sort_field: str,
     filter_names: List[str],
-    hide_deactivated: bool,
+    hide_deactivated: bool = False,
     allow_inactive_store: bool = False,
 ) -> Tuple[List[dict], int]:
     """
@@ -412,7 +412,7 @@ def get_all_employee_details(
         limit (int): Pagination limit.
         sort_field (str): "name", "age", or "acc_age".
         filter_names (List[str]): List of names (case-insensitive) to include.
-        hide_deactivated (bool): If True, hide deactivated employees.
+        hide_deactivated (bool): If True, hide deactivated employees. Default False.
         allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
 
     Returns:
@@ -478,16 +478,17 @@ def get_all_employee_details(
 
 
 def get_all_shifts(
-    store_id: int,
+    store_id: Union[str, int],
     offset: int,
     limit: int,
     start_date: str,
     end_date: str,
     sort_field: str,
     filter_names: List[str],
-    only_public_hol: bool,
-    hide_deactivated: bool,
-    hide_resigned: bool,
+    only_unfinished: bool = False,
+    only_public_hol: bool = False,
+    hide_deactivated: bool = False,
+    hide_resigned: bool = False,
     allow_inactive_store: bool = False,
 ) -> Tuple[List[dict], int]:
     """
@@ -501,9 +502,10 @@ def get_all_shifts(
         end_date (str): Filter end date (YYYY-MM-DD).
         sort_field (str): One of "time", "name", "length", "delivery".
         filter_names (List[str]): Case-insensitive names to include.
-        only_public_hol (bool): Filter for public holidays only.
-        hide_deactivated (bool): Exclude deactivated employees.
-        hide_resigned (bool): Exclude resigned employees.
+        only_unfinished (bool): Filter for unfinished shifts only (no clock out time). Default False.
+        only_public_hol (bool): Filter for public holidays only. Default False.
+        hide_deactivated (bool): Exclude deactivated employees. Default False.
+        hide_resigned (bool): Exclude resigned employees. Default False.
         allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
 
     Returns:
@@ -539,6 +541,8 @@ def get_all_shifts(
         qs = qs.filter(name_filters)
 
     # Apply extra filters
+    if only_unfinished:
+        qs = qs.filter(logout_time__isnull=True)
     if only_public_hol:
         qs = qs.filter(is_public_holiday=True)
     if hide_deactivated:
@@ -613,14 +617,14 @@ def get_all_shifts(
 
 
 def get_account_summaries(
-    store_id,
-    offset,
-    limit,
-    start_date,
-    end_date,
-    ignore_no_hours,
-    sort_field,
-    filter_names,
+    store_id: Union[str, int],
+    offset: int,
+    limit: int,
+    start_date: str,
+    end_date: str,
+    sort_field: str,
+    filter_names: List[str],
+    ignore_no_hours: bool = False,
     allow_inactive_store: bool = False,
 ) -> Tuple[List[dict], int]:
     """
@@ -634,7 +638,7 @@ def get_account_summaries(
         end_date (str): The end of the date range in YYYY-MM-DD format.
         ignore_no_hours (bool): Whether to exclude employees with zero hours worked.
         sort_field (str): Field to sort by. One of "name", "hours", "age", "deliveries".
-        filter_names (List[str]): List of employee names to include (case-insensitive match).
+        filter_names (List[str]): List of employee names to include (case-insensitive match). Default False.
         allow_inactive_store (bool): Whether to list summaries for an inactive store or return InactiveStoreError. Default False.
 
     Returns:

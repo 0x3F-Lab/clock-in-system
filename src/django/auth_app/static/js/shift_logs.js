@@ -115,13 +115,14 @@ function updateShiftLogsTable() {
   const endDate = $('#endDate').val();
   const sort = $('#sortFields input[type="radio"]:checked').val();
   const filter = $('#filterNames').val();
+  const onlyUnfinished = $('#onlyUnfinished').is(':checked');
   const onlyPubHol = $('#onlyPublicHol').is(':checked');
   const hideDeactive = $('#hideDeactivated').is(':checked');
   const hideResign = $('#hideResigned').is(':checked');
 
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&start=${startDate}&end=${endDate}&sort=${sort}&only_pub=${onlyPubHol}&hide_deactive=${hideDeactive}&hide_resign=${hideResign}&filter=${filter}`,
+    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&start=${startDate}&end=${endDate}&sort=${sort}&only_unfinished=${onlyUnfinished}&only_pub=${onlyPubHol}&hide_deactive=${hideDeactive}&hide_resign=${hideResign}&filter=${filter}`,
     type: "GET",
     xhrFields: {
       withCredentials: true

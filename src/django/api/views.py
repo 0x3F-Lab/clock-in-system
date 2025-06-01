@@ -157,6 +157,9 @@ def list_all_shift_details(request):
         offset, limit = util.get_pagination_values_from_request(request)
 
         # Get remaining param settings
+        only_unfinished = util.str_to_bool(
+            request.query_params.get("only_unfinished", "false")
+        )
         only_public_hol = util.str_to_bool(
             request.query_params.get("only_pub", "false")
         )
@@ -213,6 +216,7 @@ def list_all_shift_details(request):
             end_date=end_date,
             sort_field=sort_field,
             filter_names=filter_names_list,
+            only_unfinished=only_unfinished,
             only_public_hol=only_public_hol,
             hide_deactivated=hide_deactivated,
             hide_resigned=hide_resigned,
