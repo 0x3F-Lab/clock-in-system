@@ -106,6 +106,23 @@ table {
   color: #fff;
 }
 
+.bg-purple,
+.btn-outline-purple:hover {
+  background-color: #9b59b6;
+  color: #fff;
+}
+
+.bg-red,
+.btn-outline-red:hover {
+  background-color: #ff3b3b;
+  color: black;
+}
+
+.bg-red-light,
+.btn-outline-red-light:hover {
+  background-color: #eeb8bd;
+  color: black;
+}
 
 .btn-outline-cyan {
   color: #0dcaf0;
