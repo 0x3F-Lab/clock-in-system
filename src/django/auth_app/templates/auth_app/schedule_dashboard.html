@@ -62,3 +62,8 @@
     </a>
   </div>
 {% endblock %}
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/schedule_dashboard.js' %}"></script>
+{% endblock %}

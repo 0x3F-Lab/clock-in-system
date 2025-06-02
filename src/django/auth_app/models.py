@@ -563,10 +563,10 @@ class NotificationReceipt(models.Model):
 class Shift(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shifts")
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="shifts")
-    date = models.DateField()
-    start_time = models.TimeField()
-    end_time = models.TimeField()
-    role = models.CharField(max_length=100, blank=True)
+    date = models.DateField(null=False)
+    start_time = models.TimeField(null=False)
+    end_time = models.TimeField(null=False)
+    role = models.CharField(max_length=100, blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
