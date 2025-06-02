@@ -16,6 +16,7 @@ from auth_app.utils import (
     manager_required,
     employee_required,
     get_default_page_context,
+    get_user_associated_stores_full_info,
 )
 from auth_app.forms import (
     LoginForm,
@@ -716,6 +717,33 @@ def manage_account_summary(request):
         return redirect("home")
 
     return render(request, "auth_app/account_summary.html", context)
+
+
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def manage_stores(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    store_info = get_user_associated_stores_full_info(user)
+
+    logger.critical(store_info)
+
+    return render(
+        request, "auth_app/manage_stores.html", {**context, "store_info": store_info}
+    )
 
 
 @require_GET
