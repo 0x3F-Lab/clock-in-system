@@ -154,6 +154,25 @@ function ensureSafeInt(val, min, max) {
 }
 
 
+function ensureSafeFloat(val, min, max) {
+  // Parse the number to ensure its an int
+  val = parseFloat(val);
+
+  // Ensure the number is within range
+  if (min) {
+    min = parseFloat(min, 10);
+    val = Math.max(val, min)
+  }
+  
+  if (max) {
+    max = parseFloat(max, 10);
+    val = Math.min(val, max)
+  }
+
+  return val
+}
+
+
 function formatToDatetimeLocal(dateStr) {
   if (!dateStr) return "";
   // Expecting "DD/MM/YYYY HH:MM"
