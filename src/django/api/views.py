@@ -23,6 +23,7 @@ from auth_app.models import (
     StoreUserAccess,
     Notification,
     NotificationReceipt,
+    Shift,
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer

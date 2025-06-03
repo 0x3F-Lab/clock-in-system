@@ -23,7 +23,7 @@ from auth_app.forms import (
     NotificationForm,
 )
 from api.utils import get_distance_from_lat_lon_in_m
-from api.controllers import handle_clock_in, handle_clock_out
+from api.controllers import handle_clock_in, handle_clock_out, get_schedule_data
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
 from django.utils import timezone
 from datetime import timedelta, date
@@ -672,9 +672,7 @@ class StaticViewSitemap(Sitemap):
             return 0.7
         return 0.5
 
-
 def schedule_dashboard(request):
-
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
@@ -688,37 +686,10 @@ def schedule_dashboard(request):
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
         return redirect("home")
-    # Week selection
+
     week_param = request.GET.get("week")
-    if week_param:
-        week_start = date.fromisoformat(week_param)
-    else:
-        today = timezone.localdate()
-        week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
+    schedule_context = get_schedule_data(week_param)
 
-    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
-        "employee", "store"
-    )
+    context.update(schedule_context)
 
-    days = [week_start + timedelta(days=i) for i in range(7)]
-
-    # Grouping
-    schedule_data = {day: [s for s in shifts if s.date == day] for day in days}
-
-    # Compute prev/next week links
-    previous_week = week_start - timedelta(days=7)
-    next_week = week_start + timedelta(days=7)
-
-    context.update(
-        {
-            "week_start": week_start,
-            "days": days,
-            "schedule_data": schedule_data,
-            "previous_week": previous_week,
-            "next_week": next_week,
-        }
-    )
-
-    # Render with all the context your template expects
     return render(request, "auth_app/schedule_dashboard.html", context)
