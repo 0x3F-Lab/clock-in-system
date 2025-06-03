@@ -672,6 +672,7 @@ class StaticViewSitemap(Sitemap):
             return 0.7
         return 0.5
 
+
 def schedule_dashboard(request):
     try:
         context, user = get_default_page_context(request)

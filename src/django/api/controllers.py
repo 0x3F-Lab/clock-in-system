@@ -712,21 +712,19 @@ def get_schedule_data(week_param):
 
     week_end = week_start + timedelta(days=6)
 
-    shifts = (
-        Shift.objects
-             .filter(date__range=(week_start, week_end))
-             .select_related("employee", "store")
+    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
+        "employee", "store"
     )
 
     days = [week_start + timedelta(days=i) for i in range(7)]
     schedule_data = {day: [s for s in shifts if s.date == day] for day in days}
     previous_week = week_start - timedelta(days=7)
-    next_week     = week_start + timedelta(days=7)
+    next_week = week_start + timedelta(days=7)
 
     return {
-        "week_start":    week_start,
-        "days":          days,
+        "week_start": week_start,
+        "days": days,
         "schedule_data": schedule_data,
         "previous_week": previous_week,
-        "next_week":     next_week,
+        "next_week": next_week,
     }
