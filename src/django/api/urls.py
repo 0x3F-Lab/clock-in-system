@@ -50,6 +50,9 @@ urlpatterns = [
         name="modify_account_status",
     ),
     path(
+        "update-store-info/<int:id>/", views.update_store_info, name="update_store_info"
+    ),
+    path(
         "list-shift-details/",
         views.list_all_shift_details,
         name="list_all_shift_details",

@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, renderer_classes
 from django.http import JsonResponse
-from django.db import transaction, IntegrityError
+
+from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
@@ -2007,6 +2008,153 @@ def clocked_state_view(request):
     except Exception as e:
         logger.critical(
             f"An error occured when trying to get the clocked state of employee ID '{employee.id}' for store ID '{store_id}', giving the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["POST", "PATCH"])
+@renderer_classes([JSONRenderer])
+def update_store_info(request, id):
+    try:
+        # Get the user object from the session information
+        manager = util.api_get_user_object_from_session(request)
+        store = Store.objects.get(id=id)
+
+        if not store.is_active:
+            raise err.InactiveStoreError
+
+        # Get the request data
+        name = util.clean_param_str(request.data.get("name", None))
+        street = util.clean_param_str(request.data.get("loc_street", None))
+        code = util.clean_param_str(request.data.get("code", None)).upper()
+        clocking_dist = (
+            util.clean_param_str(request.data.get("clocking_dist", None)) or 0
+        )
+
+        try:
+            clocking_dist = int(clocking_dist)
+            clocking_dist = max(clocking_dist, 0)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid clocking distance provided."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Length validation
+        if len(name) > 230:
+            return Response(
+                {"Error": "Length of Store name cannot be longer than 230 characters."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif len(street) > 250:
+            return Response(
+                {
+                    "Error": "Length of Store street location cannot be longer than 250 characters."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif len(code) > 10:
+            return Response(
+                {"Error": "Length of Store code cannot be longer than 10 characters."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif len(code) < 4:
+            return Response(
+                {"Error": "Length of Store code cannot be shorter than 4 characters."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+        elif clocking_dist > 2500:
+            return Response(
+                {
+                    "Error": "Allowable clocking distance of a Store cannot be greater than 2500m."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        # Regex validation
+        if not re.match(r"^[\w\s.\'\-]+$", name or ""):
+            return Response(
+                {"Error": "Invalid characters in store name."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        elif not re.match(r"^[A-Z0-9]+$", code or ""):
+            return Response(
+                {"Error": "Store code must be alphanumeric uppercase."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        elif not re.match(r"^[\w\s.,'\-]+$", street or ""):
+            return Response(
+                {"Error": "Invalid characters in street location."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Get original store values for logging
+        original = {
+            "id": store.id,
+            "name": store.name,
+            "code": store.code,
+            "loc_street": store.location_street,
+            "clocking_dist": store.allowable_clocking_dist_m,
+        }
+
+        # Check unique store code and name AND SET THEM
+        if code and not Store.objects.filter(code=code).exists():
+            # If store exists with the new code OR same code for the store, ignore setting it
+            store.code = code
+
+        if name and not Store.objects.filter(name=name).exists():
+            store.name = name
+
+        if clocking_dist:
+            store.allowable_clocking_dist_m = clocking_dist
+
+        if street:
+            store.location_street = street
+
+        store.save()
+
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE information Store ID {store.id} ({original['code']})."
+        )
+        logger.debug(
+            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street}"
+        )
+        return JsonResponse(
+            {"id": store.id, "code": store.code}, status=status.HTTP_202_ACCEPTED
+        )
+
+    except User.DoesNotExist:
+        # Return a 404 if the user does not exist
+        return Response(
+            {
+                "Error": "The account you have been authenticated with is bugged. Please login again."
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"The Store ID {id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to update an inactive store."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except DatabaseError:
+        return Response(
+            {
+                "Error": "Failed to save the updated store information. Please contact an admin."
+            },
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to update the store ID ({id})'s information, resulting in the error: {str(e)}"
         )
         return Response(
             {"Error": "Internal error."},

@@ -36,10 +36,10 @@
     <p><span class="fw-semibold">Store Longitude:</span> {{ info.loc_long|escape }}</p>
   </div>
   {% endfor %}
-  <button type="submit" class="btn btn-lg w-100 btn-primary" id="openStoreEdit">
+  <button type="button" class="btn btn-lg w-100 btn-primary" id="openEditModal">
     <i class="fas fa-pen me-1"></i> Edit Information
   </button>
-  <div id="map" class="mt-4 w-100" style="height: 400px;">
+  <div id="map" class="mt-4 w-100" style="height: 500px;">
 
   </div>
   {% else %}
@@ -53,26 +53,27 @@
     <div class="modal-content rounded-3 shadow-sm">
 
       <div class="modal-header text-white">
-        <h5 class="modal-title text-center w-100" id="editModalLabel">Edit Acccount Information</h5>
+        <h5 class="modal-title text-center w-100" id="editModalLabel">Edit Store Information</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
       <div class="modal-body">
         <form id="editForm" class="px-1">
           <div class="mb-3">
-            <label for="editFirstName" class="form-label fw-semibold">First Name:</label>
-            <input type="text" class="form-control" id="editFirstName" name="first_name" required {% if user_first_name %}value={{ user_first_name|escape }}{% endif %}>
+            <label for="editName" class="form-label fw-semibold">Store Name:</label>
+            <input type="text" class="form-control" id="editName" required>
           </div>
           <div class="my-3">
-            <label for="editLastName" class="form-label fw-semibold">Last Name:</label>
-            <input type="text" class="form-control" id="editLastName" name="last_name" required {% if user_last_name %}value={{ user_last_name|escape }}{% endif %}>
+            <label for="editCode" class="form-label fw-semibold">Store Code:</label>
+            <input type="text" class="form-control" id="editCode" required>
           </div>
           <div class="my-3">
-            <label for="editPhone" class="text-light w-100 fw-semibold d-flex flex-row align-items-center justify-content-between form-label">
-              <span>Phone Number:</span>
-              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
-            </label>
-            <input type="tel" class="form-control" id="editPhone" name="phone_number" {% if user_phone %}value={{ user_phone|escape }}{% endif %}>
+            <label for="editStreet" class="form-label fw-semibold">Store Street Location:</label>
+            <input type="text" class="form-control" id="editStreet" required>
+          </div>
+          <div class="my-3">
+            <label for="editDist" class="form-label fw-semibold">Store Allowable Clocking Distance (Meters):</label>
+            <input type="number" class="form-control w-100" id="editDist" min="1" max="2500" step="1" required>
           </div>
         </form>
       </div>
@@ -81,8 +82,8 @@
         <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
           <div><i class="fas fa-circle-info"></i></div>
           <div>
-            <p class="m-0">Cannot edit account PIN, DOB or email.</p>
-            <p class="m-0">Please contact a store manager or site admin to change these.</p>
+            <p class="m-0">Cannot edit store Lat/Long OR PIN.</p>
+            <p class="m-0">Please contact a site admin to change these.</p>
           </div>
         </div>
         <div class="d-flex justify-content-end w-100 gap-2">
@@ -101,7 +102,7 @@
 
 
 {% block extra_urls %}
-    clockedState: "{% url 'api:clocked_state' %}",
+    updateStoreInfo: "{% url 'api:update_store_info' 0 %}".slice(0, -2),
 {% endblock %}
 
 

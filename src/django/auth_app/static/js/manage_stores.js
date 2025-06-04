@@ -12,6 +12,16 @@ $(document).ready(function() {
     showSelectedStoreInfo();
   });
 
+  // Add event handler to when user clicks "Update" button
+  $('#openEditModal').on('click', () => {
+    openEditModal();
+  });
+
+  // Add event to submitting the edit modal
+  $('#editModalSubmit').on('click', () => {
+    updateStoreInfo();
+  });
+
   // Add page reloader to force reload after period of inactivity
   setupVisibilityReload(45); // 45 minutes
 });
@@ -44,7 +54,7 @@ function addMap(lat, lng, radius) {
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap'
     }).addTo(map);
 
     marker = L.marker(position).addTo(map).bindPopup("Store Location").openPopup();
@@ -60,4 +70,71 @@ function addMap(lat, lng, radius) {
     marker.setLatLng(position);
     circle.setLatLng(position).setRadius(radius);
   }
+}
+
+
+function openEditModal() {
+  const selectedID = getSelectedStoreID();
+  const infoDiv = $('#store-info-' + selectedID);
+
+  if (!infoDiv.length) {
+    console.error('Store info not found for ID:', selectedID);
+    return;
+  }
+
+  // Extract values from the displayed info
+  const name = infoDiv.find('p:contains("Name:")').text().replace('Name:', '').trim();
+  const code = infoDiv.find('p:contains("Code:") code').text().trim();
+  const street = infoDiv.find('p:contains("Street Location:")').text().replace('Street Location:', '').trim();
+  const dist = infoDiv.find('p:contains("Allowable Clocking Distance:")').text().replace('Allowable Clocking Distance:', '').replace('meters', '').trim();
+
+  // Update modal inputs
+  $('#editName').val(name);
+  $('#editCode').val(code);
+  $('#editStreet').val(street);
+  $('#editDist').val(dist);
+
+  const editModal = new bootstrap.Modal(document.getElementById("editModal"));
+  editModal.show();
+}
+
+
+function updateStoreInfo() {
+  showSpinner();
+
+  $.ajax({
+        url: `${window.djangoURLs.updateStoreInfo}${getSelectedStoreID()}/`,
+        type: 'PATCH',
+        xhrFields: {
+          withCredentials: true
+        },
+        headers: {
+          'X-CSRFToken': getCSRFToken(),
+        },
+        contentType: 'application/json',
+        data: JSON.stringify({
+          name: $('#editName').val(),
+          loc_street: $('#editStreet').val(),
+          code: $('#editCode').val(),
+          clocking_dist: $('#editDist').val(),
+        }),
+    
+        success: function(resp) {
+          hideSpinner();
+          $("#editModal").modal("hide");
+          const saved = saveNotificationForReload(`Successfully updated store information for ${resp.code}.`, "success", `Successfully updated store information for ${resp.code}. Please reload the page to see changes.`);
+          if (saved) {location.reload();}
+        },
+    
+        error: function(jqXHR, textStatus, errorThrown) {
+          hideSpinner();
+          let errorMessage;
+          if (jqXHR.status == 500) {
+            errorMessage = "Failed to update store information due to internal server errors. Please try again.";
+          } else {
+            errorMessage = jqXHR.responseJSON?.Error || "Failed to update store information. Please try again.";
+          }
+          showNotification(errorMessage, "danger");
+        }
+      });
 }
