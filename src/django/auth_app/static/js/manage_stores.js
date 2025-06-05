@@ -83,14 +83,10 @@ function openEditModal() {
   }
 
   // Extract values from the displayed info
-  const name = infoDiv.find('p:contains("Name:")').text().replace('Name:', '').trim();
-  const code = infoDiv.find('p:contains("Code:") code').text().trim();
   const street = infoDiv.find('p:contains("Street Location:")').text().replace('Street Location:', '').trim();
   const dist = infoDiv.find('p:contains("Allowable Clocking Distance:")').text().replace('Allowable Clocking Distance:', '').replace('meters', '').trim();
 
   // Update modal inputs
-  $('#editName').val(name);
-  $('#editCode').val(code);
   $('#editStreet').val(street);
   $('#editDist').val(dist);
 
@@ -113,9 +109,7 @@ function updateStoreInfo() {
         },
         contentType: 'application/json',
         data: JSON.stringify({
-          name: $('#editName').val(),
           loc_street: $('#editStreet').val(),
-          code: $('#editCode').val(),
           clocking_dist: $('#editDist').val(),
         }),
     

@@ -739,8 +739,6 @@ def manage_stores(request):
 
     store_info = get_user_associated_stores_full_info(user)
 
-    logger.critical(store_info)
-
     return render(
         request, "auth_app/manage_stores.html", {**context, "store_info": store_info}
     )

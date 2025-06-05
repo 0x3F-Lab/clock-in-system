@@ -2030,7 +2030,7 @@ def update_store_info(request, id):
         # Get the request data
         name = util.clean_param_str(request.data.get("name", None))
         street = util.clean_param_str(request.data.get("loc_street", None))
-        code = util.clean_param_str(request.data.get("code", None)).upper()
+        code = util.clean_param_str(request.data.get("code", None))
         clocking_dist = (
             util.clean_param_str(request.data.get("clocking_dist", None)) or 0
         )
@@ -2045,29 +2045,29 @@ def update_store_info(request, id):
             )
 
         # Length validation
-        if len(name) > 230:
+        if name and len(name) > 230:
             return Response(
                 {"Error": "Length of Store name cannot be longer than 230 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif len(street) > 250:
+        elif street and len(street) > 250:
             return Response(
                 {
                     "Error": "Length of Store street location cannot be longer than 250 characters."
                 },
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif len(code) > 10:
+        elif code and len(code) > 10:
             return Response(
                 {"Error": "Length of Store code cannot be longer than 10 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif len(code) < 4:
+        elif code and len(code) < 4:
             return Response(
                 {"Error": "Length of Store code cannot be shorter than 4 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif clocking_dist > 2500:
+        elif clocking_dist and clocking_dist > 2500:
             return Response(
                 {
                     "Error": "Allowable clocking distance of a Store cannot be greater than 2500m."
@@ -2076,17 +2076,17 @@ def update_store_info(request, id):
             )
 
         # Regex validation
-        if not re.match(r"^[\w\s.\'\-]+$", name or ""):
+        if name and not re.match(r"^[\w\s.\'\-]+$", name):
             return Response(
                 {"Error": "Invalid characters in store name."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        elif not re.match(r"^[A-Z0-9]+$", code or ""):
+        elif code and not re.match(r"^[A-Z0-9]+$", code):
             return Response(
                 {"Error": "Store code must be alphanumeric uppercase."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        elif not re.match(r"^[\w\s.,'\-]+$", street or ""):
+        elif street and not re.match(r"^[\w\s.,'\-]+$", street):
             return Response(
                 {"Error": "Invalid characters in street location."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
@@ -2102,9 +2102,9 @@ def update_store_info(request, id):
         }
 
         # Check unique store code and name AND SET THEM
-        if code and not Store.objects.filter(code=code).exists():
+        if code and not Store.objects.filter(code=code.upper()).exists():
             # If store exists with the new code OR same code for the store, ignore setting it
-            store.code = code
+            store.code = code.upper()
 
         if name and not Store.objects.filter(name=name).exists():
             store.name = name
