@@ -2026,6 +2026,8 @@ def update_store_info(request, id):
 
         if not store.is_active:
             raise err.InactiveStoreError
+        elif not manager.is_associated_with_store(store=store.id):
+            raise err.NotAssociatedWithStoreError
 
         # Get the request data
         name = util.clean_param_str(request.data.get("name", None))
@@ -2144,6 +2146,11 @@ def update_store_info(request, id):
         return Response(
             {"Error": "Not authorised to update an inactive store."},
             status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to update an unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
         )
     except DatabaseError:
         return Response(
