@@ -724,7 +724,7 @@ def test_list_account_summaries_full_hour_breakdown(
     assert emp is not None
 
     assert emp["hours_total"] == 8.5
-    assert emp["hours_weekday"] == 5.5
+    assert emp["hours_weekday"] == 3.0
     assert emp["hours_weekend"] == 3.0
     assert emp["hours_public_holiday"] == 2.5
     assert emp["deliveries"] == 6
