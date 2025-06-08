@@ -14,6 +14,15 @@ $(document).ready(function() {
     updateEmployeeDetailsTable();
   });
 
+  // Update table controller icon on collapse/show
+  $('#tableControllerCollapse').on('show.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+    });
+
+  $('#tableControllerCollapse').on('hide.bs.collapse', function () {
+    $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+  });
+
   // Handle actionable buttons on the page (i.e., edit, create, delete)
   handleActionButtons();
 

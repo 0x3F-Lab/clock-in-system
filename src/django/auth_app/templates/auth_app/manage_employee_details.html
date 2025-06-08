@@ -20,38 +20,50 @@
   {% include "components/store_selection_controller.html" %}
 </div>
 
-<div id="tableController" class="container panel rounded shadow p-5 my-5">
-  <h3 class="mb-4 fw-semibold text-center">Table Controls</h3>
+<div class="container panel rounded shadow p-4 my-5">
+  <button type="button"
+          class="w-100 bg-transparent text-light border-0 p-1 mb-3 d-flex align-items-center"
+          data-bs-toggle="collapse"
+          data-bs-target="#tableControllerCollapse"
+          aria-expanded="true"
+          aria-controls="tableControllerCollapse"
+          style="cursor: pointer;">
+    <span style="width: 24px;"></span>
+    <h3 class="flex-grow-1 text-center fw-semibold m-0">Table Controls</h3>
+    <i class="fa-solid fa-chevron-right ms-2 border border-secondary rounded px-2 py-2" id="tableControllerToggleIcon"></i>
+  </button>
 
-  <div class="mb-4">
-    <label class="form-label d-block">Sort By:</label>
-    <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
-      <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
-      <label class="btn btn-outline-info" for="sortName">Name</label>
+  <div class="collapse p-3 pt-1" id="tableControllerCollapse">
+    <div class="mb-4">
+      <label class="form-label d-block">Sort By:</label>
+      <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
+        <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
+        <label class="btn btn-outline-info" for="sortName">Name</label>
 
-      <input type="radio" class="btn-check" name="sortField" id="sortAge" value="age" autocomplete="off">
-      <label class="btn btn-outline-info" for="sortAge">Age</label>
+        <input type="radio" class="btn-check" name="sortField" id="sortAge" value="age" autocomplete="off">
+        <label class="btn btn-outline-info" for="sortAge">Age</label>
 
-      <input type="radio" class="btn-check" name="sortField" id="sortAccAge" value="acc_age" autocomplete="off">
-      <label class="btn btn-outline-info" for="sortAccAge">Account Age</label>
+        <input type="radio" class="btn-check" name="sortField" id="sortAccAge" value="acc_age" autocomplete="off">
+        <label class="btn btn-outline-info" for="sortAccAge">Account Age</label>
+      </div>
     </div>
-  </div>
 
-  <div class="form-check form-switch mb-4">
-    <input type="checkbox" id="hideDeactivated" class="form-check-input p-2" />
-    <label for="hideDeactivated" class="form-check-label">Hide Deactivated Employees</label>
-  </div>
+    <div class="form-check form-switch mb-4">
+      <input type="checkbox" id="hideDeactivated" class="form-check-input p-2" />
+      <label for="hideDeactivated" class="form-check-label">Hide Deactivated Employees</label>
+    </div>
 
-  <div class="mb-4">
-    <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
-    <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
-    <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
-  </div>
+    <div class="mb-4">
+      <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
+      <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
+      <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
+    </div>
 
-  <div class="text-center">
-    <button type="button" class="btn btn-lg btn-success" id="tableControllerSubmit">
-      <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
-    </button>
+    <div class="text-center">
+      <button type="button" class="btn btn-lg btn-success" id="tableControllerSubmit">
+        <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
+      </button>
+    </div>
   </div>
 </div>
 
