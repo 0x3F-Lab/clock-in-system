@@ -160,7 +160,7 @@ def test_update_shift_details_success(
             "login_timestamp": login_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "logout_timestamp": new_logout_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "deliveries": 4,
-            "is_public_holiday": True,
+            "is_public_holiday": False,
         },
         format="json",
     )
@@ -168,7 +168,7 @@ def test_update_shift_details_success(
     assert response.status_code == 202
     activity.refresh_from_db()
     assert activity.deliveries == 4
-    assert activity.is_public_holiday is True
+    assert activity.is_public_holiday is False
     assert (
         localtime(activity.logout_timestamp).isoformat() == new_logout_time.isoformat()
     )
