@@ -740,3 +740,36 @@ def test_list_account_summaries_full_hour_breakdown(
     assert emp["acc_resigned"] is False
     assert emp["acc_active"] is True
     assert emp["acc_manager"] is False
+
+
+@pytest.mark.django_db
+def test_update_store_info(logged_in_manager, manager, store, store_associate_manager):
+    """
+    Test that a manager can update an associated store's info.
+    """
+    # Ensure store has default info
+    assert store.name == "Test Store"
+    assert store.code == "TST001"
+    assert store.location_street == "123 Main St"
+    assert store.allowable_clocking_dist_m == 500
+
+    # Change the store's info
+    api_client = logged_in_manager
+    url = reverse("api:update_store_info", args=[store.id])
+    send_data = {
+        "name": "edit name",
+        "loc_street": "edit street",
+        "code": "NEWCODE",
+        "clocking_dist": 450,
+    }
+    response = api_client.patch(url, data=send_data)
+
+    assert response.status_code == 202
+    data = response.json()
+
+    # Ensure store object is updated
+    store.refresh_from_db()
+    assert store.name == send_data["name"]
+    assert store.code == send_data["code"]
+    assert store.location_street == send_data["loc_street"]
+    assert store.allowable_clocking_dist_m == send_data["clocking_dist"]
