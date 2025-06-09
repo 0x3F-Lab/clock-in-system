@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from freezegun import freeze_time
 from datetime import date, timedelta
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
@@ -45,6 +46,7 @@ def test_list_store_employee_names_success(
     assert inactive_employee.id not in data
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_all_shift_details_success(
     manager,
@@ -105,6 +107,7 @@ def test_list_all_shift_details_success(
     assert shift["hours_worked"] == "3.00"
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_singular_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -138,7 +141,7 @@ def test_list_singular_shift_details_success(
     assert data["logout_timestamp"] is not None
 
 
-@pytest.mark.skip(reason="temporarily disabled until test hours logic is updated")
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_update_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -170,7 +173,7 @@ def test_update_shift_details_success(
             "login_timestamp": login_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "logout_timestamp": new_logout_time.strftime("%Y-%m-%dT%H:%M:%S"),
             "deliveries": 4,
-            "is_public_holiday": False,
+            "is_public_holiday": True,
         },
         format="json",
     )
@@ -178,12 +181,13 @@ def test_update_shift_details_success(
     assert response.status_code == 202
     activity.refresh_from_db()
     assert activity.deliveries == 4
-    assert activity.is_public_holiday is False
+    assert activity.is_public_holiday is True
     assert (
         localtime(activity.logout_timestamp).isoformat() == new_logout_time.isoformat()
     )
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_delete_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -209,6 +213,7 @@ def test_delete_shift_details_success(
     assert not Activity.objects.filter(id=activity.id).exists()
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_create_new_shift_success(
     manager,
@@ -243,6 +248,7 @@ def test_create_new_shift_success(
     assert activity.is_public_holiday is True
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_create_new_shift_missing_fields(
     logged_in_manager,
@@ -643,6 +649,7 @@ def test_list_account_summaries_success(
     assert emp["employee_id"] == clocked_in_employee.id
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_account_summaries_full_hour_breakdown(
     logged_in_manager,
@@ -704,9 +711,9 @@ def test_list_account_summaries_full_hour_breakdown(
     ]
 
     # Expected totals:
-    # Weekday: 180 (normal) + 150 (public) = 330 mins → 5.5 hours
+    # Weekday: 180 (normal) → 5.5 hours
     # Weekend: 180 mins → 3.0 hours
-    # Public holiday: 150 mins → 2.5 hours
+    # Public holiday: 150 mins → 2.5 hours (MUTUALLY EXCLUSIVE)
     # Total: 180 + 180 + 150 = 510 mins → 8.5 hours
     # Deliveries: 2 + 1 + 3 = 6
 
