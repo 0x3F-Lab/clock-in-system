@@ -765,14 +765,13 @@ def get_account_summaries(
                 login_time = localtime(act.login_time)
                 shift_length = act.shift_length_mins or 0
 
+                day_of_week = login_time.weekday()  # Monday=0, Sunday=6
                 # Determine the day of the week
                 if act.is_public_holiday:
                     mins_public_holiday += shift_length
 
-                day_of_week = login_time.weekday()  # Monday=0, Sunday=6
-
                 # Weekday (Mon-Fri)
-                if day_of_week < 5:
+                elif day_of_week < 5:
                     mins_weekday += shift_length
                 # Weekend (Sat-Sun)
                 else:
