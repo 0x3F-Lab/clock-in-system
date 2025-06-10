@@ -11,7 +11,9 @@ from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, renderer_classes
 from django.http import JsonResponse
-
+from django.utils import timezone
+from datetime import date, timedelta
+import json
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -2564,3 +2566,58 @@ def send_employee_notification(request, id):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+def get_schedule_data(week_param):
+    if week_param:
+        try:
+            week_start = date.fromisoformat(week_param)
+        except ValueError:
+            # Handle invalid date format gracefully
+            today = timezone.localdate()
+            week_start = today - timedelta(days=today.weekday())
+    else:
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+
+    week_end = week_start + timedelta(days=6)
+
+    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
+        "employee", "store" 
+    ).order_by('start_time')
+
+    days = [week_start + timedelta(days=i) for i in range(7)]
+    
+ 
+    schedule_data = {}
+    for day in days:
+        day_str = day.isoformat()
+        schedule_data[day_str] = []
+        day_shifts = [s for s in shifts if s.date == day]
+        for shift in day_shifts:
+            schedule_data[day_str].append({
+                'employee_name': f"{shift.employee.first_name} {shift.employee.last_name}",
+                'start_time': shift.start_time.strftime("%-I:%M %p"), # e.g., "9:00 AM"
+                'end_time': shift.end_time.strftime("%-I:%M %p"),
+                'role': shift.role.name if shift.role else None,
+            })
+    
+    for day_str in schedule_data:
+        schedule_data[day_str].sort(key=lambda x: x['start_time'])
+
+    return {
+        "week_start": week_start.isoformat(),
+        "days": [d.isoformat() for d in days],
+        "schedule_data": schedule_data,
+        "previous_week": (week_start - timedelta(days=7)).isoformat(),
+        "next_week": (week_start + timedelta(days=7)).isoformat(),
+    }
+
+
+def schedule_data_api(request):
+    """
+    API endpoint to fetch schedule data.
+    Accepts a 'week' GET parameter (e.g., ?week=2025-06-09)
+    """
+    week_param = request.GET.get("week")
+    data = get_schedule_data(week_param)
+    return JsonResponse(data)

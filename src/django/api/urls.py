@@ -83,4 +83,5 @@ urlpatterns = [
         views.send_employee_notification,
         name="send_employee_message",
     ),
+    path('schedule-data/', views.schedule_data_api, name='api_schedule_data'),
 ]
