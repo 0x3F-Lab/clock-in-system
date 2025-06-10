@@ -1,10 +1,29 @@
 $(document).ready(function() {
+  // Set default date for table controls
+  setDefaultDateControls();
+
   // Initial table update
   updateShiftLogsTable();
 
   // Populate the table with all users once the stores have loaded completely
   $('#storeSelectDropdown').on('change', function() {
+    resetPaginationValues();
     updateShiftLogsTable();
+  });
+
+  // Handle table controls submission
+  $('#tableControllerSubmit').on('click', () => {
+    resetPaginationValues();
+    updateShiftLogsTable();
+  });
+
+  // Update table controller icon on collapse/show
+  $('#tableControllerCollapse').on('show.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+    });
+
+  $('#tableControllerCollapse').on('hide.bs.collapse', function () {
+    $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
   });
 
   // Handle actionable buttons on the page (i.e., edit, create, delete)
@@ -101,9 +120,18 @@ function deleteShift(activityId) {
 
 function updateShiftLogsTable() {
   showSpinner();
+  const startDate = $('#startDate').val();
+  const endDate = $('#endDate').val();
+  const sort = $('#sortFields input[type="radio"]:checked').val();
+  const filter = $('#filterNames').val();
+  const onlyUnfinished = $('#onlyUnfinished').is(':checked');
+  const onlyPubHol = $('#onlyPublicHol').is(':checked');
+  const hideDeactive = $('#hideDeactivated').is(':checked');
+  const hideResign = $('#hideResigned').is(':checked');
+
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
+    url: `${window.djangoURLs.listEveryShiftDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&start=${startDate}&end=${endDate}&sort=${sort}&only_unfinished=${onlyUnfinished}&only_pub=${onlyPubHol}&hide_deactive=${hideDeactive}&hide_resign=${hideResign}&filter=${filter}`,
     type: "GET",
     xhrFields: {
       withCredentials: true
@@ -127,17 +155,17 @@ function updateShiftLogsTable() {
       } else {
         $shiftLogsTable.html(""); // Reset inner HTML
         $.each(shifts, function(index, shift) {
-          const rowColour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-success' : '';
+          const rowColour = (!shift.logout_time || !shift.logout_timestamp) ? 'table-success' : (shift.emp_resigned ? 'table-danger' : (!shift.emp_active ? 'table-warning' : ''));
           const row = `
             <tr class="${rowColour}">
-              <td>${shift.employee_first_name} ${shift.employee_last_name}</td>
+              <td>${shift.emp_first_name} ${shift.emp_last_name}</td>
               <td>${shift.login_time || "N/A"}</td>
               <td>${shift.logout_time || "N/A"}</td>
               <td class="${shift.is_public_holiday ? 'table-info' : ''}">${shift.is_public_holiday ? "Yes" : "No"}</td>
               <td>${shift.login_timestamp}</td>
               <td>${shift.logout_timestamp || "N/A"}</td>
-              <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-warning' : ''}">${shift.deliveries}</td>
-              <td class="${(shift.logout_time && parseFloat(shift.hours_worked) < 0.75) ? 'table-danger' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-danger' : '')}">${shift.hours_worked}</td>
+              <td class="${parseInt(shift.deliveries, 10) > 0 ? 'table-purple' : ''}">${shift.deliveries}</td>
+              <td class="${(shift.logout_time && parseFloat(shift.hours_worked) < 0.75) ? 'table-red' : (parseFloat(shift.hours_worked) > 10.0 ? 'table-red' : '')}">${shift.hours_worked}</td>
               <td>
                 <div class="d-flex flex-row">
                   <button class="editBtn btn btn-sm btn-outline-primary" data-id="${shift.id}"><i class="fa-solid fa-pen"></i> Edit</button>
@@ -379,6 +407,20 @@ function handleShiftDetailsEdit() {
       });
     }
   });
+}
+
+
+function setDefaultDateControls() {
+  // AIM OF THIS FUNCTION IS TO SET THE DATE LIMITS TO A FULL MONTH
+  const end = new Date(); // today
+  const start = new Date(end); // clone today's date
+
+  // Subtract one month
+  start.setMonth(start.getMonth() - 1);
+
+  // Set the dates
+  $('#startDate').val(formatDateForInput(start));
+  $('#endDate').val(formatDateForInput(end));
 }
 
 

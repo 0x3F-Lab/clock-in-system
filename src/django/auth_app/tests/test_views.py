@@ -230,6 +230,31 @@ def test_manage_shift_logs_access(logged_in_manager):
 
 
 @pytest.mark.django_db
+def test_manage_stores_access(logged_in_manager, store, store_associate_manager):
+    """
+    Test that store management page is accessible to a logged-in manager.
+    """
+    client = logged_in_manager
+    url = reverse("manage_stores")
+    response = client.get(url)
+
+    assert response.status_code == 200
+    assert "auth_app/manage_stores.html" in [t.name for t in response.templates]
+    assert b"Store Information" in response.content
+    assert (
+        b'<p><span class="fw-semibold">Name:</span> Test Store</p>' in response.content
+    )
+    assert (
+        b'<p><span class="fw-semibold">Allowable Clocking Distance:</span> 500 meters</p>'
+        in response.content
+    )
+    assert (
+        b'<p><span class="fw-semibold">Store Latitude:</span> 1.0</p>'
+        in response.content
+    )
+
+
+@pytest.mark.django_db
 def test_manage_account_summary_access(logged_in_manager):
     """
     Test that account summary page is accessible to a logged-in manager.

@@ -2,10 +2,10 @@ import logging
 import api.exceptions as err
 import api.utils as util
 
-from typing import Union, Dict
+from typing import Union, Dict, List, Dict, Tuple, Union
 from datetime import timedelta, datetime
 from django.db import transaction
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Concat
 from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.models import User, Activity, Store
@@ -104,20 +104,16 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             elif employee.is_clocked_in(store=store):
                 raise err.AlreadyClockedInError
 
-            # Check if user is inactive
-            elif not employee.is_active:
-                raise err.InactiveUserError
-
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store):
+            elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
             # Check the store is active
-            if not store.is_active:
+            elif not store.is_active:
                 raise err.InactiveStoreError
 
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
-            if check_new_shift_too_soon(employee=employee, store=store):
+            elif check_new_shift_too_soon(employee=employee, store=store):
                 raise err.StartingShiftTooSoonError
 
             time = localtime(now())  # Consistent timestamp
@@ -189,24 +185,24 @@ def handle_clock_out(
             if not employee.is_active:
                 raise err.InactiveUserError
 
+            # Check the store is active
+            elif not store.is_active:
+                raise err.InactiveStoreError
+
             # Check if not clocked in
             elif not employee.is_clocked_in(store=store):
                 raise err.AlreadyClockedOutError
 
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store):
+            elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
-            # Check the store is active
-            if not store.is_active:
-                raise err.InactiveStoreError
+            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
+            elif check_clocking_out_too_soon(employee=employee, store=store):
+                raise err.ClockingOutTooSoonError
 
             # Fetch the last active clock-in record
             activity = employee.get_last_active_activity_for_store(store=store)
-
-            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
-            if check_clocking_out_too_soon(employee=employee, store=store):
-                raise err.ClockingOutTooSoonError
 
             time = localtime(now())
             activity.logout_timestamp = time
@@ -354,8 +350,8 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         # Fetch relevant activity records
         shifts = (
             Activity.objects.select_related("store")
-            .filter(employee=user, store=store, login_timestamp__gte=time_threshold)
-            .order_by("-login_timestamp")
+            .filter(employee=user, store=store, login_time__gte=time_threshold)
+            .order_by("-login_time")
         )
 
         # Format results
@@ -394,17 +390,239 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         raise e
 
 
-def get_account_summaries(
-    store_id,
-    offset,
-    limit,
-    start_date,
-    end_date,
-    ignore_no_hours,
-    sort_field,
-    filter_names,
+def get_all_employee_details(
+    store_id: Union[str, int],
+    offset: int,
+    limit: int,
+    sort_field: str,
+    filter_names: List[str],
+    hide_deactivated: bool = False,
     allow_inactive_store: bool = False,
-):
+) -> Tuple[List[dict], int]:
+    """
+    Returns a paginated list of employee details for a store.
+
+    Args:
+        store_id (int): Store ID.
+        offset (int): Pagination offset.
+        limit (int): Pagination limit.
+        sort_field (str): "name", "age", or "acc_age".
+        filter_names (List[str]): List of names (case-insensitive) to include.
+        hide_deactivated (bool): If True, hide deactivated employees. Default False.
+        allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
+
+    Returns:
+        Tuple[List[dict], int]: (results, total count)
+    """
+    # Get and validate store
+    store = Store.objects.get(id=int(store_id))
+
+    if not store.is_active and not allow_inactive_store:
+        raise err.InactiveStoreError
+
+    # Get all users for the store
+    qs = User.objects.filter(
+        store_access__store_id=store_id, is_hidden=False
+    ).distinct()
+
+    # Hide deactivated if requested
+    if hide_deactivated:
+        qs = qs.filter(is_active=True)
+
+    # Annotate full_name for better filtering
+    qs = qs.annotate(full_name=Concat("first_name", Value(" "), "last_name"))
+
+    # Name filtering
+    if filter_names:
+        name_filters = Q()
+        for name in filter_names:
+            name_filters |= Q(full_name__icontains=name)
+        qs = qs.filter(name_filters)
+
+    # Sorting
+    sort_map = {
+        "name": ("first_name", "last_name", "birth_date"),
+        "age": ("birth_date", "first_name", "last_name"),
+        "acc_age": ("created_at", "first_name", "last_name"),
+    }
+    qs = qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+
+    # Total count before pagination
+    total = qs.count()
+
+    # Paginate on DB level
+    qs = qs[offset : offset + limit]
+
+    # Construct result
+    results = []
+    for emp in qs:
+        results.append(
+            {
+                "id": emp.id,
+                "first_name": emp.first_name,
+                "last_name": emp.last_name,
+                "email": emp.email,
+                "phone_number": emp.phone_number or None,
+                "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
+                "pin": emp.pin,
+                "is_active": emp.is_active,
+                "is_manager": emp.is_manager,
+            }
+        )
+
+    return results, total
+
+
+def get_all_shifts(
+    store_id: Union[str, int],
+    offset: int,
+    limit: int,
+    start_date: str,
+    end_date: str,
+    sort_field: str,
+    filter_names: List[str],
+    only_unfinished: bool = False,
+    only_public_hol: bool = False,
+    hide_deactivated: bool = False,
+    hide_resigned: bool = False,
+    allow_inactive_store: bool = False,
+) -> Tuple[List[dict], int]:
+    """
+    Retrieves paginated shift activity records for a store.
+
+    Args:
+        store_id (int): The store ID.
+        offset (int): Pagination offset.
+        limit (int): Pagination limit.
+        start_date (str): Filter start date (YYYY-MM-DD).
+        end_date (str): Filter end date (YYYY-MM-DD).
+        sort_field (str): One of "time", "name", "length", "delivery".
+        filter_names (List[str]): Case-insensitive names to include.
+        only_unfinished (bool): Filter for unfinished shifts only (no clock out time). Default False.
+        only_public_hol (bool): Filter for public holidays only. Default False.
+        hide_deactivated (bool): Exclude deactivated employees. Default False.
+        hide_resigned (bool): Exclude resigned employees. Default False.
+        allow_inactive_store (bool): Whether to list shifts for an inactive store or return InactiveStoreError. Default False.
+
+    Returns:
+        Tuple[List[dict], int]: List of results, and total count.
+    """
+    # Get store object and ensure its active
+    store = Store.objects.get(id=int(store_id))
+
+    if not store.is_active and not allow_inactive_store:
+        raise err.InactiveStoreError
+
+    # Initial queryset
+    qs = Activity.objects.select_related("employee").filter(
+        store_id=store_id, employee__is_hidden=False
+    )
+
+    # Filter dates
+    if start_date:
+        qs = qs.filter(login_time__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(login_time__date__lte=end_date)
+
+    # Annotate full_name for better filtering
+    qs = qs.annotate(
+        full_name=Concat("employee__first_name", Value(" "), "employee__last_name")
+    )
+
+    # Filter by names
+    if filter_names:
+        name_filters = Q()
+        for name in filter_names:
+            name_filters |= Q(full_name__icontains=name)
+        qs = qs.filter(name_filters)
+
+    # Apply extra filters
+    if only_unfinished:
+        qs = qs.filter(logout_time__isnull=True)
+    if only_public_hol:
+        qs = qs.filter(is_public_holiday=True)
+    if hide_deactivated:
+        qs = qs.filter(employee__is_active=True)
+    if hide_resigned:
+        qs = qs.filter(employee__store_access__store_id=store_id)
+
+    # Sorting
+    sort_map = {
+        "time": ("-login_timestamp", "employee__first_name", "employee__last_name"),
+        "name": ("employee__first_name", "employee__last_name", "-login_timestamp"),
+        "length": (
+            "-shift_length_mins",
+            "-login_timestamp",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+        "delivery": (
+            "-deliveries",
+            "-login_timestamp",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+    }
+    qs = qs.order_by(*sort_map.get(sort_field, sort_map["time"]))
+
+    # Total count before pagination
+    total = qs.count()
+
+    # Apply pagination (now DB-level)
+    qs = qs[offset : offset + limit]
+
+    results = []
+    for act in qs:
+        hours_decimal = (act.shift_length_mins / 60.0) if act.shift_length_mins else 0.0
+        results.append(
+            {
+                "id": act.id,
+                "emp_first_name": act.employee.first_name,
+                "emp_last_name": act.employee.last_name,
+                "emp_active": act.employee.is_active,
+                "emp_resigned": not act.employee.is_associated_with_store(
+                    store=store_id
+                ),
+                "login_time": (
+                    localtime(act.login_time).strftime("%H:%M")
+                    if act.login_time
+                    else None
+                ),
+                "logout_time": (
+                    localtime(act.logout_time).strftime("%H:%M")
+                    if act.logout_time
+                    else None
+                ),
+                "is_public_holiday": act.is_public_holiday,
+                "login_timestamp": (
+                    localtime(act.login_timestamp).strftime("%d/%m/%Y %H:%M")
+                    if act.login_timestamp
+                    else None
+                ),
+                "logout_timestamp": (
+                    localtime(act.logout_timestamp).strftime("%d/%m/%Y %H:%M")
+                    if act.logout_timestamp
+                    else None
+                ),
+                "deliveries": act.deliveries,
+                "hours_worked": f"{hours_decimal:.2f}",
+            }
+        )
+
+    return results, total
+
+
+def get_account_summaries(
+    store_id: Union[str, int],
+    offset: int,
+    limit: int,
+    start_date: str,
+    end_date: str,
+    sort_field: str,
+    filter_names: List[str],
+    ignore_no_hours: bool = False,
+    allow_inactive_store: bool = False,
+) -> Tuple[List[dict], int]:
     """
     Retrieve a paginated list of employee account summaries for a specific store.
 
@@ -416,7 +634,7 @@ def get_account_summaries(
         end_date (str): The end of the date range in YYYY-MM-DD format.
         ignore_no_hours (bool): Whether to exclude employees with zero hours worked.
         sort_field (str): Field to sort by. One of "name", "hours", "age", "deliveries".
-        filter_names (List[str]): List of employee names to include (case-insensitive match).
+        filter_names (List[str]): List of employee names to include (case-insensitive match). Default False.
         allow_inactive_store (bool): Whether to list summaries for an inactive store or return InactiveStoreError. Default False.
 
     Returns:
@@ -433,19 +651,27 @@ def get_account_summaries(
         start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
         end_dt = make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
 
-        # All employees for the store
+        # All employees for the store OR who have worked at the store within the period (if resigned)
         employees_qs = User.objects.filter(
-            store_access__store_id=store.id,
+            Q(store_access__store_id=store.id)
+            | Q(
+                activities__store_id=store.id,
+                activities__login_time__date__gte=start_dt.date(),
+                activities__login_time__date__lte=end_dt.date(),
+            ),
             is_hidden=False,
         ).distinct()
+
+        # Annotate full_name for better filtering
+        employees_qs = employees_qs.annotate(
+            full_name=Concat("first_name", Value(" "), "last_name")
+        )
 
         # Apply name filters
         if filter_names:
             name_filter = Q()
             for name in filter_names:
-                name_filter |= Q(first_name__icontains=name) | Q(
-                    last_name__icontains=name
-                )
+                name_filter |= Q(full_name__icontains=name)
             employees_qs = employees_qs.filter(name_filter)
 
         # Subqueries for total_mins and deliveries per employee
@@ -534,12 +760,11 @@ def get_account_summaries(
                 # ENSURE TIME IS IN LOCAL TIMEZONE FOR CORRECT DAY ALLOCATION!
                 login_time = localtime(act.login_time)
                 shift_length = act.shift_length_mins or 0
-
                 day_of_week = login_time.weekday()  # Monday=0, Sunday=6
-                # Determine the day of the week
+
+                # Public Holiday (MUTUALLY EXCLUSIVE TO REGULAR WEEK/WEEKEND DAYS)
                 if act.is_public_holiday:
                     mins_public_holiday += shift_length
-
                 # Weekday (Mon-Fri)
                 elif day_of_week < 5:
                     mins_weekday += shift_length
@@ -550,7 +775,7 @@ def get_account_summaries(
             summary_list.append(
                 {
                     "employee_id": employee.id,
-                    "name": f"{employee.first_name} {employee.last_name}",
+                    "name": employee.full_name,
                     "hours_total": round(employee.total_mins / 60, 2),
                     "hours_weekday": round(mins_weekday / 60, 2),
                     "hours_weekend": round(mins_weekend / 60, 2),
@@ -597,9 +822,13 @@ def check_new_shift_too_soon(
     """
     try:
         # Get the last clock-out activity for the employee
-        last_activity = Activity.objects.filter(
-            employee=employee, store=store, logout_timestamp__isnull=False
-        ).last()
+        last_activity = (
+            Activity.objects.filter(
+                employee=employee, store=store, logout_timestamp__isnull=False
+            )
+            .order_by("-logout_timestamp")
+            .first()
+        )
 
         if not last_activity:
             # No previous clock-out record found, allow clock-in
@@ -639,11 +868,7 @@ def check_clocking_out_too_soon(
     """
     try:
         # Get the last activity for the employee
-        last_activity = (
-            Activity.objects.filter(employee=employee, store=store)
-            .order_by("-login_timestamp")
-            .first()
-        )  # Order by latest clock-in/out
+        last_activity = employee.get_last_active_activity_for_store(store=store.id)
 
         if not last_activity:
             # No previous clock-in or clock-out record found, allow clock-in

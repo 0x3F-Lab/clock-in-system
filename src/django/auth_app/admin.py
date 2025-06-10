@@ -119,8 +119,8 @@ class StoreUserAccessAdmin(admin.ModelAdmin):
         "user__is_manager",
         "user__is_hidden",
         "user__is_setup",
-        "store__code",
         "store__is_active",
+        "store__code",
     )
     ordering = ("-assigned_at",)
 
@@ -182,6 +182,8 @@ class NotificationReceiptAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "notification", "read_at", "received_at")
     list_filter = (
         "read_at",
+        "notification__notification_type",
+        "notification__recipient_group",
         "user__is_setup",
         "user__is_active",
         "user__is_manager",

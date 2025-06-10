@@ -154,6 +154,25 @@ function ensureSafeInt(val, min, max) {
 }
 
 
+function ensureSafeFloat(val, min, max) {
+  // Parse the number to ensure its an int
+  val = parseFloat(val);
+
+  // Ensure the number is within range
+  if (min) {
+    min = parseFloat(min, 10);
+    val = Math.max(val, min)
+  }
+  
+  if (max) {
+    max = parseFloat(max, 10);
+    val = Math.min(val, max)
+  }
+
+  return val
+}
+
+
 function formatToDatetimeLocal(dateStr) {
   if (!dateStr) return "";
   // Expecting "DD/MM/YYYY HH:MM"
@@ -161,6 +180,16 @@ function formatToDatetimeLocal(dateStr) {
   const [day, month, year] = datePart.split("/");
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
 }
+
+
+// Format to YYYY-MM-DD for input[type="date"]
+function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
 
 // Ensure global variable to ensure spinner timeout can be adjusted
 let spinnerTimeout;
@@ -224,9 +253,15 @@ function handlePagination(config) {
   });
 
   $('#pageLimitInput').on('change', () => {
-    $('#paginationVariables').attr('data-future-offset', 0); // Reset offset to start
+    resetPaginationValues();
     updateFunc(); // Refresh the table with new limit
   });
+}
+
+
+function resetPaginationValues() {
+  // DOESNT CALL THE UPDATE FUNCTION -- MUST BE DONE MANUALLY!
+  $('#paginationVariables').attr('data-future-offset', 0); // Reset offset to start
 }
 
 
@@ -425,7 +460,7 @@ async function getLocationData() {
         {
           enableHighAccuracy: true,  // Request high accuracy for mobile users
           timeout: 30000,            // Timeout after 30 seconds
-          maximumAge: 45000          // Allow cached location up to 45s old
+          maximumAge: 30000          // Allow cached location up to 30s old
         }
       );
     });

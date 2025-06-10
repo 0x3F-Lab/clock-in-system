@@ -284,6 +284,35 @@ def get_user_associated_stores_from_session(request):
     return store_data
 
 
+def get_user_associated_stores_full_info(user: User) -> dict:
+    """
+    Get the user's associated stores and return all possible info about the store.
+    SHOULD ONLY BE USED IN MANAGER PAGES.
+    Args:
+      user (User): The User object of the user to get the associated stores for.
+    """
+
+    stores = user.get_associated_stores(show_inactive=user.is_manager)
+
+    if len(stores) < 1 or not stores:
+        return {}
+
+    store_data = {}
+    for store in stores:
+        store_data[store.id] = {
+            "name": store.name,
+            "code": store.code,
+            "loc_street": store.location_street,
+            "loc_lat": float(store.location_latitude),
+            "loc_long": float(store.location_longitude),
+            "clocking_dist": int(store.allowable_clocking_dist_m),
+            "pin": store.store_pin,
+            "is_active": store.is_active,
+        }
+
+    return store_data
+
+
 def get_default_page_context(request, include_notifications: bool = False):
     """
     Get the user's context and User object from their user_id stored in their session information.

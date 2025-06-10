@@ -20,6 +20,89 @@
   {% include "components/store_selection_controller.html" %}
 </div>
 
+<div class="container panel rounded shadow p-3 my-5">
+  <button type="button"
+          class="w-100 bg-transparent text-light border-0 p-1 d-flex align-items-center"
+          data-bs-toggle="collapse"
+          data-bs-target="#tableControllerCollapse"
+          aria-expanded="true"
+          aria-controls="tableControllerCollapse"
+          style="cursor: pointer;">
+    <span style="width: 24px;"></span>
+    <h3 class="flex-grow-1 text-center fw-semibold m-0">Table Controls</h3>
+    <i class="fa-solid fa-chevron-right ms-2 border border-secondary rounded px-2 py-2" id="tableControllerToggleIcon" style="width: 34px;"></i>
+  </button>
+
+  <div class="collapse" id="tableControllerCollapse">
+    <div class="p-3 pt-2">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="startDate" class="form-label">Start Date</label>
+          <input type="date" id="startDate" class="form-control" />
+        </div>
+        <div class="col-md-6 mt-3 mt-md-0">
+          <label for="endDate" class="form-label">End Date</label>
+          <input type="date" id="endDate" class="form-control" />
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="form-label d-block">Sort By:</label>
+        <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
+          <input type="radio" class="btn-check" name="sortField" id="sortTime" value="time" autocomplete="off" checked>
+          <label class="btn btn-outline-info" for="sortTime">Login Time</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortName">Name</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortLength" value="length" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortLength">Shift Length</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortDelivery" value="delivery" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortDelivery">Delivery Count</label>
+        </div>
+      </div>
+
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="onlyUnfinished" class="form-check-input p-2" />
+            <label for="onlyUnfinished" class="form-check-label">Include Only Unfinished Shifts</label>
+          </div>
+
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="onlyPublicHol" class="form-check-input p-2" />
+            <label for="onlyPublicHol" class="form-check-label">Include Only Public Holiday Shifts</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="hideDeactivated" class="form-check-input p-2" />
+            <label for="hideDeactivated" class="form-check-label">Hide Deactivated Employees</label>
+          </div>
+
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="hideResigned" class="form-check-input p-2" />
+            <label for="hideResigned" class="form-check-label">Hide Resigned Employees</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
+        <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
+        <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
+      </div>
+
+      <div class="text-center">
+        <button type="button" class="btn btn-lg btn-success" id="tableControllerSubmit">
+          <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Shift Logs Table -->
 <div class="table-responsive">
   <table id="shiftLogsTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
@@ -54,12 +137,20 @@
       Shift occurred on a public holiday
     </li>
     <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
-      <span class="badge bg-warning text-dark mb-0">&nbsp;</span>
+      <span class="badge bg-purple text-dark mb-0">&nbsp;</span>
       Deliveries were recorded for this shift
     </li>
     <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
-      <span class="badge bg-danger mb-0">&nbsp;</span>
+      <span class="badge bg-red mb-0">&nbsp;</span>
       Suspicious hours worked of &lt;0.75 or &gt;10.0 hours
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-warning text-dark mb-0">&nbsp;</span>
+      Employee is DEACTIVATED
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-red-light mb-0">&nbsp;</span>
+      Employee is RESIGNED
     </li>
   </ul>
 </div>
