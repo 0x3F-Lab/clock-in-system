@@ -65,6 +65,21 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "celery": {  # Celery-specific logger
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "celery_beat": {  # Celery Beat-specific logger
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "middleware": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
     },
     "root": {  # Root logger for broader debugging
         "handlers": ["console"],

@@ -4,7 +4,23 @@ $(document).ready(function() {
 
   // Update the table with all users if user changes store
   $('#storeSelectDropdown').on('change', function() {
+    resetPaginationValues();
     updateEmployeeDetailsTable();
+  });
+
+  // Handle table controls submission
+  $('#tableControllerSubmit').on('click', () => {
+    resetPaginationValues();
+    updateEmployeeDetailsTable();
+  });
+
+  // Update table controller icon on collapse/show
+  $('#tableControllerCollapse').on('show.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+    });
+
+  $('#tableControllerCollapse').on('hide.bs.collapse', function () {
+    $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
   });
 
   // Handle actionable buttons on the page (i.e., edit, create, delete)
@@ -20,6 +36,9 @@ $(document).ready(function() {
   $('#msg_message').on('input', () => {
     updateCharCount();
   });
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(45); // 45 minutes
 });
 
 
@@ -204,9 +223,12 @@ function updateEmployeeStatus(id, type) {
 
 function updateEmployeeDetailsTable() {
   showSpinner();
+  const sort = $('#sortFields input[type="radio"]:checked').val();
+  const filter = $('#filterNames').val();
+  const hideDeactive = $('#hideDeactivated').is(':checked');
 
   $.ajax({
-    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}`,
+    url: `${window.djangoURLs.listEveryEmployeeDetails}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&sort=${sort}&hide_deactive=${hideDeactive}&filter=${filter}`,
     type: "GET",
     xhrFields: {
       withCredentials: true

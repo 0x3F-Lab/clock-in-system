@@ -89,7 +89,7 @@ def api_manager_required(view_func):
         if not user_id:
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Get employee data to check state
@@ -194,7 +194,7 @@ def api_employee_required(view_func):
         if not user_id:
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         # Get employee data to check state
@@ -284,6 +284,35 @@ def get_user_associated_stores_from_session(request):
     return store_data
 
 
+def get_user_associated_stores_full_info(user: User) -> dict:
+    """
+    Get the user's associated stores and return all possible info about the store.
+    SHOULD ONLY BE USED IN MANAGER PAGES.
+    Args:
+      user (User): The User object of the user to get the associated stores for.
+    """
+
+    stores = user.get_associated_stores(show_inactive=user.is_manager)
+
+    if len(stores) < 1 or not stores:
+        return {}
+
+    store_data = {}
+    for store in stores:
+        store_data[store.id] = {
+            "name": store.name,
+            "code": store.code,
+            "loc_street": store.location_street,
+            "loc_lat": float(store.location_latitude),
+            "loc_long": float(store.location_longitude),
+            "clocking_dist": int(store.allowable_clocking_dist_m),
+            "pin": store.store_pin,
+            "is_active": store.is_active,
+        }
+
+    return store_data
+
+
 def get_default_page_context(request, include_notifications: bool = False):
     """
     Get the user's context and User object from their user_id stored in their session information.
@@ -318,24 +347,12 @@ def get_default_page_context(request, include_notifications: bool = False):
     store_data = {store.id: store.code for store in stores}
 
     # Get user's notifications
-    notifs = employee.get_unread_notifications().select_related("sender")
+    unread_notifs = employee.get_unread_notifications().select_related("sender")
 
     if include_notifications:
-        notifications = []
-        for notif in notifs:
-            if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
-                sender = "SYSTEM"
-            elif (
-                notif.notification_type == Notification.Type.SYSTEM_ALERT
-                or notif.notification_type == Notification.Type.ADMIN_NOTE
-            ) or not notif.sender:
-                sender = "ADMIN"
-            elif notif.sender.is_hidden:
-                sender = "ADMIN"
-            else:
-                sender = f"{notif.sender.first_name} {notif.sender.last_name}"
-
-            notifications.append(
+        unread_notifications = []
+        for notif in unread_notifs:
+            unread_notifications.append(
                 {
                     "id": notif.id,
                     "title": notif.title,
@@ -343,11 +360,54 @@ def get_default_page_context(request, include_notifications: bool = False):
                         string=notif.message, user_obj=employee
                     ),
                     "type": notif.notification_type,
-                    "sender": sender,
+                    "sender": get_notification_sender_name(notif=notif),
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=True
+                    ),
                     "created_at": notif.created_at,
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
-                    "store_broadcast": notif.broadcast_to_store,
+                }
+            )
+
+        read_notifications = []
+        read_notifs = employee.get_read_notifications().select_related("sender")
+        for notif in read_notifs:
+            read_notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": add_placeholder_text(
+                        string=notif.message, user_obj=employee
+                    ),
+                    "type": notif.notification_type,
+                    "sender": get_notification_sender_name(notif=notif),
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=True
+                    ),
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
+                }
+            )
+
+        sent_notifications = []
+        sent_notifs = employee.get_sent_notifications()
+        for notif in sent_notifs:
+            sent_notifications.append(
+                {
+                    "id": notif.id,
+                    "title": notif.title,
+                    "message": add_placeholder_text(
+                        string=notif.message, user_obj=employee
+                    ),
+                    "type": notif.notification_type,
+                    "receiver": get_notification_receiver_name(
+                        notif=notif, is_received=False
+                    ),
+                    "created_at": notif.created_at,
+                    "expires_on": notif.expires_on,
+                    "store": notif.store.code if notif.store else None,
                 }
             )
 
@@ -355,8 +415,14 @@ def get_default_page_context(request, include_notifications: bool = False):
             "user_id": employee_id,
             "user_name": employee.first_name,
             "associated_stores": store_data,
-            "notifications": notifications,
-            "notification_count": notifs.count(),
+            "notifications": {
+                "unread": unread_notifications,
+                "read": read_notifications,
+                "read_count": read_notifs.count(),
+                "sent": sent_notifications,
+                "sent_count": sent_notifs.count(),
+            },
+            "notification_count": unread_notifs.count(),
         }, employee
 
     # Else, dont include notifications (SAVES WORK)
@@ -364,8 +430,68 @@ def get_default_page_context(request, include_notifications: bool = False):
         "user_id": employee_id,
         "user_name": employee.first_name,
         "associated_stores": store_data,
-        "notification_count": notifs.count(),
+        "notification_count": unread_notifs.count(),
     }, employee
+
+
+def get_notification_sender_name(notif: Notification) -> str:
+    """
+    Get the notification sender or replace it with an appropriate string for
+    certain cases.
+    A Notification object must be given.
+    """
+    if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
+        return "SYSTEM"
+    elif (
+        notif.notification_type == Notification.Type.SYSTEM_ALERT
+        or notif.notification_type == Notification.Type.ADMIN_NOTE
+    ):
+        return "ADMIN"
+    elif not notif.sender:
+        return "ADMIN"
+    elif notif.sender.is_hidden:
+        return "ADMIN"
+    elif notif.sender.is_manager:
+        return f"{notif.sender.first_name} {notif.sender.last_name} [Manager]"
+    else:
+        return f"{notif.sender.first_name} {notif.sender.last_name}"
+
+
+def get_notification_receiver_name(
+    notif: Notification, is_received: bool = True
+) -> str:
+    """
+    Get the notification receiver or replace it with an appropriate string for
+    certain cases depending if its a SENT or RECIEVED notification.
+    Args:
+      - notif (Notification): The notification object.
+      - is_received (bool) = True: If the user has recieved this notification or has sent it.
+    """
+    if (
+        notif.recipient_group == Notification.RecipientType.STORE_EMPLOYEES
+        and notif.store
+    ):
+        return f"All Store Employees for store <code>{notif.store.code}</code>"
+    elif (
+        notif.recipient_group == Notification.RecipientType.STORE_MANAGERS
+        and notif.store
+    ):
+        return f"All Store Managers for store <code>{notif.store.code}</code>"
+    elif notif.recipient_group == Notification.RecipientType.ALL_USERS:
+        return "All active users on the site"
+    elif notif.recipient_group == Notification.RecipientType.ALL_MANAGERS:
+        return "All active managers on the site"
+    elif notif.recipient_group == Notification.RecipientType.SITE_ADMINS:
+        return "All active site admins"
+    elif notif.recipient_group == Notification.RecipientType.INDIVIDUAL:
+        return "You only"
+
+    # 'OTHER' option, etc.
+    else:
+        recipients = User.objects.filter(
+            notification_receipts__notification=notif
+        ).distinct()
+        return f"{recipients.count()} Employees"
 
 
 def sanitise_plain_text(value: str) -> str:

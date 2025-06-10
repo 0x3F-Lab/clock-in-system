@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from freezegun import freeze_time
 from datetime import date, timedelta
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
@@ -45,9 +46,15 @@ def test_list_store_employee_names_success(
     assert inactive_employee.id not in data
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_all_shift_details_success(
-    manager, logged_in_manager, store, store_associate_manager, employee
+    manager,
+    logged_in_manager,
+    store,
+    store_associate_manager,
+    employee,
+    store_associate_employee,
 ):
     """
     Test that shift details are returned correctly for a store the user is associated with.
@@ -77,6 +84,8 @@ def test_list_all_shift_details_success(
             "store_id": store.id,
             "offset": 0,
             "limit": 10,
+            "start": login_time.date(),
+            "end": logout_time.date(),
         },
     )
 
@@ -90,12 +99,15 @@ def test_list_all_shift_details_success(
 
     shift = data["results"][0]
     assert shift["id"] == activity.id
-    assert shift["employee_first_name"] == employee.first_name
-    assert shift["employee_last_name"] == employee.last_name
+    assert shift["emp_first_name"] == employee.first_name
+    assert shift["emp_last_name"] == employee.last_name
+    assert shift["emp_active"] == True
+    assert shift["emp_resigned"] == False
     assert shift["deliveries"] == 4
     assert shift["hours_worked"] == "3.00"
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_singular_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -129,6 +141,7 @@ def test_list_singular_shift_details_success(
     assert data["logout_timestamp"] is not None
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_update_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -174,6 +187,7 @@ def test_update_shift_details_success(
     )
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_delete_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -199,6 +213,7 @@ def test_delete_shift_details_success(
     assert not Activity.objects.filter(id=activity.id).exists()
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_create_new_shift_success(
     manager,
@@ -233,6 +248,7 @@ def test_create_new_shift_success(
     assert activity.is_public_holiday is True
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_create_new_shift_missing_fields(
     logged_in_manager,
@@ -633,6 +649,7 @@ def test_list_account_summaries_success(
     assert emp["employee_id"] == clocked_in_employee.id
 
 
+@freeze_time("2025-01-01 15:00:00")
 @pytest.mark.django_db
 def test_list_account_summaries_full_hour_breakdown(
     logged_in_manager,
@@ -694,9 +711,9 @@ def test_list_account_summaries_full_hour_breakdown(
     ]
 
     # Expected totals:
-    # Weekday: 180 (normal) + 150 (public) = 330 mins → 5.5 hours
+    # Weekday: 180 (normal) → 5.5 hours
     # Weekend: 180 mins → 3.0 hours
-    # Public holiday: 150 mins → 2.5 hours
+    # Public holiday: 150 mins → 2.5 hours (MUTUALLY EXCLUSIVE)
     # Total: 180 + 180 + 150 = 510 mins → 8.5 hours
     # Deliveries: 2 + 1 + 3 = 6
 
@@ -724,10 +741,43 @@ def test_list_account_summaries_full_hour_breakdown(
     assert emp is not None
 
     assert emp["hours_total"] == 8.5
-    assert emp["hours_weekday"] == 5.5
+    assert emp["hours_weekday"] == 3.0
     assert emp["hours_weekend"] == 3.0
     assert emp["hours_public_holiday"] == 2.5
     assert emp["deliveries"] == 6
     assert emp["acc_resigned"] is False
     assert emp["acc_active"] is True
     assert emp["acc_manager"] is False
+
+
+@pytest.mark.django_db
+def test_update_store_info(logged_in_manager, manager, store, store_associate_manager):
+    """
+    Test that a manager can update an associated store's info.
+    """
+    # Ensure store has default info
+    assert store.name == "Test Store"
+    assert store.code == "TST001"
+    assert store.location_street == "123 Main St"
+    assert store.allowable_clocking_dist_m == 500
+
+    # Change the store's info
+    api_client = logged_in_manager
+    url = reverse("api:update_store_info", args=[store.id])
+    send_data = {
+        "name": "edit name",
+        "loc_street": "edit street",
+        "code": "NEWCODE",
+        "clocking_dist": 450,
+    }
+    response = api_client.patch(url, data=send_data)
+
+    assert response.status_code == 202
+    data = response.json()
+
+    # Ensure store object is updated
+    store.refresh_from_db()
+    assert store.name == send_data["name"]
+    assert store.code == send_data["code"]
+    assert store.location_street == send_data["loc_street"]
+    assert store.allowable_clocking_dist_m == send_data["clocking_dist"]

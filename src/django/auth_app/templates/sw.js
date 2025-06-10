@@ -66,6 +66,7 @@ if (isDevEnvironment) {
     { url: "{% static 'js/manual_clocking.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/shift_logs.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/notification_page.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/manage_stores.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
   ]);
 
   // For full pages

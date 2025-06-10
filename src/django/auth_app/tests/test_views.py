@@ -58,11 +58,13 @@ def test_notification_page_success(logged_in_employee, employee, notification_al
     assert response.status_code == 200
     content = response.content.decode()
 
-    assert "Your Notifications" in content
+    assert "Your <u>Unread</u> Notifications" in content
     assert '<span id="notification-page-count">1</span>' in content
 
     # Assure the buttons exist
     assert "Notifications" in content
+    assert "Read Notifications" in content
+    assert "Sent Notifications" in content
     assert "Notification Settings" in content
     assert "Send Messages" in content
 
@@ -88,7 +90,7 @@ def test_manual_clocking_successful_clock_in(
     assert employee.is_clocked_in(store=store) == False
 
     response = client.post(url, data)
-    assert response.status_code == 200
+    assert response.status_code == 202
     assert b"Successfully clocked in." in response.content
 
     employee.refresh_from_db()
@@ -106,7 +108,7 @@ def test_manual_clocking_invalid_pin_combination(client, store):
     }
 
     response = client.post(url, data)
-    assert response.status_code == 200
+    assert response.status_code == 401
     assert b"Invalid PIN combination." in response.content
 
 
@@ -123,7 +125,7 @@ def test_manual_clocking_user_not_associated(mocker, client, store, employee):
     }
 
     response = client.post(url, data)
-    assert b"not associated with the store" in response.content
+    assert b"Cannot clock in/out to a non-associated store." in response.content
 
 
 @pytest.mark.django_db
@@ -225,6 +227,31 @@ def test_manage_shift_logs_access(logged_in_manager):
     assert response.status_code == 200
     assert "auth_app/shift_logs.html" in [t.name for t in response.templates]
     assert b"Shift Logs" in response.content
+
+
+@pytest.mark.django_db
+def test_manage_stores_access(logged_in_manager, store, store_associate_manager):
+    """
+    Test that store management page is accessible to a logged-in manager.
+    """
+    client = logged_in_manager
+    url = reverse("manage_stores")
+    response = client.get(url)
+
+    assert response.status_code == 200
+    assert "auth_app/manage_stores.html" in [t.name for t in response.templates]
+    assert b"Store Information" in response.content
+    assert (
+        b'<p><span class="fw-semibold">Name:</span> Test Store</p>' in response.content
+    )
+    assert (
+        b'<p><span class="fw-semibold">Allowable Clocking Distance:</span> 500 meters</p>'
+        in response.content
+    )
+    assert (
+        b'<p><span class="fw-semibold">Store Latitude:</span> 1.0</p>'
+        in response.content
+    )
 
 
 @pytest.mark.django_db

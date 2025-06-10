@@ -110,7 +110,7 @@ class User(models.Model):
         elif isinstance(store, Store):
             activities = activities.filter(store=store)
 
-        return activities.last()  # Returns None if no match
+        return activities.order_by("-login_time").first()  # Returns None if no match
 
     def is_associated_with_store(self, store) -> bool:
         """
@@ -184,6 +184,32 @@ class User(models.Model):
                 notificationreceipt__read_at__isnull=True,
                 expires_on__gte=localtime(now()).date(),
             )
+            .distinct()
+            .order_by("-created_at")
+        )
+
+    def get_read_notifications(self):
+        """
+        Returns a queryset of READ Notifications for this user,
+        ordered by newest first.
+        """
+        return (
+            Notification.objects.filter(
+                notificationreceipt__user=self,
+                notificationreceipt__read_at__isnull=False,
+                expires_on__gte=localtime(now()).date(),
+            )
+            .distinct()
+            .order_by("-created_at")
+        )
+
+    def get_sent_notifications(self):
+        """
+        Returns a queryset of SENT notifications for this user,
+        ordered by newest first.
+        """
+        return (
+            self.sent_notifications.filter(expires_on__gte=localtime(now()).date())
             .distinct()
             .order_by("-created_at")
         )
@@ -305,7 +331,7 @@ class Activity(models.Model):
         User, on_delete=models.CASCADE, related_name="activities"
     )
     store = models.ForeignKey(Store, on_delete=models.CASCADE, default=1)
-    login_time = models.DateTimeField(null=False)  # Rounds in time
+    login_time = models.DateTimeField(null=False, db_index=True)  # Rounds in time
     logout_time = models.DateTimeField(
         null=True, blank=True
     )  # Nullable to allow for ongoing shifts
@@ -347,6 +373,18 @@ class Notification(models.Model):
         GENERAL = "general", "General"
         EMERGENCY = "emergency", "Emergency"
 
+    class RecipientType(models.TextChoices):
+        STORE_MANAGERS = "store_managers", "Store Managers Only"
+        STORE_EMPLOYEES = (
+            "store_employees",
+            "Store Employees (Every active user in your selected store)",
+        )
+        SITE_ADMINS = "site_admins", "Site Administrators"
+        ALL_USERS = "all_users", "All Active Users (Site-wide)"
+        ALL_MANAGERS = "all_managers", "All Active Managers (Site-wide)"
+        INDIVIDUAL = "individual", "Individual User"
+        OTHER = "other", "Other"
+
     sender = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -374,9 +412,12 @@ class Notification(models.Model):
         null=False,
         help_text="The type of notification",
     )
-    broadcast_to_store = models.BooleanField(
-        default=False,
-        help_text="If True, broadcast to all users in the store. Used only if `store` is set.",
+    recipient_group = models.CharField(
+        max_length=50,
+        choices=RecipientType.choices,
+        default=RecipientType.OTHER,
+        null=False,
+        help_text="The type of the receipient group",
     )
     targeted_users = models.ManyToManyField(
         User,
@@ -393,9 +434,7 @@ class Notification(models.Model):
     )
 
     def __str__(self):
-        if self.broadcast_to_store:
-            return f"[{self.id}] [{self.notification_type.upper()}] Broadcast to {self.store.code} - **{self.title}**: {self.message[:30]}"
-        return f"[{self.id}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
+        return f"[{self.id}] [{self.recipient_group.upper()}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
 
     def mark_notification_as_read(self, user):
         receipt = NotificationReceipt.objects.filter(
@@ -413,9 +452,11 @@ class Notification(models.Model):
         users,
         title,
         message,
+        recipient_group,
         notification_type=Type.GENERAL,
         sender=None,
         expires_on=None,
+        store=None,
     ):
         """
         Create and send a notification to specific users.
@@ -424,10 +465,12 @@ class Notification(models.Model):
             users (iterable of User): List or queryset of User instances to receive the notification.
             title (str): Short subject or headline for the notification. MAX 200 CHARS
             message (str): Detailed message content of the notification.
-            notification_type (str): One of `Notification.Type` choices defining the notification category.
+            recipient_group (Notification.RecipientType): One of the `Notification.RecipientType` choices defining the type of recipient the notification is for.
+            notification_type (Notification.Type): One of `Notification.Type` choices defining the notification category.
             sender (User or None): Optional User instance who is sending the notification.
             expires_on (date or None): Optional expiration date for notification.
                 Defaults to Notification default expiry date if None.
+            store (Store or None): ONLY INCLUDE THIS IF SENDING TO STORE MANAGERS (TO BE ABLE TO TRACK WHAT STORE ITS FOR)
 
         Returns:
             Notification: The created Notification instance.
@@ -440,6 +483,8 @@ class Notification(models.Model):
 
         notif = cls.objects.create(
             sender=sender,
+            store=store,
+            recipient_group=recipient_group,
             title=title,
             message=message,
             notification_type=notification_type,
@@ -488,7 +533,7 @@ class Notification(models.Model):
             title=title,
             message=message,
             notification_type=notification_type,
-            broadcast_to_store=True,
+            recipient_group=cls.RecipientType.STORE_EMPLOYEES,
             expires_on=expires_on,
         )
 
@@ -532,8 +577,10 @@ class Notification(models.Model):
             title=title,
             message=message,
             notification_type=cls.Type.SYSTEM_ALERT,
+            recipient_group=cls.RecipientType.ALL_USERS,
             sender=sender,
             expires_on=expires_on,
+            store=None,
         )
 
 

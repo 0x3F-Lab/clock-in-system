@@ -12,6 +12,9 @@ $(document).ready(function() {
 
   // Bind updates to field to check for clocking button updates
   $('#id_store_pin, #id_employee_pin').on('input', toggleClockingButton);
+
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(30); // 30 minutes
 });
 
 

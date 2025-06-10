@@ -30,6 +30,8 @@ jobs:
           echo -e "\nPOSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> ./src/.env.production
           echo -e "\nDJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> ./src/.env.production
           echo -e "\nREDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> ./src/.env.production
+          echo -e "\nCELERY_BROKER_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/0" >> ./src/.env.production
+          echo -e "\nCELERY_RESULT_BACKEND=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/1" >> ./src/.env.production
 
       - name: Build Docker images
         run: |
@@ -43,6 +45,7 @@ jobs:
         run: |
           scp -i ~/.ssh/id_rsa ./src/docker-compose.yml.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/docker-compose.yml
           scp -i ~/.ssh/id_rsa ./src/../src/.env.production ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.LIGHTSAIL_HOST }} "cp /home/ubuntu/.env.production /home/ubuntu/.env"
           scp -i ~/.ssh/id_rsa django_image.tar.gz ubuntu@${{ secrets.LIGHTSAIL_HOST }}:/home/ubuntu/
 
       - name: Transfer Nginx configuration to server

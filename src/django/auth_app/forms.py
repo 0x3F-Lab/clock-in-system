@@ -241,17 +241,6 @@ class ManualClockingForm(forms.Form):
 
 
 class NotificationForm(forms.Form):
-    RECIPIENT_CHOICES = [
-        ("store_managers", "Store Managers Only"),
-        (
-            "store_employees",
-            "Store Employees (Every active user in your selected store)",
-        ),
-        ("all_users", "All Active Users (Site-wide)"),
-        ("all_managers", "All Active Managers (Site-wide)"),
-        ("site_admins", "Site Administrators"),
-    ]
-
     title = forms.CharField(
         max_length=200,
         required=True,
@@ -270,13 +259,13 @@ class NotificationForm(forms.Form):
         ),
     )
     recipient_group = forms.ChoiceField(
-        choices=[],
+        choices=[],  # Dynamnically adjusted in __init__
         required=True,
         label="Send To",
         widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
     )
     store = forms.ChoiceField(
-        choices=[],
+        choices=[],  # Dynamnically adjusted in __init__
         required=False,
         widget=forms.Select(attrs={"class": "form-select w-100 p-2"}),
         label="Store",
@@ -293,7 +282,7 @@ class NotificationForm(forms.Form):
 
         self.user = user
 
-        # STORE CHOICES -------------------
+        # ---------------- STORE CHOICES ----------------
         if user is not None:
             active_stores = user.get_associated_stores()
             self.fields["store"].choices = [
@@ -302,37 +291,35 @@ class NotificationForm(forms.Form):
         else:
             self.fields["store"].choices = [("", "--- No available stores ---")]
 
-        # NOTIFICATION TYPE CHOICES ---------------------
-        type_choices = Notification.Type.choices
-
+        # ------------- NOTIFICATION TYPE CHOICES ---------------
         type_choices = [
-            (Notification.Type.GENERAL, Notification.Type.GENERAL.label),
-            (Notification.Type.EMERGENCY, Notification.Type.EMERGENCY.label),
+            (Notification.Type.GENERAL.value, Notification.Type.GENERAL.label),
+            (Notification.Type.EMERGENCY.value, Notification.Type.EMERGENCY.label),
         ]
 
-        if user.is_manager:
+        if user and user.is_manager:
             type_choices.extend(
                 [
                     (
-                        Notification.Type.MANAGER_NOTE,
+                        Notification.Type.MANAGER_NOTE.value,
                         Notification.Type.MANAGER_NOTE.label,
                     ),
                     (
-                        Notification.Type.SCHEDULE_CHANGE,
+                        Notification.Type.SCHEDULE_CHANGE.value,
                         Notification.Type.SCHEDULE_CHANGE.label,
                     ),
                 ]
             )
 
-        if user.is_hidden:
+        if user and user.is_hidden:
             type_choices.extend(
                 [
                     (
-                        Notification.Type.SYSTEM_ALERT,
+                        Notification.Type.SYSTEM_ALERT.value,
                         Notification.Type.SYSTEM_ALERT.label,
                     ),
                     (
-                        Notification.Type.ADMIN_NOTE,
+                        Notification.Type.ADMIN_NOTE.value,
                         Notification.Type.ADMIN_NOTE.label,
                     ),
                 ]
@@ -340,27 +327,38 @@ class NotificationForm(forms.Form):
 
         self.fields["notification_type"].choices = type_choices
 
-        # RECIPIENT CHOICES ---------------------------
-        # Default: only allow sending to managers
+        # ------------- RECIPIENT GROUP CHOICES ---------------
         recipient_choices = [
-            ("store_managers", "Store Managers Only"),
-            ("site_admins", "Site Administrators"),
+            (
+                Notification.RecipientType.STORE_MANAGERS.value,
+                Notification.RecipientType.STORE_MANAGERS.label,
+            ),
+            (
+                Notification.RecipientType.SITE_ADMINS.value,
+                Notification.RecipientType.SITE_ADMINS.label,
+            ),
         ]
 
-        if user.is_manager:
-            # Managers can send to other store employees
+        if user and user.is_manager:
             recipient_choices.append(
                 (
-                    "store_employees",
-                    "Store Employees (Every active user in your selected store)",
+                    Notification.RecipientType.STORE_EMPLOYEES.value,
+                    Notification.RecipientType.STORE_EMPLOYEES.label,
                 )
             )
 
-        if user.is_hidden:
-            # Hidden (super admins) can send to all users site-wide
-            recipient_choices.append(("all_users", "All Active Users (Site-wide)"))
-            recipient_choices.append(
-                ("all_managers", "All Active Managers (Site-wide)")
+        if user and user.is_hidden:
+            recipient_choices.extend(
+                [
+                    (
+                        Notification.RecipientType.ALL_USERS.value,
+                        Notification.RecipientType.ALL_USERS.label,
+                    ),
+                    (
+                        Notification.RecipientType.ALL_MANAGERS.value,
+                        Notification.RecipientType.ALL_MANAGERS.label,
+                    ),
+                ]
             )
 
         self.fields["recipient_group"].choices = recipient_choices
@@ -403,7 +401,7 @@ class NotificationForm(forms.Form):
         if not self.user:
             raise ValidationError("User is not authenticated or provided.")
 
-        if (
+        elif (
             notification_type
             in [Notification.Type.MANAGER_NOTE, Notification.Type.SCHEDULE_CHANGE]
         ) and (not self.user.is_manager):
@@ -424,13 +422,23 @@ class NotificationForm(forms.Form):
         # Validate combinations
         if (
             notification_type == Notification.Type.MANAGER_NOTE
-            and recipient_group != "store_employees"
+            and recipient_group
+            not in [
+                Notification.RecipientType.STORE_EMPLOYEES,
+                Notification.RecipientType.SITE_ADMINS,
+            ]
         ):
-            raise ValidationError("Manager Notes can only be sent to Store Employees.")
+            raise ValidationError(
+                "Manager Notes can only be sent to Store Employees or Site Admins."
+            )
 
         elif (
             notification_type == Notification.Type.SYSTEM_ALERT
-            and recipient_group not in ["all_users", "all_managers"]
+            and recipient_group
+            not in [
+                Notification.RecipientType.ALL_USERS,
+                Notification.RecipientType.ALL_MANAGERS,
+            ]
         ):
             raise ValidationError(
                 "System Alerts can only be sent to all users or all managers."
@@ -438,32 +446,46 @@ class NotificationForm(forms.Form):
 
         elif (
             notification_type == Notification.Type.SCHEDULE_CHANGE
-            and recipient_group != "store_employees"
+            and recipient_group != Notification.RecipientType.STORE_EMPLOYEES
         ):
             raise ValidationError(
-                "Schedule Change notifications must target store employees."
+                "Schedule Change can only be sent to store employees."
             )
 
         return notification_type
 
     def clean_recipient_group(self):
         recipient_group = self.cleaned_data.get("recipient_group")
+        allowed_choices = {
+            Notification.RecipientType.STORE_MANAGERS.value,
+            Notification.RecipientType.STORE_EMPLOYEES.value,
+            Notification.RecipientType.SITE_ADMINS.value,
+            Notification.RecipientType.ALL_USERS.value,
+            Notification.RecipientType.ALL_MANAGERS.value,
+        }
 
-        # Validate options
-        if not any(key == recipient_group for key, _ in self.RECIPIENT_CHOICES):
-            raise ValidationError("Invalid recipient group choice.")
-
-        # Validate that the recipient group is in the allowed list for this user
+        # Validate that the type is in the allowed list for this user
         if not self.user:
             raise ValidationError("User is not authenticated or provided.")
 
-        elif (recipient_group == "store_employees") and (not self.user.is_manager):
+        elif recipient_group not in allowed_choices:
+            raise ValidationError("Invalid recipient group choice.")
+
+        elif (
+            recipient_group == Notification.RecipientType.STORE_EMPLOYEES
+            and not self.user.is_manager
+        ):
             raise ValidationError("Not authorised to use that recipient group.")
 
-        elif (recipient_group in ["all_users", "all_managers"]) and (
-            not self.user.is_hidden
+        elif (
+            recipient_group
+            in [
+                Notification.RecipientType.ALL_USERS,
+                Notification.RecipientType.ALL_MANAGERS,
+            ]
+            and not self.user.is_hidden
         ):
-            raise ValidationError("Not authorised to use that notification type.")
+            raise ValidationError("Not authorised to use that recipient group.")
 
         return recipient_group
 
@@ -503,7 +525,10 @@ class NotificationForm(forms.Form):
         recipient_group = cleaned_data.get("recipient_group")
         store = cleaned_data.get("store")
 
-        if not store and recipient_group not in ["all_users", "all_managers"]:
+        if not store and recipient_group in [
+            Notification.RecipientType.STORE_EMPLOYEES,
+            Notification.RecipientType.STORE_MANAGERS,
+        ]:
             raise ValidationError(
                 "You must select a store for store-based notifications."
             )

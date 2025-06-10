@@ -33,6 +33,7 @@ urlpatterns = [
         name="manage_employee_details",
     ),
     path("manage_shift_logs", views.manage_shift_logs, name="manage_shift_logs"),
+    path("manage_stores", views.manage_stores, name="manage_stores"),
     path("account_summary", views.manage_account_summary, name="account_summary"),
     path("manual_clocking", views.manual_clocking, name="manual_clocking"),
     path("dashboard", views.employee_dashboard, name="dashboard"),

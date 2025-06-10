@@ -1,9 +1,11 @@
+import re
 import math
 import requests
 import logging
 import holidays
 import api.exceptions as err
 
+from typing import List, Tuple
 from datetime import timedelta
 from urllib.parse import urlencode
 from django.utils import timezone
@@ -16,6 +18,8 @@ from clock_in_system.settings import (
     COUNTRY_SUBDIV_CODE,
     UTC_OFFSET,
     SHIFT_ROUNDING_MINS,
+    VALID_NAME_LIST_PATTERN,
+    MAX_DATABASE_DUMP_LIMIT,
 )
 
 logger = logging.getLogger("api")
@@ -282,6 +286,49 @@ def is_activity_modified(activity: Activity):
     if clock_time:
         return last_updated > (clock_time + timedelta(seconds=15))
     return False
+
+
+def get_filter_list_from_string(list: str) -> List[str]:
+    """
+    Function to get the filter names from the pure string passed from query params.
+    Checks names against RE filter provided in settings.py
+
+    Returns `None` if no list is provided.
+    Raises `ValueError` if invalid characters are provided in the list.
+    """
+    if list and not re.match(VALID_NAME_LIST_PATTERN, list):
+        raise ValueError
+
+    if list:
+        return [name.strip() for name in list.split(",") if name.strip()]
+
+    return None
+
+
+def get_pagination_values_from_request(request) -> Tuple[int, int]:
+    """
+    Get the pagination values (offset & limit) from the request and handle limits.
+    Args:
+      request: The request object.
+
+    Returns:
+      Tuple[int, int]: Returned in the order (offset, limit)
+    """
+    try:
+        # enforce min offset = 0
+        offset = max(int(request.GET.get("offset", "0")), 0)
+    except ValueError:
+        offset = 0
+
+    try:
+        # Enforce min limit = 1 and max limit = 150 (settings controlled)
+        limit = min(
+            max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+        )
+    except ValueError:
+        limit = 25
+
+    return offset, limit
 
 
 def str_to_bool(val):

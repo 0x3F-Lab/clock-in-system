@@ -1,6 +1,7 @@
 import logging
 import api.exceptions as err
 
+from rest_framework import status
 from django.urls import reverse
 from django.contrib import messages
 from django.contrib.sitemaps import Sitemap
@@ -15,6 +16,7 @@ from auth_app.utils import (
     manager_required,
     employee_required,
     get_default_page_context,
+    get_user_associated_stores_full_info,
 )
 from auth_app.forms import (
     LoginForm,
@@ -54,7 +56,12 @@ def login(request):
                 user = User.objects.get(email=email)  # Look up the user by email
             except User.DoesNotExist:
                 messages.error(request, "Invalid credentials.")
-                return render(request, "auth_app/login.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             # Ensure user can log into their account
             if not user.is_active:
@@ -62,7 +69,12 @@ def login(request):
                     request,
                     "Cannot log into a deactivated account. Please contact a store manager.",
                 )
-                return render(request, "auth_app/login.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             elif not user.is_setup:
                 messages.error(request, "Please setup your account to login.")
@@ -83,11 +95,22 @@ def login(request):
                     return redirect("home")  # fallback after login
 
             else:
-                # Return error (no need to render here, use final render at end)
                 messages.error(request, "Invalid Credentials.")
+                return render(
+                    request,
+                    "auth_app/login.html",
+                    {"form": form},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         else:
             messages.error(request, "Failed to login. Please correct the errors.")
+            return render(
+                request,
+                "auth_app/login.html",
+                {"form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
 
     else:
         form = LoginForm()
@@ -122,7 +145,10 @@ def setup_account(request):
                         "Cannot setup an inactive account. Please contact a store manager.",
                     )
                     return render(
-                        request, "auth_app/account_setup.html", {"form": form}
+                        request,
+                        "auth_app/account_setup.html",
+                        {"form": form},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
                     )
 
                 # Set password
@@ -154,13 +180,23 @@ def setup_account(request):
 
             except User.DoesNotExist:
                 messages.error(request, "Invalid account email.")
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             except ValidationError as e:
                 messages.error(request, "Invalid data while saving the account.")
                 logger.warning(
                     f"Failed to setup account with email {email} ({first_name} {last_name}) due to a database validation error, producing the error: {e}"
                 )
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             except Exception as e:
                 messages.error(
                     request,
@@ -169,7 +205,12 @@ def setup_account(request):
                 logger.critical(
                     f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}"
                 )
-                return render(request, "auth_app/account_setup.html", {"form": form})
+                return render(
+                    request,
+                    "auth_app/account_setup.html",
+                    {"form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
             # Log the user in by setting session data
             request.session["user_id"] = user.id
@@ -185,6 +226,12 @@ def setup_account(request):
         else:
             messages.error(
                 request, "Failed to setup employee account. Please correct the errors."
+            )
+            return render(
+                request,
+                "auth_app/account_setup.html",
+                {"form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
     else:
@@ -236,16 +283,22 @@ def manual_clocking(request):
             except (User.DoesNotExist, Store.DoesNotExist):
                 messages.error(request, "Invalid PIN combination.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_401_UNAUTHORIZED,
                 )
 
             # Ensure employee is assigned to the store
             if not employee.is_associated_with_store(store=store):
                 messages.error(
-                    request, "The employee is not associated with the store."
+                    request, "Cannot clock in/out to a non-associated store."
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
 
             # Ensure employee is within range of the store's acceptable range
@@ -258,7 +311,10 @@ def manual_clocking(request):
             if dist > store.allowable_clocking_dist_m:
                 messages.error(request, "Cannot clock in/out too far from the store.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_411_LENGTH_REQUIRED,
                 )
 
             # Clock the employee in/out
@@ -281,27 +337,42 @@ def manual_clocking(request):
                     request, "Cannot clock in/out to a non-associated store."
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_403_FORBIDDEN,
                 )
             except err.InactiveUserError:
                 messages.error(request, "Cannot clock in/out an inactive account.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
             except err.StartingShiftTooSoonError:
                 messages.error(request, "Cannot clock in too soon after clocking out.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_409_CONFLICT,
                 )
             except err.ClockingOutTooSoonError:
                 messages.error(request, "Cannot clock out too soon after clocking in.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_409_CONFLICT,
                 )
             except err.InactiveStoreError:
                 messages.error(request, "Cannot clock in/out to an inactive store.")
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
                 )
             except err.NoActiveClockingRecordError:
                 messages.error(
@@ -309,7 +380,10 @@ def manual_clocking(request):
                     "Could not clock out user due to bugged user state. State has been reset, please retry.",
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
             except Exception as e:
                 logger.warning(
@@ -320,19 +394,29 @@ def manual_clocking(request):
                     "Could not manually clock in/out user due to internal errors. Please retry.",
                 )
                 return render(
-                    request, "auth_app/manual_clocking.html", {**context, "form": form}
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
             # Reset the form
             return render(
                 request,
                 "auth_app/manual_clocking.html",
-                {"form": ManualClockingForm(), "activity": activity},
+                {**context, "form": ManualClockingForm()},
+                status=status.HTTP_202_ACCEPTED,
             )
 
         else:
             messages.error(
                 request, "Failed to clock in/out. Please correct the errors."
+            )
+            return render(
+                request,
+                "auth_app/manual_clocking.html",
+                {**context, "form": form},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
     # GET REQUEST (load the page)
@@ -414,12 +498,18 @@ def notification_page(request):
                 recipient_group = data["recipient_group"]
                 notification_type = data["notification_type"]
 
-                if recipient_group == "all_users" and user.is_hidden:
+                if (
+                    recipient_group == Notification.RecipientType.ALL_USERS
+                    and user.is_hidden
+                ):
                     notif = Notification.send_system_notification_to_all(
                         title=title, message=message, sender=user
                     )
 
-                elif recipient_group == "store_employees" and user.is_manager:
+                elif (
+                    recipient_group == Notification.RecipientType.STORE_EMPLOYEES
+                    and user.is_manager
+                ):
                     notif = Notification.send_to_store_users(
                         store=store,
                         title=title,
@@ -428,17 +518,19 @@ def notification_page(request):
                         sender=user,
                     )
 
-                elif recipient_group == "store_managers":
+                elif recipient_group == Notification.RecipientType.STORE_MANAGERS:
                     managers = store.get_store_managers()
                     notif = Notification.send_to_users(
                         users=managers,
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.STORE_MANAGERS,
                         sender=user,
+                        store=store,  # Used to identify receivers in text
                     )
 
-                elif recipient_group == "site_admins":
+                elif recipient_group == Notification.RecipientType.SITE_ADMINS:
                     admins = User.objects.filter(
                         is_active=True, is_hidden=True
                     ).distinct()
@@ -447,10 +539,14 @@ def notification_page(request):
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.SITE_ADMINS,
                         sender=user,
                     )
 
-                elif recipient_group == "all_managers" and user.is_hidden:
+                elif (
+                    recipient_group == Notification.RecipientType.ALL_MANAGERS
+                    and user.is_hidden
+                ):
                     managers = User.objects.filter(
                         is_active=True, is_manager=True
                     ).distinct()
@@ -459,6 +555,7 @@ def notification_page(request):
                         title=title,
                         message=message,
                         notification_type=notification_type,
+                        recipient_group=Notification.RecipientType.ALL_MANAGERS,
                         sender=user,
                     )
 
@@ -470,6 +567,7 @@ def notification_page(request):
                         request,
                         "auth_app/notification_page.html",
                         {**context, "form": form},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 messages.success(request, "Successfully sent notifications.")
@@ -485,6 +583,12 @@ def notification_page(request):
                 messages.error(
                     request, "Failed to send notifications. Please correct the errors."
                 )
+                return render(
+                    request,
+                    "auth_app/notification_page.html",
+                    {**context, "form": form},
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
 
         except Exception as e:
             logger.critical(
@@ -493,6 +597,12 @@ def notification_page(request):
             messages.error(
                 request,
                 "Failed to send your message due to internal server errors. Please try again later.",
+            )
+            return render(
+                request,
+                "auth_app/notification_page.html",
+                {**context, "form": form},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     # GET REQUEST (load the page)
@@ -610,6 +720,31 @@ def manage_account_summary(request):
         return redirect("home")
 
     return render(request, "auth_app/account_summary.html", context)
+
+
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def manage_stores(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    store_info = get_user_associated_stores_full_info(user)
+
+    return render(
+        request, "auth_app/manage_stores.html", {**context, "store_info": store_info}
+    )
 
 
 @require_GET

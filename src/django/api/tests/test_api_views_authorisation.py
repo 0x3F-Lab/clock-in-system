@@ -540,3 +540,43 @@ def test_list_account_summaries_manager_not_associated(logged_in_manager, store)
         "Not authorised to get summaries for a unassociated store."
         in response.json()["Error"]
     )
+
+
+@pytest.mark.django_db
+def test_update_store_info(logged_in_manager, manager, store):
+    """
+    Test that a unassociated manager CANNOT update an unassociated store's info.
+    """
+    # Change the store's info
+    api_client = logged_in_manager
+    url = reverse("api:update_store_info", args=[store.id])
+    data = {
+        "name": "edit name",
+        "loc_street": "edit street",
+        "code": "NEWCODE",
+        "clocking_dist": 450,
+    }
+    response = api_client.patch(url, data=data)
+
+    assert response.status_code == 403
+    assert "Not authorised to update an unassociated store." in response.json()["Error"]
+
+
+@pytest.mark.django_db
+def test_update_store_info(logged_in_employee, store, store_associate_employee):
+    """
+    Test that a unassociated manager CANNOT update an unassociated store's info.
+    """
+    # Change the store's info
+    api_client = logged_in_employee
+    url = reverse("api:update_store_info", args=[store.id])
+    data = {
+        "name": "edit name",
+        "loc_street": "edit street",
+        "code": "NEWCODE",
+        "clocking_dist": 450,
+    }
+    response = api_client.patch(url, data=data)
+
+    assert response.status_code == 403
+    assert "Error" in response.json()
