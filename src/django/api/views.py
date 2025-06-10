@@ -2569,6 +2569,7 @@ def send_employee_notification(request, id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
 def get_schedule_data(week_param):
     if week_param:
         try:
@@ -2583,27 +2584,31 @@ def get_schedule_data(week_param):
 
     week_end = week_start + timedelta(days=6)
 
-    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
-        "employee", "store" 
-    ).order_by('start_time')
+    shifts = (
+        Shift.objects.filter(date__range=(week_start, week_end))
+        .select_related("employee", "store")
+        .order_by("start_time")
+    )
 
     days = [week_start + timedelta(days=i) for i in range(7)]
-    
- 
+
     schedule_data = {}
     for day in days:
         day_str = day.isoformat()
         schedule_data[day_str] = []
         day_shifts = [s for s in shifts if s.date == day]
         for shift in day_shifts:
-            schedule_data[day_str].append({
-                'id': shift.id,
-                'employee_name': f"{shift.employee.first_name} {shift.employee.last_name}",
-                'start_time': shift.start_time.strftime("%-I:%M %p"), # e.g., "9:00 AM"
-                'end_time': shift.end_time.strftime("%-I:%M %p"),
-                'role': shift.role,
-            })
-    
+            schedule_data[day_str].append(
+                {
+                    "id": shift.id,
+                    "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
+                    "start_time": shift.start_time.strftime(
+                        "%-I:%M %p"
+                    ),  # e.g., "9:00 AM"
+                    "end_time": shift.end_time.strftime("%-I:%M %p"),
+                    "role": shift.role,
+                }
+            )
 
     return {
         "week_start": week_start.isoformat(),
@@ -2613,13 +2618,17 @@ def get_schedule_data(week_param):
         "next_week": (week_start + timedelta(days=7)).isoformat(),
     }
 
+
 from django.views.decorators.http import require_http_methods
 from django.forms import ModelForm
 import json
+
+
 class ShiftForm(ModelForm):
     class Meta:
         model = Shift
-        fields = ['employee', 'date', 'start_time', 'end_time', 'role', 'store']
+        fields = ["employee", "date", "start_time", "end_time", "role", "store"]
+
 
 @require_http_methods(["GET", "POST"])
 def schedule_data_api(request):
@@ -2628,46 +2637,52 @@ def schedule_data_api(request):
     - GET: Fetches schedule for a given week.
     - POST: Creates a new shift.
     """
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
             # Load the JSON data from the request body
             data = json.loads(request.body)
-            
-            active_store_id = request.session.get('selected_store_id', 1) 
-            data['store'] = active_store_id
+
+            active_store_id = request.session.get("selected_store_id", 1)
+            data["store"] = active_store_id
 
             form = ShiftForm(data)
             if form.is_valid():
                 form.save()
-                return JsonResponse({'status': 'success', 'message': 'Shift added successfully.'}, status=201)
+                return JsonResponse(
+                    {"status": "success", "message": "Shift added successfully."},
+                    status=201,
+                )
             else:
-                return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+                return JsonResponse(
+                    {"status": "error", "errors": form.errors}, status=400
+                )
         except json.JSONDecodeError:
-            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+            return JsonResponse(
+                {"status": "error", "message": "Invalid JSON"}, status=400
+            )
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     week_param = request.GET.get("week")
     data = get_schedule_data(week_param)
     return JsonResponse(data)
+
 
 def employee_list_api(request):
     """
     API endpoint to fetch a list of all employees, ordered by first name.
     """
     # Use User.objects.filter(is_active=True) if you only want active employees
-    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
-    
+    employees = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+
     # Format the data for a dropdown
     employee_data = [
-        {'id': emp.id, 'full_name': f"{emp.first_name} {emp.last_name}".strip()}
-        for emp in employees if emp.first_name # Only include users with a name
+        {"id": emp.id, "full_name": f"{emp.first_name} {emp.last_name}".strip()}
+        for emp in employees
+        if emp.first_name  # Only include users with a name
     ]
-    
-    return JsonResponse({'employees': employee_data})
 
-
+    return JsonResponse({"employees": employee_data})
 
 
 @require_http_methods(["GET", "PUT", "DELETE"])
@@ -2680,29 +2695,33 @@ def shift_detail_api(request, shift_id):
     """
     shift = get_object_or_404(Shift, pk=shift_id)
 
-    if request.method == 'GET':
+    if request.method == "GET":
         data = {
             "id": shift.id,
-            "employee": shift.employee.id, 
+            "employee": shift.employee.id,
             "date": shift.date.isoformat(),
-            "start_time": shift.start_time.strftime('%H:%M'),
-            "end_time": shift.end_time.strftime('%H:%M'),
-            "role": shift.role
+            "start_time": shift.start_time.strftime("%H:%M"),
+            "end_time": shift.end_time.strftime("%H:%M"),
+            "role": shift.role,
         }
         return JsonResponse(data)
 
-    if request.method == 'PUT':
+    if request.method == "PUT":
         data = json.loads(request.body)
 
-        data['store'] = shift.store.id
+        data["store"] = shift.store.id
 
-        form = ShiftForm(data, instance=shift) 
+        form = ShiftForm(data, instance=shift)
         if form.is_valid():
             form.save()
-            return JsonResponse({'status': 'success', 'message': 'Shift updated successfully.'})
+            return JsonResponse(
+                {"status": "success", "message": "Shift updated successfully."}
+            )
         else:
-            return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+            return JsonResponse({"status": "error", "errors": form.errors}, status=400)
 
-    if request.method == 'DELETE':
+    if request.method == "DELETE":
         shift.delete()
-        return JsonResponse({'status': 'success', 'message': 'Shift deleted successfully.'}, status=204) # 204 No Content
+        return JsonResponse(
+            {"status": "success", "message": "Shift deleted successfully."}, status=204
+        )  # 204 No Content
