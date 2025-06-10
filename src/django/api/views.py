@@ -19,6 +19,8 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
+from django.shortcuts import get_object_or_404
+from django.core.serializers import serialize
 from auth_app.models import (
     User,
     Activity,
@@ -2595,6 +2597,7 @@ def get_schedule_data(week_param):
         day_shifts = [s for s in shifts if s.date == day]
         for shift in day_shifts:
             schedule_data[day_str].append({
+                'id': shift.id,
                 'employee_name': f"{shift.employee.first_name} {shift.employee.last_name}",
                 'start_time': shift.start_time.strftime("%-I:%M %p"), # e.g., "9:00 AM"
                 'end_time': shift.end_time.strftime("%-I:%M %p"),
@@ -2663,3 +2666,43 @@ def employee_list_api(request):
     ]
     
     return JsonResponse({'employees': employee_data})
+
+
+
+
+@require_http_methods(["GET", "PUT", "DELETE"])
+def shift_detail_api(request, shift_id):
+    """
+    API endpoint for handling a single shift.
+    - GET: Retrieves details for one shift.
+    - PUT: Updates a shift.
+    - DELETE: Deletes a shift.
+    """
+    shift = get_object_or_404(Shift, pk=shift_id)
+
+    if request.method == 'GET':
+        data = {
+            "id": shift.id,
+            "employee": shift.employee.id, 
+            "date": shift.date.isoformat(),
+            "start_time": shift.start_time.strftime('%H:%M'),
+            "end_time": shift.end_time.strftime('%H:%M'),
+            "role": shift.role
+        }
+        return JsonResponse(data)
+
+    if request.method == 'PUT':
+        data = json.loads(request.body)
+
+        data['store'] = shift.store.id
+
+        form = ShiftForm(data, instance=shift) 
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'status': 'success', 'message': 'Shift updated successfully.'})
+        else:
+            return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+
+    if request.method == 'DELETE':
+        shift.delete()
+        return JsonResponse({'status': 'success', 'message': 'Shift deleted successfully.'}, status=204) # 204 No Content

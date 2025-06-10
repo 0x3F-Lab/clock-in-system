@@ -37,7 +37,7 @@ $(document).ready(function() {
                     if (dayShifts.length > 0) {
                         dayShifts.forEach(shift => {
                             shiftsHtml += `
-                                <div class="mb-2 p-2 border rounded">
+                                <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
                                     <strong>${shift.employee_name}</strong><br>
                                     <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
                                     ${shift.role ? `<small class="text-muted d-block">${shift.role}</small>` : ''}
@@ -70,6 +70,91 @@ $(document).ready(function() {
             }
         });
     }
+
+    // --- Logic for opening the EDIT modal when a shift is clicked ---
+    $('#schedule-container').on('click', '.shift-item', function() {
+        const shiftId = $(this).data('shift-id');
+        const shiftDetailUrl = `/api/v1/shifts/${shiftId}/`; 
+
+        $.ajax({
+            url: shiftDetailUrl,
+            method: 'GET',
+            success: function(shiftData) {
+                $('#editShiftForm').data('shift-date', shiftData.date); 
+                $('#editShiftId').val(shiftData.id);
+                $('#editShiftRole').val(shiftData.role);
+                $('#editStartTime').val(shiftData.start_time);
+                $('#editEndTime').val(shiftData.end_time);
+
+                const employeeApiUrl = $('#schedule-container').data('employee-api-url');
+                $.ajax({
+                    url: employeeApiUrl,
+                    method: 'GET',
+                    success: function(empData) {
+                        const employeeSelect = $('#editEmployeeSelect');
+                        employeeSelect.empty();
+                        empData.employees.forEach(emp => {
+                            employeeSelect.append(`<option value="${emp.id}">${emp.full_name}</option>`);
+                        });
+                        employeeSelect.val(shiftData.employee);
+                    }
+                });
+                
+                const editModal = new bootstrap.Modal(document.getElementById('editShiftModal'));
+                editModal.show();
+            }
+        });
+    });
+
+    // --- Logic for the "Update Shift" button ---
+    $('#updateShiftBtn').on('click', function() {
+        const shiftId = $('#editShiftId').val();
+        
+        const shiftData = {
+            date: $('#editShiftForm').data('shift-date'), 
+            employee: $('#editEmployeeSelect').val(),
+            role: $('#editShiftRole').val(),
+            start_time: $('#editStartTime').val(),
+            end_time: $('#editEndTime').val()
+        };
+
+        const updateUrl = `/api/v1/shifts/${shiftId}/`;
+        $.ajax({
+            url: updateUrl,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(shiftData),
+            headers: {'X-CSRFToken': csrftoken},
+            success: function(response) {
+                bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
+                loadSchedule(new URLSearchParams(window.location.search).get('week'));
+            },
+            error: function(error) {
+                alert('Error updating shift: ' + JSON.stringify(error.responseJSON.errors));
+            }
+        });
+    });
+
+    // Logic for the "Delete Shift" button
+    $('#deleteShiftBtn').on('click', function() {
+        if (confirm('Are you sure you want to delete this shift? This cannot be undone.')) {
+            const shiftId = $('#editShiftId').val();
+            const deleteUrl = `/api/v1/shifts/${shiftId}/`;
+
+            $.ajax({
+                url: deleteUrl,
+                method: 'DELETE',
+                headers: {'X-CSRFToken': csrftoken},
+                success: function(response) {
+                    bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
+                    loadSchedule(new URLSearchParams(window.location.search).get('week'));
+                },
+                error: function(error) {
+                    alert('Error deleting shift.');
+                }
+            });
+        }
+    });
 
     // ADDING NEW SHIFTS
     $('#schedule-container').on('click', '.add-shift-btn', function() {
