@@ -460,7 +460,7 @@ async function getLocationData() {
         {
           enableHighAccuracy: true,  // Request high accuracy for mobile users
           timeout: 30000,            // Timeout after 30 seconds
-          maximumAge: 45000          // Allow cached location up to 45s old
+          maximumAge: 30000          // Allow cached location up to 30s old
         }
       );
     });
