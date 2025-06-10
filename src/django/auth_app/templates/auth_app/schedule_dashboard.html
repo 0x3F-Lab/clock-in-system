@@ -6,25 +6,68 @@
 {% block content_container_class %}my-5{% endblock %}
 
 {% block content %}
+  {% csrf_token %}
+
   {% include "components/store_selection_controller.html" %}
 
   <h2 class="mb-4 text-center" id="schedule-week-title"></h2>
 
   <div class="scroll-container">
-    <div class="d-flex" id="schedule-container" data-api-url="{% url 'api:api_schedule_data' %}">
+    <div class="d-flex" id="schedule-container" 
+         data-api-url="{% url 'api:api_schedule_data' %}" 
+         data-employee-api-url="{% url 'api:api_employee_list' %}">
         </div>
   </div>
 
   <div class="d-flex justify-content-between mt-4">
-    <a class="btn btn-outline-primary" href="#" id="previous-week-btn">
-      ← Previous Week
-    </a>
-    <a class="btn btn-outline-primary" href="#" id="next-week-btn">
-      Next Week →
-    </a>
+    <a class="btn btn-outline-primary" href="#" id="previous-week-btn">← Previous Week</a>
+    <a class="btn btn-outline-primary" href="#" id="next-week-btn">Next Week →</a>
+  </div>
+
+  <div class="modal fade" id="addShiftModal" tabindex="-1" aria-labelledby="addShiftModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="addShiftModalLabel">Add New Shift</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="addShiftForm">
+            <input type="hidden" id="shiftDate" name="date">
+            
+            <div class="mb-3">
+              <label for="employeeSelect" class="form-label">Employee</label>
+              <select class="form-select" id="employeeSelect" name="employee" required>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="shiftRole" class="form-label">Role (Optional)</label>
+                <input type="text" class="form-control" id="shiftRole" name="role">
+            </div>
+
+            <div class="row">
+              <div class="col">
+                <label for="startTime" class="form-label">Start Time</label>
+                <input type="time" class="form-control" id="startTime" name="start_time" required>
+              </div>
+              <div class="col">
+                <label for="endTime" class="form-label">End Time</label>
+                <input type="time" class="form-control" id="endTime" name="end_time" required>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="saveShiftBtn">Save Shift</button>
+        </div>
+      </div>
+    </div>
   </div>
 {% endblock %}
 
 {% block customscripts %}
-<script src="{% static 'js/schedule_dashboard.js' %}"></script>
+  <script src="{% static 'js/schedule_dashboard.js' %}"></script>
 {% endblock %}

@@ -2598,11 +2598,9 @@ def get_schedule_data(week_param):
                 'employee_name': f"{shift.employee.first_name} {shift.employee.last_name}",
                 'start_time': shift.start_time.strftime("%-I:%M %p"), # e.g., "9:00 AM"
                 'end_time': shift.end_time.strftime("%-I:%M %p"),
-                'role': shift.role.name if shift.role else None,
+                'role': shift.role,
             })
     
-    for day_str in schedule_data:
-        schedule_data[day_str].sort(key=lambda x: x['start_time'])
 
     return {
         "week_start": week_start.isoformat(),
@@ -2612,12 +2610,56 @@ def get_schedule_data(week_param):
         "next_week": (week_start + timedelta(days=7)).isoformat(),
     }
 
+from django.views.decorators.http import require_http_methods
+from django.forms import ModelForm
+import json
+class ShiftForm(ModelForm):
+    class Meta:
+        model = Shift
+        fields = ['employee', 'date', 'start_time', 'end_time', 'role', 'store']
 
+@require_http_methods(["GET", "POST"])
 def schedule_data_api(request):
     """
-    API endpoint to fetch schedule data.
-    Accepts a 'week' GET parameter (e.g., ?week=2025-06-09)
+    API endpoint to fetch or create schedule data.
+    - GET: Fetches schedule for a given week.
+    - POST: Creates a new shift.
     """
+    if request.method == 'POST':
+        try:
+            # Load the JSON data from the request body
+            data = json.loads(request.body)
+            
+            active_store_id = request.session.get('selected_store_id', 1) 
+            data['store'] = active_store_id
+
+            form = ShiftForm(data)
+            if form.is_valid():
+                form.save()
+                return JsonResponse({'status': 'success', 'message': 'Shift added successfully.'}, status=201)
+            else:
+                return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
     week_param = request.GET.get("week")
     data = get_schedule_data(week_param)
     return JsonResponse(data)
+
+def employee_list_api(request):
+    """
+    API endpoint to fetch a list of all employees, ordered by first name.
+    """
+    # Use User.objects.filter(is_active=True) if you only want active employees
+    employees = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
+    
+    # Format the data for a dropdown
+    employee_data = [
+        {'id': emp.id, 'full_name': f"{emp.first_name} {emp.last_name}".strip()}
+        for emp in employees if emp.first_name # Only include users with a name
+    ]
+    
+    return JsonResponse({'employees': employee_data})

@@ -84,4 +84,5 @@ urlpatterns = [
         name="send_employee_message",
     ),
     path('schedule-data/', views.schedule_data_api, name='api_schedule_data'),
+    path('employees/', views.employee_list_api, name='api_employee_list'),
 ]
