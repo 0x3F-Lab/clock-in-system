@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("auth_app", "0030_alter_activity_logout_time_and_more"),
+        ("auth_app", "0032_alter_activity_login_time"),
     ]
 
     operations = [
