@@ -104,20 +104,16 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             elif employee.is_clocked_in(store=store):
                 raise err.AlreadyClockedInError
 
-            # Check if user is inactive
-            elif not employee.is_active:
-                raise err.InactiveUserError
-
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store):
+            elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
             # Check the store is active
-            if not store.is_active:
+            elif not store.is_active:
                 raise err.InactiveStoreError
 
             # Check if the employee is trying to clock in too soon after their last shift (default=30m)
-            if check_new_shift_too_soon(employee=employee, store=store):
+            elif check_new_shift_too_soon(employee=employee, store=store):
                 raise err.StartingShiftTooSoonError
 
             time = localtime(now())  # Consistent timestamp
@@ -189,24 +185,24 @@ def handle_clock_out(
             if not employee.is_active:
                 raise err.InactiveUserError
 
+            # Check the store is active
+            elif not store.is_active:
+                raise err.InactiveStoreError
+
             # Check if not clocked in
             elif not employee.is_clocked_in(store=store):
                 raise err.AlreadyClockedOutError
 
             # Check user is associated with the store
-            if not employee.is_associated_with_store(store):
+            elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
-            # Check the store is active
-            if not store.is_active:
-                raise err.InactiveStoreError
+            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
+            elif check_clocking_out_too_soon(employee=employee, store=store):
+                raise err.ClockingOutTooSoonError
 
             # Fetch the last active clock-in record
             activity = employee.get_last_active_activity_for_store(store=store)
-
-            # Check if the employee is trying to clock out too soon after their last shift (default=10m)
-            if check_clocking_out_too_soon(employee=employee, store=store):
-                raise err.ClockingOutTooSoonError
 
             time = localtime(now())
             activity.logout_timestamp = time
