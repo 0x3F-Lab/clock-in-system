@@ -2584,17 +2584,16 @@ def get_schedule_data(week_param, store_id):
     week_end = week_start + timedelta(days=6)
 
     shifts_query = Shift.objects.select_related("employee", "store")
-    
+
     if store_id:
         shifts_query = shifts_query.filter(
-            date__range=(week_start, week_end),
-            store_id=store_id
+            date__range=(week_start, week_end), store_id=store_id
         )
     else:
         # If no store is selected, return no shifts.
         shifts_query = shifts_query.none()
 
-    shifts = shifts_query.order_by('start_time')
+    shifts = shifts_query.order_by("start_time")
 
     days = [week_start + timedelta(days=i) for i in range(7)]
 
@@ -2643,32 +2642,40 @@ def schedule_data_api(request):
     - GET: Fetches schedule for a given week.
     - POST: Creates a new shift.
     """
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            active_store_id = request.session.get('selected_store_id')
+            active_store_id = request.session.get("selected_store_id")
             if not active_store_id:
                 return JsonResponse(
-                    {'status': 'error', 'message': 'No active store selected. Please select a store from the dropdown.'}, 
-                    status=400
+                    {
+                        "status": "error",
+                        "message": "No active store selected. Please select a store from the dropdown.",
+                    },
+                    status=400,
                 )
 
             data = json.loads(request.body)
-            data['store'] = active_store_id # Add the active store ID
+            data["store"] = active_store_id  # Add the active store ID
 
             form = ShiftForm(data)
             if form.is_valid():
                 form.save()
-                return JsonResponse({'status': 'success', 'message': 'Shift added successfully.'}, status=201)
+                return JsonResponse(
+                    {"status": "success", "message": "Shift added successfully."},
+                    status=201,
+                )
             else:
-                return JsonResponse({'status': 'error', 'errors': form.errors}, status=400)
+                return JsonResponse(
+                    {"status": "error", "errors": form.errors}, status=400
+                )
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
     week_param = request.GET.get("week")
     store_id = request.GET.get("store_id")
     data = get_schedule_data(week_param, store_id)
     return JsonResponse(data)
+
 
 @require_http_methods(["POST"])
 def set_active_store_api(request):
@@ -2677,17 +2684,22 @@ def set_active_store_api(request):
     """
     try:
         data = json.loads(request.body)
-        store_id = data.get('store_id')
+        store_id = data.get("store_id")
 
         if not store_id:
-            return JsonResponse({'status': 'error', 'message': 'Store ID is required.'}, status=400)
-        
-    # ADD SECURITY CHECKS (tbd)
+            return JsonResponse(
+                {"status": "error", "message": "Store ID is required."}, status=400
+            )
 
-        request.session['selected_store_id'] = store_id
-        return JsonResponse({'status': 'success', 'message': f'Active store set to {store_id}.'})
+        # ADD SECURITY CHECKS (tbd)
+
+        request.session["selected_store_id"] = store_id
+        return JsonResponse(
+            {"status": "success", "message": f"Active store set to {store_id}."}
+        )
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
 
 def employee_list_api(request):
     """
