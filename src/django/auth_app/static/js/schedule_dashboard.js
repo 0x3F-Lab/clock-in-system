@@ -16,61 +16,116 @@ $(document).ready(function() {
     }
 
     // Main function to fetch and render the schedule
-    function loadSchedule(week) {
+    function loadSchedule(week, storeId) {
+        console.log("Requesting schedule for week:", week, "and store ID:", storeId);
         let baseApiUrl = $('#schedule-container').data('api-url');
-        let finalApiUrl = baseApiUrl;
+        
+        
+        let params = new URLSearchParams(); 
+        
+        
         if (week) {
-            finalApiUrl += `?week=${week}`;
+            params.append('week', week);
         }
+        
+        if (storeId !== null && storeId !== undefined) { 
+            params.append('store_id', storeId);
+        }
+        
+        const finalApiUrl = `${baseApiUrl}?${params.toString()}`;
 
         $.ajax({
             url: finalApiUrl,
             method: 'GET',
             success: function(data) {
+                console.log("Received data from server:", data);
+                
                 $('#schedule-week-title').text(`Week of ${formatWeekTitle(data.week_start)}`);
                 const scheduleContainer = $('#schedule-container');
                 scheduleContainer.empty();
 
-                data.days.forEach(dayString => {
-                    const dayShifts = data.schedule_data[dayString];
-                    let shiftsHtml = '';
-                    if (dayShifts.length > 0) {
-                        dayShifts.forEach(shift => {
-                            shiftsHtml += `
-                                <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
-                                    <strong>${shift.employee_name}</strong><br>
-                                    <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
-                                    ${shift.role ? `<small class="text-muted d-block">${shift.role}</small>` : ''}
-                                </div>`;
-                        });
-                    } else {
-                        shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
-                    }
+                if (data.days && data.days.length > 0) {
+                    data.days.forEach(dayString => {
+                        const dayShifts = data.schedule_data[dayString];
+                        let shiftsHtml = '';
+                        if (dayShifts && dayShifts.length > 0) {
+                            dayShifts.forEach(shift => {
+                                shiftsHtml += `
+                                    <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
+                                        <strong>${shift.employee_name}</strong><br>
+                                        <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
+                                        ${shift.role ? `<small class="text-muted d-block">${shift.role}</small>` : ''}
+                                    </div>`;
+                            });
+                        } else {
+                            shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
+                        }
 
-                    // SHIFT ADD BUTTON
-                    const dayCardHtml = `
-                        <div class="card">
-                            <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
-                                <span>${formatDayHeader(dayString)}</span>
-                                <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayString}">
-                                    <i class="fas fa-plus"></i>
-                                </button>
-                            </div>
-                            <div class="card-body p-2">${shiftsHtml}</div>
-                        </div>`;
-                    scheduleContainer.append(dayCardHtml);
-                });
+                        const dayCardHtml = `
+                            <div class="card">
+                                <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
+                                    <span>${formatDayHeader(dayString)}</span>
+                                    <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayString}">
+                                        <i class="fas fa-plus"></i> +
+                                    </button>
+                                </div>
+                                <div class="card-body p-2">${shiftsHtml}</div>
+                            </div>`;
+                        scheduleContainer.append(dayCardHtml);
+                    });
+                } else {
+                    scheduleContainer.html('<p class="text-center">No schedule data to display. Please select a store.</p>');
+                }
 
                 $('#previous-week-btn').data('week', data.previous_week);
                 $('#next-week-btn').data('week', data.next_week);
             },
-            error: function(error) {
-                console.error("Error fetching schedule data:", error);
-                $('#schedule-container').html('<p class="text-center text-danger">Could not load schedule. Please try again later.</p>');
+            error: function() {
+                $('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
             }
         });
     }
 
+    // A dedicated function to handle updating the session and reloading the schedule.
+    function updateActiveStoreAndReload(storeId) {
+        // Check for a valid ID. This handles the '0' ID case correctly.
+        if (storeId === null) { 
+            console.log("No valid store ID provided. Clearing schedule.");
+            $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
+            return; // Stop if no store is selected
+        }
+
+        const setStoreUrl = $('#schedule-container').data('set-store-url');
+        console.log("Attempting to set active store to:", storeId);
+
+        $.ajax({
+            url: setStoreUrl,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ store_id: storeId }),
+            headers: {'X-CSRFToken': csrftoken},
+            success: function(response) {
+                console.log("Successfully set active store. Now loading schedule...");
+                
+                // On success, reload the schedule with the new store
+                const currentWeek = new URLSearchParams(window.location.search).get('week');
+                loadSchedule(currentWeek, storeId);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error("Failed to set active store.", textStatus, errorThrown);
+                alert('Could not update selected store. Please try again.');
+            }
+        });
+    }
+
+    
+    $('#storeSelectDropdown').on('change', function() {
+        const selectedStoreId = getSelectedStoreID();
+        updateActiveStoreAndReload(selectedStoreId);
+    });
+
+    const initialStoreId = getSelectedStoreID();
+    updateActiveStoreAndReload(initialStoreId);
     // --- Logic for opening the EDIT modal when a shift is clicked ---
     $('#schedule-container').on('click', '.shift-item', function() {
         const shiftId = $(this).data('shift-id');
@@ -144,10 +199,16 @@ $(document).ready(function() {
             $.ajax({
                 url: deleteUrl,
                 method: 'DELETE',
-                headers: {'X-CSRFToken': csrftoken},
+                headers: {'X-CSRFToken': csrftoken}, // Ensure 'csrftoken' is defined
                 success: function(response) {
+                    // First, hide the modal
                     bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                    loadSchedule(new URLSearchParams(window.location.search).get('week'));
+                    
+                    
+                    const currentWeek = new URLSearchParams(window.location.search).get('week');
+                    const currentStoreId = getSelectedStoreID(); // Get the currently selected store
+                    
+                    loadSchedule(currentWeek, currentStoreId);
                 },
                 error: function(error) {
                     alert('Error deleting shift.');
@@ -180,7 +241,7 @@ $(document).ready(function() {
         addShiftModal.show();
     });
 
-    // 2. Handle the form submission
+    // Handle the form submission
     $('#saveShiftBtn').on('click', function() {
         const form = $('#addShiftForm');
         const formData = {
@@ -198,26 +259,33 @@ $(document).ready(function() {
         }
 
         const apiUrl = $('#schedule-container').data('api-url');
+        
         $.ajax({
             url: apiUrl,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(formData),
-            headers: {'X-CSRFToken': csrftoken}, // Include CSRF token
+            headers: {'X-CSRFToken': csrftoken}, 
             success: function(response) {
-                // Hide the modal
+                
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
                 
                 // Reset the form for next time
                 form[0].reset();
 
-                // Reload the schedule to show the new shift
                 const currentWeek = new URLSearchParams(window.location.search).get('week');
-                loadSchedule(currentWeek); 
+                const currentStoreId = getSelectedStoreID(); // Get the currently selected store
+                
+                loadSchedule(currentWeek, currentStoreId); 
             },
             error: function(error) {
-                alert('Error adding shift: ' + JSON.stringify(error.responseJSON.errors));
+                
+                if(error.responseJSON && error.responseJSON.errors) {
+                    alert('Error adding shift: ' + JSON.stringify(error.responseJSON.errors));
+                } else {
+                    alert('An unknown error occurred while adding the shift.');
+                }
                 console.error("Error adding shift:", error);
             }
         });
@@ -240,5 +308,6 @@ $(document).ready(function() {
     // Initial load
     const urlParams = new URLSearchParams(window.location.search);
     const initialWeek = urlParams.get('week');
+    $('#storeSelectDropdown').trigger('change');
     loadSchedule(initialWeek);
 });
