@@ -2703,18 +2703,32 @@ def set_active_store_api(request):
 
 def employee_list_api(request):
     """
-    API endpoint to fetch a list of all employees, ordered by first name.
+    API endpoint to fetch a list of employees for a SPECIFIC store,
+    ordered by first name.
+    Expects a `store_id` GET parameter.
     """
-    employees = User.objects.filter(is_active=True).order_by("first_name", "last_name")
+    store_id = request.GET.get('store_id')
 
-    # Format the data for a dropdown
+    if not store_id:
+        return JsonResponse({'error': 'store_id parameter is required.'}, status=400)
+
+    try:
+        employee_ids = StoreUserAccess.objects.filter(store_id=store_id).values_list('user_id', flat=True)
+        employees = User.objects.filter(
+            id__in=employee_ids,
+            is_active=True
+        ).order_by('first_name', 'last_name')
+
+    except Exception as e:
+        # Handle cases where store_id might not be a valid number, etc.
+        return JsonResponse({'error': str(e)}, status=500)
+
     employee_data = [
-        {"id": emp.id, "full_name": f"{emp.first_name} {emp.last_name}".strip()}
-        for emp in employees
-        if emp.first_name  # Only include users with a name
+        {'id': emp.id, 'full_name': f"{emp.first_name} {emp.last_name}".strip()}
+        for emp in employees if emp.first_name
     ]
 
-    return JsonResponse({"employees": employee_data})
+    return JsonResponse({'employees': employee_data})
 
 
 @require_http_methods(["GET", "PUT", "DELETE"])

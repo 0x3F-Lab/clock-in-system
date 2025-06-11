@@ -124,8 +124,45 @@ $(document).ready(function() {
         updateActiveStoreAndReload(selectedStoreId);
     });
 
-    const initialStoreId = getSelectedStoreID();
-    updateActiveStoreAndReload(initialStoreId);
+    function updateEmployeeDropdowns(storeId) {
+        if (storeId === null || storeId === undefined) {
+            console.warn("updateEmployeeDropdowns called with no storeId.");
+            return;
+        }
+
+        const employeeApiUrl = `${$('#schedule-container').data('employee-api-url')}?store_id=${storeId}`;
+        console.log(`Updating employee dropdowns for store ${storeId}...`);
+
+        $.ajax({
+            url: employeeApiUrl,
+            method: 'GET',
+            success: function(empData) {
+                const $addSelect = $('#employeeSelect'); // Dropdown in "Add" modal
+                const $editSelect = $('#editEmployeeSelect'); // Dropdown in "Edit" modal
+
+                // Clear both dropdowns
+                $addSelect.empty();
+                $editSelect.empty();
+
+                if (empData.employees && empData.employees.length > 0) {
+                    // Create the HTML string of options once
+                    let optionsHtml = '<option value="" disabled selected>Select an employee...</option>';
+                    empData.employees.forEach(emp => {
+                        optionsHtml += `<option value="${emp.id}">${emp.full_name}</option>`;
+                    });
+                    
+                    // Populate both dropdowns with the same list
+                    $addSelect.html(optionsHtml);
+                    $editSelect.html(optionsHtml);
+                } else {
+                    const noEmployeesHtml = '<option value="">No employees found for this store</option>';
+                    $addSelect.html(noEmployeesHtml);
+                    $editSelect.html(noEmployeesHtml);
+                }
+            }
+        });
+    }
+    
     // --- Logic for opening the EDIT modal when a shift is clicked ---
     $('#schedule-container').on('click', '.shift-item', function() {
         const shiftId = $(this).data('shift-id');
@@ -135,25 +172,15 @@ $(document).ready(function() {
             url: shiftDetailUrl,
             method: 'GET',
             success: function(shiftData) {
+                // Populate the form fields
                 $('#editShiftForm').data('shift-date', shiftData.date); 
                 $('#editShiftId').val(shiftData.id);
                 $('#editShiftRole').val(shiftData.role);
                 $('#editStartTime').val(shiftData.start_time);
                 $('#editEndTime').val(shiftData.end_time);
 
-                const employeeApiUrl = $('#schedule-container').data('employee-api-url');
-                $.ajax({
-                    url: employeeApiUrl,
-                    method: 'GET',
-                    success: function(empData) {
-                        const employeeSelect = $('#editEmployeeSelect');
-                        employeeSelect.empty();
-                        empData.employees.forEach(emp => {
-                            employeeSelect.append(`<option value="${emp.id}">${emp.full_name}</option>`);
-                        });
-                        employeeSelect.val(shiftData.employee);
-                    }
-                });
+                // Simply set the value on the already-populated dropdown
+                $('#editEmployeeSelect').val(shiftData.employee);
                 
                 const editModal = new bootstrap.Modal(document.getElementById('editShiftModal'));
                 editModal.show();
@@ -164,7 +191,6 @@ $(document).ready(function() {
     // --- Logic for the "Update Shift" button ---
     $('#updateShiftBtn').on('click', function() {
         const shiftId = $('#editShiftId').val();
-        
         const shiftData = {
             date: $('#editShiftForm').data('shift-date'), 
             employee: $('#editEmployeeSelect').val(),
@@ -182,7 +208,9 @@ $(document).ready(function() {
             headers: {'X-CSRFToken': csrftoken},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                loadSchedule(new URLSearchParams(window.location.search).get('week'));
+                const currentWeek = new URLSearchParams(window.location.search).get('week');
+                const currentStoreId = getSelectedStoreID();
+                loadSchedule(currentWeek, currentStoreId);
             },
             error: function(error) {
                 alert('Error updating shift: ' + JSON.stringify(error.responseJSON.errors));
@@ -220,28 +248,17 @@ $(document).ready(function() {
     // ADDING NEW SHIFTS
     $('#schedule-container').on('click', '.add-shift-btn', function() {
         const day = $(this).data('day');
-        $('#shiftDate').val(day); // Set the hidden date input
+        $('#shiftDate').val(day);
 
-        // Fetch employees and populate the dropdown
-        const employeeApiUrl = $('#schedule-container').data('employee-api-url');
-        $.ajax({
-            url: employeeApiUrl,
-            method: 'GET',
-            success: function(data) {
-                const employeeSelect = $('#employeeSelect');
-                employeeSelect.empty(); // Clear previous options
-                employeeSelect.append('<option value="" disabled selected>Select an employee...</option>');
-                data.employees.forEach(emp => {
-                    employeeSelect.append(`<option value="${emp.id}">${emp.full_name}</option>`);
-                });
-            }
-        });
-
+        // The employee dropdown is already populated. We just reset it
+        // to show the placeholder text. No AJAX call is needed here.
+        $('#employeeSelect').find('option[disabled]').prop('selected', true);
+        
+        // Simply show the modal.
         const addShiftModal = new bootstrap.Modal(document.getElementById('addShiftModal'));
         addShiftModal.show();
     });
 
-    // Handle the form submission
     $('#saveShiftBtn').on('click', function() {
         const form = $('#addShiftForm');
         const formData = {
@@ -252,7 +269,6 @@ $(document).ready(function() {
             end_time: form.find('#endTime').val()
         };
 
-        // Basic validation
         if (!formData.date || !formData.employee || !formData.start_time || !formData.end_time) {
             alert('Please fill out all required fields.');
             return;
@@ -267,20 +283,15 @@ $(document).ready(function() {
             data: JSON.stringify(formData),
             headers: {'X-CSRFToken': csrftoken}, 
             success: function(response) {
-                
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
-                
-                // Reset the form for next time
                 form[0].reset();
 
                 const currentWeek = new URLSearchParams(window.location.search).get('week');
-                const currentStoreId = getSelectedStoreID(); // Get the currently selected store
-                
+                const currentStoreId = getSelectedStoreID();
                 loadSchedule(currentWeek, currentStoreId); 
             },
             error: function(error) {
-                
                 if(error.responseJSON && error.responseJSON.errors) {
                     alert('Error adding shift: ' + JSON.stringify(error.responseJSON.errors));
                 } else {
@@ -308,9 +319,24 @@ $(document).ready(function() {
         loadSchedule(nextWeek, currentStoreId);
     });
 
-    // Initial load
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialWeek = urlParams.get('week');
-    $('#storeSelectDropdown').trigger('change');
-    loadSchedule(initialWeek);
+    $('#storeSelectDropdown').on('change', function() {
+        const selectedStoreId = getSelectedStoreID();
+        
+        // This function handles setting the session and reloading the schedule
+        updateActiveStoreAndReload(selectedStoreId); 
+        
+        // This function updates the hidden modals
+        updateEmployeeDropdowns(selectedStoreId);
+    })
+
+    // Initial Page Load
+    const initialStoreId = getSelectedStoreID();
+    if (initialStoreId !== null) {
+        // This loads the schedule for the initial store
+        updateActiveStoreAndReload(initialStoreId);
+        // This pre-populates the employee dropdowns for the initial store
+        updateEmployeeDropdowns(initialStoreId);
+    } else {
+        $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
+    }
 });
