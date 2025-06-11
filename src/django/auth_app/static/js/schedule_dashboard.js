@@ -291,18 +291,21 @@ $(document).ready(function() {
         });
     });
 
-    // Event listener for the "Previous Week" button
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
-        const week = $(this).data('week');
-        loadSchedule(week);
+        const previousWeek = $(this).data('week');
+        const currentStoreId = getSelectedStoreID();
+        
+        loadSchedule(previousWeek, currentStoreId);
     });
 
     // Event listener for the "Next Week" button
     $('#next-week-btn').on('click', function(e) {
         e.preventDefault();
-        const week = $(this).data('week');
-        loadSchedule(week);
+        const nextWeek = $(this).data('week');
+        const currentStoreId = getSelectedStoreID();
+        
+        loadSchedule(nextWeek, currentStoreId);
     });
 
     // Initial load
