@@ -14,6 +14,8 @@ from django.http import JsonResponse
 from django.utils import timezone
 from datetime import date, timedelta
 import json
+from django.views.decorators.http import require_http_methods
+from django.forms import ModelForm
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -2624,11 +2626,6 @@ def get_schedule_data(week_param, store_id):
     }
 
 
-from django.views.decorators.http import require_http_methods
-from django.forms import ModelForm
-import json
-
-
 class ShiftForm(ModelForm):
     class Meta:
         model = Shift
@@ -2707,28 +2704,30 @@ def employee_list_api(request):
     ordered by first name.
     Expects a `store_id` GET parameter.
     """
-    store_id = request.GET.get('store_id')
+    store_id = request.GET.get("store_id")
 
     if not store_id:
-        return JsonResponse({'error': 'store_id parameter is required.'}, status=400)
+        return JsonResponse({"error": "store_id parameter is required."}, status=400)
 
     try:
-        employee_ids = StoreUserAccess.objects.filter(store_id=store_id).values_list('user_id', flat=True)
-        employees = User.objects.filter(
-            id__in=employee_ids,
-            is_active=True
-        ).order_by('first_name', 'last_name')
+        employee_ids = StoreUserAccess.objects.filter(store_id=store_id).values_list(
+            "user_id", flat=True
+        )
+        employees = User.objects.filter(id__in=employee_ids, is_active=True).order_by(
+            "first_name", "last_name"
+        )
 
     except Exception as e:
         # Handle cases where store_id might not be a valid number, etc.
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
     employee_data = [
-        {'id': emp.id, 'full_name': f"{emp.first_name} {emp.last_name}".strip()}
-        for emp in employees if emp.first_name
+        {"id": emp.id, "full_name": f"{emp.first_name} {emp.last_name}".strip()}
+        for emp in employees
+        if emp.first_name
     ]
 
-    return JsonResponse({'employees': employee_data})
+    return JsonResponse({"employees": employee_data})
 
 
 @require_http_methods(["GET", "PUT", "DELETE"])
