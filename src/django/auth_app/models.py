@@ -2,11 +2,23 @@ import random
 from datetime import timedelta
 from django.db import models
 from django.utils.timezone import now, localtime
+from django.core.validators import RegexValidator
 from django.contrib.auth.hashers import make_password, check_password
 from clock_in_system.settings import (
     NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS,
     NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS,
 )
+
+
+######################## CUSTOM VALIDATORS #############################
+
+HEX_COLOUR_VALIDATOR = RegexValidator(
+    regex=r"^#(?:[0-9a-fA-F]{3}){1,2}$",
+    message="Enter a valid hex color code (e.g., #AABBCC)",
+)
+
+
+############################ USERS ##########################################
 
 
 class User(models.Model):
@@ -607,13 +619,34 @@ class NotificationReceipt(models.Model):
 ########################## SCHEDULING ##########################
 
 
+class Role(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="roles")
+    name = models.CharField(max_length=210, null=False)
+    description = models.TextField(max_length=500, null=True, blank=True)
+    colour_hex = models.CharField(
+        max_length=10, null=False, default="#EEEEEE", validators=[HEX_COLOUR_VALIDATOR]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Prevent duplicate entries
+        constraints = [
+            models.UniqueConstraint(fields=["store", "name"], name="unique_store_role")
+        ]
+
+    def __str__(self):
+        return f"[{self.store.code}] {self.name}"
+
+
 class Shift(models.Model):
     employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shifts")
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="shifts")
     date = models.DateField(null=False)
     start_time = models.TimeField(null=False)
     end_time = models.TimeField(null=False)
-    role = models.CharField(max_length=100, blank=True, null=True)
+    role = models.ForeignKey(
+        Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -624,8 +657,4 @@ class Shift(models.Model):
         unique_together = [("employee", "store", "date", "start_time")]
 
     def __str__(self):
-        return (
-            f"{self.employee.first_name} {self.employee.last_name} – "
-            f"{self.date} {self.start_time:%H:%M}–{self.end_time:%H:%M} "
-            f"@ {self.store.code} ({self.role})"
-        )
+        return f"[{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"

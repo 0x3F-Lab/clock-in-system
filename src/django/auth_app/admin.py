@@ -8,6 +8,8 @@ from auth_app.models import (
     StoreUserAccess,
     Notification,
     NotificationReceipt,
+    Role,
+    Shift,
 )
 
 
@@ -196,3 +198,58 @@ class NotificationReceiptAdmin(admin.ModelAdmin):
         "notification__title",
     )
     ordering = ("-received_at",)
+
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ("id", "store_code", "name", "colour_hex", "created_at")
+    list_filter = ("store__code", "store__is_active")
+    search_fields = ("name", "description", "store__name", "store__code")
+    ordering = ("store__code", "name")
+
+    @admin.display(description="Store Code")
+    def store_code(self, obj):
+        return obj.store.code
+
+
+@admin.register(Shift)
+class ShiftAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "store_code",
+        "employee_name",
+        "date",
+        "start_time",
+        "end_time",
+        "role_display",
+        "created_at",
+    )
+    list_filter = (
+        "store__code",
+        "role__name",
+        "store__is_active",
+        "employee__is_active",
+        "employee__is_manager",
+        "employee__is_hidden",
+        "date",
+    )
+    search_fields = (
+        "employee__first_name",
+        "employee__last_name",
+        "store__code",
+        "store__name",
+        "role__name",
+    )
+    ordering = ("-date", "start_time")
+
+    @admin.display(description="Employee")
+    def employee_name(self, obj):
+        return f"{obj.employee.first_name} {obj.employee.last_name}"
+
+    @admin.display(description="Store Code")
+    def store_code(self, obj):
+        return obj.store.code
+
+    @admin.display(description="Role")
+    def role_display(self, obj):
+        return obj.role.name if obj.role else "Unassigned"
