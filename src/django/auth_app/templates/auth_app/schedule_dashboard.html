@@ -81,13 +81,15 @@
             
             <div class="mb-3">
               <label for="editEmployeeSelect" class="form-label">Employee</label>
-              <select class="form-select" id="editEmployeeSelect" name="employee" required>
-                </select>
+              <select class="form-select" id="editEmployeeSelect" name="employee" required></select>
             </div>
 
             <div class="mb-3">
-                <label for="editShiftRole" class="form-label">Role (Optional)</label>
-                <input type="text" class="form-control" id="editShiftRole" name="role">
+                <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+                  <span>Role:</span>
+                  <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+                </label>
+                <select class="form-select" id="editRoleSelect" name="role" required></select>
             </div>
 
             <div class="row">
@@ -114,6 +116,13 @@
     </div>
   </div>
 {% endblock %}
+
+
+{% block extra_urls %}
+    listStoreEmployeeNames: "{% url 'api:list_store_employee_names' %}",
+    listStoreRoles: "{% url 'api:list_singular_shift_details' 0 %}".slice(0, -2),
+{% endblock %}
+
 
 {% block customscripts %}
   <script src="{% static 'js/schedule_dashboard.js' %}"></script>

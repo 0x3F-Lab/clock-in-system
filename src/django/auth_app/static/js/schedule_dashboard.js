@@ -1,4 +1,14 @@
 $(document).ready(function() {
+    // Populate the store information upon changing selected store
+    $('#storeSelectDropdown').on('change', function() {
+      updateStoreInformation();
+    });
+
+    // Initial update of store info (page load)
+    updateStoreInformation();
+
+
+    /////////////// MOVE ALL THIS STUFF OUT OF THIS FUNCTION \/\/\/\/\/
 
     // Get the CSRF token from the template
     const csrftoken = $('[name=csrfmiddlewaretoken]').val();
@@ -123,45 +133,6 @@ $(document).ready(function() {
         const selectedStoreId = getSelectedStoreID();
         updateActiveStoreAndReload(selectedStoreId);
     });
-
-    function updateEmployeeDropdowns(storeId) {
-        if (storeId === null || storeId === undefined) {
-            console.warn("updateEmployeeDropdowns called with no storeId.");
-            return;
-        }
-
-        const employeeApiUrl = `${$('#schedule-container').data('employee-api-url')}?store_id=${storeId}`;
-        console.log(`Updating employee dropdowns for store ${storeId}...`);
-
-        $.ajax({
-            url: employeeApiUrl,
-            method: 'GET',
-            success: function(empData) {
-                const $addSelect = $('#employeeSelect'); // Dropdown in "Add" modal
-                const $editSelect = $('#editEmployeeSelect'); // Dropdown in "Edit" modal
-
-                // Clear both dropdowns
-                $addSelect.empty();
-                $editSelect.empty();
-
-                if (empData.employees && empData.employees.length > 0) {
-                    // Create the HTML string of options once
-                    let optionsHtml = '<option value="" disabled selected>Select an employee...</option>';
-                    empData.employees.forEach(emp => {
-                        optionsHtml += `<option value="${emp.id}">${emp.full_name}</option>`;
-                    });
-                    
-                    // Populate both dropdowns with the same list
-                    $addSelect.html(optionsHtml);
-                    $editSelect.html(optionsHtml);
-                } else {
-                    const noEmployeesHtml = '<option value="">No employees found for this store</option>';
-                    $addSelect.html(noEmployeesHtml);
-                    $editSelect.html(noEmployeesHtml);
-                }
-            }
-        });
-    }
     
     // --- Logic for opening the EDIT modal when a shift is clicked ---
     $('#schedule-container').on('click', '.shift-item', function() {
@@ -324,9 +295,6 @@ $(document).ready(function() {
         
         // This function handles setting the session and reloading the schedule
         updateActiveStoreAndReload(selectedStoreId); 
-        
-        // This function updates the hidden modals
-        updateEmployeeDropdowns(selectedStoreId);
     })
 
     // Initial Page Load
@@ -334,9 +302,87 @@ $(document).ready(function() {
     if (initialStoreId !== null) {
         // This loads the schedule for the initial store
         updateActiveStoreAndReload(initialStoreId);
-        // This pre-populates the employee dropdowns for the initial store
-        updateEmployeeDropdowns(initialStoreId);
     } else {
         $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
     }
 });
+
+
+// Updates employees and roles in the dropdown when editing/creating a shift
+function updateStoreInformation() {
+  // Clear current lists in modal
+  $("#editEmployeeSelect").html("");
+  $("#editRoleSelect").append(`<option value="" selected>No Role</option>`);
+
+  // Fetch employees names
+  $.ajax({
+    url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}`,
+    type: 'GET',
+    xhrFields: {
+      withCredentials: true
+    },
+    headers: {
+      'X-CSRFToken': getCSRFToken(),
+    },
+
+    success: function(response) {
+      // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
+      const keys = Object.keys(response);
+
+      if (keys.length > 0) {
+        keys.forEach(userID => {
+          const name = response[userID];
+          const option = `<option value="${userID}">${name}</option>`;
+          $("#editEmployeeSelect").append(option);
+        });
+      } else {
+        $("#editEmployeeSelect").append('<option value="" selected>No employees available</option>');
+        showNotification("There are no employees associated to the selected store.", "danger");
+      }
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to load employee names due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee names. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+
+  // Fetch store roles
+  $.ajax({
+    url: `${window.djangoURLs.listStoreRoles}${getSelectedStoreID()}/`,
+    type: 'GET',
+    xhrFields: {
+      withCredentials: true
+    },
+    headers: {
+      'X-CSRFToken': getCSRFToken(),
+    },
+
+    success: function(resp) {
+      // Data should be [{id, name, description, colour}, {}.....]
+      if (resp > 0) {
+        resp.forEach(role => {
+          const option = `<option value="${role.id}">${role.name}</option>`;
+          $("#editRoleSelect").append(option);
+        });
+      } else {
+        showNotification("There are no ROLES associated to the selected store.", "info");
+      }
+    },
+
+    error: function(jqXHR, textStatus, errorThrown) {
+      let errorMessage;
+      if (jqXHR.status == 500) {
+        errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
+      } else {
+        errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
+      }
+      showNotification(errorMessage, "danger");
+    }
+  });
+}

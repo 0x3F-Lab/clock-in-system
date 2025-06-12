@@ -2626,6 +2626,71 @@ def get_schedule_data(week_param, store_id):
     }
 
 
+################################### SCHEDULING ###################################
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_store_roles(request, id):
+    try:
+        store = Store.objects.select_related("role").get(id=id)
+
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+
+        # Ensure manager is authorised
+        if not manager.is_associated_with_store(store=store.id):
+            raise err.NotAssociatedWithStoreError
+
+        elif not store.is_active and not manager.is_hidden:
+            raise err.InactiveStoreError
+
+        # Get roles
+        roles = store.roles.all().order_by("name")
+
+        info = []
+        for role in roles:
+            info.append(
+                {
+                    "id": role.id,
+                    "name": role.name,
+                    "description": role.description,
+                    "colour": role.colour_hex,
+                }
+            )
+
+        return JsonResponse(info, status=status.HTTP_200_OK)
+
+    except Store.DoesNotExist:
+        return Response(
+            {
+                "Error": f"Failed to get the a store's role information for store ID {id}."
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Not authorised to get role information for a unassociated store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to get role information for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to get a store's roles for store ID {id}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 class ShiftForm(ModelForm):
     class Meta:
         model = Shift
