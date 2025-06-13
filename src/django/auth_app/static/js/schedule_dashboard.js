@@ -74,6 +74,12 @@ $(document).ready(function() {
         });
     }
 
+    $('#manageRolesBtn').on('click', function() {
+        const manageRolesModal = new bootstrap.Modal(document.getElementById('manageRolesModal'));
+        // refreshRolesList(); // Fetch the latest roles list
+        manageRolesModal.show();
+    });
+
     // Dedicated function to handle updating the session and reloading the schedule.
     function updateActiveStoreAndReload(storeId) {
         if (storeId === null) { 
@@ -152,7 +158,10 @@ $(document).ready(function() {
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(formData),
-            headers: {'X-CSRFToken': csrftoken}, 
+            headers: {'X-CSRFToken': csrftoken},
+            xhrFields: {
+            withCredentials: true
+            }, 
             success: function(response) {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
@@ -240,6 +249,81 @@ $(document).ready(function() {
         }
     });
 
+    // EDIT button click
+    $('#existingRolesList').on('click', '.edit-role-btn', function() {
+        const $listItem = $(this).closest('li');
+        const role = $listItem.data();
+        const $form = $('#addRoleForm');
+        const $submitBtn = $form.find('button[type="submit"]');
+        
+        $form.data('mode', 'edit');
+        $form.data('role-id', role.roleId);
+        $form.parent().find('h6').text(`Edit Role: ${role.roleName}`);
+        
+        $('#newRoleName').val(role.roleName);
+        $('#newRoleDescription').val(role.roleDescription);
+        $('#newRoleColor').val(role.roleColor);
+        
+        $submitBtn.text('Update Role').removeClass('btn-primary').addClass('btn-success');
+    });
+
+    // ADD/UPDATE form submission
+    $('#addRoleForm').on('submit', function(e) {
+        e.preventDefault();
+        const $form = $(this);
+        const mode = $form.data('mode') || 'add';
+        const roleId = $form.data('role-id');
+
+        const roleData = {
+            name: $('#newRoleName').val(),
+            description: $('#newRoleDescription').val(),
+            colour_hex: $('#newRoleColor').val()
+        };
+        
+        let apiUrl, apiMethod;
+        if (mode === 'edit') {
+            apiUrl = `/api/v1/roles/${roleId}/`;
+            apiMethod = 'PUT';
+        } else {
+            apiUrl = `/api/v1/roles/`;
+            apiMethod = 'POST';
+        }
+
+        $.ajax({
+            url: apiUrl,
+            method: apiMethod,
+            contentType: 'application/json',
+            data: JSON.stringify(roleData),
+            headers: {'X-CSRFToken': getCSRFToken()},
+            success: function(response) {
+                setRoleFormToAddMode();
+                updateStoreInformation(getSelectedStoreID());
+            },
+            error: function() { alert('Failed to update role.'); }
+        });
+    });
+
+    // DELETE button click
+    $('#existingRolesList').on('click', '.delete-role-btn', function() {
+        const $listItem = $(this).closest('li');
+        const roleId = $listItem.data('role-id');
+        const roleName = $listItem.data('role-name');
+
+        if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
+            $.ajax({
+                url: `/api/v1/roles/${roleId}/`,
+                method: 'DELETE',
+                headers: {'X-CSRFToken': getCSRFToken()},
+                success: function() {
+                    // --- THE FIX ---
+                    // Also pass the current store ID here.
+                    updateStoreInformation(getSelectedStoreID());
+                },
+                error: function() { alert('Failed to delete role.'); }
+            });
+        }
+    });
+
     // --- Shift Previous Week --- 
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
@@ -276,6 +360,8 @@ $(document).ready(function() {
     } else {
         $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
     }
+
+
 });
 
 // Function to format date strings nicely (e.g., "Jun 9, 2025")
@@ -303,11 +389,14 @@ function updateStoreInformation(storeId) {
     const $editEmployeeSelect = $("#editEmployeeSelect");
     const $addRoleSelect = $("#addRoleSelect");
     const $editRoleSelect = $("#editRoleSelect");
+    const $existingRolesList = $("#existingRolesList");
 
-    $addEmployeeSelect.html("");
-    $editEmployeeSelect.html("");
+    // Clear everything first
+    $addEmployeeSelect.empty();
+    $editEmployeeSelect.empty();
     $addRoleSelect.html(`<option value="" selected>No Role</option>`);
     $editRoleSelect.html(`<option value="" selected>No Role</option>`);
+    $existingRolesList.html('<li class="list-group-item">Loading...</li>');
 
     // Fetch employees names
     $.ajax({
@@ -363,14 +452,31 @@ function updateStoreInformation(storeId) {
         },
 
         success: function(resp) {
-        let roleOptionsHtml = '';
-        
+        let roleOptionsHtml = ''; // For the dropdowns
+        $existingRolesList.empty(); // Clear the management list
+
         if (resp.data && resp.data.length > 0) {
             resp.data.forEach(role => {
-            roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
+                // Build options for the <select> dropdowns
+                roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
+                
+                // Build the interactive list for the management modal
+                const roleListItemHtml = `
+                    <li class="list-group-item d-flex justify-content-between align-items-center" data-role-id="${role.id}" data-role-name="${role.name}" data-role-description="${role.description || ''}" data-role-color="${role.colour}">
+                        <div>
+                            <span class="d-inline-block me-2" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
+                            ${role.name}
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary edit-role-btn me-2">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger delete-role-btn">Delete</button>
+                        </div>
+                    </li>`;
+                $existingRolesList.append(roleListItemHtml);
             });
         } else {
             showNotification("There are no ROLES associated to the selected store.", "info");
+            $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
         }
 
         $addRoleSelect.append(roleOptionsHtml);
@@ -387,4 +493,16 @@ function updateStoreInformation(storeId) {
         showNotification(errorMessage, "danger");
         }
     });
+}
+
+// --- UPDATE ROLE FORM ---
+function setRoleFormToAddMode() {
+    const $form = $('#addRoleForm');
+    const $submitBtn = $form.find('button[type="submit"]');
+
+    $form.data('mode', 'add');
+    $form.data('role-id', '');
+    $form[0].reset();
+    $form.parent().find('h6').text('Add New Role');
+    $submitBtn.text('Add Role').removeClass('btn-success').addClass('btn-primary');
 }

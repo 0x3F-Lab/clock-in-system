@@ -31,6 +31,7 @@ from auth_app.models import (
     Notification,
     NotificationReceipt,
     Shift,
+    Role,
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
@@ -3141,6 +3142,9 @@ def schedule_data_api(request):
     """
     if request.method == "POST":
         try:
+            logger.warning("--- DEBUGGING NEW SHIFT (POST) ---")
+            active_store_id = request.session.get("selected_store_id")
+            logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
             active_store_id = request.session.get("selected_store_id")
             if not active_store_id:
                 return JsonResponse(
@@ -3191,6 +3195,11 @@ def set_active_store_api(request):
         # ADD SECURITY CHECKS (tbd)
 
         request.session["selected_store_id"] = store_id
+        request.session.save()
+        logger.warning("--- STORE CHANGE ---")
+        active_store_id = request.session.get("selected_store_id")
+        logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
+        active_store_id = request.session.get("selected_store_id")
         return JsonResponse(
             {"status": "success", "message": f"Active store set to {store_id}."}
         )
@@ -3218,7 +3227,6 @@ def employee_list_api(request):
         )
 
     except Exception as e:
-        # Handle cases where store_id might not be a valid number, etc.
         return JsonResponse({"error": str(e)}, status=500)
 
     employee_data = [
@@ -3270,3 +3278,62 @@ def shift_detail_api(request, shift_id):
         return JsonResponse(
             {"status": "success", "message": "Shift deleted successfully."}, status=204
         )  # 204 No Content
+
+
+class RoleForm(ModelForm):
+    class Meta:
+        model = Role
+        fields = ["store", "name", "description", "colour_hex"]
+
+
+# This new view will handle POST, PUT, and DELETE
+@require_http_methods(["POST", "PUT", "DELETE"])
+def role_crud_api(request, role_id=None):
+    """
+    API endpoint for Creating, Updating, and Deleting roles.
+    - POST /api/v1/roles/ -> Create
+    - PUT /api/v1/roles/{id}/ -> Update
+    - DELETE /api/v1/roles/{id}/ -> Delete
+    """
+    active_store_id = request.session.get("selected_store_id")
+    if not active_store_id:
+        return JsonResponse({"error": "No active store selected."}, status=400)
+
+    # --- CREATE a new role ---
+    if request.method == "POST":
+        logger.warning("--- DEBUGGING NEW SHIFT (POST) ---")
+        active_store_id = request.session.get("selected_store_id")
+        logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
+        data = json.loads(request.body)
+        data["store"] = active_store_id
+        form = RoleForm(data)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({"status": "success"}, status=201)
+        else:
+            return JsonResponse({"errors": form.errors}, status=400)
+
+    # For Update and Delete, we need a role_id
+    if not role_id:
+        return JsonResponse(
+            {"error": "Role ID is required for this action."}, status=400
+        )
+
+    # Get the specific role object, ensuring it belongs to the active store for security
+    role = get_object_or_404(Role, pk=role_id, store_id=active_store_id)
+
+    # --- UPDATE an existing role ---
+    if request.method == "PUT":
+        data = json.loads(request.body)
+        data["store"] = active_store_id
+        form = RoleForm(data, instance=role)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({"status": "success"})
+        else:
+            return JsonResponse({"errors": form.errors}, status=400)
+
+    # --- DELETE an existing role ---
+    if request.method == "DELETE":
+        role.delete()
+        return JsonResponse({"status": "success"}, status=204)  # 204 No Content
