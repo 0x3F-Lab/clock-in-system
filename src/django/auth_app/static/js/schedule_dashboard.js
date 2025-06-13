@@ -8,6 +8,8 @@ $(document).ready(function() {
         $.ajax({
             url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?week=${week}`,
             method: 'GET',
+            xhrFields: {withCredentials: true},
+            headers: {'X-CSRFToken': getCSRFToken()},
             success: function(data) {
                 console.log("Received data from server:", data);
                 
@@ -30,7 +32,6 @@ $(document).ready(function() {
                         shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
                     }
                     
-                    console.log(shiftsHtml)
                     const dayCardHtml = `
                         <div class="card">
                             <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
@@ -62,20 +63,19 @@ $(document).ready(function() {
     // --- MODAL/BUTTON EVENT HANDLERS ---
     $('#schedule-container').on('click', '.shift-item', function() {
         const shiftId = $(this).data('shift-id');
-        const shiftDetailUrl = `/api/v1/shifts/${shiftId}/`; 
 
         $.ajax({
-            url: shiftDetailUrl,
+            url: `${window.djangoURLs.manageShift}${shiftId}/`,
             method: 'GET',
             success: function(shiftData) {
 
                 $('#editShiftForm').data('shift-date', shiftData.date); 
                 $('#editShiftId').val(shiftData.id);
-                $('#editShiftRole').val(shiftData.role);
+                $('#editShiftRole').val(shiftData.role_id);
                 $('#editStartTime').val(shiftData.start_time);
                 $('#editEndTime').val(shiftData.end_time);
 
-                $('#editEmployeeSelect').val(shiftData.employee);
+                $('#editEmployeeSelect').val(shiftData.employee_id);
                 
                 const editModal = new bootstrap.Modal(document.getElementById('editShiftModal'));
                 editModal.show();
@@ -106,7 +106,7 @@ $(document).ready(function() {
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(formData),
-            headers: {'X-CSRFToken': csrftoken},
+            headers: {'X-CSRFToken': getCSRFToken()},
             xhrFields: {
             withCredentials: true
             }, 
@@ -144,23 +144,23 @@ $(document).ready(function() {
         const shiftId = $('#editShiftId').val();
         const shiftData = {
             date: $('#editShiftForm').data('shift-date'), 
-            employee: $('#editEmployeeSelect').val(),
-            role: $('#editShiftRole').val(),
+            employee_id: $('#editEmployeeSelect').val(),
+            role_id: $('#editShiftRole').val(),
             start_time: $('#editStartTime').val(),
             end_time: $('#editEndTime').val()
         };
 
         const updateUrl = `/api/v1/shifts/${shiftId}/`;
         $.ajax({
-            url: updateUrl,
-            method: 'PUT',
+            url: `${window.djangoURLs.manageShift}${shiftId}/`,
+            method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(shiftData),
-            headers: {'X-CSRFToken': csrftoken},
+            xhrFields: {withCredentials: true},
+            headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                const currentWeek = new URLSearchParams(window.location.search).get('week');
-                loadSchedule(currentWeek);
+                ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
             },
             error: function(error) {
                 alert('Error updating shift: ' + JSON.stringify(error.responseJSON.errors));
@@ -170,22 +170,19 @@ $(document).ready(function() {
 
     // --- DELETE SHIFT ---
     $('#deleteShiftBtn').on('click', function() {
+        // INSTEAD OF CONFIRM -- why not copy the js to have the inplace confirm button from the employee dashboard (manager page)
         if (confirm('Are you sure you want to delete this shift? This cannot be undone.')) {
             const shiftId = $('#editShiftId').val();
-            const deleteUrl = `/api/v1/shifts/${shiftId}/`;
 
             $.ajax({
-                url: deleteUrl,
+                url: `${window.djangoURLs.manageShift}${shiftId}/`,
                 method: 'DELETE',
-                headers: {'X-CSRFToken': csrftoken}, // Ensure 'csrftoken' is defined
+                xhrFields: {withCredentials: true},
+                headers: {'X-CSRFToken': getCSRFToken()},
                 success: function(response) {
                     // First, hide the modal
                     bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                    
-                    
-                    const currentWeek = new URLSearchParams(window.location.search).get('week');
-                    
-                    loadSchedule(currentWeek);
+                    ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
                 },
                 error: function(error) {
                     alert('Error deleting shift.');

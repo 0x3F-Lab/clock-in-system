@@ -2795,7 +2795,7 @@ def manage_store_shift(request, id):
         original = {
             "id": shift.id,
             "emp_id": shift.employee.id,
-            "emp_name": shift.employee.name,
+            "emp_name": f"{shift.employee.first_name} {shift.employee.last_name}",
             "date": shift.date,
             "start_time": shift.start_time,
             "end_time": shift.end_time,
@@ -2808,12 +2808,13 @@ def manage_store_shift(request, id):
                 {
                     "id": shift.id,
                     "employee_id": shift.employee.id,
-                    "employee_name": shift.employee.name,
+                    "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
                     "date": shift.date.isoformat(),
                     "start_time": shift.start_time.strftime("%H:%M"),
                     "end_time": shift.end_time.strftime("%H:%M"),
-                    "role_name": shift.role.name,
-                    "role_colour": shift.role.colour_hex,
+                    "role_id": shift.role.id if shift.role else None,
+                    "role_name": shift.role.name if shift.role else None,
+                    "role_colour": shift.role.colour_hex if shift.role else None,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -2844,20 +2845,21 @@ def manage_store_shift(request, id):
             start_time = util.clean_param_str(request.data.get("start_time", None))
             end_time = util.clean_param_str(request.data.get("end_time", None))
 
-            if not all([employee_id, role_id, date, start_time, end_time]):
+            logger.critical(request.data)
+
+            if not all([employee_id, date, start_time, end_time]):
                 return Response(
                     {"Error": "Missing required parameters."},
                     status=status.HTTP_428_PRECONDITION_REQUIRED,
                 )
 
-            elif not isinstance(employee_id, int):
+            try:
+                employee_id = int(employee_id)
+                if role_id:
+                    role_id = int(role_id)
+            except (ValueError, TypeError):
                 return Response(
-                    {"Error": "Employee ID must be an INTEGER."},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
-                )
-            elif not isinstance(role_id, int):
-                return Response(
-                    {"Error": "Employee ID must be an INTEGER."},
+                    {"Error": "Role ID must be convertible to an integer."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
