@@ -89,4 +89,6 @@ urlpatterns = [
     path("employees/", views.employee_list_api, name="api_employee_list"),
     path("shifts/<int:shift_id>/", views.shift_detail_api, name="api_shift_detail"),
     path("set-active-store/", views.set_active_store_api, name="api_set_active_store"),
+    path('roles/', views.role_crud_api, name='api_role_create'),
+    path('roles/<int:role_id>/', views.role_crud_api, name='api_role_detail'),
 ]
