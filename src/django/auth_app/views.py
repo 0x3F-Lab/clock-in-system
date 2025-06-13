@@ -25,7 +25,7 @@ from auth_app.forms import (
     NotificationForm,
 )
 from api.utils import get_distance_from_lat_lon_in_m
-from api.controllers import handle_clock_in, handle_clock_out, get_schedule_data
+from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
 from django.utils import timezone
 from datetime import timedelta, date
@@ -808,6 +808,8 @@ class StaticViewSitemap(Sitemap):
         return 0.5
 
 
+@require_GET
+@ensure_csrf_cookie
 def schedule_dashboard(request):
     try:
         context, user = get_default_page_context(request)
@@ -822,10 +824,5 @@ def schedule_dashboard(request):
             "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
         )
         return redirect("home")
-
-    week_param = request.GET.get("week")
-    schedule_context = get_schedule_data(week_param)
-
-    context.update(schedule_context)
 
     return render(request, "auth_app/schedule_dashboard.html", context)

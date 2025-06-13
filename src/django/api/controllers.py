@@ -1011,11 +1011,12 @@ def get_all_store_schedules(
     for shift in shifts:
         grouped_shifts[shift.date].append(
             {
-                "employee_name": shift.employee.name,
+                "id": shift.id,
+                "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
                 "start_time": shift.start_time,
                 "end_time": shift.end_time,
-                "role_name": shift.role.name,
-                "role_colour": shift.role.colour_hex,
+                "role_name": shift.role.name if shift.role else None,
+                "role_colour": shift.role.colour_hex if shift.role else None,
             }
         )
 
@@ -1023,7 +1024,8 @@ def get_all_store_schedules(
     schedule_data = {}
     for i in range(7):
         day = week_start + timedelta(days=i)
-        schedule_data[day] = grouped_shifts.get(day, [])
+        # Ensure day is filled AND convert date key to a str
+        schedule_data[day.isoformat()] = grouped_shifts.get(day, [])
 
     return {
         "schedule": schedule_data,

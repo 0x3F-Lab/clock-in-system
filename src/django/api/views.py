@@ -2711,14 +2711,18 @@ def get_all_store_shifts(request, id):
             raise err.InactiveStoreError
 
         # Get other request data
-        week = util.clean_param_str(request.data.get("week", None))
-        ignore_inactive = util.str_to_bool(request.data.get("ignore_inactive", "False"))
-        ignore_resigned = util.str_to_bool(request.data.get("ignore_inactive", "False"))
+        week = util.clean_param_str(request.query_params.get("week", None))
+        ignore_inactive = util.str_to_bool(
+            request.query_params.get("ignore_inactive", "False")
+        )
+        ignore_resigned = util.str_to_bool(
+            request.query_params.get("ignore_inactive", "False")
+        )
 
         # Check the week is passed
         if not week:
             return Response(
-                {"Error": "Missing starting week date from request data."},
+                {"Error": "Missing starting week date from request params."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2734,6 +2738,7 @@ def get_all_store_shifts(request, id):
         # Get the schedules
         data = controllers.get_all_store_schedules(
             store=store,
+            week=week,
             ignore_inactive=ignore_inactive,
             ignore_resigned=ignore_resigned,
         )
@@ -2872,7 +2877,11 @@ def manage_store_shift(request, id):
             employee = User.objects.get(id=int(employee_id))
 
             # Check not editing an OLD shift
-            if date < localtime(now()).date():
+            current_date = localtime(now()).date()
+            current_time = localtime(now()).time()
+            if date < current_date or (
+                date == current_date and start_time <= current_time
+            ):
                 return Response(
                     {"Error": "Not authorised to update a passed shift."},
                     status=status.HTTP_410_GONE,
@@ -3055,12 +3064,21 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        current_date = localtime(now()).date()
+        current_time = localtime(now()).time()
+        if date < current_date or (date == current_date and start_time <= current_time):
+            return Response(
+                {"Error": "Cannot create a shift in the past."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
         # Check times are acceptable
         elif end_time <= start_time:
             return Response(
                 {"Error": "A shift cannot have a end time before the start time."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
+
         elif not util.is_shift_duration_valid(start_time=start_time, end_time=end_time):
             return Response(
                 {

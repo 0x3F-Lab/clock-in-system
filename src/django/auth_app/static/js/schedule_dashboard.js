@@ -1,29 +1,12 @@
 $(document).ready(function() {
 
-    const csrftoken = $('[name=csrfmiddlewaretoken]').val();
-
     // --- CORE APPLICATION FUNCTIONS ---
 
-    function loadSchedule(week, storeId) {
-        console.log("Requesting schedule for week:", week, "and store ID:", storeId);
-        let baseApiUrl = $('#schedule-container').data('api-url');
-        
-        
-        let params = new URLSearchParams(); 
-        
-        
-        if (week) {
-            params.append('week', week);
-        }
-        
-        if (storeId !== null && storeId !== undefined) { 
-            params.append('store_id', storeId);
-        }
-        
-        const finalApiUrl = `${baseApiUrl}?${params.toString()}`;
-
+    function loadSchedule(week) {
+        console.log("Requesting schedule for week:", week, "and store ID:", getSelectedStoreID());
+      
         $.ajax({
-            url: finalApiUrl,
+            url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?week=${week}`,
             method: 'GET',
             success: function(data) {
                 console.log("Received data from server:", data);
@@ -32,40 +15,36 @@ $(document).ready(function() {
                 const scheduleContainer = $('#schedule-container');
                 scheduleContainer.empty();
 
-                if (data.days && data.days.length > 0) {
-                    data.days.forEach(dayString => {
-                        const dayShifts = data.schedule_data[dayString];
-                        let shiftsHtml = '';
-                        if (dayShifts && dayShifts.length > 0) {
-                            dayShifts.forEach(shift => {
-                                shiftsHtml += `
-                                    <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
-                                        <strong>${shift.employee_name}</strong><br>
-                                        <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
-                                        ${shift.role ? `<small class="text-muted d-block">${shift.role}</small>` : ''}
-                                    </div>`;
-                            });
-                        } else {
-                            shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
-                        }
+                $.each(data.schedule || {}, function (dayDate, dayShifts) {
+                    let shiftsHtml = '';
+                    if (dayShifts && dayShifts.length > 0) {
+                        dayShifts.forEach(shift => {
+                            shiftsHtml += `
+                                <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
+                                    <strong>${shift.employee_name}</strong><br>
+                                    <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
+                                    ${shift.role_name ? `<small class="text-muted d-block">${shift.role_name} - ${shift.role_colour}</small>` : ''}
+                                </div>`;
+                        });
+                    } else {
+                        shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
+                    }
+                    
+                    console.log(shiftsHtml)
+                    const dayCardHtml = `
+                        <div class="card">
+                            <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
+                                <span>${formatDayHeader(dayDate)}-${dayDate}</span>
+                                <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayDate}">
+                                    <i class="fas fa-plus"></i> +
+                                </button>
+                            </div>
+                            <div class="card-body p-2">${shiftsHtml}</div>
+                        </div>`;
+                    scheduleContainer.append(dayCardHtml);
+                });
 
-                        const dayCardHtml = `
-                            <div class="card">
-                                <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
-                                    <span>${formatDayHeader(dayString)}</span>
-                                    <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayString}">
-                                        <i class="fas fa-plus"></i> +
-                                    </button>
-                                </div>
-                                <div class="card-body p-2">${shiftsHtml}</div>
-                            </div>`;
-                        scheduleContainer.append(dayCardHtml);
-                    });
-                } else {
-                    scheduleContainer.html('<p class="text-center">No schedule data to display. Please select a store.</p>');
-                }
-
-                $('#previous-week-btn').data('week', data.previous_week);
+                $('#previous-week-btn').data('week', data.prev_week);
                 $('#next-week-btn').data('week', data.next_week);
             },
             error: function() {
@@ -79,37 +58,6 @@ $(document).ready(function() {
         // refreshRolesList(); // Fetch the latest roles list
         manageRolesModal.show();
     });
-
-    // Dedicated function to handle updating the session and reloading the schedule.
-    function updateActiveStoreAndReload(storeId) {
-        if (storeId === null) { 
-            console.log("No valid store ID provided. Clearing schedule.");
-            $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
-            return; // Stop if no store is selected
-        }
-
-        const setStoreUrl = $('#schedule-container').data('set-store-url');
-        console.log("Attempting to set active store to:", storeId);
-
-        $.ajax({
-            url: setStoreUrl,
-            method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ store_id: storeId }),
-            headers: {'X-CSRFToken': csrftoken},
-            success: function(response) {
-                console.log("Successfully set active store. Now loading schedule...");
-                
-                // On success, reload the schedule with the new store
-                const currentWeek = new URLSearchParams(window.location.search).get('week');
-                loadSchedule(currentWeek, storeId);
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-                console.error("Failed to set active store.", textStatus, errorThrown);
-                alert('Could not update selected store. Please try again.');
-            }
-        });
-    }
 
     // --- MODAL/BUTTON EVENT HANDLERS ---
     $('#schedule-container').on('click', '.shift-item', function() {
@@ -168,8 +116,7 @@ $(document).ready(function() {
                 form[0].reset();
 
                 const currentWeek = new URLSearchParams(window.location.search).get('week');
-                const currentStoreId = getSelectedStoreID();
-                loadSchedule(currentWeek, currentStoreId); 
+                loadSchedule(currentWeek); 
             },
             error: function(error) {
                 if(error.responseJSON && error.responseJSON.errors) {
@@ -213,8 +160,7 @@ $(document).ready(function() {
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
                 const currentWeek = new URLSearchParams(window.location.search).get('week');
-                const currentStoreId = getSelectedStoreID();
-                loadSchedule(currentWeek, currentStoreId);
+                loadSchedule(currentWeek);
             },
             error: function(error) {
                 alert('Error updating shift: ' + JSON.stringify(error.responseJSON.errors));
@@ -238,9 +184,8 @@ $(document).ready(function() {
                     
                     
                     const currentWeek = new URLSearchParams(window.location.search).get('week');
-                    const currentStoreId = getSelectedStoreID(); // Get the currently selected store
                     
-                    loadSchedule(currentWeek, currentStoreId);
+                    loadSchedule(currentWeek);
                 },
                 error: function(error) {
                     alert('Error deleting shift.');
@@ -328,18 +273,16 @@ $(document).ready(function() {
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
         const previousWeek = $(this).data('week');
-        const currentStoreId = getSelectedStoreID();
         
-        loadSchedule(previousWeek, currentStoreId);
+        loadSchedule(previousWeek);
     });
 
     // --- Shift Next Week ---
     $('#next-week-btn').on('click', function(e) {
         e.preventDefault();
         const nextWeek = $(this).data('week');
-        const currentStoreId = getSelectedStoreID();
         
-        loadSchedule(nextWeek, currentStoreId);
+        loadSchedule(nextWeek);
     });
 
     // --- Store Selector ---
@@ -347,21 +290,13 @@ $(document).ready(function() {
         console.log("--- Store Dropdown Changed ---");
         const selectedStoreId = getSelectedStoreID();
         
-        updateActiveStoreAndReload(selectedStoreId);
         updateStoreInformation(selectedStoreId);
     });
 
     // --- Initial Page Load ---
     console.log("--- Page Initializing ---");
-    const initialStoreId = getSelectedStoreID();
-    if (initialStoreId !== null) {
-        updateActiveStoreAndReload(initialStoreId);
-        updateStoreInformation(initialStoreId);
-    } else {
-        $('#schedule-container').html('<p class="text-center">Please select a store to view the schedule.</p>');
-    }
-
-
+    updateStoreInformation(getSelectedStoreID());
+    loadSchedule(new Date().toLocaleDateString('sv-SE'));
 });
 
 // Function to format date strings nicely (e.g., "Jun 9, 2025")
