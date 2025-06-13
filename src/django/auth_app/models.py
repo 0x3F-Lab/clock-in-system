@@ -306,6 +306,17 @@ class Store(models.Model):
             ).exists()
         return False
 
+    def has_role(self, role):
+        """
+        Checks if the store has the given role.
+        Accepts a Role instance or a role ID (int or numeric string).
+        """
+        if isinstance(role, Role):
+            return role.store_id == self.id
+        elif isinstance(role, int) or (isinstance(role, str) and role.isdigit()):
+            return self.roles.filter(id=int(role)).exists()
+        return False
+
 
 class StoreUserAccess(models.Model):
     user = models.ForeignKey(
@@ -636,6 +647,17 @@ class Role(models.Model):
 
     def __str__(self):
         return f"[{self.store.code}] {self.name}"
+
+    def belongs_to_store(self, store):
+        """
+        Checks if the role belongs to the given store.
+        Accepts a Store instance or a store ID (int or numeric string).
+        """
+        if isinstance(store, Store):
+            return self.store == store
+        elif isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
+            return self.store_id == int(store)
+        return False
 
 
 class Shift(models.Model):

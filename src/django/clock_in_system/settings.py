@@ -286,6 +286,9 @@ START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 30  # Default is 30m
 # How long a user must wait between starting a shift and finishing it
 FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 
+# How long should a shift be (minimum)
+MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 30  # Default is 30m
+
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 

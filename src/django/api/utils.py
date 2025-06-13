@@ -5,14 +5,14 @@ import logging
 import holidays
 import api.exceptions as err
 
-from typing import List, Tuple
-from datetime import timedelta
+from typing import List, Tuple, Optional
+from datetime import timedelta, datetime, time
 from urllib.parse import urlencode
 from django.utils import timezone
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
 from django.utils.timezone import make_aware, is_naive
-from auth_app.models import User, Store, Activity
+from auth_app.models import User, Store, Activity, Shift
 from clock_in_system.settings import (
     COUNTRY_CODE,
     COUNTRY_SUBDIV_CODE,
@@ -20,6 +20,7 @@ from clock_in_system.settings import (
     SHIFT_ROUNDING_MINS,
     VALID_NAME_LIST_PATTERN,
     MAX_DATABASE_DUMP_LIMIT,
+    MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
 )
 
 logger = logging.getLogger("api")
@@ -345,3 +346,52 @@ def clean_param_str(value):
         return None
     else:
         return str(value).strip()
+
+
+def employee_has_conflicting_shift(
+    employee: User, date: datetime.date, exclude_shift_id: Optional[int] = None
+) -> bool:
+    """
+    Check if an employee has any other shift on a given date, excluding a specific shift by ID.
+
+    Args:
+        employee (User): The employee to check shifts for.
+        date (datetime.date): The date to check for existing shifts.
+        exclude_shift_id (int, optional): The ID of the shift to exclude from the check (usually the current shift being updated).
+
+    Returns:
+        bool: True if there is a conflicting shift on that date (other than the one excluded), False otherwise.
+    """
+    qs = Shift.objects.filter(employee=employee, date=date)
+    if exclude_shift_id:
+        qs = qs.exclude(id=exclude_shift_id)
+    return qs.exists()
+
+
+def is_shift_duration_valid(
+    start_time: time,
+    end_time: time,
+    min_duration_mins: int = MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+) -> bool:
+    """
+    Check if the time duration between start_time and end_time is greater than or equal
+    to a minimum required duration. Assumes both times are on the same day and end_time is after start_time.
+
+    Args:
+        start_time (time): Shift start time.
+        end_time (time): Shift end time.
+        minimum_duration_minutes (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+
+    Returns:
+        bool: True if the duration is valid, False otherwise.
+    """
+    # Assume both times are on the same (arbitrary) day
+    dt_start = datetime.combine(datetime.min, start_time)
+    dt_end = datetime.combine(datetime.min, end_time)
+
+    # Reject invalid case where end is before or equal to start
+    if dt_end <= dt_start:
+        return False
+
+    duration = dt_end - dt_start
+    return duration >= timedelta(minutes=min_duration_mins)

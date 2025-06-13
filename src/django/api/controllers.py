@@ -2,9 +2,9 @@ import logging
 import api.exceptions as err
 import api.utils as util
 
-from typing import Union, Dict
+from collections import defaultdict
 from datetime import timedelta, datetime, date
-from typing import Union, Dict, List, Dict, Tuple, Union
+from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
 from django.db import transaction
 from django.db.models.functions import Coalesce, Concat
@@ -953,4 +953,81 @@ def get_schedule_data(week_param):
         "schedule_data": schedule_data,
         "previous_week": previous_week,
         "next_week": next_week,
+    }
+
+
+################################ SCHEDULING ################################
+
+
+def get_all_store_schedules(
+    store: Store,
+    week: str,
+    ignore_inactive: bool = False,
+    ignore_resigned: bool = False,
+) -> Dict[str, Any]:
+    """
+    Get all of a store's schedule information for a given week.
+
+    Args:
+        store (Store obj): The store for which the schedule will be fetched
+        week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
+        ignore_inactive (bool): If True, exclude inactive employees.
+        ignore_resigned (bool): If True, exclude resigned employees.
+
+    Returns:
+        (Dict[str, Any]): A dictionary containing:
+            - 'schedule': Dict[date, List[Dict]] mapping dates to lists of shifts,
+            - 'week_start': date of the Monday starting the week,
+            - 'prev_week': date of the previous week's Monday,
+            - 'next_week': date of the next week's Monday.
+    """
+    if store is None or week is None:
+        raise Exception("Store object or week is None.")
+
+    try:
+        raw_date = date.fromisoformat(week)
+        week_start = raw_date - timedelta(
+            days=raw_date.weekday()
+        )  # Roll back to Monday if not provided
+    except ValueError:
+        raise Exception("Week provided is not in ISO format.")
+
+    week_end = week_start + timedelta(days=6)
+
+    # Fetch shifts for the store during this week
+    shifts = Shift.objects.filter(
+        store=store, date__range=(week_start, week_end)
+    ).select_related("employee", "role")
+
+    # Optionally filter based on employee status
+    if ignore_inactive:
+        shifts = shifts.filter(employee__is_active=True)
+    if ignore_resigned:
+        shifts = shifts.filter(employee__store_access__store=store)
+
+    # Group shifts by date using a defaultdict
+    grouped_shifts = defaultdict(list)
+
+    for shift in shifts:
+        grouped_shifts[shift.date].append(
+            {
+                "employee_name": shift.employee.name,
+                "start_time": shift.start_time,
+                "end_time": shift.end_time,
+                "role_name": shift.role.name,
+                "role_colour": shift.role.colour_hex,
+            }
+        )
+
+    # Ensure all days are present even if no shifts exist
+    schedule_data = {}
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        schedule_data[day] = grouped_shifts.get(day, [])
+
+    return {
+        "schedule": schedule_data,
+        "week_start": week_start,
+        "prev_week": week_start - timedelta(days=7),
+        "next_week": week_start + timedelta(days=7),
     }

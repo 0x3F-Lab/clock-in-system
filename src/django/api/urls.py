@@ -85,6 +85,13 @@ urlpatterns = [
     ),
     ############################ SCHEDULING ############################
     path("list-store-roles/<int:id>/", views.list_store_roles, name="list_store_roles"),
+    path(
+        "list-all-store-shifts/<int:id>/",
+        views.get_all_store_shifts,
+        name="list_all_store_shifts",
+    ),
+    path("manage-shift/<int:id>/", views.manage_store_shift, name="manage_shift"),
+    path("create-shift/<int:store_id>", views.create_store_shift, name="create_shift"),
     path("schedule-data/", views.schedule_data_api, name="api_schedule_data"),
     path("employees/", views.employee_list_api, name="api_employee_list"),
     path("shifts/<int:shift_id>/", views.shift_detail_api, name="api_shift_detail"),
