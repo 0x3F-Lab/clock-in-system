@@ -35,9 +35,9 @@ $(document).ready(function() {
                     const dayCardHtml = `
                         <div class="card">
                             <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
-                                <span>${formatDayHeader(dayDate)}-${dayDate}</span>
+                                <span>${formatDayHeader(dayDate)}</span>
                                 <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayDate}">
-                                    <i class="fas fa-plus"></i> +
+                                    <i class="fas fa-plus"></i>
                                 </button>
                             </div>
                             <div class="card-body p-2">${shiftsHtml}</div>
