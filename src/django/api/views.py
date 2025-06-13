@@ -2634,7 +2634,7 @@ def get_schedule_data(week_param, store_id):
 @renderer_classes([JSONRenderer])
 def list_store_roles(request, id):
     try:
-        store = Store.objects.select_related("role").get(id=id)
+        store = Store.objects.get(id=id)
 
         manager_id = request.session.get("user_id")
         manager = User.objects.get(id=manager_id)
@@ -2660,7 +2660,7 @@ def list_store_roles(request, id):
                 }
             )
 
-        return JsonResponse(info, status=status.HTTP_200_OK)
+        return JsonResponse({"data": info}, status=status.HTTP_200_OK)
 
     except Store.DoesNotExist:
         return Response(

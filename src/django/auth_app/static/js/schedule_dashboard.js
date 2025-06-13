@@ -365,8 +365,8 @@ function updateStoreInformation(storeId) {
         success: function(resp) {
         let roleOptionsHtml = '';
         
-        if (resp && resp.length > 0) {
-            resp.forEach(role => {
+        if (resp.data && resp.data.length > 0) {
+            resp.data.forEach(role => {
             roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
             });
         } else {
