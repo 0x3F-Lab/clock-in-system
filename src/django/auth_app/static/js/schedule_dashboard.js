@@ -301,9 +301,7 @@ $(document).ready(function() {
     // --- Store Selector ---
     $('#storeSelectDropdown').on('change', function() {
         console.log("--- Store Dropdown Changed ---");
-        const selectedStoreId = getSelectedStoreID();
-        
-        updateStoreInformation(selectedStoreId);
+        updateStoreInformation(getSelectedStoreID());
     });
 
     // --- Initial Page Load ---

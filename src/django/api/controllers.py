@@ -921,41 +921,6 @@ def is_active_account(employee_id: int) -> bool:
         raise e  # Re-raise error to be caught in view
 
 
-def get_schedule_data(week_param):
-    """
-    Returns exactly what schedule_dashboard needs:
-       - week_start:    date
-       - days:          list of 7 dates (Mon → Sun)
-       - schedule_data: { date → [Shift, …] }
-       - previous_week: date (the Monday one week earlier)
-       - next_week:     date (the Monday one week later)
-    """
-    if week_param:
-        week_start = date.fromisoformat(week_param)
-    else:
-        today = timezone.localdate()
-        week_start = today - timedelta(days=today.weekday())
-
-    week_end = week_start + timedelta(days=6)
-
-    shifts = Shift.objects.filter(date__range=(week_start, week_end)).select_related(
-        "employee", "store"
-    )
-
-    days = [week_start + timedelta(days=i) for i in range(7)]
-    schedule_data = {day: [s for s in shifts if s.date == day] for day in days}
-    previous_week = week_start - timedelta(days=7)
-    next_week = week_start + timedelta(days=7)
-
-    return {
-        "week_start": week_start,
-        "days": days,
-        "schedule_data": schedule_data,
-        "previous_week": previous_week,
-        "next_week": next_week,
-    }
-
-
 ################################ SCHEDULING ################################
 
 

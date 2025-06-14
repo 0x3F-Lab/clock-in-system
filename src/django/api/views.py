@@ -2574,60 +2574,6 @@ def send_employee_notification(request, id):
         )
 
 
-def get_schedule_data(week_param, store_id):
-    if week_param:
-        try:
-            week_start = date.fromisoformat(week_param)
-        except ValueError:
-            today = timezone.localdate()
-            week_start = today - timedelta(days=today.weekday())
-    else:
-        today = timezone.localdate()
-        week_start = today - timedelta(days=today.weekday())
-
-    week_end = week_start + timedelta(days=6)
-
-    shifts_query = Shift.objects.select_related("employee", "store")
-
-    if store_id:
-        shifts_query = shifts_query.filter(
-            date__range=(week_start, week_end), store_id=store_id
-        )
-    else:
-        # If no store is selected, return no shifts.
-        shifts_query = shifts_query.none()
-
-    shifts = shifts_query.order_by("start_time")
-
-    days = [week_start + timedelta(days=i) for i in range(7)]
-
-    schedule_data = {}
-    for day in days:
-        day_str = day.isoformat()
-        schedule_data[day_str] = []
-        day_shifts = [s for s in shifts if s.date == day]
-        for shift in day_shifts:
-            schedule_data[day_str].append(
-                {
-                    "id": shift.id,
-                    "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
-                    "start_time": shift.start_time.strftime(
-                        "%-I:%M %p"
-                    ),  # e.g., "9:00 AM"
-                    "end_time": shift.end_time.strftime("%-I:%M %p"),
-                    "role": shift.role,
-                }
-            )
-
-    return {
-        "week_start": week_start.isoformat(),
-        "days": [d.isoformat() for d in days],
-        "schedule_data": schedule_data,
-        "previous_week": (week_start - timedelta(days=7)).isoformat(),
-        "next_week": (week_start + timedelta(days=7)).isoformat(),
-    }
-
-
 ################################### SCHEDULING ###################################
 
 
@@ -2845,8 +2791,6 @@ def manage_store_shift(request, id):
             start_time = util.clean_param_str(request.data.get("start_time", None))
             end_time = util.clean_param_str(request.data.get("end_time", None))
 
-            logger.critical(request.data)
-
             if not all([employee_id, date, start_time, end_time]):
                 return Response(
                     {"Error": "Missing required parameters."},
@@ -2963,7 +2907,8 @@ def manage_store_shift(request, id):
 
             if changes < 1:
                 return Response(
-                    {"message": "No changes detected."}, status=status.HTTP_200_OK
+                    {"message": "No changes detected."},
+                    status=status.HTTP_208_ALREADY_REPORTED,
                 )
 
             # Only save the DB if changes are made -> reduces DB load.
@@ -2976,13 +2921,19 @@ def manage_store_shift(request, id):
                 f"[UPDATE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) → {shift.employee.first_name} {shift.employee.last_name} ({shift.employee.id}) -- Date: {original['date']} → {shift.date} -- Time: {original['start_time']} <> {original['end_time']} → {shift.start_time} <> {shift.end_time}"
             )
             return JsonResponse(
-                {"employee_name", "Method not allowed."},
+                {
+                    "employee_name": employee.name,
+                    "employee_id": employee.id,
+                    "date": shift.date,
+                    "start_time": shift.start_time,
+                    "end_time": shift.end_time,
+                },
                 status=status.HTTP_202_ACCEPTED,
             )
 
         # Never practically reached -> ignore this.
         return JsonResponse(
-            {"Error", "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+            {"Error": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
     except Shift.DoesNotExist:
@@ -3157,159 +3108,6 @@ def create_store_shift(request, store_id):
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
-
-class ShiftForm(ModelForm):
-    class Meta:
-        model = Shift
-        fields = ["employee", "date", "start_time", "end_time", "role", "store"]
-
-
-@require_http_methods(["GET", "POST"])
-def schedule_data_api(request):
-    """
-    API endpoint to fetch or create schedule data.
-    - GET: Fetches schedule for a given week.
-    - POST: Creates a new shift.
-    """
-    if request.method == "POST":
-        try:
-            logger.warning("--- DEBUGGING NEW SHIFT (POST) ---")
-            active_store_id = request.session.get("selected_store_id")
-            logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
-            active_store_id = request.session.get("selected_store_id")
-            if not active_store_id:
-                return JsonResponse(
-                    {
-                        "status": "error",
-                        "message": "No active store selected. Please select a store from the dropdown.",
-                    },
-                    status=400,
-                )
-
-            data = json.loads(request.body)
-            data["store"] = active_store_id  # Add the active store ID
-
-            form = ShiftForm(data)
-            if form.is_valid():
-                form.save()
-                return JsonResponse(
-                    {"status": "success", "message": "Shift added successfully."},
-                    status=201,
-                )
-            else:
-                return JsonResponse(
-                    {"status": "error", "errors": form.errors}, status=400
-                )
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-    week_param = request.GET.get("week")
-    store_id = request.GET.get("store_id")
-    data = get_schedule_data(week_param, store_id)
-    return JsonResponse(data)
-
-
-@require_http_methods(["POST"])
-def set_active_store_api(request):
-    """
-    Sets the selected_store_id in the user's session.
-    """
-    try:
-        data = json.loads(request.body)
-        store_id = data.get("store_id")
-
-        if not store_id:
-            return JsonResponse(
-                {"status": "error", "message": "Store ID is required."}, status=400
-            )
-
-        # ADD SECURITY CHECKS (tbd)
-
-        request.session["selected_store_id"] = store_id
-        request.session.save()
-        logger.warning("--- STORE CHANGE ---")
-        active_store_id = request.session.get("selected_store_id")
-        logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
-        active_store_id = request.session.get("selected_store_id")
-        return JsonResponse(
-            {"status": "success", "message": f"Active store set to {store_id}."}
-        )
-    except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-
-def employee_list_api(request):
-    """
-    API endpoint to fetch a list of employees for a SPECIFIC store,
-    ordered by first name.
-    Expects a `store_id` GET parameter.
-    """
-    store_id = request.GET.get("store_id")
-
-    if not store_id:
-        return JsonResponse({"error": "store_id parameter is required."}, status=400)
-
-    try:
-        employee_ids = StoreUserAccess.objects.filter(store_id=store_id).values_list(
-            "user_id", flat=True
-        )
-        employees = User.objects.filter(id__in=employee_ids, is_active=True).order_by(
-            "first_name", "last_name"
-        )
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-    employee_data = [
-        {"id": emp.id, "full_name": f"{emp.first_name} {emp.last_name}".strip()}
-        for emp in employees
-        if emp.first_name
-    ]
-
-    return JsonResponse({"employees": employee_data})
-
-
-@require_http_methods(["GET", "PUT", "DELETE"])
-def shift_detail_api(request, shift_id):
-    """
-    API endpoint for handling a single shift.
-    - GET: Retrieves details for one shift.
-    - PUT: Updates a shift.
-    - DELETE: Deletes a shift.
-    """
-    shift = get_object_or_404(Shift, pk=shift_id)
-
-    if request.method == "GET":
-        data = {
-            "id": shift.id,
-            "employee": shift.employee.id,
-            "date": shift.date.isoformat(),
-            "start_time": shift.start_time.strftime("%H:%M"),
-            "end_time": shift.end_time.strftime("%H:%M"),
-            "role": shift.role,
-        }
-        return JsonResponse(data)
-
-    if request.method == "PUT":
-        data = json.loads(request.body)
-
-        data["store"] = shift.store.id
-
-        form = ShiftForm(data, instance=shift)
-        if form.is_valid():
-            form.save()
-            return JsonResponse(
-                {"status": "success", "message": "Shift updated successfully."}
-            )
-        else:
-            return JsonResponse({"status": "error", "errors": form.errors}, status=400)
-
-    if request.method == "DELETE":
-        shift.delete()
-        return JsonResponse(
-            {"status": "success", "message": "Shift deleted successfully."}, status=204
-        )  # 204 No Content
 
 
 class RoleForm(ModelForm):
