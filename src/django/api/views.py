@@ -2836,7 +2836,7 @@ def manage_store_shift(request, id):
                 date == current_date and start_time <= current_time
             ):
                 return Response(
-                    {"Error": "Not authorised to update a passed shift."},
+                    {"Error": "Not authorised to update a past shift."},
                     status=status.HTTP_410_GONE,
                 )
 
@@ -2925,7 +2925,7 @@ def manage_store_shift(request, id):
             )
             return JsonResponse(
                 {
-                    "employee_name": employee.name,
+                    # "employee_name": employee.first_name,
                     "employee_id": employee.id,
                     "date": shift.date,
                     "start_time": shift.start_time,

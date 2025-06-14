@@ -158,7 +158,7 @@ $(document).ready(function() {
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                loadSchedule(response.date);  //--- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
+                loadSchedule(response.date);
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 let errorMessage;
@@ -186,7 +186,7 @@ $(document).ready(function() {
                 success: function(response) {
                     // First, hide the modal
                     bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                    ////////////// EITHER RELOAD TABLE WITH loadSchedule(response.date);  --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
+                    loadSchedule(response.date);
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
                     let errorMessage;
