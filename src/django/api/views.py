@@ -2944,7 +2944,7 @@ def manage_store_shift(request, id):
                 },
                 status=status.HTTP_202_ACCEPTED,
             )
-        
+
         # Never practically reached -> ignore this.
         return JsonResponse(
             {"Error": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
