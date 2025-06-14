@@ -21,11 +21,15 @@ $(document).ready(function() {
                     let shiftsHtml = '';
                     if (dayShifts && dayShifts.length > 0) {
                         dayShifts.forEach(shift => {
+                            let styleString = "cursor: pointer;";
+                            if (shift.role_colour) {
+                                styleString += ` box-shadow: inset 8px 0 0 0 ${shift.role_colour};`;
+                            }
                             shiftsHtml += `
-                                <div class="mb-2 p-2 border rounded shift-item" style="cursor: pointer;" data-shift-id="${shift.id}">
+                                <div class="mb-2 p-2 border rounded shift-item" style="${styleString}" data-shift-id="${shift.id}">
                                     <strong>${shift.employee_name}</strong><br>
                                     <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
-                                    ${shift.role_name ? `<small class="text-muted d-block">${shift.role_name} - ${shift.role_colour}</small>` : ''}
+                                    ${shift.role_name ? `<small class="text-muted d-block">${shift.role_name}</small>` : ''}
                                 </div>`;
                         });
                     } else {
