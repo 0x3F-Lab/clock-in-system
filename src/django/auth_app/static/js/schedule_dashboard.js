@@ -48,8 +48,15 @@ $(document).ready(function() {
                 $('#previous-week-btn').data('week', data.prev_week);
                 $('#next-week-btn').data('week', data.next_week);
             },
-            error: function() {
+            error: function(jqXHR, textStatus, errorThrown) {
                 $('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                  errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
+                } else {
+                  errorMessage = jqXHR.responseJSON?.Error || "Failed to add a new shift. Please try again.";
+                }
+                showNotification(errorMessage, "danger");
             }
         });
     }
@@ -88,43 +95,40 @@ $(document).ready(function() {
         const form = $('#addShiftForm');
         const formData = {
             date: form.find('#shiftDate').val(),
-            employee: form.find('#employeeSelect').val(),
-            role: form.find('#shiftRole').val(),
+            employee_id: form.find('#employeeSelect').val(),
+            role_id: form.find('#addRoleSelect').val(),
             start_time: form.find('#startTime').val(),
             end_time: form.find('#endTime').val()
         };
 
-        if (!formData.date || !formData.employee || !formData.start_time || !formData.end_time) {
+        if (!formData.date || !formData.employee_id || !formData.start_time || !formData.end_time) {
             alert('Please fill out all required fields.');
             return;
         }
-
-        const apiUrl = $('#schedule-container').data('api-url');
         
         $.ajax({
-            url: apiUrl,
-            method: 'POST',
+            url: `${window.djangoURLs.createShift}${getSelectedStoreID()}/`,
+            method: 'PUT',
             contentType: 'application/json',
             data: JSON.stringify(formData),
             headers: {'X-CSRFToken': getCSRFToken()},
             xhrFields: {
             withCredentials: true
-            }, 
+            },
             success: function(response) {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
                 form[0].reset();
-
-                const currentWeek = new URLSearchParams(window.location.search).get('week');
-                loadSchedule(currentWeek); 
+                loadSchedule(new Date().toLocaleDateString('sv-SE')); 
             },
-            error: function(error) {
-                if(error.responseJSON && error.responseJSON.errors) {
-                    alert('Error adding shift: ' + JSON.stringify(error.responseJSON.errors));
+            error: function(jqXHR, textStatus, errorThrown) {
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                  errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
                 } else {
-                    alert('An unknown error occurred while adding the shift.');
+                  errorMessage = jqXHR.responseJSON?.Error || "Failed to add a new shift. Please try again.";
                 }
-                console.error("Error adding shift:", error);
+                showNotification(errorMessage, "danger");
             }
         });
     });
@@ -162,8 +166,14 @@ $(document).ready(function() {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
                 ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
             },
-            error: function(error) {
-                alert('Error updating shift: ' + JSON.stringify(error.responseJSON.errors));
+            error: function(jqXHR, textStatus, errorThrown) {
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                  errorMessage = "Failed to update the shift due to internal server errors. Please try again.";
+                } else {
+                  errorMessage = jqXHR.responseJSON?.Error || "Failed to update the shift. Please try again.";
+                }
+                showNotification(errorMessage, "danger");
             }
         });
     });
@@ -184,8 +194,14 @@ $(document).ready(function() {
                     bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
                     ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
                 },
-                error: function(error) {
-                    alert('Error deleting shift.');
+                error: function(jqXHR, textStatus, errorThrown) {
+                    let errorMessage;
+                    if (jqXHR.status == 500) {
+                      errorMessage = "Failed to delete the shift due to internal server errors. Please try again.";
+                    } else {
+                      errorMessage = jqXHR.responseJSON?.Error || "Failed to adelete the shift. Please try again.";
+                    }
+                    showNotification(errorMessage, "danger");
                 }
             });
         }

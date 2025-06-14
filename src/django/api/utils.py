@@ -150,7 +150,19 @@ def api_get_user_object_from_session(request):
 
 
 # Function to round the time to the nearest specified minute
-def round_datetime_minute(dt, rounding_mins=SHIFT_ROUNDING_MINS):
+def round_datetime_minute(
+    dt: datetime, rounding_mins: int = SHIFT_ROUNDING_MINS
+) -> datetime:
+    """
+    Rounds a datetime object to the nearest interval defined by rounding_mins.
+
+    Args:
+        dt (datetime): The datetime to round.
+        rounding_mins (int, optional): The number of minutes to round to. Defaults to SHIFT_ROUNDING_MINS.
+
+    Returns:
+        datetime: The rounded datetime.
+    """
     # Calculate the total number of minutes since midnight
     total_minutes = dt.hour * 60 + dt.minute
 

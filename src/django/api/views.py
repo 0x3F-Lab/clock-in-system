@@ -2859,14 +2859,18 @@ def manage_store_shift(request, id):
                     role_id = int(role_id)
             except (ValueError, TypeError):
                 return Response(
-                    {"Error": "Role ID must be convertible to an integer."},
+                    {"Error": "Employee and Role ID must be an integer."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
             try:
                 date = datetime.strptime(date, "%Y-%m-%d").date()
-                start_time = datetime.strptime(start_time, "%H:%M").time()
-                end_time = datetime.strptime(end_time, "%H:%M").time()
+                start_time = datetime.strptime(start_time, "%H:%M")
+                end_time = datetime.strptime(end_time, "%H:%M")
+
+                # Round times -- PASS DATETIME OBJ TO RETURN DATETIME OBJ -> get time
+                start_time = util.round_datetime_minute(start_time).time()
+                end_time = util.round_datetime_minute(end_time).time()
             except ValueError:
                 return Response(
                     {
@@ -3028,16 +3032,24 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_428_PRECONDITION_REQUIRED,
             )
 
-        elif not isinstance(employee_id, int) or not isinstance(role_id, int):
+        try:
+            employee_id = int(employee_id)
+            if role_id:
+                role_id = int(role_id)
+        except (ValueError, TypeError):
             return Response(
-                {"Error": "Employee ID and Role ID must be integers."},
+                {"Error": "Employee and Role ID must be an integer."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
         try:
             date = datetime.strptime(date, "%Y-%m-%d").date()
-            start_time = datetime.strptime(start_time, "%H:%M").time()
-            end_time = datetime.strptime(end_time, "%H:%M").time()
+            start_time = datetime.strptime(start_time, "%H:%M")
+            end_time = datetime.strptime(end_time, "%H:%M")
+
+            # Round times -- PASS DATETIME OBJ TO RETURN DATETIME OBJ -> get time
+            start_time = util.round_datetime_minute(start_time).time()
+            end_time = util.round_datetime_minute(end_time).time()
         except ValueError:
             return Response(
                 {"Error": "Incorrect date/time format."},
