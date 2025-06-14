@@ -2885,7 +2885,10 @@ def manage_store_shift(request, id):
 
             # Check if the employee already has a different shift on the same date
             elif util.employee_has_conflicting_shift(
-                employee=employee, date=date, exclude_shift_id=shift.id
+                employee=employee,
+                store=shift.store,
+                date=date,
+                exclude_shift_id=shift.id,
             ):
                 return Response(
                     {"Error": "Employee already has another shift on this date."},
@@ -3066,7 +3069,9 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        elif util.employee_has_conflicting_shift(employee=employee, date=date):
+        elif util.employee_has_conflicting_shift(
+            employee=employee, store=store, date=date
+        ):
             return Response(
                 {"Error": "Employee already has another shift on this date."},
                 status=status.HTTP_409_CONFLICT,

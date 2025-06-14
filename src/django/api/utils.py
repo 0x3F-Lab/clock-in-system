@@ -361,20 +361,24 @@ def clean_param_str(value):
 
 
 def employee_has_conflicting_shift(
-    employee: User, date: datetime.date, exclude_shift_id: Optional[int] = None
+    employee: User,
+    store: Store,
+    date: datetime.date,
+    exclude_shift_id: Optional[int] = None,
 ) -> bool:
     """
-    Check if an employee has any other shift on a given date, excluding a specific shift by ID.
+    Check if an employee has any other shift on a given date for the given store, excluding a specific shift by ID.
 
     Args:
         employee (User): The employee to check shifts for.
+        store (Store): The store to check shifts against.
         date (datetime.date): The date to check for existing shifts.
         exclude_shift_id (int, optional): The ID of the shift to exclude from the check (usually the current shift being updated).
 
     Returns:
         bool: True if there is a conflicting shift on that date (other than the one excluded), False otherwise.
     """
-    qs = Shift.objects.filter(employee=employee, date=date)
+    qs = Shift.objects.filter(employee=employee, store=store, date=date)
     if exclude_shift_id:
         qs = qs.exclude(id=exclude_shift_id)
     return qs.exists()
