@@ -2777,9 +2777,9 @@ def manage_store_shift(request, id):
             return Response(
                 {
                     "message": "Scheduled shift deleted successfully.",
-                    "date": original["date"],
+                    "date": shift.date,
                 },
-                status=status.HTTP_204_NO_CONTENT,
+                status=status.HTTP_200_OK,
             )
 
         elif request.method == "POST":

@@ -143,12 +143,11 @@ $(document).ready(function() {
         const shiftData = {
             date: $('#editShiftForm').data('shift-date'), 
             employee_id: $('#editEmployeeSelect').val(),
-            role_id: $('#editShiftRole').val(),
+            role_id: $('#editRoleSelect').val(),
             start_time: $('#editStartTime').val(),
             end_time: $('#editEndTime').val()
         };
 
-        const updateUrl = `/api/v1/shifts/${shiftId}/`;
         $.ajax({
             url: `${window.djangoURLs.manageShift}${shiftId}/`,
             method: 'POST',
@@ -193,7 +192,7 @@ $(document).ready(function() {
                     if (jqXHR.status == 500) {
                       errorMessage = "Failed to delete the shift due to internal server errors. Please try again.";
                     } else {
-                      errorMessage = jqXHR.responseJSON?.Error || "Failed to adelete the shift. Please try again.";
+                      errorMessage = jqXHR.responseJSON?.Error || "Failed to delete the shift. Please try again.";
                     }
                     showNotification(errorMessage, "danger");
                 }
@@ -294,6 +293,7 @@ $(document).ready(function() {
     $('#storeSelectDropdown').on('change', function() {
         console.log("--- Store Dropdown Changed ---");
         updateStoreInformation(getSelectedStoreID());
+        loadSchedule(new Date().toLocaleDateString('sv-SE'));
     });
 
     // --- Initial Page Load ---
