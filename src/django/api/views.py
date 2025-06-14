@@ -2920,9 +2920,9 @@ def manage_store_shift(request, id):
                 changes += 1
 
             if changes < 1:
-                return Response(
-                    {"message": "No changes detected."},
-                    status=status.HTTP_208_ALREADY_REPORTED,
+                return JsonResponse(
+                    {"Error": "No changes detected."},
+                    status=status.HTTP_418_IM_A_TEAPOT,
                 )
 
             # Only save the DB if changes are made -> reduces DB load.
@@ -2944,7 +2944,7 @@ def manage_store_shift(request, id):
                 },
                 status=status.HTTP_202_ACCEPTED,
             )
-
+        
         # Never practically reached -> ignore this.
         return JsonResponse(
             {"Error": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED

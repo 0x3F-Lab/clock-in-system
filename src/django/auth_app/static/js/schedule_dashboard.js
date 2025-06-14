@@ -49,7 +49,7 @@ $(document).ready(function() {
                 $('#next-week-btn').data('week', data.next_week);
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                $('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
+                //$('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
                 let errorMessage;
                 if (jqXHR.status == 500) {
                   errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
@@ -68,11 +68,12 @@ $(document).ready(function() {
         $.ajax({
             url: `${window.djangoURLs.manageShift}${shiftId}/`,
             method: 'GET',
+            xhrFields: { withCredentials: true },
             success: function(shiftData) {
 
                 $('#editShiftForm').data('shift-date', shiftData.date); 
                 $('#editShiftId').val(shiftData.id);
-                $('#editShiftRole').val(shiftData.role_id);
+                $('#editRoleSelect').val(shiftData.role_id);
                 $('#editStartTime').val(shiftData.start_time);
                 $('#editEndTime').val(shiftData.end_time);
 
@@ -162,6 +163,7 @@ $(document).ready(function() {
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
+                console.log(response);
                 loadSchedule(response.date);
             },
             error: function(jqXHR, textStatus, errorThrown) {
