@@ -2766,6 +2766,17 @@ def manage_store_shift(request, id):
             )
 
         elif request.method == "DELETE":
+
+            current_date = localtime(now()).date()
+            current_time = localtime(now()).time()
+
+            if shift.date < current_date or (
+                shift.date == current_date and shift.start_time <= current_time
+            ):
+                return Response(
+                    {"Error": "Not authorised to delete a past or active shift."},
+                    status=status.HTTP_410_GONE,
+                )
             shift.delete()
 
             logger.info(
@@ -3118,60 +3129,134 @@ def create_store_shift(request, store_id):
         )
 
 
-class RoleForm(ModelForm):
-    class Meta:
-        model = Role
-        fields = ["store", "name", "description", "colour_hex"]
-
-
-# This new view will handle POST, PUT, and DELETE
-@require_http_methods(["POST", "PUT", "DELETE"])
+@api_manager_required
+@api_view(["POST", "PUT", "DELETE"])
+@renderer_classes([JSONRenderer])
 def role_crud_api(request, role_id=None):
-    """
-    API endpoint for Creating, Updating, and Deleting roles.
-    - POST /api/v1/roles/ -> Create
-    - PUT /api/v1/roles/{id}/ -> Update
-    - DELETE /api/v1/roles/{id}/ -> Delete
-    """
-    active_store_id = request.session.get("selected_store_id")
-    if not active_store_id:
-        return JsonResponse({"error": "No active store selected."}, status=400)
+    try:
+        # --- Authorisation ---
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
 
-    # --- CREATE a new role ---
-    if request.method == "POST":
-        logger.warning("--- DEBUGGING NEW SHIFT (POST) ---")
-        active_store_id = request.session.get("selected_store_id")
-        logger.warning(f"STORE ID FROM SESSION: {active_store_id}")
-        data = json.loads(request.body)
-        data["store"] = active_store_id
-        form = RoleForm(data)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({"status": "success"}, status=201)
+        if request.method == "POST":
+            store_id = request.session.get("selected_store_id")
+            if not store_id:
+                return Response(
+                    {"Error": "No active store selected."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            store = get_object_or_404(Store, id=store_id)
+
         else:
-            return JsonResponse({"errors": form.errors}, status=400)
+            if not role_id:
+                return Response(
+                    {"Error": "Role ID is required for this action."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            role = get_object_or_404(Role, id=role_id)
+            store = role.store
 
-    # For Update and Delete, we need a role_id
-    if not role_id:
-        return JsonResponse(
-            {"error": "Role ID is required for this action."}, status=400
+        # Authorization check
+        if not manager.is_associated_with_store(store=store.id):
+            raise err.NotAssociatedWithStoreError
+        elif not store.is_active and not manager.is_hidden:
+            raise err.InactiveStoreError
+
+        # --- CREATE ---
+        if request.method == "POST":
+            name = util.clean_param_str(request.data.get("name"))
+            description = util.clean_param_str(request.data.get("description", ""))
+            colour_hex = util.clean_param_str(request.data.get("colour_hex", "#EEEEEE"))
+
+            if not name:
+                return Response(
+                    {"Error": "Role name is a required field."},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            try:
+                Role.objects.create(
+                    store=store,
+                    name=name,
+                    description=description,
+                    colour_hex=colour_hex,
+                )
+                return Response(
+                    {"message": "Role created successfully."},
+                    status=status.HTTP_201_CREATED,
+                )
+            except IntegrityError:
+                # PREVENT DUPLICATES
+                return Response(
+                    {
+                        "Error": f"A role with the name '{name}' already exists in this store."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # --- UPDATE ---
+        elif request.method == "PUT":
+            data = request.data
+            role.name = util.clean_param_str(data.get("name", role.name))
+            role.description = util.clean_param_str(
+                data.get("description", role.description)
+            )
+            role.colour_hex = util.clean_param_str(
+                data.get("colour_hex", role.colour_hex)
+            )
+
+            if not role.name:
+                return Response(
+                    {"Error": "Role name cannot be empty."},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            try:
+                role.save()
+                return Response(
+                    {"message": "Role updated successfully."},
+                    status=status.HTTP_202_ACCEPTED,
+                )
+            except IntegrityError:
+                return Response(
+                    {
+                        "Error": f"A role with the name '{role.name}' already exists in this store."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # --- DELETE ---
+        elif request.method == "DELETE":
+            # ----- CURRENTLY PREVENTS ROLE DELETION IF IT EXISTS (keep or change?) -----
+            if Shift.objects.filter(role=role).exists():
+                return Response(
+                    {
+                        "Error": "Cannot delete a role that is currently assigned to one or more shifts."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            role_name = role.name
+            role.delete()
+            logger.info(
+                f"Manager ID {manager_id} deleted ROLE '{role_name}' from store [{store.code}]."
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # --- Exception Handling ---
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to manage roles for an unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
         )
-
-    # Get the specific role object, ensuring it belongs to the active store for security
-    role = get_object_or_404(Role, pk=role_id, store_id=active_store_id)
-
-    # --- UPDATE an existing role ---
-    if request.method == "PUT":
-        data = json.loads(request.body)
-        data["store"] = active_store_id
-        form = RoleForm(data, instance=role)
-        if form.is_valid():
-            form.save()
-            return JsonResponse({"status": "success"})
-        else:
-            return JsonResponse({"errors": form.errors}, status=400)
-
-    # --- DELETE an existing role ---
-    if request.method == "DELETE":
-        role.delete()
-        return JsonResponse({"status": "success"}, status=204)  # 204 No Content
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to manage roles for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(f"An error occurred in role_crud_api: {str(e)}")
+        return Response(
+            {"Error": "An internal server error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

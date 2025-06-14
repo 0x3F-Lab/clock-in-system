@@ -84,6 +84,11 @@ $(document).ready(function() {
         });
     });
 
+    $('#manageRolesBtn').on('click', function() {
+        const manageRolesModal = new bootstrap.Modal(document.getElementById('manageRolesModal'));
+        manageRolesModal.show();
+    });
+
     // --- ADD SHIFT ---
     $('#saveShiftBtn').on('click', function() {
         const form = $('#addShiftForm');
@@ -250,7 +255,15 @@ $(document).ready(function() {
                 setRoleFormToAddMode();
                 updateStoreInformation(getSelectedStoreID());
             },
-            error: function() { alert('Failed to update role.'); }
+            error: function(jqXHR, textStatus, errorThrown) {
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                  errorMessage = "Failed to set role due to internal server errors. Please try again.";
+                } else {
+                  errorMessage = jqXHR.responseJSON?.Error || "Failed to update role. Please try again.";
+                }
+                showNotification(errorMessage, "danger");
+            }
         });
     });
 
@@ -268,7 +281,15 @@ $(document).ready(function() {
                 success: function() {
                     updateStoreInformation(getSelectedStoreID());
                 },
-                error: function() { alert('Failed to delete role.'); }
+                error: function(jqXHR, textStatus, errorThrown) {
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                    errorMessage = "Failed to load delete role due to internal server errors. Please try again.";
+                } else {
+                    errorMessage = jqXHR.responseJSON?.Error || "Failed to delete store roles. Please try again.";
+                }
+                showNotification(errorMessage, "danger");
+                }
             });
         }
     });
