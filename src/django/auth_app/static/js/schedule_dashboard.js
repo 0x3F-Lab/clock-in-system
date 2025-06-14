@@ -61,12 +61,6 @@ $(document).ready(function() {
         });
     }
 
-    $('#manageRolesBtn').on('click', function() {
-        const manageRolesModal = new bootstrap.Modal(document.getElementById('manageRolesModal'));
-        // refreshRolesList(); // Fetch the latest roles list
-        manageRolesModal.show();
-    });
-
     // --- MODAL/BUTTON EVENT HANDLERS ---
     $('#schedule-container').on('click', '.shift-item', function() {
         const shiftId = $(this).data('shift-id');
@@ -164,7 +158,7 @@ $(document).ready(function() {
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                ////////////// EITHER RELOAD TABLE WITH loadSchedule(response.date);  --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
+                loadSchedule(response.date);  //--- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 let errorMessage;
@@ -273,8 +267,6 @@ $(document).ready(function() {
                 method: 'DELETE',
                 headers: {'X-CSRFToken': getCSRFToken()},
                 success: function() {
-                    // --- THE FIX ---
-                    // Also pass the current store ID here.
                     updateStoreInformation(getSelectedStoreID());
                 },
                 error: function() { alert('Failed to delete role.'); }
