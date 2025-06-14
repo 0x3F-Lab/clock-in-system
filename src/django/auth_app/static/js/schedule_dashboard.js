@@ -119,7 +119,7 @@ $(document).ready(function() {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
                 form[0].reset();
-                loadSchedule(new Date().toLocaleDateString('sv-SE')); 
+                loadSchedule(response.date); 
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 let errorMessage;
@@ -164,7 +164,7 @@ $(document).ready(function() {
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
+                ////////////// EITHER RELOAD TABLE WITH loadSchedule(response.date);  --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 let errorMessage;
@@ -192,7 +192,7 @@ $(document).ready(function() {
                 success: function(response) {
                     // First, hide the modal
                     bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                    ////////////// EITHER RELOAD TABLE WITH loadSchedule(new Date().toLocaleDateString('sv-SE')); --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
+                    ////////////// EITHER RELOAD TABLE WITH loadSchedule(response.date);  --- ORRR ---- REMOVE THE DIV CLIENT-SIDE (SO YOU DONT HAVE TO RELOAD)
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
                     let errorMessage;

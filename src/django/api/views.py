@@ -2775,7 +2775,10 @@ def manage_store_shift(request, id):
                 f"[DELETE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) -- Date: {original['date']} -- Time: {original['start_time']} <> {original['end_time']} -- Role: {original['role']}"
             )
             return Response(
-                {"message": "Scheduled shift deleted successfully."},
+                {
+                    "message": "Scheduled shift deleted successfully.",
+                    "date": original["date"],
+                },
                 status=status.HTTP_204_NO_CONTENT,
             )
 
@@ -3075,7 +3078,12 @@ def create_store_shift(request, store_id):
             f"[CREATE: SHIFT (ID: {shift.id})] Employee: {employee.first_name} {employee.last_name} ({shift.employee.id}) -- Date: {shift.date} -- Time: {shift.start_time} <> {shift.end_time}"
         )
         return Response(
-            {"message": "Shift created successfully.", "shift_id": shift.id},
+            {
+                "id": shift.id,
+                "date": shift.date,
+                "start_time": shift.start_time,
+                "end_time": shift.end_time,
+            },
             status=status.HTTP_201_CREATED,
         )
 
