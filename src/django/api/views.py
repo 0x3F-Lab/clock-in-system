@@ -3165,7 +3165,7 @@ def create_store_shift(request, store_id):
 @api_manager_required
 @api_view(["POST", "PATCH"])
 @renderer_classes([JSONRenderer])
-def manage_store_exceptions(request, exception_id):
+def manage_store_exception(request, exception_id):
     """
     POST -> Approve the ACTIVITY and over-write the rostered SHIFT (schedule)
     PATCH -> Approve the ACTIVITY, BUT, update the activity login/logout times and over-write the rostered SHIFT (schedule)

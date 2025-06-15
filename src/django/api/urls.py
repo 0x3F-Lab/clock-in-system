@@ -92,6 +92,16 @@ urlpatterns = [
     ),
     path("manage-shift/<int:id>/", views.manage_store_shift, name="manage_shift"),
     path("create-shift/<int:store_id>/", views.create_store_shift, name="create_shift"),
+    path(
+        "list-store-exceptions/<int:store_id>/",
+        views.list_store_exceptions,
+        name="list_store_exceptions",
+    ),
+    path(
+        "manage-store-exception/<int:exception_id>/",
+        views.manage_store_exception,
+        name="manage_store_exception",
+    ),
     path("roles/", views.role_crud_api, name="api_role_create"),
     path("roles/<int:role_id>/", views.role_crud_api, name="api_role_detail"),
 ]
