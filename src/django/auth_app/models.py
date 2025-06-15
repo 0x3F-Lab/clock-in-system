@@ -1,8 +1,11 @@
 import random
 from datetime import timedelta
 from django.db import models
+from django.dispatch import receiver
+from django.db.models.signals import post_delete
 from django.utils.timezone import now, localtime
 from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
 from clock_in_system.settings import (
     NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS,
@@ -680,3 +683,100 @@ class Shift(models.Model):
 
     def __str__(self):
         return f"[{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
+
+
+class ShiftException(models.Model):
+    shift = models.ForeignKey(
+        Shift,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="shift_exceptions",
+    )  # ROSTER -- can be null if user didnt have a rostered shift
+    activity = models.ForeignKey(
+        Activity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity_exceptions",
+    )  # ACTUAL SHIFT -- can be null if user didnt clock in
+    approved = models.BooleanField(null=False, default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["shift"],
+                name="unique_shift_exception",
+                condition=~models.Q(shift=None),
+            ),
+            models.UniqueConstraint(
+                fields=["activity"],
+                name="unique_activity_exception",
+                condition=~models.Q(activity=None),
+            ),
+        ]
+
+    def clean(self):
+        if self.shift is None and self.activity is None:
+            raise ValidationError("At least one of 'shift' or 'activity' must be set.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Enforces validation before saving
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"[{self.shift.store.code or self.activity.store.code or 'N/A'}] {self.shift.date or self.activity.login_timestamp.date()} - {self.shift.employee.first_name or self.activity.employee.first_name} {self.shift.employee.last_name or self.activity.employee.last_name} ({self.shift.employee_id or self.activity.employee_id})"
+
+    def get_date(self):
+        """
+        Function to get the date that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.date
+        elif self.activity is not None:
+            return self.activity.login_timestamp.date()
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
+    def get_store(self) -> Store:
+        """
+        Function to get the Store object that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.store
+        elif self.activity is not None:
+            return self.activity.store
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
+
+######################################## SIGNAL HANDLING #####################################################
+# UPON DELETING BOTH RELATED SHIFT (ROSTER) AND ACTIVITY (ACTUAL SHIFT) IT WILL DELETE THE RELATED EXCEPTION #
+@receiver(post_delete, sender=Shift)
+def cleanup_shift_exceptions(sender, instance, **kwargs):
+    try:
+        exc = ShiftException.objects.get(shift=instance)
+        if exc.activity is None:
+            exc.delete()
+        else:
+            exc.shift = None
+            exc.save()
+    except ShiftException.DoesNotExist:
+        pass
+
+
+@receiver(post_delete, sender=Activity)
+def cleanup_activity_exceptions(sender, instance, **kwargs):
+    try:
+        exc = ShiftException.objects.get(activity=instance)
+        if exc.shift is None:
+            exc.delete()
+        else:
+            exc.activity = None
+            exc.save()
+    except ShiftException.DoesNotExist:
+        pass
