@@ -329,14 +329,15 @@ def get_pagination_values_from_request(request) -> Tuple[int, int]:
     """
     try:
         # enforce min offset = 0
-        offset = max(int(request.GET.get("offset", "0")), 0)
+        offset = max(int(request.query_params.get("offset", "0")), 0)
     except ValueError:
         offset = 0
 
     try:
         # Enforce min limit = 1 and max limit = 150 (settings controlled)
         limit = min(
-            max(int(request.GET.get("limit", "25")), 1), MAX_DATABASE_DUMP_LIMIT
+            max(int(request.query_params.get("limit", "25")), 1),
+            MAX_DATABASE_DUMP_LIMIT,
         )
     except ValueError:
         limit = 25
@@ -378,7 +379,9 @@ def employee_has_conflicting_shift(
     Returns:
         bool: True if there is a conflicting shift on that date (other than the one excluded), False otherwise.
     """
-    qs = Shift.objects.filter(employee=employee, store=store, date=date)
+    qs = Shift.objects.filter(
+        employee=employee, store=store, date=date, is_deleted=False
+    )
     if exclude_shift_id:
         qs = qs.exclude(id=exclude_shift_id)
     return qs.exists()

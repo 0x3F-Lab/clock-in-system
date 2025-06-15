@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models.functions import Coalesce, Concat
 from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.models import User, Activity, Store, Shift
+from auth_app.models import User, Activity, Store, Shift, ShiftException
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -933,6 +933,7 @@ def get_all_store_schedules(
     week: str,
     ignore_inactive: bool = False,
     ignore_resigned: bool = False,
+    include_deleted: bool = False,
 ) -> Dict[str, Any]:
     """
     Get all of a store's schedule information for a given week.
@@ -942,6 +943,7 @@ def get_all_store_schedules(
         week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
         ignore_inactive (bool): If True, exclude inactive employees.
         ignore_resigned (bool): If True, exclude resigned employees.
+        include_deleted (bool): If True, include Shifts with is_deleted=True
 
     Returns:
         (Dict[str, Any]): A dictionary containing:
@@ -974,6 +976,9 @@ def get_all_store_schedules(
     if ignore_resigned:
         shifts = shifts.filter(employee__store_access__store=store)
 
+    if not include_deleted:
+        shifts = shifts.exclude(is_deleted=True)
+
     # Group shifts by date using a defaultdict
     grouped_shifts = defaultdict(list)
 
@@ -988,6 +993,8 @@ def get_all_store_schedules(
                 "role_colour": shift.role.colour_hex if shift.role else None,
             }
         )
+        if shift.is_deleted:
+            grouped_shifts[shift.date].append({"is_deleted": True})
 
     # Ensure all days are present even if no shifts exist
     schedule_data = {}
@@ -1002,3 +1009,122 @@ def get_all_store_schedules(
         "prev_week": week_start - timedelta(days=7),
         "next_week": week_start + timedelta(days=7),
     }
+
+
+def get_store_exceptions(
+    store: Union[Store, int, str], get_unapproved: bool, offset: int, limit: int
+) -> Tuple[List[ShiftException], int]:
+    """
+    Returns approved and unapproved shift exceptions for a given store.
+
+    Args:
+        store (Union[Store, int, str]): Store object or store ID to filter exceptions by.
+        get_unapproved (bool): Whether to get APPROVED or UNAPPROVED exceptions.
+        offset (int): Pagination offset.
+        limit (int): Maximum number of exceptions to return per category.
+
+    Returns:
+        Tuple[List[ShiftException], int]: A list containing the exceptions of the selected TYPE and TOTAL items.
+
+    Raises:
+        Store.DoesNotExist: If a store ID is provided but no matching Store is found.
+    """
+    # Resolve store if ID or str is provided
+    if not isinstance(store, Store):
+        try:
+            store = Store.objects.get(pk=int(store))
+        except (ValueError, Store.DoesNotExist):
+            raise Store.DoesNotExist
+
+    # Base queryset scoped to the given store via shift or activity
+    qs = ShiftException.objects.filter(
+        Q(shift__store=store) | Q(activity__store=store)
+    ).select_related("shift", "activity")
+
+    # Filter by approval status
+    qs = qs.filter(is_approved=not get_unapproved)
+
+    # Get total count before slicing
+    total = qs.count()
+
+    # Apply pagination
+    results = list(qs.order_by("-created_at")[offset : offset + limit])
+
+    return results, total
+
+
+def approve_exception(exception: Union[ShiftException, int, str]) -> None:
+    """
+    Approves an exception and updates both the linked shift and/or activity when required.
+
+    Args:
+        exception (Union[ShiftException, int, str]): The exception to approve.
+
+    Raises:
+        ShiftException.DoesNotExist: If the Exception does not exist.
+        err.IncompleteActivityError: If the activity the exception is linked to is incomplete.
+        err.ShiftExceptionAlreadyApprovedError: If the exception is already approved.
+        Exception: If there is a problem with the exception object itself.
+    """
+    # Resolve the exception object if not given
+    if not isinstance(exception, ShiftException):
+        try:
+            exception = ShiftException.objects.select_related("shift", "activity").get(
+                pk=int(exception)
+            )
+        except (ValueError, ShiftException.DoesNotExist):
+            raise ShiftException.DoesNotExist
+
+    # If the exception is already approved -> Cant re-approve
+    if exception.is_approved:
+        raise err.ShiftExceptionAlreadyApprovedError
+
+    with transaction.atomic():
+        # Get middleman objects
+        shift = exception.shift
+        activity = exception.activity
+
+        # When both are linked -> use activity as Source Of Truth (ShiftException.Reason.INCORRECTLY_CLOCKED)
+        if shift and activity:
+            if not activity.login_time or not activity.logout_time:
+                raise err.IncompleteActivityError
+
+            # Ensure shift times match activity times
+            updated = False
+            if shift.start_time != activity.login_time.time():
+                shift.start_time = localtime(activity.login_time).time()
+                updated = True
+            if shift.end_time != activity.logout_time.time():
+                shift.end_time = localtime(activity.logout_time).time()
+                updated = True
+
+            if updated:
+                shift.save()
+
+        # When user clocked in without being rostered -> create shift (ShiftException.Reason.NO_SHIFT)
+        elif not shift and activity:
+            if not activity.login_time or not activity.logout_time:
+                raise err.IncompleteActivityError
+
+            Shift.objects.create(
+                employee=activity.employee,
+                store=activity.store,
+                date=localtime(activity.login_time).date(),
+                start_time=localtime(activity.login_time).time(),
+                end_time=localtime(activity.logout_time).time(),
+            )
+
+        # When user was rostered by didnt clock in -> "delete" the shit (visually) (ShiftException.Reason.MISSED_SHIFT)
+        elif shift and not activity:
+            shift.is_deleted = True
+            shift.save()
+
+        # Exception int properly linked
+        else:
+            raise Exception(
+                "ShiftException is not properly linked between a shift and an activity."
+            )
+
+        # Save approval status
+        exception.is_approved = True
+        exception.save()

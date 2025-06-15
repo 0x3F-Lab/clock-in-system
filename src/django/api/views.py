@@ -5,7 +5,7 @@ import api.exceptions as err
 import api.controllers as controllers
 import auth_app.tasks as tasks
 
-from datetime import datetime
+from datetime import datetime, time
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
@@ -14,8 +14,6 @@ from django.http import JsonResponse
 from django.utils import timezone
 from datetime import date, timedelta
 import json
-from django.views.decorators.http import require_http_methods
-from django.forms import ModelForm
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -32,6 +30,7 @@ from auth_app.models import (
     NotificationReceipt,
     Shift,
     Role,
+    ShiftException,
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
@@ -701,7 +700,7 @@ def create_new_shift(request):
             )
 
         # Check user isnt editing a shift older than 2 weeks
-        elif login_timestamp.date() < (now_time - timedelta(days=14)):
+        elif login_timestamp.date() < (now_time.date() - timedelta(days=14)):
             return JsonResponse(
                 {"Error": "Not authorised to create an activity older than 2 weeks."},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -2618,10 +2617,8 @@ def send_employee_notification(request, id):
 @renderer_classes([JSONRenderer])
 def list_store_roles(request, id):
     try:
+        manager = util.api_get_user_object_from_session(request)
         store = Store.objects.get(id=id)
-
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=store.id):
@@ -2680,10 +2677,8 @@ def list_store_roles(request, id):
 @renderer_classes([JSONRenderer])
 def get_all_store_shifts(request, id):
     try:
+        manager = util.api_get_user_object_from_session(request)
         store = Store.objects.get(id=id)
-
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=store.id):
@@ -2723,6 +2718,7 @@ def get_all_store_shifts(request, id):
             week=week,
             ignore_inactive=ignore_inactive,
             ignore_resigned=ignore_resigned,
+            include_deleted=False,
         )
 
         return JsonResponse(data, status=status.HTTP_200_OK)
@@ -2761,10 +2757,8 @@ def get_all_store_shifts(request, id):
 @renderer_classes([JSONRenderer])
 def manage_store_shift(request, id):
     try:
+        manager = util.api_get_user_object_from_session(request)
         shift = Shift.objects.select_related("store", "employee", "role").get(id=id)
-
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=shift.store.id):
@@ -2816,7 +2810,7 @@ def manage_store_shift(request, id):
             shift.delete()
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) deleted a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
             )
             logger.debug(
                 f"[DELETE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) -- Date: {original['date']} -- Time: {original['start_time']} <> {original['end_time']} -- Role: {original['role']}"
@@ -2968,7 +2962,7 @@ def manage_store_shift(request, id):
             shift.save()
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
             )
             logger.debug(
                 f"[UPDATE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) → {shift.employee.first_name} {shift.employee.last_name} ({shift.employee.id}) -- Date: {original['date']} → {shift.date} -- Time: {original['start_time']} <> {original['end_time']} → {shift.start_time} <> {shift.end_time}"
@@ -3019,9 +3013,7 @@ def manage_store_shift(request, id):
 @renderer_classes([JSONRenderer])
 def create_store_shift(request, store_id):
     try:
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
-
+        manager = util.api_get_user_object_from_session(request)
         store = Store.objects.get(id=store_id)
 
         employee_id = util.clean_param_str(request.data.get("employee_id", None))
@@ -3124,7 +3116,7 @@ def create_store_shift(request, store_id):
         )
 
         logger.info(
-            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a SHIFT for employee ID {employee.id} ({employee.first_name} {employee.last_name}) on {date} at store [{store.code}]."
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a SHIFT for employee ID {employee.id} ({employee.first_name} {employee.last_name}) on {date} at store [{store.code}]."
         )
         logger.debug(
             f"[CREATE: SHIFT (ID: {shift.id})] Employee: {employee.first_name} {employee.last_name} ({shift.employee.id}) -- Date: {shift.date} -- Time: {shift.start_time} <> {shift.end_time}"
@@ -3160,6 +3152,192 @@ def create_store_shift(request, store_id):
     except err.InactiveStoreError:
         return Response(
             {"Error": "Not authorised create a shift for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    except Exception as e:
+        logger.critical(f"Error creating shift: {str(e)}")
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_manager_required
+@api_view(["POST", "PATCH"])
+@renderer_classes([JSONRenderer])
+def manage_store_exceptions(request, exception_id):
+    """
+    POST -> Approve the ACTIVITY and over-write the rostered SHIFT (schedule)
+    PATCH -> Approve the ACTIVITY, BUT, update the activity login/logout times and over-write the rostered SHIFT (schedule)
+    """
+    try:
+        manager = util.api_get_user_object_from_session(request)
+        exception = ShiftException.objects.get(id=exception_id)
+        login_time = util.clean_param_str(request.data.get("login_time", None))
+        logout_time = util.clean_param_str(request.data.get("login_time", None))
+
+        store = exception.get_store()
+
+        if not store.is_active:
+            raise err.InactiveStoreError
+        elif not manager.is_associated_with_store(store=store):
+            raise err.NotAssociatedWithStoreError
+        elif exception.is_approved:
+            raise err.ShiftExceptionAlreadyApprovedError
+
+        # POST -> APPROVE EXCEPTION (no updates to activity data needed)
+        if request.method == "POST":
+            controllers.approve_exception(exception=exception_id)
+
+        # PATCH -> UPDATE THE ACTIVITY THEN APPROVE EXCEPTION
+        elif request.method == "PATCH":
+            if not all([login_time, logout_time]):
+                return Response(
+                    {"Error": "Missing required parameters."},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            try:
+                # Safely parse time strings (HH:MM or HH:MM:SS)
+                login = time.fromisoformat(login_time)
+                logout = time.fromisoformat(logout_time)
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid datetime format. Expected HH:MM or HH:MM:SS."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Make sure activity is there
+            activity = exception.activity
+            if not activity:
+                raise Exception(
+                    "Cannot update activity times — exception is not linked to an activity."
+                )
+            elif not activity.login_time and not activity.logout_time:
+                raise err.IncompleteActivityError
+
+            # Construct new datetime values by combining the original date with new time values
+            login_dt = localtime(activity.login_timestamp).replace(
+                hour=login.hour, minute=login.minute, second=login.second, microsecond=0
+            )
+            logout_dt = localtime(activity.login_timestamp).replace(
+                hour=logout.hour,
+                minute=logout.minute,
+                second=logout.second,
+                microsecond=0,
+            )
+
+            # Round as required
+            login_dt_rounded = util.round_datetime_minute(login_dt)
+            logout_dt_rounded = util.round_datetime_minute(logout_dt)
+
+            # Update the activity with the new times provided
+            with transaction.atomic():
+                activity.login_time = login_dt_rounded
+                activity.login_timestamp = login_dt
+                activity.logout_time = logout_dt_rounded
+                activity.logout_timestamp = logout_dt
+                activity.save()
+
+                controllers.approve_exception(exception=exception)
+
+        # Never practically reached -> ignore this.
+        else:
+            return JsonResponse(
+                {"Error": "Method not allowed."},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+
+        return JsonResponse(
+            {"exception_id": exception_id}, status=status.HTTP_202_ACCEPTED
+        )
+
+    except err.IncompleteActivityError:
+        return Response(
+            {"Error": "Cannot approve an exception related to an unfinished shift."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    except err.ShiftExceptionAlreadyApprovedError:
+        return Response(
+            {"Error": "Exception is already approved."},
+            status=status.HTTP_406_NOT_ACCEPTABLE,
+        )
+    except ShiftException.DoesNotExist:
+        return Response(
+            {"Error": f"Exception with ID {exception_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Not authorised interact with exceptions of an unassociated store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised interact with exceptions of an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(f"Error approving an exception: {str(e)}")
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_store_exceptions(request, store_id):
+    try:
+        manager = util.api_get_user_object_from_session(request)
+        store = Store.objects.get(id=store_id)
+
+        # Get params
+        offset, limit = util.get_pagination_values_from_request(request)
+        get_unapproved = util.str_to_bool(
+            request.query_params.get("get_unapproved", "True")
+        )
+
+        # Check user is authorised
+        if not manager.is_associated_with_store(store):
+            raise err.NotAssociatedWithStoreError
+
+        elif not store.is_active and not manager.is_hidden:
+            raise err.InactiveStoreError
+
+        # Get the exceptions
+        info, total = controllers.get_store_exceptions(
+            store=store, get_unapproved=get_unapproved, offset=offset, limit=limit
+        )
+
+        return Response(
+            {
+                "store_id": id,
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "exceptions": info,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store with ID {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised get exceptions for an unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised get exceptions for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
 

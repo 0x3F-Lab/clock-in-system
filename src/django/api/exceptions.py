@@ -171,3 +171,23 @@ class AlreadyWorkedTodayError(Exception):
     def __init__(self, message="User cannot work more than once a day."):
         self.message = message
         super().__init__(self.message)
+
+
+class IncompleteActivityError(Exception):
+    """
+    Raised when an activity (actual shift) is incomplete without a logout time.
+    """
+
+    def __init__(self, message="Activity is incomplete (not finished)."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ShiftExceptionAlreadyApprovedError(Exception):
+    """
+    Raised when an trying to approve an exception but its already approved.
+    """
+
+    def __init__(self, message="Exception is already approved."):
+        self.message = message
+        super().__init__(self.message)

@@ -702,6 +702,9 @@ class Shift(models.Model):
     role = models.ForeignKey(
         Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
     )
+    is_deleted = models.BooleanField(
+        null=False, default=False
+    )  # ONLY DELETED VISUALLY - STILL IN EXCEPTIONS
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -716,6 +719,12 @@ class Shift(models.Model):
 
 
 class ShiftException(models.Model):
+    class Reason(models.TextChoices):
+        INCORRECTLY_CLOCKED = "bad_clocking", "Incorrectly Clocked"
+        MISSED_SHIFT = "missed_shift", "Missed Shift"
+        NO_SHIFT = "no_shift", "No Shift"
+        OTHER = "other", "Other"
+
     shift = models.ForeignKey(
         Shift,
         on_delete=models.SET_NULL,
@@ -730,8 +739,15 @@ class ShiftException(models.Model):
         blank=True,
         related_name="activity_exceptions",
     )  # ACTUAL SHIFT -- can be null if user didnt clock in
-    approved = models.BooleanField(null=False, default=False)
-    created_at = models.DateTimeField(auto_now_add=True, null=False)
+    reason = models.CharField(
+        max_length=25,
+        choices=Reason.choices,
+        default=Reason.OTHER,
+        null=False,
+        help_text="The type of Shift Exception",
+    )
+    is_approved = models.BooleanField(null=False, default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     class Meta:
