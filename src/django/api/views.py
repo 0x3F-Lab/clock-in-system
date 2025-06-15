@@ -406,6 +406,7 @@ def update_shift_details(request, id):
             logout_timestamp = util.clean_param_str(
                 request.data.get("logout_timestamp", None)
             )
+            now_date = localtime(now()).date()
 
             try:
                 if login_timestamp:
@@ -443,11 +444,26 @@ def update_shift_details(request, id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-            # Get the required variables
-            now_date = localtime(now()).date()
+            # Check user has not already worked on the given date
+            if activity.employee.has_activity_on_date(
+                store=activity.store_id,
+                date=login_timestamp.date(),
+                ignore_activity=activity.id,
+            ):
+                return JsonResponse(
+                    {"Error": "Employee has already worked on the given date."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            # Check user isnt editing a shift older than 2 weeks
+            elif original["login_timestamp"].date() < (now_date - timedelta(days=14)):
+                return JsonResponse(
+                    {"Error": "Not authorised to edit an activity older than 2 weeks."},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
 
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
-            if (not logout_timestamp) and (login_timestamp.date() != now_date):
+            elif (not logout_timestamp) and (login_timestamp.date() != now_date):
                 return Response(
                     {
                         "Error": "Cannot have a missing clock out time for a shift older than the current day."
@@ -581,6 +597,7 @@ def create_new_shift(request):
             request.data.get("is_public_holiday", False)
         )
         store_id = util.clean_param_str(request.data.get("store_id", None))
+        now_time = localtime(now())
 
         # Get the account info of the user requesting this shift info
         manager_id = request.session.get("user_id")
@@ -676,15 +693,29 @@ def create_new_shift(request):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
+        # Check user has not already worked on the given date
+        if employee.has_activity_on_date(store=store, date=login_timestamp.date()):
+            return JsonResponse(
+                {"Error": "Employee has already worked on the given date."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Check user isnt editing a shift older than 2 weeks
+        elif login_timestamp.date() < (now_time - timedelta(days=14)):
+            return JsonResponse(
+                {"Error": "Not authorised to create an activity older than 2 weeks."},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
         # Check if login_timestamp is in the future
-        if login_timestamp > localtime(now()):
+        elif login_timestamp > now_time:
             return JsonResponse(
                 {"Error": "Login time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         # Check if logout_timestamp is in the future
-        if (logout_timestamp) and (logout_timestamp > localtime(now())):
+        elif (logout_timestamp) and (logout_timestamp > now_time):
             return JsonResponse(
                 {"Error": "Logout time cannot be in the future."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
@@ -1721,6 +1752,11 @@ def clock_in(request):
         return Response(
             {"Error": "Missing location data in request."},
             status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.AlreadyWorkedTodayError:
+        return Response(
+            {"Error": "Cannot work twice in one day."},
+            status=status.HTTP_409_CONFLICT,
         )
     except err.MissingStoreObjectOrIDError:
         return Response(

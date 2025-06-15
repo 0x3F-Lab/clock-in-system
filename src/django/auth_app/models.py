@@ -229,6 +229,36 @@ class User(models.Model):
             .order_by("-created_at")
         )
 
+    def has_activity_on_date(self, date, store=None, ignore_activity=None) -> bool:
+        """
+        Checks if the user has an activity on the given date.
+
+        Args:
+            date (datetime.date): The date to check.
+            store (Store or int or str, optional): Optional filter for store.
+            ignore_activity (Activity or int or str, optional): Ignore the given activity. (i.e. updating the same activity)
+
+        Returns:
+            bool: True if a shift exists for that date, otherwise False.
+        """
+        qs = Activity.objects.filter(employee=self, login_timestamp__date=date)
+
+        if store:
+            if isinstance(store, Store):
+                qs = qs.filter(store=store)
+            elif isinstance(store, (int, str)) and str(store).isdigit():
+                qs = qs.filter(store_id=int(store))
+        if ignore_activity:
+            if isinstance(ignore_activity, Activity):
+                qs = qs.exclude(id=ignore_activity.id)
+            elif (
+                isinstance(ignore_activity, (int, str))
+                and str(ignore_activity).isdigit()
+            ):
+                qs = qs.exclude(id=int(ignore_activity))
+
+        return qs.exists()
+
 
 ########################## STORES ##########################
 

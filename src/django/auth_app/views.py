@@ -374,16 +374,13 @@ def manual_clocking(request):
                     {**context, "form": form},
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
-            except err.NoActiveClockingRecordError:
-                messages.error(
-                    request,
-                    "Could not clock out user due to bugged user state. State has been reset, please retry.",
-                )
+            except err.AlreadyWorkedTodayError:
+                messages.error(request, "Cannot work twice in one day.")
                 return render(
                     request,
                     "auth_app/manual_clocking.html",
                     {**context, "form": form},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
+                    status=status.HTTP_409_CONFLICT,
                 )
             except Exception as e:
                 logger.warning(

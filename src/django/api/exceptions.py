@@ -161,3 +161,13 @@ class MissingStoreObjectOrIDError(Exception):
     def __init__(self, message="Missing Store object or ID."):
         self.message = message
         super().__init__(self.message)
+
+
+class AlreadyWorkedTodayError(Exception):
+    """
+    Raised when an attempt is made to clock in a user who already has an activity registered to the date.
+    """
+
+    def __init__(self, message="User cannot work more than once a day."):
+        self.message = message
+        super().__init__(self.message)

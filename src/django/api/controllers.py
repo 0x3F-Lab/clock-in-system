@@ -98,6 +98,7 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
 
             # Get the store
             store = Store.objects.get(id=store_id)
+            time = localtime(now())  # Consistent timestamp
 
             # Check if user is inactive
             if not employee.is_active:
@@ -110,6 +111,9 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             # Check user is associated with the store
             elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
+
+            elif employee.has_activity_on_date(store=store, date=time.date()):
+                raise err.AlreadyWorkedTodayError
 
             # Check the store is active
             elif not store.is_active:
