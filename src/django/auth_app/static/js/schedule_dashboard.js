@@ -311,19 +311,43 @@ $(document).ready(function() {
             return;
         }
 
-        const warningMessage = "This will copy all non-conflicting shifts from the current week to the next week.\n\nAre you sure you want to continue?";
-        
-        if (confirm(warningMessage)) {
+        $('#confirmationModalTitle').text('Confirm Schedule Copy');
+        $('#confirmationModalBody').html(
+            "This will copy all non-conflicting shifts from the current week to the next week." +
+            "<br><br><strong>This action cannot be undone.</strong>"
+        );
+        $('#confirmActionBtn').text('Yes, Copy Schedule').removeClass('btn-danger').addClass('btn-primary');
+
+        const $confirmBtn = $('#confirmActionBtn');
+        $confirmBtn.data('action', 'copy-week'); // Identify the action
+        $confirmBtn.data('source-date', sourceWeekStartDate);
+        $confirmBtn.data('store-id', storeId);
+
+        // Show the modal
+        const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+        confirmationModal.show();
+    });
+
+
+    $('#confirmActionBtn').on('click', function() {
+        const $this = $(this);
+        const action = $this.data('action');
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+        modal.hide();
+
+        if (action === 'copy-week') {
+            const sourceWeekStartDate = $this.data('source-date');
+            const storeId = $this.data('store-id');
             const copyUrl = window.djangoURLs.copyWeekSchedule;
-            
+
             $.ajax({
-                url: copyUrl, 
+                url: copyUrl,
                 method: 'POST',
                 contentType: 'application/json',
-
                 data: JSON.stringify({
                     source_week_start_date: sourceWeekStartDate,
-                    store_id: storeId 
+                    store_id: storeId
                 }),
                 xhrFields: { withCredentials: true },
                 headers: { 'X-CSRFToken': getCSRFToken() },
@@ -333,7 +357,7 @@ $(document).ready(function() {
                     loadSchedule(nextWeek, storeId);
                 },
                 error: function(jqXHR) {
-                    const errorMessage = jqXHR.responseJSON?.Error || "An unknown error occurred while copying the schedule.";
+                    const errorMessage = jqXHR.responseJSON?.Error || "An unknown error occurred.";
                     showNotification(errorMessage, "danger");
                 }
             });
