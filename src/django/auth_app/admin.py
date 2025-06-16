@@ -10,6 +10,7 @@ from auth_app.models import (
     NotificationReceipt,
     Role,
     Shift,
+    ShiftException,
 )
 
 
@@ -253,3 +254,57 @@ class ShiftAdmin(admin.ModelAdmin):
     @admin.display(description="Role")
     def role_display(self, obj):
         return obj.role.name if obj.role else "Unassigned"
+
+
+@admin.register(ShiftException)
+class ShiftExceptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "store_code",
+        "employee_name",
+        "date",
+        "reason",
+        "is_approved",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = (
+        "reason",
+        "is_approved",
+        "shift__store__code",
+        "shift__store__is_active",
+        "shift__employee__is_active",
+        "shift__employee__is_manager",
+        "shift__employee__is_hidden",
+    )
+    search_fields = (
+        "shift__employee__first_name",
+        "shift__employee__last_name",
+        "activity__employee__first_name",
+        "activity__employee__last_name",
+        "shift__store__code",
+        "activity__store__code",
+    )
+    ordering = ("-created_at",)
+
+    @admin.display(description="Store Code")
+    def store_code(self, obj):
+        try:
+            return obj.get_store().code
+        except Exception:
+            return "N/A"
+
+    @admin.display(description="Employee")
+    def employee_name(self, obj):
+        try:
+            emp = obj.get_employee()
+            return f"{emp.first_name} {emp.last_name}"
+        except Exception:
+            return "N/A"
+
+    @admin.display(description="Date")
+    def date(self, obj):
+        try:
+            return obj.get_date()
+        except Exception:
+            return "N/A"

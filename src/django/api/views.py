@@ -533,6 +533,10 @@ def update_shift_details(request, id):
             with transaction.atomic():
                 activity.save()
 
+            # If activity is finished -> check for exceptions
+            if activity.logout_time:
+                controllers.link_activity_to_shift(activity=activity)
+
             logger.info(
                 f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )

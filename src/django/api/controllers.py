@@ -222,6 +222,9 @@ def handle_clock_out(
             )
             activity.save()
 
+            # Check for exceptions
+            link_activity_to_shift(activity=activity)
+
             logger.info(
                 f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED OUT under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
             )
@@ -1292,7 +1295,7 @@ def link_activity_to_shift(
             return ShiftException.Reason.MISSED_SHIFT
 
         # Check activity is FINISHED
-        elif not activity[0].logout_time:
+        elif not activities[0].logout_time:
             raise err.IncompleteActivityError
 
         elif not check_perfect_shift_activity_timings(
@@ -1370,4 +1373,10 @@ def create_shiftexception_link(
         raise SyntaxError
 
     # Create exception
-    return ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
+    ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
+
+    # Log it
+    logger.info(
+        f"Created an ShiftException with reason {reason.name} for employee ID {activity.employee_id} in the Store ID {activity.store_id}."
+    )
+    return
