@@ -541,9 +541,9 @@ def update_shift_details(request, id):
             with transaction.atomic():
                 activity.save()
 
-            # If activity is finished -> check for exceptions
-            if activity.logout_time:
-                controllers.link_activity_to_shift(activity=activity)
+                # If activity is finished -> check for exceptions
+                if activity.logout_time:
+                    controllers.link_activity_to_shift(activity=activity)
 
             logger.info(
                 f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
@@ -778,24 +778,23 @@ def create_new_shift(request):
             delta = logout_time - login_time
             shift_length_mins = int(delta.total_seconds() // 60)
 
-        # Create the new activity record
-        activity = Activity.objects.create(
-            employee=employee,
-            store=store,
-            login_time=login_time,
-            logout_time=logout_time,
-            login_timestamp=login_timestamp,
-            logout_timestamp=logout_timestamp,
-            shift_length_mins=shift_length_mins,
-            is_public_holiday=is_public_holiday,
-            deliveries=deliveries,
-        )
+        with transaction.atomic():
+            # Create the new activity record
+            activity = Activity.objects.create(
+                employee=employee,
+                store=store,
+                login_time=login_time,
+                logout_time=logout_time,
+                login_timestamp=login_timestamp,
+                logout_timestamp=logout_timestamp,
+                shift_length_mins=shift_length_mins,
+                is_public_holiday=is_public_holiday,
+                deliveries=deliveries,
+            )
 
-        activity.save()
-
-        # If activity is finished -> check for exceptions
-        if activity.logout_time:
-            controllers.link_activity_to_shift(activity=activity)
+            # If activity is finished -> check for exceptions
+            if activity.logout_time:
+                controllers.link_activity_to_shift(activity=activity)
 
         logger.info(
             f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."

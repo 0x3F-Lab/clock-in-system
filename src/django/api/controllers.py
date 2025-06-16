@@ -220,10 +220,12 @@ def handle_clock_out(
             activity.shift_length_mins = util.calculate_shift_length_mins(
                 start=activity.login_time, end=activity.logout_time
             )
-            activity.save()
 
-            # Check for exceptions
-            link_activity_to_shift(activity=activity)
+            with transaction.atomic():
+                activity.save()
+
+                # Check for exceptions
+                link_activity_to_shift(activity=activity)
 
             logger.info(
                 f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) CLOCKED OUT under the store ID {store.id} [{store.code}]{' via MANUAL CLOCKING' if manual else ''}."
