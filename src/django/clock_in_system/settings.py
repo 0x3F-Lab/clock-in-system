@@ -289,6 +289,9 @@ FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 # How long should a shift be (minimum)
 MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 30  # Default is 30m
 
+# What is the maximum period a manager (non-admin) can modify a shift/activity (exceptions are handled up to this+1 days)
+MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
+
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 

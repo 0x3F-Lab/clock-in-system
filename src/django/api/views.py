@@ -20,7 +20,6 @@ from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
 from django.shortcuts import get_object_or_404
-from django.core.serializers import serialize
 from auth_app.models import (
     User,
     Activity,
@@ -35,15 +34,14 @@ from auth_app.models import (
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from clock_in_system.settings import (
-    MAX_DATABASE_DUMP_LIMIT,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     VALID_NAME_PATTERN,
-    VALID_NAME_LIST_PATTERN,
     VALID_PHONE_NUMBER_PATTERN,
     VALID_PASSWORD_PATTERN,
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
     MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS,
 )
 
 
@@ -366,6 +364,16 @@ def update_shift_details(request, id):
             return Response(
                 {"Error": "Not authorised to interact with a hidden account."},
                 status=status.HTTP_403_FORBIDDEN,
+            )
+        elif activity.login_time.date() < (
+            localtime(now()).date()
+            - timedelta(days=MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
+        ):
+            return Response(
+                {
+                    "Error": f"Not authorised to interact with a shift older than {MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
+                },
+                status=status.HTTP_424_FAILED_DEPENDENCY,
             )
 
         # Save activity info
@@ -704,10 +712,14 @@ def create_new_shift(request):
             )
 
         # Check user isnt editing a shift older than 2 weeks
-        elif login_timestamp.date() < (now_time.date() - timedelta(days=14)):
+        elif login_timestamp.date() < (
+            now_time.date() - timedelta(days=MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
+        ):
             return JsonResponse(
-                {"Error": "Not authorised to create an activity older than 2 weeks."},
-                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                {
+                    "Error": f"Not authorised to create an activity older than {MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
+                },
+                status=status.HTTP_424_FAILED_DEPENDENCY,
             )
 
         # Check if login_timestamp is in the future
@@ -2811,6 +2823,7 @@ def manage_store_shift(request, id):
                     {"Error": "Not authorised to delete a past or active shift."},
                     status=status.HTTP_410_GONE,
                 )
+
             shift.delete()
 
             logger.info(

@@ -1372,6 +1372,27 @@ def create_shiftexception_link(
     if not activity and not shift:
         raise SyntaxError
 
+    # Check an exception doesnt already exist
+    if activity:
+        try:
+            excep = ShiftException.objects.get(activity=activity)
+            excep.is_approved = False
+            excep.reason = reason
+            excep.save()
+            return
+        except ShiftException.DoesNotExist:
+            pass
+
+    elif shift:
+        try:
+            excep = ShiftException.objects.get(shift=shift)
+            excep.is_approved = False
+            excep.reason = reason
+            excep.save()
+            return
+        except ShiftException.DoesNotExist:
+            pass
+
     # Create exception
     ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
 
