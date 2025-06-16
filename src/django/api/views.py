@@ -3502,3 +3502,84 @@ def role_crud_api(request, role_id=None):
             {"Error": "An internal server error occurred."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_manager_required
+@api_view(["POST"])
+@renderer_classes([JSONRenderer])
+@transaction.atomic
+def copy_week_schedule(request):
+    """
+    Copies only non-conflicting shifts from a source week to the next week for a specific store.
+    Does not delete existing shifts.
+    """
+    try:
+        manager_id = request.session.get("user_id")
+        manager = User.objects.get(id=manager_id)
+        store_id = request.data.get("store_id")
+        source_week_start_str = request.data.get("source_week_start_date")
+
+        if not store_id:
+            return Response(
+                {"Error": "No active store selected."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        store = Store.objects.get(id=store_id)
+        if not manager.is_associated_with_store(store=store.id):
+            raise err.NotAssociatedWithStoreError
+
+        source_week_start_str = request.data.get("source_week_start_date")
+        source_week_start = datetime.strptime(source_week_start_str, "%Y-%m-%d").date()
+        source_week_end = source_week_start + timedelta(days=6)
+
+        source_shifts = Shift.objects.filter(
+            store=store, date__range=(source_week_start, source_week_end)
+        )
+
+        # Loop and create new shifts ONLY if there is no conflict
+        new_shifts_to_create = []
+        copied_shifts_count = 0
+        skipped_shifts_count = 0
+
+        for old_shift in source_shifts:
+            destination_date = old_shift.date + timedelta(days=7)
+
+            has_conflict = util.employee_has_conflicting_shift(
+                employee=old_shift.employee,
+                store=old_shift.store,
+                date=destination_date,
+            )
+
+            if not has_conflict:
+                # If no conflict exists, prepare the new shift for creation
+                new_shifts_to_create.append(
+                    Shift(
+                        store=old_shift.store,
+                        employee=old_shift.employee,
+                        role=old_shift.role,
+                        date=destination_date,
+                        start_time=old_shift.start_time,
+                        end_time=old_shift.end_time,
+                    )
+                )
+                copied_shifts_count += 1
+            else:
+                skipped_shifts_count += 1
+
+        if new_shifts_to_create:
+            Shift.objects.bulk_create(new_shifts_to_create)
+
+        message = f"Successfully copied {copied_shifts_count} shifts. Skipped {skipped_shifts_count} conflicting shifts."
+        logger.info(
+            f"Manager ID {manager_id} copied week for store [{store.code}]: {message}"
+        )
+
+        return Response({"message": message}, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.critical(f"An error occurred during copy_week_schedule: {str(e)}")
+        return Response(
+            {"Error": "An internal error occurred while copying the schedule."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
