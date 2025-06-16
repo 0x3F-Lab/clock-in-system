@@ -799,6 +799,18 @@ class ShiftException(models.Model):
         else:
             raise Exception("Both shift and activity are NULL for this exception.")
 
+    def get_employee(self) -> User:
+        """
+        Function to get the User object that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.employee
+        elif self.activity is not None:
+            return self.activity.employee
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
 
 ######################################## SIGNAL HANDLING #####################################################
 # UPON DELETING BOTH RELATED SHIFT (ROSTER) AND ACTIVITY (ACTUAL SHIFT) IT WILL DELETE THE RELATED EXCEPTION #

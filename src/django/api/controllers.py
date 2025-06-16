@@ -1039,7 +1039,15 @@ def get_store_exceptions(
     # Base queryset scoped to the given store via shift or activity
     qs = ShiftException.objects.filter(
         Q(shift__store=store) | Q(activity__store=store)
-    ).select_related("shift", "activity")
+    ).select_related(
+        "shift",
+        "shift__store",
+        "shift__employee",
+        "shift__role",
+        "activity",
+        "activity__store",
+        "activity__employee",
+    )
 
     # Filter by approval status
     qs = qs.filter(is_approved=not get_unapproved)
@@ -1048,7 +1056,46 @@ def get_store_exceptions(
     total = qs.count()
 
     # Apply pagination
-    results = list(qs.order_by("-created_at")[offset : offset + limit])
+    objects = qs.order_by("-created_at")[offset : offset + limit]
+
+    results = []
+    for obj in objects:
+        emp = obj.get_employee()
+        info = {
+            "date": obj.get_date(),
+            "store_code": obj.get_store().code,
+            "emp_name": f"{emp.first_name} {emp.last_name}",
+        }
+        if obj.shift:
+            info.append(
+                {
+                    "shift_start": obj.shift.start_time,
+                    "shift_end": obj.shift.end_time,
+                    "shift_role_name": obj.shift.role.name if obj.shift.role else None,
+                }
+            )
+
+        if obj.activity:
+            info.append(
+                {
+                    "act_start": obj.activity.login_time.time(),
+                    "act_start_timestamp": obj.activity.login_timestamp.time(),
+                    "act_end": (
+                        obj.activity.logout_time.time()
+                        if obj.activity.logout_time
+                        else None
+                    ),
+                    "act_end_timestamp": (
+                        obj.activity.logout_timestamp.time()
+                        if obj.activity.logout_timestamp
+                        else None
+                    ),
+                    "act_deliveries": obj.activity.deliveries,
+                    "act_pub_hol": obj.activity.is_public_holiday,
+                }
+            )
+
+        results.append(info)
 
     return results, total
 
@@ -1106,7 +1153,7 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
             if not activity.login_time or not activity.logout_time:
                 raise err.IncompleteActivityError
 
-            Shift.objects.create(
+            new_shift = Shift.objects.create(
                 employee=activity.employee,
                 store=activity.store,
                 date=localtime(activity.login_time).date(),
@@ -1114,7 +1161,10 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
                 end_time=localtime(activity.logout_time).time(),
             )
 
-        # When user was rostered by didnt clock in -> "delete" the shit (visually) (ShiftException.Reason.MISSED_SHIFT)
+            # Update exception to link to newly created shift
+            exception.shift = new_shift
+
+        # When user was rostered by didnt clock in -> "delete" the shift (visually) (ShiftException.Reason.MISSED_SHIFT)
         elif shift and not activity:
             shift.is_deleted = True
             shift.save()
@@ -1128,3 +1178,196 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
         # Save approval status
         exception.is_approved = True
         exception.save()
+
+
+def link_activity_to_shift(
+    activity: Union[Activity, int, str, None] = None,
+    shift: Union[Shift, int, str, None] = None,
+) -> Union[ShiftException.Reason, None]:
+    """
+    Check for a perfect link between an activity (actual shift) and a shift (the roster for the shift).
+    If no perfect link exists (i.e. either doesnt exist, or slightly wrong) then create a ShiftException. Either option MUST be provided.
+
+    Args:
+        activity (Activity, int, str): The activity object or ID to start the link from.
+        shift (shift, int, str): The shift object or ID to start the link from.
+
+    Returns:
+        Union[ShiftException.Reason, None]: The exception reason if one is created OR None if a perfect link exists.
+
+    Raises:
+        SyntaxError: If neither activity or shift is provided.
+        Activity.DoesNotExist: If the function cannot find the Activity from a provided ID.
+        Shift.DoesNotExist: If the function cannot find the Shift from a provided ID.
+        err.IncompleteActivityError: If the activity linking OR linked to is not complete.
+    """
+    # Resolve activity and shift if ID or str is provided
+    if activity and not isinstance(activity, Activity):
+        try:
+            activity = Activity.objects.get(pk=int(activity))
+        except (ValueError, Activity.DoesNotExist):
+            raise Activity.DoesNotExist
+    elif shift and not isinstance(shift, Shift):
+        try:
+            shift = Shift.objects.get(pk=int(shift))
+        except (ValueError, Shift.DoesNotExist):
+            raise Shift.DoesNotExist
+
+    # NOTE: There is ONLY 1 of shift/activity PER DAY, so no need to check through multiple a day for a user for a certain store
+
+    # Given ACTIVITY -> look for the shift
+    if activity:
+        # Check activity is FINISHED
+        if not activity.logout_time:
+            raise err.IncompleteActivityError
+
+        shifts = Shift.objects.filter(
+            store=activity.store_id,
+            employee=activity.employee_id,
+            date=activity.login_time.date(),
+        )
+
+        if len(shifts) > 1:
+            logger.critical(
+                f"Found {len(shifts)} linked SHIFTS to ACTIVITY ID {activity.id}. This should not be possible and has caused an error when checking for exceptions."
+            )
+            raise Exception(
+                "More than 1 shift was found when trying to link an activity."
+            )
+
+        # Worked with no scheduled shift
+        elif len(shifts) == 0:
+            create_shiftexception_link(
+                activity=activity, reason=ShiftException.Reason.NO_SHIFT
+            )
+            return ShiftException.Reason.NO_SHIFT
+
+        elif not check_perfect_shift_activity_timings(
+            activity=activity, shift=shifts[0]
+        ):
+            create_shiftexception_link(
+                activity=activity,
+                shift=shifts[0],
+                reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+            )
+            return ShiftException.Reason.INCORRECTLY_CLOCKED
+
+        # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
+        try:
+            excep = ShiftException.objects.get(activity=activity)
+            if not excep.is_approved:
+                excep.is_approved = True
+                if not excep.shift:
+                    excep.shift = shifts[0]
+                excep.save()
+                logger.info(
+                    f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
+                )
+        except ShiftException.DoesNotExist:
+            pass
+
+        return None
+
+    # Given SHIFT -> look for the activity
+    elif shift:
+        activities = Activity.objects.filter(
+            store=shift.store_id,
+            employee=shift.employee_id,
+            login_time__date=shift.date,
+        )
+
+        if len(activities) > 1:
+            logger.critical(
+                f"Found {len(activities)} linked ACTIVITIES to SHIFT ID {shift.id}. This should not be possible and has caused an error when checking for exceptions."
+            )
+            raise Exception(
+                "More than 1 activity was found when trying to link a shift."
+            )
+
+        # Had a rostered Shift but did not work
+        elif len(activities) == 0:
+            create_shiftexception_link(
+                shift=shift, reason=ShiftException.Reason.MISSED_SHIFT
+            )
+            return ShiftException.Reason.MISSED_SHIFT
+
+        # Check activity is FINISHED
+        elif not activity[0].logout_time:
+            raise err.IncompleteActivityError
+
+        elif not check_perfect_shift_activity_timings(
+            activity=activities[0], shift=shift
+        ):
+            create_shiftexception_link(
+                shift=shift,
+                activity=activities[0],
+                reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+            )
+            return ShiftException.Reason.INCORRECTLY_CLOCKED
+
+        # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
+        try:
+            excep = ShiftException.objects.get(shift=shift)
+            if not excep.is_approved:
+                excep.is_approved = True
+                if not excep.activity:
+                    excep.activity = activities[0]
+                excep.save()
+                logger.info(
+                    f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
+                )
+        except ShiftException.DoesNotExist:
+            pass
+
+        return None
+
+    else:
+        raise SyntaxError
+
+
+def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:
+    """
+    Check if the provided activity and shift are perfectly matched in terms of timings of clocking in/out. (Rounded of course)
+
+    Args:
+        activity (Activity): The activity object to compare.
+        shift (Shift): The shift object to compare.
+
+    Returns:
+        bool: If there exists a perfect link between the two. If either is slightly off then it returns False.
+    """
+    # If activity is not finished -> IGNORE
+    if not activity.logout_time:
+        return True
+
+    # Check start time matches (use rounded login_time)
+    if shift.start_time != activity.login_time.time():
+        return False
+
+    # Check end time matches (use rounded logout_time)
+    elif shift.end_time != activity.logout_time.time():
+        return False
+
+    return True
+
+
+def create_shiftexception_link(
+    reason: ShiftException.Reason,
+    activity: Union[Activity, None] = None,
+    shift: Union[Shift, None] = None,
+):
+    """
+    Create a ShiftException based on an activity and/or shift
+
+    Args:
+        activity (Activity, None): The activity object to link.
+        shift (shift, None): The shift object to link.
+
+    Raises:
+        SyntaxError: If neither activity or shift is provided.
+    """
+    if not activity and not shift:
+        raise SyntaxError
+
+    # Create exception
+    return ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
