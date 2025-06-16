@@ -744,6 +744,9 @@ def create_new_shift(request):
         if logout_timestamp:
             logout_time = util.round_datetime_minute(logout_timestamp)
 
+        # Ensure a value is set to prevent error
+        shift_length_mins = 0
+
         # Ensure minimum shift length is achieve between login and logout
         if logout_timestamp:
             if logout_time < login_time:
@@ -789,6 +792,10 @@ def create_new_shift(request):
         )
 
         activity.save()
+
+        # If activity is finished -> check for exceptions
+        if activity.logout_time:
+            controllers.link_activity_to_shift(activity=activity)
 
         logger.info(
             f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."

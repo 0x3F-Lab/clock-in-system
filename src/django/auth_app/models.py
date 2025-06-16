@@ -772,9 +772,6 @@ class ShiftException(models.Model):
         self.full_clean()  # Enforces validation before saving
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"[{self.shift.store.code or self.activity.store.code or 'N/A'}] {self.shift.date or self.activity.login_timestamp.date()} - {self.shift.employee.first_name or self.activity.employee.first_name} {self.shift.employee.last_name or self.activity.employee.last_name} ({self.shift.employee_id or self.activity.employee_id})"
-
     def get_date(self):
         """
         Function to get the date that the exception is related to (handles if either shift or activity is NULL).
@@ -810,6 +807,48 @@ class ShiftException(models.Model):
             return self.activity.employee
         else:
             raise Exception("Both shift and activity are NULL for this exception.")
+
+    def __str__(self):
+        shift = self.shift
+        activity = self.activity
+
+        try:
+            store_code = (
+                shift.store.code
+                if shift and shift.store
+                else activity.store.code if activity and activity.store else "N/A"
+            )
+        except Exception:
+            store_code = "N/A"
+
+        try:
+            date = (
+                shift.date
+                if shift and shift.date
+                else (
+                    activity.login_time.date()
+                    if activity and activity.login_time
+                    else "N/A"
+                )
+            )
+        except Exception:
+            date = "N/A"
+
+        try:
+            employee = (
+                shift.employee
+                if shift and shift.employee
+                else activity.employee if activity and activity.employee else None
+            )
+            employee_str = (
+                f"{employee.first_name} {employee.last_name} ({employee.id})"
+                if employee
+                else "Unknown Employee"
+            )
+        except Exception:
+            employee_str = "Unknown Employee"
+
+        return f"[{store_code}] {date} - {employee_str}"
 
 
 ######################################## SIGNAL HANDLING #####################################################
