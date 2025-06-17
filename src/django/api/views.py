@@ -2451,6 +2451,13 @@ def list_account_summaries(request):
             {"Error": "Not authorised to get summaries for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.ShiftExceptionExistsError:
+        return Response(
+            {
+                "Error": "There exists unapproved shift exceptions for the period. Please resolve them first."
+            },
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
     except Exception as e:
         logger.critical(
             f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
@@ -3303,7 +3310,7 @@ def manage_store_exception(request, exception_id):
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
-        logger.critical(f"Error approving an exception: {str(e)}")
+        logger.critical(f"Error approving exception ID {exception_id}: {str(e)}")
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
@@ -3337,7 +3344,7 @@ def list_store_exceptions(request, store_id):
 
         return Response(
             {
-                "store_id": id,
+                "store_id": store_id,
                 "total": total,
                 "offset": offset,
                 "limit": limit,
@@ -3365,7 +3372,9 @@ def list_store_exceptions(request, store_id):
         )
 
     except Exception as e:
-        logger.critical(f"Error creating shift: {str(e)}")
+        logger.critical(
+            f"Error listing store ID {store_id}'s ShiftExceptions: {str(e)}"
+        )
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

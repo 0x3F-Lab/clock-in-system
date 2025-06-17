@@ -656,12 +656,18 @@ def get_account_summaries(
         # Get store object and ensure its active
         store = Store.objects.get(id=int(store_id))
 
-        if not store.is_active and not allow_inactive_store:
-            raise err.InactiveStoreError
-
         # Convert date strings
         start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
         end_dt = make_aware(datetime.strptime(end_date, "%Y-%m-%d"))
+
+        if not store.is_active and not allow_inactive_store:
+            raise err.InactiveStoreError
+
+        # Check if there are any exceptions for the store in the period
+        elif util.check_store_exceptions_in_period(
+            store_id=store.id, start_dt=start_dt, end_dt=end_dt
+        ):
+            raise err.ShiftExceptionExistsError
 
         # All employees for the store OR who have worked at the store within the period (if resigned)
         employees_qs = User.objects.filter(
@@ -1067,12 +1073,16 @@ def get_store_exceptions(
     for obj in objects:
         emp = obj.get_employee()
         info = {
+            "id": obj.id,
+            "reason": obj.get_reason_display(),
+            "created_at": localtime(obj.created_at),
+            "updated_at": localtime(obj.updated_at),
             "date": obj.get_date(),
             "store_code": obj.get_store().code,
             "emp_name": f"{emp.first_name} {emp.last_name}",
         }
         if obj.shift:
-            info.append(
+            info.update(
                 {
                     "shift_start": obj.shift.start_time,
                     "shift_end": obj.shift.end_time,
@@ -1081,7 +1091,7 @@ def get_store_exceptions(
             )
 
         if obj.activity:
-            info.append(
+            info.update(
                 {
                     "act_start": obj.activity.login_time.time(),
                     "act_start_timestamp": obj.activity.login_timestamp.time(),
@@ -1095,7 +1105,7 @@ def get_store_exceptions(
                         if obj.activity.logout_timestamp
                         else None
                     ),
-                    "act_deliveries": obj.activity.deliveries,
+                    "act_length_hr": round(obj.activity.shift_length_mins / 60, 1),
                     "act_pub_hol": obj.activity.is_public_holiday,
                 }
             )
@@ -1230,6 +1240,7 @@ def link_activity_to_shift(
             store=activity.store_id,
             employee=activity.employee_id,
             date=activity.login_time.date(),
+            is_deleted=False,
         )
 
         if len(shifts) > 1:

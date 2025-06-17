@@ -191,3 +191,13 @@ class ShiftExceptionAlreadyApprovedError(Exception):
     def __init__(self, message="Exception is already approved."):
         self.message = message
         super().__init__(self.message)
+
+
+class ShiftExceptionExistsError(Exception):
+    """
+    Raised when trying to interact with a store's shifts etc. when there is a ShiftException for the period/object.
+    """
+
+    def __init__(self, message="The ShiftException must be handled first."):
+        self.message = message
+        super().__init__(self.message)

@@ -744,6 +744,27 @@ def manage_stores(request):
     )
 
 
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def store_exceptions(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.critical(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/exception_page.html", context)
+
+
 @require_GET
 def offline(request):
     return render(request, "offline.html")

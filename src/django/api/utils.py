@@ -5,14 +5,15 @@ import logging
 import holidays
 import api.exceptions as err
 
-from typing import List, Tuple, Optional
 from datetime import timedelta, datetime, time
+from typing import List, Tuple, Optional, Union
 from urllib.parse import urlencode
+from django.db.models import Q
 from django.utils import timezone
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
 from django.utils.timezone import make_aware, is_naive
-from auth_app.models import User, Store, Activity, Shift
+from auth_app.models import User, Store, Activity, Shift, ShiftException
 from clock_in_system.settings import (
     COUNTRY_CODE,
     COUNTRY_SUBDIV_CODE,
@@ -414,3 +415,24 @@ def is_shift_duration_valid(
 
     duration = dt_end - dt_start
     return duration >= timedelta(minutes=min_duration_mins)
+
+
+def check_store_exceptions_in_period(
+    store_id: Union[int, str], start_dt: datetime, end_dt: datetime
+) -> bool:
+    """
+    Check if a store has any unapproved exceptions within the datetime period.
+    """
+    return ShiftException.objects.filter(
+        Q(is_approved=False)
+        & (
+            Q(
+                shift__store_id=store_id,
+                shift__date__range=(start_dt.date(), end_dt.date()),
+            )
+            | Q(
+                activity__store_id=store_id,
+                activity__login_timestamp__range=(start_dt, end_dt),
+            )
+        )
+    ).exists()
