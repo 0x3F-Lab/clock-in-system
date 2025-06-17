@@ -51,26 +51,24 @@
       </a>
     </div>
 
-    <!-- Disabled Feature Card 1 -->
     <div class="col">
       <a href="{% url 'schedule_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
         <div class="card-body">
-          <i class="fa-solid fa-clipboard-user fa-2x mb-3"></i> <!-- Icon for Rostering -->
+          <i class="fa-solid fa-clipboard-user fa-2x mb-3"></i>
           <h5 class="card-title">Rostering</h5>
           <p class="card-text">Create rosters for future employee shifts</p>
         </div>
       </a>
     </div>
 
-    <!-- Disabled Feature Card 2 -->
     <div class="col">
-      <div class="card h-100 shadow-sm border-0 text-center bg-light text-muted">
+      <a href="{% url 'store_exceptions' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
         <div class="card-body">
-          <h5 class="card-title">Store Files</h5>
-          <p class="card-text">Fill in regular store reports and other documentation.</p>
-          <p>Future Feature....</p>
+          <i class="fa-solid fa-calendar-check fa-2x mb-3"></i>
+          <h5 class="card-title">Store Exceptions</h5>
+          <p class="card-text">Handle the clocking exceptions generated.</p>
         </div>
-      </div>
+      </a>
     </div>
 
   </div>
