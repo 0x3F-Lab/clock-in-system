@@ -11,7 +11,9 @@ $(document).ready(function() {
             xhrFields: {withCredentials: true},
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(data) {
-                console.log("Received data from server:", data);
+                $('#schedule-week-title')
+                    .text(`Week of ${formatWeekTitle(data.week_start)}`)
+                    .data('week-start-date', data.week_start);
                 
                 $('#schedule-week-title').text(`Week of ${formatWeekTitle(data.week_start)}`);
                 const scheduleContainer = $('#schedule-container');
@@ -183,32 +185,29 @@ $(document).ready(function() {
     });
 
     // --- DELETE SHIFT ---
-    $('#deleteShiftBtn').on('click', function() {
-        // INSTEAD OF CONFIRM -- why not copy the js to have the inplace confirm button from the employee dashboard (manager page)
-        if (confirm('Are you sure you want to delete this shift? This cannot be undone.')) {
-            const shiftId = $('#editShiftId').val();
+    $('#confirmDeleteBtn').on('click', function() {
+        const shiftId = $('#editShiftId').val();
 
-            $.ajax({
-                url: `${window.djangoURLs.manageShift}${shiftId}/`,
-                method: 'DELETE',
-                xhrFields: {withCredentials: true},
-                headers: {'X-CSRFToken': getCSRFToken()},
-                success: function(response) {
-                    // First, hide the modal
-                    bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                    loadSchedule(response.date);
-                },
-                error: function(jqXHR, textStatus, errorThrown) {
-                    let errorMessage;
-                    if (jqXHR.status == 500) {
-                      errorMessage = "Failed to delete the shift due to internal server errors. Please try again.";
-                    } else {
-                      errorMessage = jqXHR.responseJSON?.Error || "Failed to delete the shift. Please try again.";
-                    }
-                    showNotification(errorMessage, "danger");
+        $.ajax({
+            url: `${window.djangoURLs.manageShift}${shiftId}/`,
+            method: 'DELETE',
+            xhrFields: {withCredentials: true},
+            headers: {'X-CSRFToken': getCSRFToken()},
+            success: function(response) {
+                // First, hide the modal
+                bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
+                loadSchedule(response.date);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                let errorMessage;
+                if (jqXHR.status == 500) {
+                    errorMessage = "Failed to delete the shift due to internal server errors. Please try again.";
+                } else {
+                    errorMessage = jqXHR.responseJSON?.Error || "Failed to delete the shift. Please try again.";
                 }
-            });
-        }
+                showNotification(errorMessage, "danger");
+            }
+        });
     });
 
     // EDIT button click
@@ -298,6 +297,79 @@ $(document).ready(function() {
                 }
             });
         }
+    });
+
+    // COPY WEEK
+    $('#copyWeekBtn').on('click', function() {
+        const sourceWeekStartDate = $('#schedule-week-title').data('week-start-date');
+        const storeId = getSelectedStoreID();
+
+        if (!sourceWeekStartDate || storeId === null) {
+            alert('Cannot copy because a valid week and store are not loaded.');
+            return;
+        }
+
+        $('#confirmationModalTitle').text('Confirm Schedule Copy');
+        $('#confirmationModalBody').html(
+            "This will copy all non-conflicting shifts from the current week to the next week." +
+            "<br><br><strong>This action cannot be undone.</strong>"
+        );
+        $('#confirmActionBtn').text('Yes, Copy Schedule').removeClass('btn-danger').addClass('btn-primary');
+
+        const $confirmBtn = $('#confirmActionBtn');
+        $confirmBtn.data('action', 'copy-week'); // Identify the action
+        $confirmBtn.data('source-date', sourceWeekStartDate);
+        $confirmBtn.data('store-id', storeId);
+
+        // Show the modal
+        const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+        confirmationModal.show();
+    });
+
+
+    $('#confirmActionBtn').on('click', function() {
+        const $this = $(this);
+        const action = $this.data('action');
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+        modal.hide();
+
+        if (action === 'copy-week') {
+            const sourceWeekStartDate = $this.data('source-date');
+            const storeId = $this.data('store-id');
+            const copyUrl = window.djangoURLs.copyWeekSchedule;
+
+            $.ajax({
+                url: copyUrl,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    source_week_start_date: sourceWeekStartDate,
+                    store_id: storeId
+                }),
+                xhrFields: { withCredentials: true },
+                headers: { 'X-CSRFToken': getCSRFToken() },
+                success: function(response) {
+                    showNotification(response.message, 'success');
+                    const nextWeek = $('#next-week-btn').data('week');
+                    loadSchedule(nextWeek, storeId);
+                },
+                error: function(jqXHR) {
+                    const errorMessage = jqXHR.responseJSON?.Error || "An unknown error occurred.";
+                    showNotification(errorMessage, "danger");
+                }
+            });
+        }
+    });
+
+    $('#deleteShiftBtn').on('click', function() {
+        $(this).hide();
+        $('#confirmDeleteBtn').show();
+        $('#updateShiftBtn').prop('disabled', true);
+    });
+
+    $('#editShiftModal').on('hide.bs.modal', function () {
+        resetDeleteButtons();
     });
 
     // --- Shift Previous Week --- 
@@ -470,4 +542,10 @@ function setRoleFormToAddMode() {
     $form[0].reset();
     $form.parent().find('h6').text('Add New Role');
     $submitBtn.text('Add Role').removeClass('btn-success').addClass('btn-primary');
+}
+
+function resetDeleteButtons() {
+    $('#confirmDeleteBtn').hide();
+    $('#deleteShiftBtn').show();
+    $('#updateShiftBtn').prop('disabled', false);
 }
