@@ -485,16 +485,12 @@ function updateStoreInformation(storeId) {
         },
 
         success: function(resp) {
-        let roleOptionsHtml = ''; // For the shift modal dropdowns
-        $existingRolesList.empty(); // Clear the management list
+        let roleOptionsHtml = '';
+        $existingRolesList.empty(); 
 
         if (resp.data && resp.data.length > 0) {
             resp.data.forEach(role => {
-                // Build options for the <select> dropdowns (no change here)
                 roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
-                
-                // --- THIS IS THE NEW HTML STRUCTURE ---
-                // It uses Bootstrap's standard Dropdown component for a clean action menu.
                 const roleListItemHtml = `
                     <li class="list-group-item d-flex justify-content-between align-items-center" 
                         data-role-id="${role.id}" 
@@ -523,7 +519,6 @@ function updateStoreInformation(storeId) {
             $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
         }
 
-        // Populate the shift modal dropdowns (no change here)
         $addRoleSelect.append(roleOptionsHtml);
         $editRoleSelect.append(roleOptionsHtml);
     },

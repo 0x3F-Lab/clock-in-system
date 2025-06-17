@@ -3316,6 +3316,7 @@ def manage_store_exception(request, exception_id):
         )
 
 
+# --- EXCEPTIONS ---
 @api_manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
@@ -3380,6 +3381,7 @@ def list_store_exceptions(request, store_id):
         )
 
 
+# --- ROLES ---
 @api_manager_required
 @api_view(["POST", "PUT", "DELETE"])
 @renderer_classes([JSONRenderer])
@@ -3513,6 +3515,7 @@ def role_crud_api(request, role_id=None):
         )
 
 
+# --- COPY WEEK ---
 @api_manager_required
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
