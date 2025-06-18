@@ -481,53 +481,49 @@ function updateStoreInformation(storeId) {
     $.ajax({
         url: `${window.djangoURLs.listStoreRoles}${storeId}/`,
         type: 'GET',
-        xhrFields: {
-        withCredentials: true
-        },
-        headers: {
-        'X-CSRFToken': getCSRFToken(),
-        },
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
 
         success: function(resp) {
-        let roleOptionsHtml = ''; // For the dropdowns
-        $existingRolesList.empty(); // Clear the management list
+            let roleOptionsHtml = ''; // For the dropdowns
+            $existingRolesList.empty(); // Clear the management list
 
-        if (resp.data && resp.data.length > 0) {
-            resp.data.forEach(role => {
-                // Build options for the <select> dropdowns
-                roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
-                
-                // Build the interactive list for the management modal
-                const roleListItemHtml = `
-                    <li class="list-group-item d-flex justify-content-between align-items-center" data-role-id="${role.id}" data-role-name="${role.name}" data-role-description="${role.description || ''}" data-role-color="${role.colour}">
-                        <div>
-                            <span class="d-inline-block me-2" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
-                            ${role.name}
-                        </div>
-                        <div>
-                            <button class="btn btn-sm btn-outline-secondary edit-role-btn me-2">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger delete-role-btn">Delete</button>
-                        </div>
-                    </li>`;
-                $existingRolesList.append(roleListItemHtml);
-            });
-        } else {
-            showNotification("There are no ROLES associated to the selected store.", "info");
-            $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
-        }
+            if (resp.data && resp.data.length > 0) {
+                resp.data.forEach(role => {
+                    // Build options for the <select> dropdowns
+                    roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
+                    
+                    // Build the interactive list for the management modal
+                    const roleListItemHtml = `
+                        <li class="list-group-item d-flex justify-content-between align-items-center" data-role-id="${role.id}" data-role-name="${role.name}" data-role-description="${role.description || ''}" data-role-color="${role.colour}">
+                            <div>
+                                <span class="d-inline-block me-2" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
+                                ${role.name}
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary edit-role-btn me-2">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger delete-role-btn">Delete</button>
+                            </div>
+                        </li>`;
+                    $existingRolesList.append(roleListItemHtml);
+                });
+            } else {
+                showNotification("There are no ROLES associated to the selected store.", "info");
+                $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
+            }
 
-        $addRoleSelect.append(roleOptionsHtml);
-        $editRoleSelect.append(roleOptionsHtml);
+            $addRoleSelect.append(roleOptionsHtml);
+            $editRoleSelect.append(roleOptionsHtml);
         },
 
         error: function(jqXHR, textStatus, errorThrown) {
-        let errorMessage;
-        if (jqXHR.status == 500) {
-            errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
-        } else {
-            errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
+            let errorMessage;
+            if (jqXHR.status == 500) {
+                errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
+            } else {
+                errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
+            }
+            showNotification(errorMessage, "danger");
         }
     });
 }

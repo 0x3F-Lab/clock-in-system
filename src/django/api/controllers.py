@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models.functions import Coalesce, Concat
 from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.models import User, Activity, Store, Shift, ShiftException
+from auth_app.models import User, Activity, Store, Role, Shift, ShiftException
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
@@ -1087,6 +1087,7 @@ def get_store_exceptions(
                     "shift_start": obj.shift.start_time,
                     "shift_end": obj.shift.end_time,
                     "shift_role_name": obj.shift.role.name if obj.shift.role else None,
+                    "shift_role_id": obj.shift.role.id if obj.shift.role else None,
                 }
             )
 
@@ -1115,15 +1116,21 @@ def get_store_exceptions(
     return results, total
 
 
-def approve_exception(exception: Union[ShiftException, int, str]) -> None:
+def approve_exception(
+    exception: Union[ShiftException, int, str],
+    override_role_id: Union[str, int, None] = None,
+) -> None:
     """
     Approves an exception and updates both the linked shift and/or activity when required.
+    ENSURE THE ROLE ID IS ACCESSIBLE BY THE RELATED STORE BEFORE CALLING THIS FUNCTION, THIS IS NOT CHECKED IN THIS CONTROLLER.
 
     Args:
         exception (Union[ShiftException, int, str]): The exception to approve.
+        override_role_id (Union[str, int, None]): The ID of the role to override the connected shift with. BE WARNED: THIS IS NOT CHECKED IF A STORE HAS ACCESS TO THE ROLE, THIS IS DONE IN THE API VIEW ITSELF.
 
     Raises:
         ShiftException.DoesNotExist: If the Exception does not exist.
+        Role.DoesNotExist: If the override role id does not exist.
         err.IncompleteActivityError: If the activity the exception is linked to is incomplete.
         err.ShiftExceptionAlreadyApprovedError: If the exception is already approved.
         Exception: If there is a problem with the exception object itself.
@@ -1140,6 +1147,13 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
     # If the exception is already approved -> Cant re-approve
     if exception.is_approved:
         raise err.ShiftExceptionAlreadyApprovedError
+
+    # If given role -> fetch Role object
+    elif override_role_id:
+        try:
+            role = Role.objects.get(pk=int(override_role_id))
+        except (Value, Role.DoesNotExist):
+            raise Role.DoesNotExist
 
     with transaction.atomic():
         # Get middleman objects
@@ -1160,6 +1174,11 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
                 shift.end_time = localtime(activity.logout_time).time()
                 updated = True
 
+            # Only update role if its given AND it changes
+            if override_role_id and shift.role != role:
+                shift.role = role
+                updated = True
+
             if updated:
                 shift.save()
 
@@ -1175,6 +1194,11 @@ def approve_exception(exception: Union[ShiftException, int, str]) -> None:
                 start_time=localtime(activity.login_time).time(),
                 end_time=localtime(activity.logout_time).time(),
             )
+
+            # Update role if given
+            if override_role_id:
+                new_shift.role = role
+                new_shift.save()
 
             # Update exception to link to newly created shift
             exception.shift = new_shift

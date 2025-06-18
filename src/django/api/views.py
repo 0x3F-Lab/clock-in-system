@@ -3202,9 +3202,12 @@ def manage_store_exception(request, exception_id):
     """
     try:
         manager = util.api_get_user_object_from_session(request)
-        exception = ShiftException.objects.get(id=exception_id)
+        exception = ShiftException.objects.select_related("activity__store").get(
+            id=exception_id
+        )
         login_time = util.clean_param_str(request.data.get("login_time", None))
         logout_time = util.clean_param_str(request.data.get("login_time", None))
+        role_id = util.clean_param_str(request.data.get("role_id", None))
 
         store = exception.get_store()
 
@@ -3237,6 +3240,20 @@ def manage_store_exception(request, exception_id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
+            try:
+                if role_id:
+                    role_id = int(role_id)
+                    if not activity.store.has_role(role=int(role_id)):
+                        return Response(
+                            {"Error": "Not authorised to assign another store's role."},
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
+                        )
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid datetime format. Expected HH:MM or HH:MM:SS."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
             # Make sure activity is there
             activity = exception.activity
             if not activity:
@@ -3245,6 +3262,21 @@ def manage_store_exception(request, exception_id):
                 )
             elif not activity.login_time and not activity.logout_time:
                 raise err.IncompleteActivityError
+
+            # Ensure the role given is valid and usable
+            elif role_id:
+                try:
+                    role_id = int(role_id)
+                    if not activity.store.has_role(role=int(role_id)):
+                        return Response(
+                            {"Error": "Not authorised to assign another store's role."},
+                            status=status.HTTP_406_NOT_ACCEPTABLE,
+                        )
+                except ValueError:  # No need to check for Role.DoesNotExist
+                    return Response(
+                        {"Error": "Role ID must be a valid integer."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
             # Construct new datetime values by combining the original date with new time values
             login_dt = localtime(activity.login_timestamp).replace(
@@ -3269,7 +3301,9 @@ def manage_store_exception(request, exception_id):
                 activity.logout_timestamp = logout_dt
                 activity.save()
 
-                controllers.approve_exception(exception=exception)
+                controllers.approve_exception(
+                    exception=exception.id, override_role_id=role_id
+                )
 
         # Never practically reached -> ignore this.
         else:

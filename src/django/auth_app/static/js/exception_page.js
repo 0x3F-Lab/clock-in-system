@@ -10,10 +10,12 @@ $(document).ready(function () {
 
   // Upon changing stores update the exception list
   $('#storeSelectDropdown').on('change', function() {
+    updateStoreRoles();
     updateExceptions();
   });
 
-  // Initial call to update exceptions
+  // Initial call to update exceptions and store roles
+  updateStoreRoles();
   updateExceptions();
 
   // Add page reloader to force reload after period of inactivity
@@ -77,8 +79,10 @@ function handleExceptionApproveBtns() {
     const ID = $(this).attr('data-id');
     const login = $(this).attr('data-login');
     const logout = $(this).attr('data-logout');
+    const roleID = $(this).attr('data-role-id');
     if (login) { $('#editLoginTimestamp').val(login); }
     if (logout) { $('#editLogoutTimestamp').val(logout); }
+    if (roleID) { selectRoleID(roleID); }
     $('#editModalSubmit').attr('data-id', ID);
     openEditModal();
   });
@@ -140,6 +144,7 @@ function markExceptionApproved(id, edit) {
         data: JSON.stringify({
           login_time: $('#editLoginTimestamp').val(),
           logout_time: $('#editLogoutTimestamp').val(),
+          role_id: $('#editRoleSelect').val(),
         }),
 
       success: function(req) {
@@ -173,6 +178,7 @@ function markExceptionApproved(id, edit) {
 
 function updateExceptions() {
   showSpinner();
+  const isExceptionListTypeUnapproved = $('#excep-page').attr('data-type') === "unapproved";
 
   function formatDateTime(isoString) {
     const date = new Date(isoString);
@@ -189,13 +195,13 @@ function updateExceptions() {
   }
 
   $.ajax({
-    url: `${window.djangoURLs.listStoreExceptions}${getSelectedStoreID()}/?get_unapproved=${getExceptionType() === "unapproved"}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
+    url: `${window.djangoURLs.listStoreExceptions}${getSelectedStoreID()}/?get_unapproved=${isExceptionListTypeUnapproved}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     method: "GET",
     xhrFields: {withCredentials: true},
     headers: {'X-CSRFToken': getCSRFToken()},
 
     success: function(resp) {
-      $('#list-title').text(`${getExceptionType() === 'unapproved' ? 'Active' : 'Approved'} Store Exceptions (${resp.total})`);
+      $('#list-title').text(`${isExceptionListTypeUnapproved ? 'Active' : 'Approved'} Store Exceptions (${resp.total})`);
       const excepList = $('#excep-list')
       const exceptions = resp.exceptions || [];
       excepList.empty();
@@ -203,14 +209,14 @@ function updateExceptions() {
       // Add exceptions
       if (exceptions.length > 0) {
         $.each(resp.exceptions || [], function(index, e) {
-          const rowColour = getExceptionType() === 'unapproved' ? 'bg-warning-subtle' : '';
+          const rowColour = isExceptionListTypeUnapproved ? 'bg-warning-subtle' : '';
           const badgeColour = e.reason==='No Shift' ? 'bg-indigo' : (e.reason==='Incorrectly Clocked' ? 'bg-info' : (e.reason==='Missed Shift' ? 'bg-orange' : 'bg-secondary'));
-          const btn = getExceptionType() === 'approved' ? '' : 
+          const btn = !isExceptionListTypeUnapproved ? '' : 
                 `<div class="d-flex gap-2 mt-1">
                   <button class="mark-approved btn btn-sm btn-outline-success mt-1 d-none" data-id="${e.id}">
                     <i class="fas fa-check-circle me-1"></i> Approve
                   </button>
-                  <button class="mark-approved-edit ${e.reason==='Missed Shift' ? 'd-none' : ''} btn btn-sm btn-outline-primary mt-1 d-none" data-bs-toggle="none" data-id="${e.id}" data-login="${e.act_start}" data-logout="${e.act_end}">
+                  <button class="mark-approved-edit ${e.reason==='Missed Shift' ? 'd-none' : ''} btn btn-sm btn-outline-primary mt-1 d-none" data-bs-toggle="none" data-id="${e.id}" data-login="${e.act_start}" data-logout="${e.act_end}" data-role-id="${e.shift_role_id}">
                     <i class="fas fa-check-circle me-1"></i> Edit & Approve
                   </button>
                 </div>`;
@@ -252,12 +258,12 @@ function updateExceptions() {
           excepList.append(row);
         });
       } else {
-        const msg = getExceptionType() === "unapproved" ? "You're all caught up. New exceptions will appear here for all store managers." : "Your store has no past exceptions. Any new exceptions approved will appear here.";
+        const msg = isExceptionListTypeUnapproved ? "You're all caught up. New exceptions will appear here for all store managers." : "Your store has no past exceptions. Any new exceptions approved will appear here.";
         excepList.append(`
           <div class="list-group-item list-group-item-action flex-column align-items-start p-3 bg-light text-muted">
             <div class="d-flex w-100 justify-content-between align-items-center">
               <h5 class="mb-1">
-                <i class="fas fa-bell-slash me-2"></i>No ${getExceptionType() === "unapproved" ? 'Active' : 'Approved'} Store Exceptions
+                <i class="fas fa-bell-slash me-2"></i>No ${isExceptionListTypeUnapproved ? 'Active' : 'Approved'} Store Exceptions
               </h5>
             </div>
             <small class="mt-2">${msg}</small>
@@ -271,7 +277,7 @@ function updateExceptions() {
 
     error: function(jqXHR, textStatus, errorThrown) {
       hideSpinner();
-      $('#list-title').text(`${getExceptionType() === "unapproved" ? "Active" : "Approved"} Store Exceptions (ERR)`);
+      $('#list-title').text(`${isExceptionListTypeUnapproved ? "Active" : "Approved"} Store Exceptions (ERR)`);
 
       // Extract the error message from the API response if available
       let errorMessage;
@@ -285,6 +291,8 @@ function updateExceptions() {
   });
 }
 
+
+// Function to generate exception messages for each exception panel, which is dependant on the exception reason.
 function generateExceptionMessage(exception) {
   switch (exception.reason) {
     case "No Shift":
@@ -296,6 +304,7 @@ function generateExceptionMessage(exception) {
         ${exception.act_pub_hol ? '<p>This shift was counted as a <em>Public Holiday</em>.</p>' : ''}
         <p>By approving this exception, a rostered shift will be generated for the rosters.</p>
       `;
+
     case "Missed Shift":
       return `
         <p>They were expected to work:<br>
@@ -303,6 +312,7 @@ function generateExceptionMessage(exception) {
         <p>However, they did not show up to their shift.</p>
         <p>By approving this exception, the rostered shift will be deleted from the rosters.<br><em>This is unrecoverable.</em></p>
       `;
+
     default:
       return `
         <p>They were expected to work:<br>
@@ -316,5 +326,51 @@ function generateExceptionMessage(exception) {
   }
 }
 
-function getExceptionType() { return $('#excep-page').attr('data-type'); }
-function setExceptionType(type) { $('#excep-page').attr('data-type', type); }
+
+function updateStoreRoles() {
+  const $editRoleSelect = $("#editRoleSelect");
+  $editRoleSelect.html(`<option value="" selected>No Role</option>`);
+
+  // Fetch roles
+  $.ajax({
+      url: `${window.djangoURLs.listStoreRoles}${getSelectedStoreID()}/`,
+      type: 'GET',
+      xhrFields: {withCredentials: true},
+      headers: {'X-CSRFToken': getCSRFToken()},
+
+      success: function(resp) {
+        if (resp.data && resp.data.length > 0) {
+            resp.data.forEach(role => {
+                // Build options for the <select> dropdowns
+                $editRoleSelect.append(`<option value="${role.id}">${role.name}</option>`);
+            });
+        } else {
+            showNotification("There are NO ROLES associated to the selected store.", "info");
+        }
+      },
+
+      error: function(jqXHR, textStatus, errorThrown) {
+        let errorMessage;
+        if (jqXHR.status == 500) {
+            errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
+        } else {
+            errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
+        }
+        showNotification(errorMessage, "danger");
+      }
+  });
+}
+
+
+// Function to select a certain ROLE on the edit modal if given, otherwise select 'No Role'
+function selectRoleID(roleID) {
+  const $editRoleSelect = $("#editRoleSelect");
+
+  // Try to select the role
+  if ($editRoleSelect.find(`option[value="${roleID}"]`).length > 0) {
+    $editRoleSelect.val(roleID);
+  } else {
+    // Fallback: select the default empty value
+    $editRoleSelect.val("");
+  }
+}

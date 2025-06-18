@@ -72,6 +72,14 @@
             <label for="editLogoutTimestamp" class="form-label fw-semibold">Logout Timestamp</label>
             <input type="time" step="60" class="form-control w-100" id="editLogoutTimestamp" name="editLogoutTimestamp" required>
           </div>
+
+          <div class="mb-3">
+            <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Role:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <select class="form-select" id="editRoleSelect" name="role" required></select>
+          </div>
         </form>
       </div>
 
@@ -90,6 +98,7 @@
 
 
 {% block extra_urls %}
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
     listStoreExceptions: "{% url 'api:list_store_exceptions' 0 %}".slice(0, -2),
     manageStoreException: "{% url 'api:manage_store_exception' 0 %}".slice(0, -2),
 {% endblock %}
