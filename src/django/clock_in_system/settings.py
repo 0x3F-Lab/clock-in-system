@@ -295,9 +295,11 @@ MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
-# Define minimum and maximum password length
+# Define minimum and maximum field lengths
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
+ROLE_NAME_MAX_LENGTH = 200  # DB is 210 max
+ROLE_DESC_MAX_LENGTH = 500  # DB is 500
 
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (
@@ -306,6 +308,10 @@ VALID_NAME_PATTERN = (
 VALID_NAME_LIST_PATTERN = r"^[a-zA-Z\s\-',]+$"  # Allows commas as well
 VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
 VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
+VALID_ROLE_NAME_DESC_PATTERN = (
+    r"^[0-9a-zA-Z\s\-',()/]+$"  # USED FOR BOTH ROLE NAME AND ROLE DESCRIPTION
+)
+VALID_HEX_COLOUR_PATTERN = r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
 
 
 # Default primary key field type

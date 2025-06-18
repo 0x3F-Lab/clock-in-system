@@ -193,23 +193,25 @@ function formatDateForInput(date) {
 
 // Ensure global variable to ensure spinner timeout can be adjusted
 let spinnerTimeout;
+let isSpinnerActive = false;
 
 // Hide / show progress spinner
 function showSpinner(delay = 150) {
+  if (isSpinnerActive) return; // Do nothing if already active
   clearTimeout(spinnerTimeout); // Prevent any previous timers
 
   spinnerTimeout = setTimeout(() => {
-    const $spinner = $('#spinnerContainer');
-    $spinner.removeClass('d-none').stop(true, true).fadeIn(300);
+    $('#spinnerContainer').removeClass('d-none').stop(true, true).fadeIn(300);
+    isSpinnerActive = true;
   }, delay);
 }
 
 function hideSpinner() {
   clearTimeout(spinnerTimeout); // Cancel pending show
-  const $spinner = $('#spinnerContainer');
 
-  $spinner.stop(true, true).fadeOut(300, function () {
+  $('#spinnerContainer').stop(true, true).fadeOut(300, function () {
     $(this).addClass('d-none');
+    isSpinnerActive = false;
   });
 }
 

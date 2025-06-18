@@ -3,8 +3,7 @@ $(document).ready(function() {
     // --- CORE APPLICATION FUNCTIONS ---
 
     function loadSchedule(week) {
-        console.log("Requesting schedule for week:", week, "and store ID:", getSelectedStoreID());
-      
+        showSpinner();
         $.ajax({
             url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?week=${week}`,
             method: 'GET',
@@ -53,9 +52,11 @@ $(document).ready(function() {
 
                 $('#previous-week-btn').data('week', data.prev_week);
                 $('#next-week-btn').data('week', data.next_week);
+                hideSpinner();
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                //$('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
+                hideSpinner();
+                $('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
                 let errorMessage;
                 if (jqXHR.status == 500) {
                   errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
@@ -98,6 +99,7 @@ $(document).ready(function() {
 
     // --- ADD SHIFT ---
     $('#saveShiftBtn').on('click', function() {
+        showSpinner();
         const form = $('#addShiftForm');
         const formData = {
             date: form.find('#shiftDate').val(),
@@ -122,12 +124,14 @@ $(document).ready(function() {
             withCredentials: true
             },
             success: function(response) {
+                // Dont hide spinner
                 const modal = bootstrap.Modal.getInstance(document.getElementById('addShiftModal'));
                 modal.hide();
                 form[0].reset();
                 loadSchedule(response.date); 
             },
             error: function(jqXHR, textStatus, errorThrown) {
+                hideSpinner();
                 let errorMessage;
                 if (jqXHR.status == 500) {
                   errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
@@ -151,6 +155,7 @@ $(document).ready(function() {
 
     // --- UPDATE SHIFT ---
     $('#updateShiftBtn').on('click', function() {
+        showSpinner();
         const shiftId = $('#editShiftId').val();
         const shiftData = {
             date: $('#editShiftForm').data('shift-date'), 
@@ -168,11 +173,13 @@ $(document).ready(function() {
             xhrFields: {withCredentials: true},
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
+                // Dont hide spinner
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
                 console.log(response);
                 loadSchedule(response.date);
             },
             error: function(jqXHR, textStatus, errorThrown) {
+                hideSpinner();
                 let errorMessage;
                 if (jqXHR.status == 500) {
                   errorMessage = "Failed to update the shift due to internal server errors. Please try again.";
@@ -186,6 +193,7 @@ $(document).ready(function() {
 
     // --- DELETE SHIFT ---
     $('#confirmDeleteBtn').on('click', function() {
+        showSpinner();
         const shiftId = $('#editShiftId').val();
 
         $.ajax({
@@ -194,11 +202,13 @@ $(document).ready(function() {
             xhrFields: {withCredentials: true},
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
+                // Dont hide spinner
                 // First, hide the modal
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
                 loadSchedule(response.date);
             },
             error: function(jqXHR, textStatus, errorThrown) {
+                hideSpinner();
                 let errorMessage;
                 if (jqXHR.status == 500) {
                     errorMessage = "Failed to delete the shift due to internal server errors. Please try again.";
@@ -232,6 +242,7 @@ $(document).ready(function() {
     // ADD/UPDATE form submission
     $('#addRoleForm').on('submit', function(e) {
         e.preventDefault();
+        showSpinner();
         const $form = $(this);
         const mode = $form.data('mode') || 'add';
         const roleId = $form.data('role-id');
@@ -239,15 +250,16 @@ $(document).ready(function() {
         const roleData = {
             name: $('#newRoleName').val(),
             description: $('#newRoleDescription').val(),
-            colour_hex: $('#newRoleColor').val()
+            colour_hex: $('#newRoleColor').val(),
+            store_id: getSelectedStoreID(),
         };
         
         let apiUrl, apiMethod;
         if (mode === 'edit') {
-            apiUrl = `/api/v1/roles/${roleId}/`;
-            apiMethod = 'PUT';
+            apiUrl = `${window.djangoURLs.manageStoreRole}${roleId}/`;
+            apiMethod = 'PATCH';
         } else {
-            apiUrl = `/api/v1/roles/`;
+            apiUrl = window.djangoURLs.createStoreRole;
             apiMethod = 'POST';
         }
 
@@ -258,10 +270,12 @@ $(document).ready(function() {
             data: JSON.stringify(roleData),
             headers: {'X-CSRFToken': getCSRFToken()},
             success: function(response) {
+                // Dont hide spinner
                 setRoleFormToAddMode();
                 updateStoreInformation(getSelectedStoreID());
             },
             error: function(jqXHR, textStatus, errorThrown) {
+                hideSpinner();
                 let errorMessage;
                 if (jqXHR.status == 500) {
                   errorMessage = "Failed to set role due to internal server errors. Please try again.";
@@ -279,15 +293,18 @@ $(document).ready(function() {
         const roleName = $listItem.data('role-name');
 
         if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
+            showSpinner();
             $.ajax({
                 url: `${window.djangoURLs.manageRole}${roleId}/`,
                 method: 'DELETE',
+                xhrFields: {withCredentials: true},
                 headers: {'X-CSRFToken': getCSRFToken()},
-                xhrFields: { withCredentials: true },
                 success: function() {
+                    // DONT HIDE SPINNER AS IT GETS SHOWN AGAIN WHEN UPDATING INFO
                     updateStoreInformation(getSelectedStoreID());
                 },
                 error: function(jqXHR) {
+                    hideSpinner();
                     let errorMessage = jqXHR.responseJSON?.Error || "Failed to delete the role. Please try again.";
                     showNotification(errorMessage, "danger");
                 }
@@ -324,33 +341,32 @@ $(document).ready(function() {
 
 
     $('#confirmActionBtn').on('click', function() {
-        const $this = $(this);
-        const action = $this.data('action');
-
+        showSpinner();
+        const action = $(this).data('action');
         const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
         modal.hide();
 
         if (action === 'copy-week') {
-            const sourceWeekStartDate = $this.data('source-date');
-            const storeId = $this.data('store-id');
-            const copyUrl = window.djangoURLs.copyWeekSchedule;
+            const storeId = $(this).data('store-id');
 
             $.ajax({
-                url: copyUrl,
+                url: window.djangoURLs.copyWeekSchedule,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
-                    source_week_start_date: sourceWeekStartDate,
+                    source_week_start_date: $(this).data('source-date'),
                     store_id: storeId
                 }),
                 xhrFields: { withCredentials: true },
                 headers: { 'X-CSRFToken': getCSRFToken() },
                 success: function(response) {
+                    // Dont hide spinner -> gets shown in load
                     showNotification(response.message, 'success');
                     const nextWeek = $('#next-week-btn').data('week');
                     loadSchedule(nextWeek, storeId);
                 },
                 error: function(jqXHR) {
+                    hideSpinner();
                     const errorMessage = jqXHR.responseJSON?.Error || "An unknown error occurred.";
                     showNotification(errorMessage, "danger");
                 }
@@ -416,7 +432,8 @@ function formatDayHeader(dateString) {
  */
 function updateStoreInformation(storeId) {
     if (storeId === null) return;
-    console.log("updateStoreInformation: Updating modal dropdowns for store:", storeId);
+
+    showSpinner();
 
     const $addEmployeeSelect = $("#employeeSelect");
     const $editEmployeeSelect = $("#editEmployeeSelect");
@@ -435,12 +452,8 @@ function updateStoreInformation(storeId) {
     $.ajax({
         url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${storeId}`,
         type: 'GET',
-        xhrFields: {
-        withCredentials: true
-        },
-        headers: {
-        'X-CSRFToken': getCSRFToken(),
-        },
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
 
         success: function(response) {
         // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
@@ -529,6 +542,8 @@ function updateStoreInformation(storeId) {
             showNotification(errorMessage, "danger");
         }
     });
+
+    hideSpinner();
 }
 
 // --- UPDATE ROLE FORM ---

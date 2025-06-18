@@ -5,15 +5,13 @@ import api.exceptions as err
 import api.controllers as controllers
 import auth_app.tasks as tasks
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, renderer_classes
+from django.conf import settings
 from django.http import JsonResponse
-from django.utils import timezone
-from datetime import date, timedelta
-import json
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -2702,6 +2700,195 @@ def list_store_roles(request, id):
 
 
 @api_manager_required
+@api_view(["POST", "PATCH", "DELETE"])
+@renderer_classes([JSONRenderer])
+def manage_store_role(request, role_id=None):  # None when CREATING ROLE
+    try:
+        # Get request data
+        manager = util.api_get_user_object_from_session(request)
+        name = util.clean_param_str(request.data.get("name", None))
+        description = util.clean_param_str(request.data.get("description", None))
+        colour_hex = util.clean_param_str(request.data.get("colour_hex", "#EEEEEE"))
+        store_id = util.clean_param_str(request.data.get("store_id", None))
+        logger.critical(type(settings.ROLE_NAME_MAX_LENGTH))
+
+        # Check given fields are valid
+        if name:
+            if len(name) > settings.ROLE_NAME_MAX_LENGTH:
+                return Response(
+                    {
+                        "Error": f"Role name must be less than {settings.ROLE_NAME_MAX_LENGTH} characters."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(settings.VALID_ROLE_NAME_DESC_PATTERN, name):
+                return Response(
+                    {"Error": f"Role name includes invalid characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        if description:
+            if len(description) > settings.ROLE_DESC_MAX_LENGTH:
+                return Response(
+                    {
+                        "Error": f"Role description must be less than {settings.ROLE_DESC_MAX_LENGTH} characters."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(settings.VALID_ROLE_NAME_DESC_PATTERN, description):
+                return Response(
+                    {"Error": f"Role description includes invalid characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        if colour_hex:
+            if not re.match(settings.VALID_HEX_COLOUR_PATTERN, colour_hex):
+                return Response(
+                    {"Error": f"Role colour must be a hex colour."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        # POST -> Create a new role given the role information
+        if request.method == "POST":
+            if not all([name, description, store_id]):
+                return Response(
+                    {"Error": "Missing required parameters."},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            store = Store.objects.get(pk=int(store_id))
+            if not manager.is_associated_with_store(store=store):
+                raise err.NotAssociatedWithStoreError
+            elif not store.is_active:
+                raise err.InactiveStoreError
+
+            with transaction.atomic():
+                role = Role.objects.create(
+                    store=store, name=name, colour_hex=colour_hex
+                )
+                if description:
+                    role.description = description
+                    role.save()
+
+            logger.info(
+                f"Manager ID {manager} ({manager.first_name} {manager.last_name}) created a ROLE '{role.name}' for store [{store.code}]."
+            )
+            desc = (role.description or "")[:15]
+            logger.debug(
+                f"[CREATE: ROLE (ID: {role.id})] Name: {role.name} -- Store: {store.code} -- Colour: {role.colour_hex} -- Description: {desc}"
+            )
+            return JsonResponse({"id": role.id}, status=status.HTTP_201_CREATED)
+
+        # Get ROLE
+        role = Store.objects.select_related("store").get(pk=role_id)
+
+        # Ensure manager is authorised
+        if not manager.is_associated_with_store(store=role.store_id):
+            raise err.NotAssociatedWithStoreError
+        elif not role.store.is_active:
+            raise err.InactiveStoreError
+
+        # Save original role info for logging
+        original = {
+            "id": role.id,
+            "name": role.name,
+            "desc": (role.description or "")[:15],
+            "colour": role.colour_hex,
+            "store_code": role.store.code,
+        }
+
+        # PATCH -> Update the given role information
+        if request.method == "PATCH":
+            update = False
+            if name:
+                role.name = name
+                update = True
+            if description:
+                role.description = description
+                update = True
+            if colour_hex:
+                role.colour_hex = colour_hex
+                update = True
+
+            if not update:
+                return JsonResponse(
+                    {"Error": "No changes detected."},
+                    status=status.HTTP_418_IM_A_TEAPOT,
+                )
+
+            role.save()
+            logger.info(
+                f"Manager ID {manager} ({manager.first_name} {manager.last_name}) updated ROLE '{original['name']}' from store [{original['store_code']}]."
+            )
+            desc = (role.description or "")[:15]
+            logger.debug(
+                f"[UPDATE: ROLE (ID: {original['id']})] Name: {role.name} → {original['name']} -- Store: {original['store_code']} -- Colour: {role.colour_hex} → {original['colour']} -- Description: {desc} → {original['desc']}"
+            )
+            return JsonResponse({"id": role.id}, status=status.HTTP_202_ACCEPTED)
+
+        # DELETE -> Delete the role
+        if request.method == "DELETE":
+            role.delete()
+            logger.info(
+                f"Manager ID {manager} ({manager.first_name} {manager.last_name}) deleted ROLE '{original['name']}' from store [{original['store_code']}]."
+            )
+            logger.debug(
+                f"[DELETE: ROLE (ID: {original['id']})] Name: {original['name']} -- Store: {original['store_code']} -- Colour: {original['colour']} -- Description: {original['desc']}"
+            )
+            return Response(status=status.HTTP_200_OK)
+
+        # Never practically reached -> ignore this.
+        return JsonResponse(
+            {"Error": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+    except DatabaseError:
+        return Response(
+            {
+                "Error": "Failed to update/create the role due to database constraints. Is the role unique?"
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+    except Role.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the the information for Role ID {role_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Failed to get the the information for Store ID {store_id}."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except ValueError:
+        return Response(
+            {"Error": "Store ID must be a valid integer."},
+            status=status.HTTP_412_PRECONDITION_FAILED,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Not authorised to update role information for a unassociated store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {
+                "Error": "Not authorised to update role information for an inactive store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"An error occured when trying to manage Role ID {role_id} with method {request.method}, resulting in the error: {str(e)}"
+        )
+        return Response(
+            {"Error": "Internal error."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def get_all_store_shifts(request, id):
@@ -2955,34 +3142,34 @@ def manage_store_shift(request, id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            changes = 0
+            update = False
             if shift.employee.id != employee.id:
                 shift.employee = employee
-                changes += 1
+                update = True
 
             # Handle cases of removing the role or adding a new role
             if role_id:
                 if shift.role_id != role_id:
                     shift.role_id = int(role_id)
-                    changes += 1
+                    update = True
             else:
                 if shift.role is not None:
                     shift.role = None
-                    changes += 1
+                    update = True
 
             if shift.date != date:
                 shift.date = date
-                changes += 1
+                update = True
 
             if shift.start_time != start_time:
                 shift.start_time = start_time
-                changes += 1
+                update = True
 
             if shift.end_time != end_time:
                 shift.end_time = end_time
-                changes += 1
+                update = True
 
-            if changes < 1:
+            if not update:
                 return JsonResponse(
                     {"Error": "No changes detected."},
                     status=status.HTTP_418_IM_A_TEAPOT,
