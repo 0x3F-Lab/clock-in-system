@@ -6,183 +6,191 @@
 {% block content_container_class %}my-5{% endblock %}
 
 {% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Rostering</u></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+  </button>
+</div>
+
+<div class="d-flex justify-content-center my-4">
   {% include "components/store_selection_controller.html" %}
+</div>
 
-  <h2 class="mb-4 text-center" id="schedule-week-title"></h2>
+<h2 class="mb-4 text-center" id="schedule-week-title"></h2>
 
-  <div class="scroll-container">
-    <div class="d-flex" id="schedule-container"></div>
-  </div>
+<div class="scroll-container">
+  <div class="d-flex" id="schedule-container"></div>
+</div>
 
-  <div class="d-flex justify-content-between mt-4">
-    <a class="btn btn-outline-primary" href="#" id="previous-week-btn">← Previous Week</a>
-    <a class="btn btn-outline-primary" href="#" id="next-week-btn">Next Week →</a>
-  </div>
-  <div class="text-center mb-4">
-    <button class="btn btn-secondary" id="manageRolesBtn">Manage Roles</button>
-  </div>
+<div class="d-flex justify-content-between mt-4">
+  <a class="btn btn-outline-primary" href="#" id="previous-week-btn">← Previous Week</a>
+  <a class="btn btn-outline-primary" href="#" id="next-week-btn">Next Week →</a>
+</div>
+<div class="text-center mb-4">
+  <button class="btn btn-secondary" id="manageRolesBtn">Manage Roles</button>
+</div>
 
-  <div class="d-flex justify-content-center align-items-center mb-4">
-    <h2 class="text-center mb-0 me-3" id="schedule-week-title"></h2>
-    <button class="btn btn-info" id="copyWeekBtn" title="Copy this entire week's schedule to the next week">
-        Copy to Next Week &rarr;
-    </button>
-  </div>
+<div class="d-flex justify-content-center align-items-center mb-4">
+  <h2 class="text-center mb-0 me-3" id="schedule-week-title"></h2>
+  <button class="btn btn-info" id="copyWeekBtn" title="Copy this entire week's schedule to the next week">
+      Copy to Next Week &rarr;
+  </button>
+</div>
 
-  <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="confirmationModalTitle">Are you sure?</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmationModalTitle">Are you sure?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="confirmationModalBody">
         </div>
-        <div class="modal-body" id="confirmationModalBody">
-          </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary" id="confirmActionBtn">Confirm</button>
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmActionBtn">Confirm</button>
       </div>
     </div>
   </div>
+</div>
 
-  <div class="modal fade" id="addShiftModal" tabindex="-1" aria-labelledby="addShiftModalLabel">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="addShiftModalLabel">Add New Shift</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <form id="addShiftForm">
-            <input type="hidden" id="shiftDate" name="date">
-            
-            <div class="mb-3">
-              <label for="employeeSelect" class="form-label">Employee</label>
-              <select class="form-select" id="employeeSelect" name="employee" required>
-                </select>
-            </div>
-
-            <div class="mb-3">
-                <label for="addRoleSelect" class="form-label">Role (Optional)</label>
-                <select class="form-select" id="addRoleSelect" name="role">
-                    <!-- This will be populated by JavaScript -->
-                </select>
-            </div>
-
-            <div class="row">
-              <div class="col">
-                <label for="startTime" class="form-label">Start Time</label>
-                <input type="time" class="form-control" id="startTime" name="start_time" required>
-              </div>
-              <div class="col">
-                <label for="endTime" class="form-label">End Time</label>
-                <input type="time" class="form-control" id="endTime" name="end_time" required>
-              </div>
-            </div>
-
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          <button type="button" class="btn btn-primary" id="saveShiftBtn">Save Shift</button>
-        </div>
+<div class="modal fade" id="addShiftModal" tabindex="-1" aria-labelledby="addShiftModalLabel">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addShiftModalLabel">Add New Shift</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="editShiftModal" tabindex="-1" aria-labelledby="editShiftModalLabel">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="editShiftModalLabel">Edit Shift</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <form id="editShiftForm">
-            <input type="hidden" id="editShiftId" name="id">
-            
-            <div class="mb-3">
-              <label for="editEmployeeSelect" class="form-label">Employee</label>
-              <select class="form-select" id="editEmployeeSelect" name="employee" required></select>
-            </div>
-
-            <div class="mb-3">
-              <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
-                <span>Role:</span>
-                <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
-              </label>
-              <select class="form-select" id="editRoleSelect" name="role" required></select>
-            </div>
-
-            <div class="row">
-              <div class="col">
-                <label for="editStartTime" class="form-label">Start Time</label>
-                <input type="time" class="form-control" id="editStartTime" name="start_time" required>
-              </div>
-              <div class="col">
-                <label for="editEndTime" class="form-label">End Time</label>
-                <input type="time" class="form-control" id="editEndTime" name="end_time" required>
-              </div>
-            </div>
-
-          </form>
-        </div>
-        <div class="modal-footer justify-content-between">
-          <div id="delete-confirmation-container">
-            <button type="button" class="btn btn-danger" id="deleteShiftBtn">Delete</button>
-            <button type="button" class="btn btn-warning" id="confirmDeleteBtn" style="display:none;">Confirm Delete</button>
+      <div class="modal-body">
+        <form id="addShiftForm">
+          <input type="hidden" id="shiftDate" name="date">
+          
+          <div class="mb-3">
+            <label for="employeeSelect" class="form-label">Employee</label>
+            <select class="form-select" id="employeeSelect" name="employee" required>
+              </select>
           </div>
 
-          <div>
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" id="updateShiftBtn">Update Shift</button>
+          <div class="mb-3">
+              <label for="addRoleSelect" class="form-label">Role (Optional)</label>
+              <select class="form-select" id="addRoleSelect" name="role">
+                  <!-- This will be populated by JavaScript -->
+              </select>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <div class="modal fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="manageRolesModalLabel">Manage Store Roles</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
           <div class="row">
-            <div class="col-md-6">
-              <h6>Existing Roles</h6>
-              <ul class="list-group" id="existingRolesList">
-                <li class="list-group-item">Loading...</li>
-              </ul>
+            <div class="col">
+              <label for="startTime" class="form-label">Start Time</label>
+              <input type="time" class="form-control" id="startTime" name="start_time" required>
             </div>
-            <div class="col-md-6">
-              <h6>Add New Role</h6>
-              <form id="addRoleForm">
-                <div class="mb-3">
-                  <label for="newRoleName" class="form-label">Role Name</label>
-                  <input type="text" class="form-control" id="newRoleName" required>
-                </div>
-                <div class="mb-3">
-                  <label for="newRoleDescription" class="form-label">Description (Optional)</label>
-                  <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
-                </div>
-                <div class="mb-3">
-                  <label for="newRoleColor" class="form-label">Color</label>
-                  <input type="color" class="form-control form-control-color" id="newRoleColor" value="#EEEEEE" title="Choose a color">
-                </div>
-                <button type="submit" class="btn btn-primary w-100">Add Role</button>
-              </form>
+            <div class="col">
+              <label for="endTime" class="form-label">End Time</label>
+              <input type="time" class="form-control" id="endTime" name="end_time" required>
             </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveShiftBtn">Save Shift</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editShiftModal" tabindex="-1" aria-labelledby="editShiftModalLabel">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editShiftModalLabel">Edit Shift</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editShiftForm">
+          <input type="hidden" id="editShiftId" name="id">
+          
+          <div class="mb-3">
+            <label for="editEmployeeSelect" class="form-label">Employee</label>
+            <select class="form-select" id="editEmployeeSelect" name="employee" required></select>
+          </div>
+
+          <div class="mb-3">
+            <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Role:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <select class="form-select" id="editRoleSelect" name="role" required></select>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="editStartTime" class="form-label">Start Time</label>
+              <input type="time" class="form-control" id="editStartTime" name="start_time" required>
+            </div>
+            <div class="col">
+              <label for="editEndTime" class="form-label">End Time</label>
+              <input type="time" class="form-control" id="editEndTime" name="end_time" required>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <div id="delete-confirmation-container">
+          <button type="button" class="btn btn-danger" id="deleteShiftBtn">Delete</button>
+          <button type="button" class="btn btn-warning" id="confirmDeleteBtn" style="display:none;">Confirm Delete</button>
+        </div>
+
+        <div>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="updateShiftBtn">Update Shift</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="manageRolesModalLabel">Manage Store Roles</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6>Existing Roles</h6>
+            <ul class="list-group" id="existingRolesList">
+              <li class="list-group-item">Loading...</li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <h6>Add New Role</h6>
+            <form id="addRoleForm">
+              <div class="mb-3">
+                <label for="newRoleName" class="form-label">Role Name</label>
+                <input type="text" class="form-control" id="newRoleName" required>
+              </div>
+              <div class="mb-3">
+                <label for="newRoleDescription" class="form-label">Description (Optional)</label>
+                <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="newRoleColor" class="form-label">Color</label>
+                <input type="color" class="form-control form-control-color" id="newRoleColor" value="#EEEEEE" title="Choose a color">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Add Role</button>
+            </form>
           </div>
         </div>
       </div>
     </div>
   </div>
-
-
+</div>
 {% endblock %}
 
 
