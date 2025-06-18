@@ -108,8 +108,6 @@ urlpatterns = [
         views.manage_store_exception,
         name="manage_store_exception",
     ),
-    path("roles/", views.role_crud_api, name="api_role_create"),
-    path("roles/<int:role_id>/", views.role_crud_api, name="api_role_detail"),
     path(
         "copy-week-schedule/", views.copy_week_schedule, name="api_copy_week_schedule"
     ),
