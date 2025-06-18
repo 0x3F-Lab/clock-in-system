@@ -212,8 +212,9 @@ $(document).ready(function() {
 
     // EDIT button click
     $('#existingRolesList').on('click', '.edit-role-btn', function() {
-        const $listItem = $(this).closest('li');
+        const $listItem = $(this).closest('.list-group-item');
         const role = $listItem.data();
+        
         const $form = $('#addRoleForm');
         const $submitBtn = $form.find('button[type="submit"]');
         
@@ -272,28 +273,23 @@ $(document).ready(function() {
         });
     });
 
-    // DELETE button click
     $('#existingRolesList').on('click', '.delete-role-btn', function() {
-        const $listItem = $(this).closest('li');
+        const $listItem = $(this).closest('.list-group-item');
         const roleId = $listItem.data('role-id');
         const roleName = $listItem.data('role-name');
 
         if (confirm(`Are you sure you want to delete the role "${roleName}"?`)) {
             $.ajax({
-                url: `/api/v1/roles/${roleId}/`,
+                url: `${window.djangoURLs.manageRole}${roleId}/`,
                 method: 'DELETE',
                 headers: {'X-CSRFToken': getCSRFToken()},
+                xhrFields: { withCredentials: true },
                 success: function() {
                     updateStoreInformation(getSelectedStoreID());
                 },
-                error: function(jqXHR, textStatus, errorThrown) {
-                let errorMessage;
-                if (jqXHR.status == 500) {
-                    errorMessage = "Failed to load delete role due to internal server errors. Please try again.";
-                } else {
-                    errorMessage = jqXHR.responseJSON?.Error || "Failed to delete store roles. Please try again.";
-                }
-                showNotification(errorMessage, "danger");
+                error: function(jqXHR) {
+                    let errorMessage = jqXHR.responseJSON?.Error || "Failed to delete the role. Please try again.";
+                    showNotification(errorMessage, "danger");
                 }
             });
         }
@@ -485,36 +481,43 @@ function updateStoreInformation(storeId) {
         headers: {'X-CSRFToken': getCSRFToken()},
 
         success: function(resp) {
-            let roleOptionsHtml = ''; // For the dropdowns
-            $existingRolesList.empty(); // Clear the management list
+        let roleOptionsHtml = '';
+        $existingRolesList.empty(); 
 
-            if (resp.data && resp.data.length > 0) {
-                resp.data.forEach(role => {
-                    // Build options for the <select> dropdowns
-                    roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
-                    
-                    // Build the interactive list for the management modal
-                    const roleListItemHtml = `
-                        <li class="list-group-item d-flex justify-content-between align-items-center" data-role-id="${role.id}" data-role-name="${role.name}" data-role-description="${role.description || ''}" data-role-color="${role.colour}">
-                            <div>
-                                <span class="d-inline-block me-2" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
-                                ${role.name}
-                            </div>
-                            <div>
-                                <button class="btn btn-sm btn-outline-secondary edit-role-btn me-2">Edit</button>
-                                <button class="btn btn-sm btn-outline-danger delete-role-btn">Delete</button>
-                            </div>
-                        </li>`;
-                    $existingRolesList.append(roleListItemHtml);
-                });
-            } else {
-                showNotification("There are no ROLES associated to the selected store.", "info");
-                $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
-            }
+        if (resp.data && resp.data.length > 0) {
+            resp.data.forEach(role => {
+                roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
+                const roleListItemHtml = `
+                    <li class="list-group-item d-flex justify-content-between align-items-center" 
+                        data-role-id="${role.id}" 
+                        data-role-name="${role.name}" 
+                        data-role-description="${role.description || ''}" 
+                        data-role-color="${role.colour}">
+                        
+                        <div class="d-flex align-items-center text-truncate">
+                            <span class="d-inline-block me-3 flex-shrink-0" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
+                            <span class="text-truncate">${role.name}</span>
+                        </div>
+                        
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-ellipsis-v"></i> </button>
+                            <ul class="dropdown-menu">
+                                <li><button class="dropdown-item edit-role-btn" type="button">Edit</button></li>
+                                <li><button class="dropdown-item delete-role-btn text-danger" type="button">Delete</button></li>
+                            </ul>
+                        </div>
+                    </li>`;
+                $existingRolesList.append(roleListItemHtml);
+            });
+        } else {
+            showNotification("There are no ROLES associated to the selected store.", "info");
+            $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
+        }
 
-            $addRoleSelect.append(roleOptionsHtml);
-            $editRoleSelect.append(roleOptionsHtml);
-        },
+        $addRoleSelect.append(roleOptionsHtml);
+        $editRoleSelect.append(roleOptionsHtml);
+    },
 
         error: function(jqXHR, textStatus, errorThrown) {
             let errorMessage;
