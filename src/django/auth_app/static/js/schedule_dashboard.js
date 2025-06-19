@@ -22,30 +22,36 @@ $(document).ready(function() {
                     let shiftsHtml = '';
                     if (dayShifts && dayShifts.length > 0) {
                         dayShifts.forEach(shift => {
-                            let styleString = "cursor: pointer;";
-                            if (shift.role_colour) {
-                                styleString += ` box-shadow: inset 8px 0 0 0 ${shift.role_colour};`;
-                            }
+                            const backgroundColor = '#f8f9fa'; // A soft, off-white color.
+                            const borderColor = shift.role_colour || '#adb5bd'; 
+
+                            const duration = calculateDuration(shift.start_time, shift.end_time);
+
+                            // Build the HTML with the new color logic.
                             shiftsHtml += `
-                                <div class="mb-2 p-2 border rounded shift-item" style="${styleString}" data-shift-id="${shift.id}">
-                                    <strong>${shift.employee_name}</strong><br>
-                                    <small class="d-block">${shift.start_time} – ${shift.end_time}</small>
-                                    ${shift.role_name ? `<small class="text-muted d-block">${shift.role_name}</small>` : ''}
+                                <div class="shift-item" style="cursor: pointer; border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                                    <div class="shift-item-employee">${shift.employee_name}</div>
+                                    <div class="shift-item-details">
+                                        <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                                        <span>⌛ ${duration}</span>
+                                        ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                                    </div>
                                 </div>`;
                         });
                     } else {
-                        shiftsHtml = '<p class="text-muted text-center my-4">No shifts</p>';
+                        shiftsHtml = '<div class="text-center text-muted p-3"><small>No shifts scheduled</small></div>';
                     }
                     
                     const dayCardHtml = `
-                        <div class="card">
-                            <div class="card-header text-center bg-indigo text-white d-flex justify-content-between align-items-center">
-                                <span>${formatDayHeader(dayDate)}</span>
-                                <button class="btn btn-sm btn-light add-shift-btn" data-day="${dayDate}">
+                        <div class="day-column">
+                            <div class="day-header">
+                                <div class="day-name">${getFullDayName(dayDate)}</div>
+                                <div class="day-date">${getShortDate(dayDate)}</div>
+                                <button class="btn add-shift-btn" data-day="${dayDate}" title="Add shift for this day">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
-                            <div class="card-body p-2">${shiftsHtml}</div>
+                            <div class="shifts-list">${shiftsHtml}</div>
                         </div>`;
                     scheduleContainer.append(dayCardHtml);
                 });
@@ -419,9 +425,15 @@ function formatWeekTitle(dateString) {
     return new Date(dateString).toLocaleDateString('en-US', options);
 }
 
-// Function to format day headers (e.g., "Mon, Jun 9")
-function formatDayHeader(dateString) {
-    const options = { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' };
+function getFullDayName(dateString) {
+    if (!dateString) return "";
+    const options = { weekday: 'long', timeZone: 'UTC' };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+}
+
+function getShortDate(dateString) {
+    if (!dateString) return "";
+    const options = { month: 'short', day: 'numeric', timeZone: 'UTC' };
     return new Date(dateString).toLocaleDateString('en-US', options);
 }
 
@@ -562,4 +574,21 @@ function resetDeleteButtons() {
     $('#confirmDeleteBtn').hide();
     $('#deleteShiftBtn').show();
     $('#updateShiftBtn').prop('disabled', false);
+}
+
+function calculateDuration(startTime, endTime) {
+    // Create date objects to calculate the difference. Date itself doesn't matter.
+    const start = new Date(`01/01/2000 ${startTime}`);
+    let end = new Date(`01/01/2000 ${endTime}`);
+
+    // Handle overnight shifts
+    if (end < start) {
+        end.setDate(end.getDate() + 1);
+    }
+    
+    let diffMs = end - start;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+
+    return `${hours}h ${minutes}m`;
 }
