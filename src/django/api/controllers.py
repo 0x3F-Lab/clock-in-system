@@ -1032,6 +1032,7 @@ def get_store_exceptions(
 ) -> Tuple[List[ShiftException], int]:
     """
     Returns approved and unapproved shift exceptions for a given store.
+    If getting approved store exceptions, only get ones made less than a month ago.
 
     Args:
         store (Union[Store, int, str]): Store object or store ID to filter exceptions by.
@@ -1067,6 +1068,11 @@ def get_store_exceptions(
 
     # Filter by approval status
     qs = qs.filter(is_approved=not get_unapproved)
+
+    # If getting approved exceptions -> Only get those made less than a month ago
+    if not get_unapproved:
+        cutoff = localtime(now()).date() - timedelta(days=30)
+        qs = qs.filter(created_at__gte=cutoff)
 
     # Get total count before slicing
     total = qs.count()

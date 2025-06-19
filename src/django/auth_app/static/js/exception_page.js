@@ -34,6 +34,8 @@ function handleExceptionTypeSwitching() {
     $('#excep-page').attr('data-type', 'unapproved');
     $(this).addClass('active');
     $('#approved-excep-btn').removeClass('active');
+    $('#approved-excep-info').addClass('d-none');
+
     resetPaginationValues(); // Reset pagination (start from beginning)
     updateExceptions();
   });
@@ -43,6 +45,8 @@ function handleExceptionTypeSwitching() {
     $('#excep-page').attr('data-type', 'approved');
     $(this).addClass('active');
     $('#excep-btn').removeClass('active');
+    $('#approved-excep-info').removeClass('d-none');
+
     resetPaginationValues();
     updateExceptions();
   });

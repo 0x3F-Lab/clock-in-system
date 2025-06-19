@@ -44,9 +44,16 @@
         </div>
       </div>
     </div>
-  </div>
 
-  {% include "components/pagination_controller.html" %}
+    <div id="approved-excep-info" class="d-none d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
+      <div><i class="fas fa-circle-info"></i></div>
+      <div>
+        <p class="m-0">Only approved exceptions newer than 30 days are shown. Everything else is considered frozen.</p>
+      </div>
+    </div>
+
+    {% include "components/pagination_controller.html" %}
+  </div>
 </div>
 
 <!-- Edit Modal -->
