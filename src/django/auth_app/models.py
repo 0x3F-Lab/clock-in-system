@@ -710,7 +710,7 @@ class Shift(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["date", "start_time"]
+        ordering = ["store", "date", "start_time"]
         # prevent exact duplicates:
         unique_together = [("employee", "store", "date", "start_time")]
         indexes = [
