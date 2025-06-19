@@ -713,6 +713,9 @@ class Shift(models.Model):
         ordering = ["date", "start_time"]
         # prevent exact duplicates:
         unique_together = [("employee", "store", "date", "start_time")]
+        indexes = [
+            models.Index(fields=["store", "date", "start_time"]),  # For store listing
+        ]
 
     def __str__(self):
         return f"[{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"

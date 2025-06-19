@@ -990,6 +990,11 @@ def get_all_store_schedules(
     if not include_deleted:
         shifts = shifts.exclude(is_deleted=True)
 
+    # Order the shifts
+    shifts = shifts.order_by(
+        "date", "start_time", "employee__first_name", "employee__last_name"
+    )
+
     # Group shifts by date using a defaultdict
     grouped_shifts = defaultdict(list)
 
