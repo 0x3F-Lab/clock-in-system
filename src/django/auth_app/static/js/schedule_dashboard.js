@@ -39,7 +39,7 @@ $(document).ready(function() {
                                 </div>`;
                         });
                     } else {
-                        shiftsHtml = '<div class="text-center text-muted p-3"><small>No shifts scheduled</small></div>';
+                        shiftsHtml = '<div class="text-center text-white p-3"><small>No shifts scheduled</small></div>';
                     }
                     
                     const dayCardHtml = `

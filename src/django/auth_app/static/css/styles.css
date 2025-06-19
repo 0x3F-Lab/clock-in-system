@@ -472,6 +472,8 @@ table {
 @media (max-width: 991.98px) {
   .scroll-container .d-flex { flex-direction: column; }
   .scroll-container .card { width: 100%; margin-bottom: 1rem; }
+  #schedule-container {gap: 1.5rem;}
+  .shift-item {width: 100% !important;}
 }
 /* Desktop: single row */
 @media (min-width: 992px) {
@@ -525,7 +527,9 @@ table {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease-in-out;
     animation: fadeIn 0.5s ease;
-    border: none; 
+    border: none;
+    width: 10rem;
+    box-sizing: border-box;
 }
 .shift-item:hover {
     transform: translateY(-2px);
