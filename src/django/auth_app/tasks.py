@@ -5,6 +5,7 @@ from datetime import timedelta
 from celery import shared_task
 from django.db.models import Q
 from django.utils.timezone import now, localtime
+from api.controllers import handle_clock_out
 from auth_app.models import (
     User,
     Store,
@@ -41,11 +42,25 @@ def check_clocked_in_users():
 
             # Notify each employee individually
             for emp in clocked_in_employees:
+                # Forcefully clock out user
+                try:
+                    handle_clock_out(
+                        employee_id=emp.id,
+                        deliveries=0,
+                        store_id=store.id,
+                        allow_inactive_edits=True,
+                    )
+                except Exception as e:
+                    logger_beat.critical(
+                        f"Tried to forcefully clock employee ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] and it resulted in error: {str(e)}"
+                    )
+                    pass
+
                 emp_title = util.sanitise_markdown_title_text(
                     f"You forgot to clock out of store `{store.code}`"
                 )
                 emp_msg = util.sanitise_markdown_message_text(
-                    f"Our system shows you're still clocked in under the store `{store.code}`.\nYour respective manager(s) have been notified.\n\nPlease correct this if it's a mistake."
+                    f"Our system showed you were still clocked in under the store `{store.code}`. We have forcefully clocked you out to ensure your shift doesn't run into the next day.\nPlease note that we also had to set your delivery count to *zero*.\n\nYour respective manager(s) have been notified.\nYour manager should fix your clocking times."
                 )
                 Notification.send_to_users(
                     users=[emp],
@@ -68,7 +83,7 @@ def check_clocked_in_users():
                 f"[`{store.code}`] Clock-out Alert: Employees Still Clocked In"
             )
             str_msg = util.sanitise_markdown_message_text(
-                f"The following employees are still clocked in for the store `{store.code}`:\n<ul>{employee_names}</ul>\n\nThe respective employees have been notified.\nPlease correct this if it's a mistake."
+                f"The following employees were still clocked in for the store `{store.code}`:\n<ul>{employee_names}</ul>\n\nThey have been forcefully clocked out to ensure their shifts doesn't run into the next day. Their delivery count was also set to *zero*.\nPlease view the related exception(s).\n\nThe respective employees have also been notified of their mistake."
             )
             Notification.send_to_users(
                 users=store.get_store_managers(),

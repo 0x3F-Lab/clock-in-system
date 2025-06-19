@@ -223,7 +223,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
-        "schedule": crontab(hour=23, minute=0),
+        "schedule": crontab(hour=23, minute=40),
     },
     "delete_old_notifications": {
         "task": "auth_app.tasks.delete_old_notifications",

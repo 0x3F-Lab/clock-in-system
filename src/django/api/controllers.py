@@ -165,7 +165,11 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
 
 
 def handle_clock_out(
-    employee_id: int, deliveries: int, store_id: int, manual: bool = False
+    employee_id: int,
+    deliveries: int,
+    store_id: int,
+    manual: bool = False,
+    allow_inactive_edits: bool = False,
 ) -> Activity:
     """
     Handles clocking out an employee by ID.
@@ -175,6 +179,7 @@ def handle_clock_out(
         deliveries (int): Number of deliveries made during the shift.
         store_id (int): The store's ID for which the clocking event will register.
         manual (bool) = False: Whether the clock out is requested via manual clocking page or not. For logging purposes only.
+        allow_inactive_edits (bool) = False: Whether to check for err.InactiveUserError or not (USEFUL FOR AUTOMATED TASKS)
 
     Returns:
         Activity: An activity object containing the information about the clock out.
@@ -189,7 +194,7 @@ def handle_clock_out(
             store = Store.objects.get(id=store_id)
 
             # Check if user is inactive
-            if not employee.is_active:
+            if not employee.is_active and not allow_inactive_edits:
                 raise err.InactiveUserError
 
             # Check the store is active
@@ -240,7 +245,7 @@ def handle_clock_out(
         User.DoesNotExist,
         Store.DoesNotExist,
         err.InactiveUserError,
-        err.StartingShiftTooSoonError,
+        err.ClockingOutTooSoonError,
         err.NotAssociatedWithStoreError,
         err.InactiveStoreError,
     ) as e:
@@ -1418,7 +1423,7 @@ def create_shiftexception_link(
         SyntaxError: If neither activity or shift is provided.
     """
     if not activity and not shift:
-        raise SyntaxError
+        raise SyntaxError("Cannot pass both activity and shift object.")
 
     # Check an exception doesnt already exist
     if activity:
