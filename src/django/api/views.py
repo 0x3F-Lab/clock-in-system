@@ -470,13 +470,6 @@ def update_shift_details(request, id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            # Check user isnt editing a shift older than 2 weeks
-            elif original["login_timestamp"].date() < (now_date - timedelta(days=14)):
-                return JsonResponse(
-                    {"Error": "Not authorised to edit an activity older than 2 weeks."},
-                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                )
-
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
             elif (not logout_timestamp) and (login_timestamp.date() != now_date):
                 return Response(
