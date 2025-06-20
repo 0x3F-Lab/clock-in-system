@@ -1032,6 +1032,60 @@ def get_all_store_schedules(
     }
 
 
+def get_user_store_schedules(
+    store: Store,
+    user: User,
+    include_deleted: bool = False,
+) -> Dict[str, Any]:
+    """
+    Get a user's store schedule for a month starting from a week ago from today.
+
+    Args:
+        store (Store obj): The store for which the schedule will be fetched.
+        user (User obj): The user for which the specfic schedules will be fetched.
+        include_deleted (bool): If True, include Shifts with is_deleted=True
+
+    Returns:
+        (Dict[str, Any]): A dictionary containing:
+            - 'schedule': Dict[date_str, List[Dict]] mapping only scheduled dates to lists of shifts.
+    """
+    if store is None or user is None:
+        raise Exception("Store or User object is None.")
+
+    start = localtime(now()).date() - timedelta(days=7)
+    end = start + timedelta(days=14)
+
+    # Fetch shifts for the store during this week
+    shifts = Shift.objects.filter(
+        employee=user, store=store, date__range=(start, end)
+    ).select_related("role")
+
+    if not include_deleted:
+        shifts = shifts.exclude(is_deleted=True)
+
+    # Order the shifts
+    shifts = shifts.order_by("store", "date", "start_time")
+
+    # Group shifts by date using a defaultdict
+    grouped_shifts = defaultdict(list)
+
+    for shift in shifts:
+        key = shift.date.isoformat()
+        grouped_shifts[key].append(
+            {
+                "id": shift.id,
+                "start_time": shift.start_time.strftime("%H:%M"),
+                "end_time": shift.end_time.strftime("%H:%M"),
+                "role_name": shift.role.name if shift.role else None,
+                "role_colour": shift.role.colour_hex if shift.role else None,
+            }
+        )
+        if include_deleted and shift.is_deleted:
+            grouped_shifts[key].append({"is_deleted": True})
+
+    return {"schedule": grouped_shifts}
+
+
 def get_store_exceptions(
     store: Union[Store, int, str], get_unapproved: bool, offset: int, limit: int
 ) -> Tuple[List[ShiftException], int]:
@@ -1378,7 +1432,7 @@ def link_activity_to_shift(
         return None
 
     else:
-        raise SyntaxError
+        raise SyntaxError("Activity OR Shift object MUST BE PASSED.")
 
 
 def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:

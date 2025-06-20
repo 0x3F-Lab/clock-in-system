@@ -5,7 +5,7 @@ $(document).ready(function() {
     function loadSchedule(week) {
         showSpinner();
         $.ajax({
-            url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?week=${week}`,
+            url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}`,
             method: 'GET',
             xhrFields: {withCredentials: true},
             headers: {'X-CSRFToken': getCSRFToken()},

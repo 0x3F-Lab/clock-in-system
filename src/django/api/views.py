@@ -391,6 +391,16 @@ def update_shift_details(request, id):
             with transaction.atomic():
                 activity.delete()
 
+                # Create exception IF there is a correlated shift
+                shift = Shift.objects.filter(
+                    store=activity.store_id,
+                    employee=activity.employee_id,
+                    date=activity.login_time.date(),
+                    is_deleted=False,
+                ).first()
+                if shift:
+                    controllers.link_activity_to_shift(shift=shift)
+
             logger.info(
                 f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )
@@ -554,11 +564,10 @@ def update_shift_details(request, id):
                 status=status.HTTP_202_ACCEPTED,
             )
 
-        else:
-            return Response(
-                {"Error": "Invalid method."},
-                status=status.HTTP_405_METHOD_NOT_ALLOWED,
-            )
+        return Response(
+            {"Error": "Invalid method."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED,
+        )
 
     except ValueError as e:
         return Response(
@@ -2888,22 +2897,23 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
         )
 
 
-@api_manager_required
+@api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def get_all_store_shifts(request, id):
     try:
-        manager = util.api_get_user_object_from_session(request)
+        user = util.api_get_user_object_from_session(request)
         store = Store.objects.get(id=id)
 
         # Ensure manager is authorised
-        if not manager.is_associated_with_store(store=store.id):
+        if not user.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
 
-        elif not store.is_active and not manager.is_hidden:
+        elif not store.is_active and not user.is_hidden:
             raise err.InactiveStoreError
 
         # Get other request data
+        get_all = util.str_to_bool(request.query_params.get("get_all", "false"))
         week = util.clean_param_str(request.query_params.get("week", None))
         ignore_inactive = util.str_to_bool(
             request.query_params.get("ignore_inactive", "False")
@@ -2912,30 +2922,36 @@ def get_all_store_shifts(request, id):
             request.query_params.get("ignore_inactive", "False")
         )
 
-        # Check the week is passed
-        if not week:
-            return Response(
-                {"Error": "Missing starting week date from request params."},
-                status=status.HTTP_400_BAD_REQUEST,
+        # Only get all shifts IF they're a manager
+        if get_all and user.is_manager:
+            # Check the week is passed
+            if not week:
+                return Response(
+                    {"Error": "Missing starting week date from request params."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check the date is correct
+            try:
+                datetime.strptime(week, "%Y-%m-%d")
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
+
+            # Get the schedules
+            data = controllers.get_all_store_schedules(
+                store=store,
+                week=week,
+                ignore_inactive=ignore_inactive,
+                ignore_resigned=ignore_resigned,
+                include_deleted=False,
             )
 
-        # Check the date is correct
-        try:
-            datetime.strptime(week, "%Y-%m-%d")
-        except ValueError:
-            return Response(
-                {"Error": "Invalid date format. Use YYYY-MM-DD."},
-                status=status.HTTP_406_NOT_ACCEPTABLE,
-            )
-
-        # Get the schedules
-        data = controllers.get_all_store_schedules(
-            store=store,
-            week=week,
-            ignore_inactive=ignore_inactive,
-            ignore_resigned=ignore_resigned,
-            include_deleted=False,
-        )
+        # Only get the user's shifts
+        else:
+            data = controllers.get_user_store_schedules(store=store, user=user)
 
         return JsonResponse(data, status=status.HTTP_200_OK)
 
@@ -2959,9 +2975,14 @@ def get_all_store_shifts(request, id):
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
-        logger.critical(
-            f"An error occured when trying to get a store's entire schedule for store ID {id} for week {week}, resulting in the error: {str(e)}"
-        )
+        if get_all:
+            logger.critical(
+                f"An error occured when trying to get a store's entire schedule for store ID {id} for week {week}, resulting in the error: {str(e)}"
+            )
+        else:
+            logger.critical(
+                f"An error occured when trying to get user ID {user.id}'s schedule for store ID {id}, resulting in the error: {str(e)}"
+            )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
