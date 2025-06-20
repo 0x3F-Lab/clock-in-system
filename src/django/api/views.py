@@ -2717,9 +2717,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
         manager = util.api_get_user_object_from_session(request)
         name = util.clean_param_str(request.data.get("name", None))
         description = util.clean_param_str(request.data.get("description", None))
-        colour_hex = util.clean_param_str(request.data.get("colour_hex", "#EEEEEE"))
+        colour_hex = util.clean_param_str(request.data.get("colour_hex", "#adb5bd"))
         store_id = util.clean_param_str(request.data.get("store_id", None))
-        logger.critical(type(settings.ROLE_NAME_MAX_LENGTH))
 
         # Check given fields are valid
         if name:
@@ -2789,7 +2788,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
             return JsonResponse({"id": role.id}, status=status.HTTP_201_CREATED)
 
         # Get ROLE
-        role = Store.objects.select_related("store").get(pk=role_id)
+        role = Role.objects.select_related("store").get(pk=role_id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=role.store_id):

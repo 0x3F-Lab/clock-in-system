@@ -668,7 +668,7 @@ class Role(models.Model):
     name = models.CharField(max_length=210, null=False)
     description = models.TextField(max_length=500, null=True, blank=True)
     colour_hex = models.CharField(
-        max_length=10, null=False, default="#EEEEEE", validators=[HEX_COLOUR_VALIDATOR]
+        max_length=10, null=False, default="#adb5bd", validators=[HEX_COLOUR_VALIDATOR]
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
