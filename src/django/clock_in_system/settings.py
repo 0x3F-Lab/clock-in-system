@@ -354,6 +354,12 @@ LOGGING = {
             "filename": "./logs/tasks.log",
             "formatter": "verbose",
         },
+        "errors": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": "./logs/errors.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
@@ -362,22 +368,22 @@ LOGGING = {
             "propagate": False,
         },
         "api": {
-            "handlers": ["console", "file"],
+            "handlers": ["console", "file", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },
         "auth_app": {
-            "handlers": ["console", "file"],
+            "handlers": ["console", "file", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },
         "celery": {  # Celery-specific logger
-            "handlers": ["console", "tasks"],
+            "handlers": ["console", "tasks", "errors"],
             "level": "INFO",
             "propagate": False,
         },
         "celery_beat": {  # Celery Beat-specific logger
-            "handlers": ["console", "tasks"],
+            "handlers": ["console", "tasks", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },
