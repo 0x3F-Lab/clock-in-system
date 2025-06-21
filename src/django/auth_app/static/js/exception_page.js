@@ -55,24 +55,23 @@ function handleExceptionTypeSwitching() {
 
 
 function handleExceptionApproveBtns() {
-  ///////////////// FIX D-NONE ADDING TO BE SPECIFIC!!!
   // Listen for any collapse being shown
   $(document).on('show.bs.collapse', '.collapse', function () {
     const excepID = $(this).attr('id').split('-').pop();
-    $(`[data-id="${excepID}"]`).removeClass('d-none');
+    $(`[data-approve-id="${excepID}"]`).removeClass('d-none');
   });
 
   // Hide the button when the collapse is closed
   $(document).on('hide.bs.collapse', '.collapse', function () {
     const excepID = $(this).attr('id').split('-').pop();
-    $(`[data-id="${excepID}"]`).addClass('d-none');
+    $(`[data-approve-id="${excepID}"]`).addClass('d-none');
   });
 
   // Handle user pressing 'Approve'
   $(document).on('click', '.mark-approved', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    const ID = $(this).attr('data-id');
+    const ID = $(this).attr('data-approve-id');
     markExceptionApproved(ID, false);
   });
 
@@ -80,7 +79,7 @@ function handleExceptionApproveBtns() {
   $(document).on('click', '.mark-approved-edit', function (e) {
     e.preventDefault();
     e.stopPropagation();
-    const ID = $(this).attr('data-id');
+    const ID = $(this).attr('data-approve-id');
     const login = $(this).attr('data-login');
     const logout = $(this).attr('data-logout');
     const roleID = $(this).attr('data-role-id');
@@ -215,15 +214,22 @@ function updateExceptions() {
         $.each(resp.exceptions || [], function(index, e) {
           const rowColour = isExceptionListTypeUnapproved ? 'bg-warning-subtle' : '';
           const badgeColour = e.reason==='No Shift' ? 'bg-indigo' : (e.reason==='Incorrectly Clocked' ? 'bg-info' : (e.reason==='Missed Shift' ? 'bg-orange' : 'bg-secondary'));
+          const showEditBtn = e.reason.trim().toUpperCase() !== 'MISSED SHIFT';
           const btn = !isExceptionListTypeUnapproved ? '' : 
-                `<div class="d-flex gap-2 mt-1">
-                  <button class="mark-approved btn btn-sm btn-outline-success mt-1 d-none" data-id="${e.id}">
-                    <i class="fas fa-check-circle me-1"></i> Approve
-                  </button>
-                  <button class="mark-approved-edit ${e.reason==='Missed Shift' ? 'd-none' : ''} btn btn-sm btn-outline-primary mt-1 d-none" data-bs-toggle="none" data-id="${e.id}" data-login="${e.act_start}" data-logout="${e.act_end}" data-role-id="${e.shift_role_id}">
-                    <i class="fas fa-check-circle me-1"></i> Edit & Approve
-                  </button>
-                </div>`;
+            `<div class="d-flex gap-2 mt-1">
+              <button class="mark-approved btn btn-sm btn-outline-success mt-1 d-none" data-approve-id="${e.id}">
+                <i class="fas fa-check-circle me-1"></i> Approve
+              </button>
+              ${showEditBtn ? `
+                <button class="mark-approved-edit btn btn-sm btn-outline-primary mt-1 d-none"
+                        data-bs-toggle="none"
+                        data-approve-id="${e.id}"
+                        data-login="${e.act_start}"
+                        data-logout="${e.act_end}"
+                        data-role-id="${e.shift_role_id}">
+                  <i class="fas fa-check-circle me-1"></i> Edit & Approve
+                </button>` : ''}
+            </div>`;
           const row = `
             <div class="${rowColour} list-group-item list-group-item-action flex-column align-items-start p-3"
                 id="excep-${e.id}"
@@ -314,7 +320,8 @@ function generateExceptionMessage(exception) {
         <p>They were expected to work:<br>
         ${exception.shift_start} ⟶ ${exception.shift_end} (Role: ${exception.shift_role_name || "N/A"})</p>
         <p>However, they did not show up to their shift.</p>
-        <p>By approving this exception, the rostered shift will be deleted from the rosters.<br><em>This is unrecoverable.</em></p>
+        <p>By approving this exception, the rostered shift will be deleted from the rosters. <em>This is unrecoverable.</em><br>
+        <b>If the employee actually worked this shift, please add it manually using the 'Shift Logs' manager page.</b> This will also update this exception.</p>
       `;
 
     default:
