@@ -233,6 +233,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "auth_app.tasks.deactivate_unassigned_users",
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
     },
+    "check_shifts_for_exceptions": {
+        "task": "auth_app.tasks.check_shifts_for_exceptions",
+        "schedule": crontab(hour=0, minute=5),
+    },
 }
 
 

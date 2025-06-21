@@ -4,13 +4,16 @@ import auth_app.utils as util
 from datetime import timedelta
 from celery import shared_task
 from django.db.models import Q
+from django.conf import settings
 from django.utils.timezone import now, localtime
-from api.controllers import handle_clock_out
+from api.controllers import handle_clock_out, link_activity_to_shift
 from auth_app.models import (
     User,
     Store,
     Notification,
     StoreUserAccess,
+    Activity,
+    Shift,
     notification_default_expires_on,
 )
 from clock_in_system.settings import NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS
@@ -30,6 +33,7 @@ def check_clocked_in_users():
 
     try:
         total_count = 0
+        usr_err_msg = ""
 
         for store in Store.objects.filter(is_active=True).all():
             clocked_in_employees = store.get_clocked_in_employees(include_inactive=True)
@@ -51,8 +55,9 @@ def check_clocked_in_users():
                         allow_inactive_edits=True,
                     )
                 except Exception as e:
+                    usr_err_msg += f"- User ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] with error: {str(e)[:65]}"
                     logger_beat.critical(
-                        f"Tried to forcefully clock employee ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] and it resulted in error: {str(e)}"
+                        f"Tried to forcefully clock employee ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] and it resulted in error: {str(e)}\n"
                     )
                     pass
 
@@ -97,11 +102,20 @@ def check_clocked_in_users():
                 f"[LATE-CLOCK-OUT] Sent manager notification for store {store.code}."
             )
 
+        if usr_err_msg:
+            raise Exception(
+                "Ran into error(s) when force logging users out, notification sent to admins."
+            )
+
         logger_beat.info(
             f"Finished running task `check_clocked_in_users` and found {total_count} users still clocked in. Sent message(s) to respective managers."
         )
 
     except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `check_clocked_in_users`",
+            "Failed to forcefully log the following employees out:\n\n" + usr_err_msg,
+        )
         logger_beat.critical(
             f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {e}"
         )
@@ -130,6 +144,10 @@ def delete_old_notifications():
         )
 
     except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `delete_old_notifications`",
+            f"Failed to delete old notifications, generating the error:\n\n{str(e)}",
+        )
         logger_beat.critical(
             f"[FAILURE] Failed to complete task `delete_old_notifications` due to the error: {e}"
         )
@@ -163,8 +181,55 @@ def deactivate_unassigned_users():
             )
 
     except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `deactivate_unassigned_users`",
+            f"Could not deactivate unassigned users due to error:\n\n{str(e)}",
+        )
         logger_beat.critical(
             f"[FAILURE] Failed to complete task `deactivate_unassigned_users` due to the error: {e}"
+        )
+        return
+
+
+@shared_task
+def check_shifts_for_exceptions(
+    age_cutoff_days: int = (settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS + 1),
+):
+    logger_beat.info(f"[AUTOMATED] Running task `check_shifts_for_exceptions`.")
+    err_msg = ""
+
+    try:
+        total = 0
+        cutoff = localtime(now()).date() - timedelta(days=int(age_cutoff_days))
+        for store in Store.objects.filter(is_active=True).all():
+            # Get all shifts to try an link them to their respective shifts (check for missed shifts)
+            for shift in Shift.objects.filter(
+                store=store.id, date__lte=cutoff, is_deleted=False
+            ):
+                try:
+                    if link_activity_to_shift(shift=shift):
+                        total += 1
+                except Exception as e:
+                    emp_id = getattr(shift, "employee_id", "UNKNOWN")
+                    err_msg += f"- Shift ID: {shift.id} (Date: {shift.date}) for User ID {emp_id} [{store.code}], error: {str(e)[:65]}\n"
+                    pass
+
+        if err_msg:
+            raise Exception(
+                "Ran into error(s) when linking shift to their activity, notification sent to admins."
+            )
+
+        logger_beat.info(
+            f"Finished running task `check_shifts_for_exceptions` and created {total} exceptions while linking shifts to their activity."
+        )
+
+    except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `check_shifts_for_exceptions`",
+            "Could not link the following shifts:\n\n" + err_msg,
+        )
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {e}"
         )
         return
 
@@ -627,3 +692,14 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
             f"[FAILURE] Failed to complete task `notify_employee_account_reset_password` due to the error: {e}"
         )
         return
+
+
+def notify_admins_error_generated(title: str, message: str):
+    Notification.send_to_users(
+        users=User.objects.filter(is_active=True, is_hidden=True).all(),
+        title=util.sanitise_markdown_title_text(title),
+        message=util.sanitise_markdown_message_text(message),
+        notification_type=Notification.Type.AUTOMATIC_ALERT,
+        recipient_group=Notification.RecipientType.SITE_ADMINS,
+        expires_on=notification_default_expires_on(7),
+    )
