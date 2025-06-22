@@ -421,7 +421,7 @@ def update_shift_details(request, id):
             logout_timestamp = util.clean_param_str(
                 request.data.get("logout_timestamp", None)
             )
-            now_date = localtime(now()).date()
+            now_time = localtime(now())
 
             try:
                 if login_timestamp:
@@ -471,7 +471,7 @@ def update_shift_details(request, id):
                 )
 
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
-            elif (not logout_timestamp) and (login_timestamp.date() != now_date):
+            elif (not logout_timestamp) and (login_timestamp.date() != now_time.date()):
                 return Response(
                     {
                         "Error": "Cannot have a missing clock out time for a shift older than the current day."
@@ -488,11 +488,18 @@ def update_shift_details(request, id):
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
-            elif (login_timestamp > localtime(now())) or (
-                logout_timestamp and logout_timestamp > localtime(now())
+            elif (login_timestamp > now_time) or (
+                logout_timestamp and logout_timestamp > now_time
             ):
                 return Response(
                     {"Error": "A timestamp cannot be in the future."},
+                    status=status.HTTP_417_EXPECTATION_FAILED,
+                )
+
+            # Check if its a unfinished shift BEFORE TODAY (cant have a unfinished shift in the past)
+            elif (not logout_timestamp) and (login_timestamp.date() != now_time.date()):
+                return JsonResponse(
+                    {"Error": "Cannot have a unfinished shift in the past."},
                     status=status.HTTP_417_EXPECTATION_FAILED,
                 )
 
@@ -733,6 +740,13 @@ def create_new_shift(request):
         elif (logout_timestamp) and (logout_timestamp > now_time):
             return JsonResponse(
                 {"Error": "Logout time cannot be in the future."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check if its a unfinished shift BEFORE TODAY (cant have a unfinished shift in the past)
+        elif (not logout_timestamp) and (login_timestamp.date() != now_time.date()):
+            return JsonResponse(
+                {"Error": "Cannot have a unfinished shift in the past."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
