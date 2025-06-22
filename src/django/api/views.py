@@ -689,6 +689,9 @@ def create_new_shift(request):
         if logout_timestamp:
             logout_time = util.round_datetime_minute(logout_timestamp)
 
+        # Ensure a value is set to prevent error
+        shift_length_mins = 0
+
         # Ensure minimum shift length is achieve between login and logout
         if logout_timestamp:
             if logout_time < login_time:
