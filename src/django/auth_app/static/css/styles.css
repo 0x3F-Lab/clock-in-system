@@ -563,3 +563,11 @@ table {
     flex-direction: column;
     gap: 0.5rem; 
 }
+
+#roster_dropdown{
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1em;
+  margin-top: -0.5em;
+  width: 100%;
+}
