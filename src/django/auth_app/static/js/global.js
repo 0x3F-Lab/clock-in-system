@@ -49,6 +49,19 @@ function showNotification(message, type = "info") {
 }
 
 
+// Function to handle an API error message
+function handleAjaxError(jqXHR, baseMessage = "Failed to complete task", shouldHideSpinner = true) {
+  if (shouldHideSpinner) { hideSpinner(); }
+  let errorMessage;
+  if (jqXHR.status === 500) {
+    errorMessage = `${baseMessage} due to internal server errors. Please contact an admin.`;
+  } else {
+    errorMessage = jqXHR.responseJSON?.Error || `${baseMessage}. Please try again later.`;
+  }
+  showNotification(errorMessage, "danger");
+}
+
+
 // Function to save a single notification which appears on the next page load (or reload) -- ACTIONS NOTIFICATION IF IT CANT SAVE IT
 function saveNotificationForReload(message, type = "info", errorNotification = message) {
   try {
@@ -173,6 +186,11 @@ function ensureSafeFloat(val, min, max) {
 }
 
 
+function isNonEmpty(val) {
+  return val !== null && val !== undefined && val !== "";
+}
+
+
 function formatToDatetimeLocal(dateStr) {
   if (!dateStr) return "";
   // Expecting "DD/MM/YYYY HH:MM"
@@ -190,6 +208,8 @@ function formatDateForInput(date) {
     return `${year}-${month}-${day}`;
   };
 
+
+////////////// SPINNER /////////////////////
 
 // Ensure global variable to ensure spinner timeout can be adjusted
 let spinnerTimeout;

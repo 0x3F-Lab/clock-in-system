@@ -71,65 +71,40 @@
   </div>
 </div>
 
-<div class="modal fade" id="addShiftModal" tabindex="-1" aria-labelledby="addShiftModalLabel">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="addShiftModalLabel">Add New Shift</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+
+      <div class="modal-header text-white">
+        <h5 class="modal-title w-100 text-center" id="editModalLabel">Add New Shift</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
+
       <div class="modal-body">
-        <form id="addShiftForm">
-          <input type="hidden" id="shiftDate" name="date">
-          
-          <div class="mb-3">
-            <label for="employeeSelect" class="form-label">Employee</label>
-            <select class="form-select" id="employeeSelect" name="employee" required>
-              </select>
-          </div>
+        <form id="editShiftForm" class="px-1">
+          <input type="hidden" id="editShiftId" name="editShiftId">
+          <input type="hidden" id="editShiftDate" name="date">
 
-          <div class="mb-3">
-              <label for="addRoleSelect" class="form-label">Role (Optional)</label>
-              <select class="form-select" id="addRoleSelect" name="role">
-                  <!-- This will be populated by JavaScript -->
-              </select>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="startTime" class="form-label">Start Time</label>
-              <input type="time" class="form-control" id="startTime" name="start_time" required>
+          <div id="editModalEmployeeListContainer" class="mb-4">
+            <div class="mb-3">
+              <label for="editModalEmployeeSearchBar" class="form-label fw-semibold">Search Employees</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editModalEmployeeSearchBar"
+                placeholder="Type to filter employees..."
+              >
             </div>
-            <div class="col">
-              <label for="endTime" class="form-label">End Time</label>
-              <input type="time" class="form-control" id="endTime" name="end_time" required>
-            </div>
-          </div>
-
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="saveShiftBtn">Save Shift</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="editShiftModal" tabindex="-1" aria-labelledby="editShiftModalLabel">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editShiftModalLabel">Edit Shift</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form id="editShiftForm">
-          <input type="hidden" id="editShiftId" name="id">
-          
-          <div class="mb-3">
-            <label for="editEmployeeSelect" class="form-label">Employee</label>
-            <select class="form-select" id="editEmployeeSelect" name="employee" required></select>
+            <ul
+              id="editModalEmployeeList"
+              class="list-group mb-3 scrollable-list"
+            ></ul>
+            <input
+              type="hidden"
+              id="editModalSelectedEmployeeID"
+              name="employeeID"
+              value=""
+            >
           </div>
 
           <div class="mb-3">
@@ -137,39 +112,41 @@
               <span>Role:</span>
               <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
             </label>
-            <select class="form-select" id="editRoleSelect" name="role" required></select>
+            <select class="form-select" id="editShiftRole" name="role" required></select>
           </div>
 
           <div class="row">
             <div class="col">
-              <label for="editStartTime" class="form-label">Start Time</label>
+              <label for="startTime" class="form-label">Start Time</label>
               <input type="time" class="form-control" id="editStartTime" name="start_time" required>
             </div>
             <div class="col">
-              <label for="editEndTime" class="form-label">End Time</label>
+              <label for="endTime" class="form-label">End Time</label>
               <input type="time" class="form-control" id="editEndTime" name="end_time" required>
             </div>
           </div>
-
         </form>
       </div>
-      <div class="modal-footer justify-content-between">
-        <div id="delete-confirmation-container">
-          <button type="button" class="btn btn-danger" id="deleteShiftBtn">Delete</button>
-          <button type="button" class="btn btn-warning" id="confirmDeleteBtn" style="display:none;">Confirm Delete</button>
-        </div>
-
-        <div>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary" id="updateShiftBtn">Update Shift</button>
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="saveShiftBtn">
+          <i class="fa-solid fa-floppy-disk me-1"></i> Save Shift
+        </button>
+        <button type="button" class="btn btn-danger" id="deleteShiftBtn">
+          <i class="fa-solid fa-trash me-1"></i> Delete
+        </button>
+        <button type="button" class="btn btn-warning d-none" id="confirmDeleteBtn">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i> Confirm Delete
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
-  <div class="modal-dialog modal-xl">
+<div class="modal modal-xl fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
+  <div class="modal-dialog">
     <div class="modal-content w-75">
       <div class="modal-header">
         <h5 class="modal-title" id="manageRolesModalLabel">Manage Store Roles</h5>

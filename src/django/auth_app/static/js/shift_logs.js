@@ -265,15 +265,14 @@ function handleShiftDetailsEdit() {
         success: function(response) {
           // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
           const keys = Object.keys(response);
-
           if (keys.length > 0) {
             keys.forEach(userID => {
               const name = response[userID];
-              const option = `<li class="list-group-item" data-id="${userID}" style="cursor: pointer;">${name}</li>`;
+              const option = `<li class="list-group-item cursor-pointer" data-id="${userID}">${name}</li>`;
               $("#editModalEmployeeList").append(option);
             });
           } else {
-            $dropdown.append('<option value="">No stores available</option>');
+            $("#editModalEmployeeList").append('<option value="">No Employees available</option>');
             showNotification("There are no employees associated to the selected store.", "danger");
           }
         },

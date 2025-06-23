@@ -8,6 +8,10 @@ body, html {
     min-height: 100vh;         /* Let the document grow taller than the viewport */
 }
 
+.cursor-pointer {
+  cursor: pointer;
+}
+
 .z-top {
   z-index: 2000 !important;
 }
@@ -465,7 +469,7 @@ table {
 }
 
 .scrollable-list {
-  max-height: 400px;
+  max-height: 350px;
   overflow-y: auto;
 }
 
