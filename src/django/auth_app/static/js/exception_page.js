@@ -93,6 +93,7 @@ function handleExceptionApproveBtns() {
   // Upon submitting edit modal -> mark exception as approved
   $('#editModalSubmit').on('click', function (e) {
     e.preventDefault();
+    const ID = $(this).attr('data-id');
     markExceptionApproved(ID, true);
   });
 }
@@ -282,6 +283,8 @@ function updateExceptions() {
       }
 
       setPaginationValues(resp.offset, resp.total); // Set pagination values
+      console.log(resp.total);
+      console.log(resp.offset);
       hideSpinner();
     },
 

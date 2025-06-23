@@ -140,12 +140,12 @@ function ensureSafeInt(val, min, max) {
   val = parseInt(val, 10);
 
   // Ensure the int is within range
-  if (min) {
+  if (min != null) {
     min = parseInt(min, 10);
     val = Math.max(val, min)
   }
   
-  if (max) {
+  if (max != null) {
     max = parseInt(max, 10);
     val = Math.min(val, max)
   }
@@ -159,13 +159,13 @@ function ensureSafeFloat(val, min, max) {
   val = parseFloat(val);
 
   // Ensure the number is within range
-  if (min) {
-    min = parseFloat(min, 10);
+  if (min != null) {
+    min = parseFloat(min);
     val = Math.max(val, min)
   }
   
-  if (max) {
-    max = parseFloat(max, 10);
+  if (max != null) {
+    max = parseFloat(max);
     val = Math.min(val, max)
   }
 
@@ -269,7 +269,7 @@ function resetPaginationValues() {
 
 function updatePaginationPageButtons() {
   const totCount = ensureSafeInt($('#paginationVariables').attr('data-count'), 0, null);
-  const offset = ensureSafeInt($('#paginationVariables').attr('data-offset'), 0, totCount - 1);
+  const offset = ensureSafeInt($('#paginationVariables').attr('data-offset'), 0, Math.max(totCount - 1, 0)); // Limit offset to max total-1 (or 0 if total=0)
   const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
   const totalPages = Math.max(Math.ceil(totCount / pageLimit), 1); // Ensure there is at least 1 page (even if totCount=0)
   const currentPage = Math.floor(offset / pageLimit) + 1;
@@ -389,7 +389,7 @@ function getPaginationLimit() {
 function setPaginationValues(offset, totalCount) {
   totalCount = ensureSafeInt(totalCount, 0, null);
   
-  if (totalCount) {
+  if (totalCount != null) {
     offset = ensureSafeInt(offset, 0, totalCount-1);
     $('#paginationVariables').attr('data-count', totalCount);
 
@@ -397,7 +397,7 @@ function setPaginationValues(offset, totalCount) {
     offset = ensureSafeInt(offset, 0, null);
   }
 
-  if (offset || offset == 0) { // If offset was given in request response
+  if (offset != null) { // If offset was given in request response
     $('#paginationVariables').attr('data-offset', offset);
   }
 

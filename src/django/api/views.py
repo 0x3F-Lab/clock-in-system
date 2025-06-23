@@ -3454,20 +3454,6 @@ def manage_store_exception(request, exception_id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-            try:
-                if role_id:
-                    role_id = int(role_id)
-                    if not activity.store.has_role(role=int(role_id)):
-                        return Response(
-                            {"Error": "Not authorised to assign another store's role."},
-                            status=status.HTTP_406_NOT_ACCEPTABLE,
-                        )
-            except ValueError:
-                return Response(
-                    {"Error": "Invalid datetime format. Expected HH:MM or HH:MM:SS."},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
-                )
-
             # Make sure activity is there
             activity = exception.activity
             if not activity:

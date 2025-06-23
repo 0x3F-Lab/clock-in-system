@@ -181,7 +181,6 @@ $(document).ready(function() {
             success: function(response) {
                 // Dont hide spinner
                 bootstrap.Modal.getInstance(document.getElementById('editShiftModal')).hide();
-                console.log(response);
                 loadSchedule(response.date);
             },
             error: function(jqXHR, textStatus, errorThrown) {
