@@ -5,7 +5,7 @@ $(document).ready(function() {
     function loadSchedule(week) {
         showSpinner();
         $.ajax({
-            url: `${window.djangoURLs.listAllStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}`,
+            url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}`,
             method: 'GET',
             xhrFields: {withCredentials: true},
             headers: {'X-CSRFToken': getCSRFToken()},
@@ -408,13 +408,11 @@ $(document).ready(function() {
 
     // --- Store Selector ---
     $('#storeSelectDropdown').on('change', function() {
-        console.log("--- Store Dropdown Changed ---");
         updateStoreInformation(getSelectedStoreID());
         loadSchedule(new Date().toLocaleDateString('sv-SE'));
     });
 
     // --- Initial Page Load ---
-    console.log("--- Page Initializing ---");
     updateStoreInformation(getSelectedStoreID());
     loadSchedule(new Date().toLocaleDateString('sv-SE'));
 });

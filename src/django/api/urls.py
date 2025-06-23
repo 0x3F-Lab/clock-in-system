@@ -92,9 +92,9 @@ urlpatterns = [
     ),
     path("manage-store-role/", views.manage_store_role, name="create_store_role"),
     path(
-        "list-all-store-shifts/<int:id>/",
-        views.get_all_store_shifts,
-        name="list_all_store_shifts",
+        "list-store-shifts/<int:id>/",
+        views.get_store_shifts,
+        name="list_store_shifts",
     ),
     path("manage-shift/<int:id>/", views.manage_store_shift, name="manage_shift"),
     path("create-shift/<int:store_id>/", views.create_store_shift, name="create_shift"),

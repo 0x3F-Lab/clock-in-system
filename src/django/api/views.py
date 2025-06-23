@@ -2906,7 +2906,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
 @api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def get_all_store_shifts(request, id):
+def get_store_shifts(request, id):
     try:
         user = util.api_get_user_object_from_session(request)
         store = Store.objects.get(id=id)
