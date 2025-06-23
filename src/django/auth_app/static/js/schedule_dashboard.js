@@ -305,7 +305,7 @@ function handleDeleteShiftBtn() {
         $('#updateShiftBtn').addClass('disabled');
     });
 
-    $('#editShiftModal').on('hide.bs.modal', () => {
+    $('#editModal').on('hide.bs.modal', () => {
         $('#confirmDeleteBtn').addClass('d-none');
         $('#deleteShiftBtn').removeClass('d-none');
         $('#updateShiftBtn').removeClass('disabled');
