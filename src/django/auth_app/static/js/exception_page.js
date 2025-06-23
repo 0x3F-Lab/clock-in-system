@@ -85,7 +85,7 @@ function handleExceptionApproveBtns() {
     const roleID = $(this).attr('data-role-id');
     if (login) { $('#editLoginTimestamp').val(login); }
     if (logout) { $('#editLogoutTimestamp').val(logout); }
-    if (roleID) { selectRoleID(roleID); }
+    if (roleID) { $("#editRoleSelect").val(roleID); }
     $('#editModalSubmit').attr('data-id', ID);
     openEditModal();
   });
@@ -371,18 +371,4 @@ function updateStoreRoles() {
         showNotification(errorMessage, "danger");
       }
   });
-}
-
-
-// Function to select a certain ROLE on the edit modal if given, otherwise select 'No Role'
-function selectRoleID(roleID) {
-  const $editRoleSelect = $("#editRoleSelect");
-
-  // Try to select the role
-  if ($editRoleSelect.find(`option[value="${roleID}"]`).length > 0) {
-    $editRoleSelect.val(roleID);
-  } else {
-    // Fallback: select the default empty value
-    $editRoleSelect.val("");
-  }
 }
