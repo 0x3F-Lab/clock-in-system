@@ -576,3 +576,10 @@ table {
   margin-top: -0.5em;
   width: 100%;
 }
+
+.role-colour-block {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}

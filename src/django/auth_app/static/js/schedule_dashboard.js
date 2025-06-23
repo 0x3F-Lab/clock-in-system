@@ -517,7 +517,7 @@ function updateStoreInformation(storeId) {
                         data-role-color="${role.colour}">
                         
                         <div class="d-flex align-items-center text-truncate">
-                            <span class="d-inline-block me-3 flex-shrink-0" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
+                            <span class="d-inline-block me-3 flex-shrink-0 role-colour-block" style="background-color: ${role.colour};"></span>
                             <span class="text-truncate" data-bs-toggle="tooltip" title="${role.name}">${role.name}</span>
                         </div>
                         
