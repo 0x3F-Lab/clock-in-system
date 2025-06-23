@@ -1,5 +1,6 @@
-import logging
 import re
+import string
+import logging
 import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
@@ -1181,8 +1182,8 @@ def create_new_employee(request):
 
         # Create user
         employee = User.objects.create(
-            first_name=first_name.title(),
-            last_name=last_name.title(),
+            first_name=string.capwords(first_name),
+            last_name=string.capwords(last_name),
             email=email,
             phone_number=phone_number,
             birth_date=parsed_dob,
@@ -1350,7 +1351,7 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.first_name = first_name.title()
+            employee_to_update.first_name = string.capwords(first_name)
 
         # Validate and update last name
         if last_name:
@@ -1366,7 +1367,7 @@ def modify_account_information(request, id=None):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            employee_to_update.last_name = last_name.title()
+            employee_to_update.last_name = string.capwords(last_name)
 
         # Validate and update phone
         if phone:
@@ -2729,6 +2730,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
 
         # Check given fields are valid
         if name:
+            # Capitalise the role name
+            name = string.capwords(name)
             if len(name) > settings.ROLE_NAME_MAX_LENGTH:
                 return Response(
                     {
@@ -2765,7 +2768,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
 
         # POST -> Create a new role given the role information
         if request.method == "POST":
-            if not all([name, description, store_id]):
+            if not all([name, store_id]):
                 return Response(
                     {"Error": "Missing required parameters."},
                     status=status.HTTP_428_PRECONDITION_REQUIRED,
@@ -2857,11 +2860,14 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
             {"Error": "Method not allowed."}, status=status.HTTP_405_METHOD_NOT_ALLOWED
         )
 
+    except IntegrityError:
+        return Response(
+            {"Error": "The role MUST have a unique name."},
+            status=status.HTTP_409_CONFLICT,
+        )
     except DatabaseError:
         return Response(
-            {
-                "Error": "Failed to update/create the role due to database constraints. Is the role unique?"
-            },
+            {"Error": "Failed to update/create the role due to database constraints."},
             status=status.HTTP_409_CONFLICT,
         )
     except Role.DoesNotExist:

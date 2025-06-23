@@ -464,6 +464,11 @@ table {
     width: 65%;
 }
 
+.scrollable-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 /* Base styles */
 .scroll-container { overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; }
 .scroll-container::-webkit-scrollbar { display: none; }

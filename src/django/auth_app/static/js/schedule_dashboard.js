@@ -518,7 +518,7 @@ function updateStoreInformation(storeId) {
                         
                         <div class="d-flex align-items-center text-truncate">
                             <span class="d-inline-block me-3 flex-shrink-0" style="width: 20px; height: 20px; background-color: ${role.colour}; border: 1px solid #ccc; border-radius: 4px;"></span>
-                            <span class="text-truncate">${role.name}</span>
+                            <span class="text-truncate" data-bs-toggle="tooltip" title="${role.name}">${role.name}</span>
                         </div>
                         
                         <div class="dropdown">
@@ -531,6 +531,8 @@ function updateStoreInformation(storeId) {
                         </div>
                     </li>`;
                 $existingRolesList.append(roleListItemHtml);
+                // Initialize Bootstrap tooltips for newly added elements
+                $('[data-bs-toggle="tooltip"]').tooltip();
             });
         } else {
             showNotification("There are no ROLES associated to the selected store.", "info");

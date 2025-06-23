@@ -18,23 +18,18 @@
   {% include "components/store_selection_controller.html" %}
 </div>
 
-
-
-<div id="schedule-header" class="d-flex justify-content-between align-items-center mb-4 p-3 rounded" style="background-color: #2d3748;">
-
-    <div>
-        <a class="btn btn-outline-light" href="#" id="previous-week-btn">
-            <i class="fas fa-arrow-left"></i> Back
-        </a>
-    </div>
-
-    <div class="text-center">
-        <h2 class="mb-0" id="schedule-week-title"></h2>
-    </div>
-
-    <a class="btn btn-outline-light me-2" href="#" id="next-week-btn">
-        Next <i class="fas fa-arrow-right"></i>
+<div id="schedule-header" class="d-flex justify-content-between align-items-center mb-4 py-0 px-2 px-md-4 rounded" style="background-color: #2d3748;">
+  <div>
+    <a class="btn btn-outline-light" href="#" id="previous-week-btn">
+      <i class="fas fa-arrow-left"></i> Back
     </a>
+  </div>
+  <div class="text-center my-3">
+    <h3 class="mb-0 fw-semibold" id="schedule-week-title">Week of .......</h3>
+  </div>
+  <a class="btn btn-outline-light" href="#" id="next-week-btn">
+    <i class="fas fa-arrow-right"></i> Next 
+  </a>
 </div>
 
 <div class="dropdown" id="roster_dropdown">
@@ -174,34 +169,37 @@
 </div>
 
 <div class="modal fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content w-75">
       <div class="modal-header">
         <h5 class="modal-title" id="manageRolesModalLabel">Manage Store Roles</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="row">
-          <div class="col-md-6">
-            <h6>Existing Roles</h6>
-            <ul class="list-group" id="existingRolesList">
+          <div class="col-md-6 mt-1">
+            <h6 class="fw-semibold">Existing Roles</h6>
+            <ul class="list-group scrollable-list" id="existingRolesList">
               <li class="list-group-item">Loading...</li>
             </ul>
           </div>
-          <div class="col-md-6">
-            <h6>Add New Role</h6>
+          <div class="col-md-6 mt-4 mt-md-1">
+            <h6 class="fw-semibold">Add New Role</h6>
             <form id="addRoleForm">
               <div class="mb-3">
-                <label for="newRoleName" class="form-label">Role Name</label>
+                <label for="newRoleName" class="text-light">Role Name:</label>
                 <input type="text" class="form-control" id="newRoleName" required>
               </div>
               <div class="mb-3">
-                <label for="newRoleDescription" class="form-label">Description (Optional)</label>
+                <label for="newRoleDescription" class="text-light w-100 d-flex flex-row align-items-center justify-content-between">
+                  <span>Description:</span>
+                  <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+                </label>
                 <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
               </div>
               <div class="mb-3">
-                <label for="newRoleColor" class="form-label">Color</label>
-                <input type="color" class="form-control form-control-color" id="newRoleColor" value="#EEEEEE" title="Choose a color">
+                <label for="newRoleColor" class="text-light">Color:</label>
+                <input type="color" class="form-control form-control-color w-75" id="newRoleColor" value='#adb5bd' title="Choose a color">
               </div>
               <button type="submit" class="btn btn-primary w-100">Add Role</button>
             </form>

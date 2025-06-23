@@ -283,8 +283,6 @@ function updateExceptions() {
       }
 
       setPaginationValues(resp.offset, resp.total); // Set pagination values
-      console.log(resp.total);
-      console.log(resp.offset);
       hideSpinner();
     },
 
