@@ -377,7 +377,7 @@ function loadSchedule(week) {
                         <div class="day-header">
                             <div class="day-name">${getFullDayName(dayDate)}</div>
                             <div class="day-date">${getShortDate(dayDate)}</div>
-                            <button class="btn add-shift-btn" data-day="${dayDate}" title="Add shift for this day">
+                            <button class="btn add-shift-btn" data-day="${dayDate}" data-bs-toggle="tooltip" title="Add shift for this day">
                                 <i class="fas fa-plus"></i>
                             </button>
                         </div>
@@ -385,21 +385,22 @@ function loadSchedule(week) {
                     </div>`;
                 scheduleContainer.append(dayCardHtml);
             });
+            // Initialise tooltips for buttons
+            $('[data-bs-toggle="tooltip"]').tooltip();
 
             $('#previous-week-btn').data('week', data.prev_week);
             $('#next-week-btn').data('week', data.next_week);
             hideSpinner();
         },
         error: function(jqXHR, textStatus, errorThrown) {
-            hideSpinner();
-            $('#schedule-container').html('<p class="text-center text-danger">Error loading schedule.</p>');
-            let errorMessage;
-            if (jqXHR.status == 500) {
-                errorMessage = "Failed to add a new shift due to internal server errors. Please try again.";
-            } else {
-                errorMessage = jqXHR.responseJSON?.Error || "Failed to add a new shift. Please try again.";
-            }
-            showNotification(errorMessage, "danger");
+            $('#schedule-container').html(`
+                <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
+                    <div><i class="fas fa-circle-exclamation"></i></div>
+                    <div>
+                        <p class="m-0">Error loading roster. Please try again later.</p>
+                    </div>
+                </div>`);
+            handleAjaxError(jqXHR, "Failed to load the roster week");
         }
     });
 }
@@ -582,18 +583,15 @@ function calculateDuration(startTime, endTime) {
 
 // Function to format date strings nicely (e.g., "Jun 9, 2025")
 function formatWeekTitle(dateString) {
-    const options = { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 }
 
 function getFullDayName(dateString) {
     if (!dateString) return "";
-    const options = { weekday: 'long', timeZone: 'UTC' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return new Date(dateString).toLocaleDateString('en-US', {weekday: 'long', timeZone: 'UTC'});
 }
 
 function getShortDate(dateString) {
     if (!dateString) return "";
-    const options = { month: 'short', day: 'numeric', timeZone: 'UTC' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'});
 }
