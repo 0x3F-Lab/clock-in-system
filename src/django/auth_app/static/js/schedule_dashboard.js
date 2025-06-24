@@ -585,13 +585,3 @@ function calculateDuration(startTime, endTime) {
 function formatWeekTitle(dateString) {
     return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 }
-
-function getFullDayName(dateString) {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString('en-US', {weekday: 'long', timeZone: 'UTC'});
-}
-
-function getShortDate(dateString) {
-    if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'});
-}

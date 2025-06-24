@@ -3,7 +3,7 @@ import api.exceptions as err
 import api.utils as util
 
 from collections import defaultdict
-from datetime import timedelta, datetime, date
+from datetime import timedelta, datetime, date, time
 from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
 from django.db import transaction
@@ -327,10 +327,10 @@ def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
         raise e  # Re-raise error to be caught in view
 
 
-def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 7):
+def get_user_activities(user_id: int, store_id: int, week: str = None):
     """
-    Retrieve the recent shifts a user has completed or is currently working on
-    within the last `time_limit_days` (default is 7, max is 15, min is 1).
+    Retrieve the week of actitivies the `user_id` is related (for the `store_id`) to starting on the monday of `week`.
+    If `week` is not given, use current day.
 
     Returns:
         List[Dict]: A list of dictionaries with keys:
@@ -344,10 +344,26 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
             - is_modified
     """
     try:
-        # Ensure limit is within expectations
-        time_limit_days = min(
-            max(int(time_limit_days), 1), 15
-        )  # Max 15 days, min 1 day
+        # Ensure a week is set and that its monday
+        if week:
+            try:
+                raw_date = date.fromisoformat(week)
+            except ValueError:
+                raise Exception("Week provided is not in ISO format.")
+        else:
+            raw_date = localtime(now()).date()
+
+        # Roll back to Monday if not provided
+        week_start = raw_date - timedelta(days=raw_date.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        # Convert week boundaries to datetime
+        start_datetime = make_aware(
+            datetime.combine(week_start, time.min)
+        )  # Monday 00:00
+        end_datetime = make_aware(
+            datetime.combine(week_end, time.max)
+        )  # Sunday 23:59:59.999999
 
         # Get objects
         user = User.objects.get(id=user_id)
@@ -361,35 +377,39 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         elif not user.is_associated_with_store(store=store):
             raise err.NotAssociatedWithStoreError
 
-        # Time threshold
-        time_threshold = now() - timedelta(days=time_limit_days)
-
         # Fetch relevant activity records
-        shifts = (
+        activities = (
             Activity.objects.select_related("store")
-            .filter(employee=user, store=store, login_time__gte=time_threshold)
+            .filter(
+                employee=user,
+                store=store,
+                login_time__range=(start_datetime, end_datetime),
+            )
             .order_by("-login_time")
         )
 
         # Format results
-        result = []
-        for shift in shifts:
-            result.append(
+        results = defaultdict(list)
+        for act in activities:
+            login_dt = localtime(act.login_time)
+            date_str = login_dt.date().isoformat()
+            results[date_str].append(
                 {
-                    "employee_id": shift.employee.id,
-                    "store_id": shift.store.id,
-                    "store_code": shift.store.code,
-                    "login_time": localtime(shift.login_time),
+                    "employee_id": act.employee.id,
+                    "store_id": act.store.id,
+                    "store_code": act.store.code,
+                    "login_time": login_dt,
                     "logout_time": (
-                        localtime(shift.logout_time) if shift.logout_time else None
+                        localtime(act.logout_time) if act.logout_time else None
                     ),
-                    "deliveries": shift.deliveries if shift.deliveries else None,
-                    "is_public_holiday": shift.is_public_holiday,
-                    "is_modified": util.is_activity_modified(shift),
+                    "deliveries": act.deliveries if act.deliveries else None,
+                    "is_public_holiday": act.is_public_holiday,
+                    "is_modified": util.is_activity_modified(act),
                 }
             )
 
-        return result
+        # This DOES NOT guarantee ORDER -> Use OrderedDict(sorted(results.items(), reverse=True)) to get order
+        return results
 
     except (
         User.DoesNotExist,
@@ -402,7 +422,7 @@ def get_users_recent_shifts(user_id: int, store_id: int, time_limit_days: int = 
         raise e
     except Exception as e:
         logger.error(
-            f"Failed to get user ID {user_id}'s recent shift information up to a limit of {time_limit_days} days for the store ID {store_id}, resulting in the error: {str(e)}"
+            f"Failed to get user ID {user_id}'s recent shift information for week {week} for the store ID {store_id}, resulting in the error: {str(e)}"
         )
         raise e
 
@@ -1035,6 +1055,7 @@ def get_all_store_schedules(
 def get_user_store_schedules(
     store: Store,
     user: User,
+    week: str,
     include_deleted: bool = False,
 ) -> Dict[str, Any]:
     """
@@ -1043,6 +1064,7 @@ def get_user_store_schedules(
     Args:
         store (Store obj): The store for which the schedule will be fetched.
         user (User obj): The user for which the specfic schedules will be fetched.
+        week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
         include_deleted (bool): If True, include Shifts with is_deleted=True
 
     Returns:
@@ -1052,12 +1074,19 @@ def get_user_store_schedules(
     if store is None or user is None:
         raise Exception("Store or User object is None.")
 
-    start = localtime(now()).date() - timedelta(days=7)
-    end = start + timedelta(days=14)
+    try:
+        raw_date = date.fromisoformat(week)
+        week_start = raw_date - timedelta(
+            days=raw_date.weekday()
+        )  # Roll back to Monday if not provided
+    except ValueError:
+        raise Exception("Week provided is not in ISO format.")
+
+    week_end = week_start + timedelta(days=6)
 
     # Fetch shifts for the store during this week
     shifts = Shift.objects.filter(
-        employee=user, store=store, date__range=(start, end)
+        employee=user, store=store, date__range=(week_start, week_end)
     ).select_related("role")
 
     if not include_deleted:
@@ -1083,7 +1112,18 @@ def get_user_store_schedules(
         if include_deleted and shift.is_deleted:
             grouped_shifts[key].append({"is_deleted": True})
 
-    return {"schedule": grouped_shifts}
+    # Ensure all days are present even if no shifts exist
+    schedule_data = {}
+    for i in range(7):
+        day = week_start + timedelta(days=i)
+        schedule_data[day.isoformat()] = grouped_shifts.get(day.isoformat(), [])
+
+    return {
+        "schedule": schedule_data,
+        "week_start": week_start,
+        "prev_week": week_start - timedelta(days=7),
+        "next_week": week_start + timedelta(days=7),
+    }
 
 
 def get_store_exceptions(

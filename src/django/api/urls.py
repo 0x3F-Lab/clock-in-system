@@ -7,7 +7,9 @@ urlpatterns = [
     path("clock-in/", views.clock_in, name="clock_in"),
     path("clock-out/", views.clock_out, name="clock_out"),
     path("clocked-state/", views.clocked_state_view, name="clocked_state"),
-    path("list-recent-shifts/", views.list_recent_shifts, name="list_recent_shifts"),
+    path(
+        "list-user-activities/", views.list_user_activities, name="list_user_activities"
+    ),
     path(
         "list-account-summaries/",
         views.list_account_summaries,

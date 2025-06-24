@@ -28,37 +28,6 @@
     </div>
   </div>
 
-  <!-- <div id="shiftRoster" class="mt-5">SHIFT ROSTER CONTAINER</div> -->
-
-  <div id="shiftHistory" class="panel rounded shadow p-5 mt-5 text-center">
-    <h3 class="mb-3 fw-semibold">Shift History</h3>
-    <div id="shiftHistoryContainer"
-       class="rounded p-3 bg-secondary d-flex justify-content-evenly flex-wrap overflow-auto text-dark gap-3"
-       style="max-width: 100%; max-height: 400px;">
-      <!-- Shift blocks will be dynamically inserted here -->
-    </div>
-  </div>
-
-  <div class="panel rounded shadow p-3 mt-2 mb-3">
-    <div class="fw-bold fs-4 text-center">
-      <i class="fa-solid fa-palette me-2"></i>Colour Key
-    </div>
-    <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap justify-content-center">
-      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
-        <span class="badge bg-success mb-0">&nbsp;</span>
-        Active shift with no clock out recorded
-      </li>
-      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
-        <span class="badge bg-info text-dark mb-0">&nbsp;</span>
-        Shift occurred on a public holiday
-      </li>
-      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
-        <span class="badge bg-danger mb-0">&nbsp;</span>
-        Shift modified by manager
-      </li>
-    </ul>
-  </div>
-
   <div class="panel rounded shadow p-5 mt-5 text-center">
     <div id="userAccountInfo text-wrap">
       <h4 class="text-center fw-bold mb-3">Employee Details</h4>
@@ -97,6 +66,87 @@
       <button id="updateAccPassBtn" class="btn btn-lg btn-danger mt-3"><i class="fas fa-key me-2"></i>Change Account Password</button>
     </div>
   </div>
+</div>
+
+<div id="schedule-header" class="d-flex justify-content-between align-items-center mb-4 py-0 px-2 px-md-4 rounded mt-5" style="background-color: #2d3748;">
+  <div>
+    <a class="btn btn-outline-light" href="#" id="previous-week-btn">
+      <i class="fas fa-arrow-left"></i> Back
+    </a>
+  </div>
+  <div class="text-center my-3">
+    <h3 class="mb-0 fw-semibold" id="schedule-week-title">Week of .......</h3>
+  </div>
+  <a class="btn btn-outline-light" href="#" id="next-week-btn">
+    <i class="fas fa-arrow-right"></i> Next 
+  </a>
+</div>
+
+<div class="scroll-container">
+  <div class="d-flex" id="schedule-container">
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Monday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Tuesday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Wednesday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Thursday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Friday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Saturday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column">
+      <div class="day-header">
+        <div class="day-name">Sunday</div>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+  </div>
+</div>
+
+<div class="panel rounded shadow p-3 mt-2 mb-3">
+  <div class="fw-bold fs-4 text-center">
+    <i class="fa-solid fa-palette me-2"></i>Colour Key
+  </div>
+  <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap justify-content-center">
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-success mb-0">&nbsp;</span>
+      Active shift with no clock out recorded
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-info text-dark mb-0">&nbsp;</span>
+      Shift occurred on a public holiday
+    </li>
+    <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+      <span class="badge bg-danger mb-0">&nbsp;</span>
+      Shift modified by manager
+    </li>
+  </ul>
 </div>
 
 <!-- Edit Modal -->
@@ -221,7 +271,8 @@
     clockOut: "{% url 'api:clock_out' %}",
     modifyAccountInfo: "{% url 'api:modify_account_information' %}",
     modifyAccountPass: "{% url 'api:modify_account_password' %}",
-    listRecentShifts: "{% url 'api:list_recent_shifts' %}",
+    listUserActivities: "{% url 'api:list_user_activities' %}",
+    listStoreShifts: "{% url 'api:list_store_shifts' 0 %}".slice(0, -2),
 {% endblock %}
 
 

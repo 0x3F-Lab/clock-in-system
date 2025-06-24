@@ -209,6 +209,17 @@ function formatDateForInput(date) {
   };
 
 
+function getFullDayName(dateString) {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleDateString('en-US', {weekday: 'long', timeZone: 'UTC'});
+}
+
+function getShortDate(dateString) {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'});
+}
+
+
 ////////////// SPINNER /////////////////////
 
 // Ensure global variable to ensure spinner timeout can be adjusted

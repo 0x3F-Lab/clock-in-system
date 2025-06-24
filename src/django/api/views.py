@@ -2296,11 +2296,11 @@ def list_associated_stores(request):
 @api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
-def list_recent_shifts(request):
+def list_user_activities(request):
     try:
         user_id = request.session.get("user_id")
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
-        limit = int(request.query_params.get("limit_days", "7"))
+        week = util.clean_param_str(request.query_params.get("week", None))
 
         if store_id is None:
             return Response(
@@ -2311,17 +2311,15 @@ def list_recent_shifts(request):
             )
 
         # Get the shifts
-        shifts = controllers.get_users_recent_shifts(
-            user_id=user_id, store_id=store_id, time_limit_days=limit
+        results = controllers.get_user_activities(
+            user_id=user_id, store_id=store_id, week=week
         )
 
-        return JsonResponse(shifts, safe=False, status=status.HTTP_200_OK)
+        return JsonResponse({"activities": results}, status=status.HTTP_200_OK)
 
     except ValueError:
         return Response(
-            {
-                "Error": "Could not convert a value into an integer. Did you set your values correctly?"
-            },
+            {"Error": "Week provided is not in ISO format."},
             status=status.HTTP_400_BAD_REQUEST,
         )
     except Store.DoesNotExist:
@@ -2963,10 +2961,17 @@ def get_store_shifts(request, id):
 
         # Only get the user's shifts
         else:
-            data = controllers.get_user_store_schedules(store=store, user=user)
+            data = controllers.get_user_store_schedules(
+                store=store, user=user, week=week
+            )
 
         return JsonResponse(data, status=status.HTTP_200_OK)
 
+    except ValueError:
+        return Response(
+            {"Error": "The week provided must be in ISO format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     except Store.DoesNotExist:
         return Response(
             {"Error": f"Failed to get the a store's schedule for store ID {id}."},
