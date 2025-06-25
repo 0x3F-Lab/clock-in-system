@@ -3505,16 +3505,34 @@ def manage_store_exception(request, exception_id):
             login_dt_rounded = util.round_datetime_minute(login_dt)
             logout_dt_rounded = util.round_datetime_minute(logout_dt)
 
+            original = {
+                "id": activity.id,
+                "login_time": localtime(activity.login_time),
+                "login_timestamp": localtime(activity.login_timestamp),
+                "logout_time": localtime(activity.logout_time),
+                "logout_timestamp": localtime(activity.logout_timestamp),
+                "shift_length_mins": activity.shift_length_mins,
+            }
+
             # Update the activity with the new times provided
             with transaction.atomic():
                 activity.login_time = login_dt_rounded
                 activity.login_timestamp = login_dt
                 activity.logout_time = logout_dt_rounded
                 activity.logout_timestamp = logout_dt
+                delta = activity.logout_time - activity.login_time
+                activity.shift_length_mins = int(delta.total_seconds() // 60)
                 activity.save()
 
                 controllers.approve_exception(
                     exception=exception.id, override_role_id=role_id
+                )
+
+                logger.info(
+                    f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {activity.id} for the employee ID {activity.employee.id} under the store ID [{activity.store_id}]) when APPROVING an EXCEPTION."
+                )
+                logger.debug(
+                    f"[UPDATE: ACTIVITY (ID: {activity.id})] [EXCEP-APRV] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins}"
                 )
 
         # Never practically reached -> ignore this.
