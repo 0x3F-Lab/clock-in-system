@@ -3432,7 +3432,7 @@ def manage_store_exception(request, exception_id):
             id=exception_id
         )
         login_time = util.clean_param_str(request.data.get("login_time", None))
-        logout_time = util.clean_param_str(request.data.get("login_time", None))
+        logout_time = util.clean_param_str(request.data.get("logout_time", None))
         role_id = util.clean_param_str(request.data.get("role_id", None))
 
         store = exception.get_store()
@@ -3502,7 +3502,7 @@ def manage_store_exception(request, exception_id):
             login_dt = localtime(activity.login_timestamp).replace(
                 hour=login.hour, minute=login.minute, second=login.second, microsecond=0
             )
-            logout_dt = localtime(activity.login_timestamp).replace(
+            logout_dt = localtime(activity.logout_timestamp).replace(
                 hour=logout.hour,
                 minute=logout.minute,
                 second=logout.second,

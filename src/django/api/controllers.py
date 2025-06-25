@@ -1209,14 +1209,14 @@ def get_store_exceptions(
                     "act_start": localtime(obj.activity.login_time).strftime("%H:%M"),
                     "act_start_timestamp": localtime(
                         obj.activity.login_timestamp
-                    ).time(),
+                    ).strftime("%H:%M:%S"),
                     "act_end": (
                         localtime(obj.activity.logout_time).strftime("%H:%M")
                         if obj.activity.logout_time
                         else None
                     ),
                     "act_end_timestamp": (
-                        localtime(obj.activity.logout_timestamp).time()
+                        localtime(obj.activity.logout_timestamp).strftime("%H:%M:%S")
                         if obj.activity.logout_timestamp
                         else None
                     ),
