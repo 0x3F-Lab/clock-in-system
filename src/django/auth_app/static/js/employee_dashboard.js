@@ -321,7 +321,7 @@ function updateShiftRosterAndHistory(week) {
             : "N/A";
 
           // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
-          const background = !activity.login_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
+          const background = !activity.logout_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
           const card = `
             <div class="shift-item position-relative text-dark ${background}">
               <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
@@ -334,7 +334,9 @@ function updateShiftRosterAndHistory(week) {
               </div>
             </div>`;
 
-          $(`#roster-${date}`).append(card);
+          const $roster = $(`#roster-${date}`);
+          $roster.find('.default-no-schedule').remove(); // Remove placeholder if exists
+          $roster.append(card);
         });
       });
     },
@@ -361,25 +363,25 @@ function updateShiftRosterAndHistory(week) {
       $.each(data.schedule || {}, function (dayDate, dayShifts) {
         let shiftsHtml = '';
         if (dayShifts && dayShifts.length > 0) {
-            dayShifts.forEach(shift => {
-                const borderColor = shift.role_colour || '#adb5bd'; 
-                const duration = calculateDuration(shift.start_time, shift.end_time);
+          dayShifts.forEach(shift => {
+            const borderColor = shift.role_colour || '#adb5bd'; 
+            const duration = calculateDuration(shift.start_time, shift.end_time);
 
-                // Build the HTML with the new color logic.
-                shiftsHtml += `
-                  <div class="shift-item position-relative" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
-                    <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
-                    <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
-                    <div class="shift-item-details">
-                      <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                      <span>⌛ ${duration}</span>
-                    </div>
-                  </div>`;
-            });
-        } else if ($(`#roster-${dayDate} > div`).length == 0) {
-            shiftsHtml = '<div class="text-center text-white p-3"><small>No shifts scheduled</small></div>';
+            // Build the HTML with the new color logic.
+            shiftsHtml += `
+              <div class="shift-item position-relative" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
+                <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
+                <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
+                <div class="shift-item-details">
+                  <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                  <span>⌛ ${duration}</span>
+                </div>
+              </div>`;
+          });
         }
-        $(`#roster-${dayDate}`).append(shiftsHtml);
+        const $roster = $(`#roster-${dayDate}`);
+        if (shiftsHtml !== '') { $roster.find('.default-no-schedule').remove(); } // Remove placeholder if exists
+        $roster.append(shiftsHtml);
       });
 
       $('#previous-week-btn').data('week', data.prev_week);
@@ -421,7 +423,9 @@ function scheduleAddBaseDayDiv(week) {
           <div class="day-name">${getFullDayName(dayDate)}</div>
           <div class="day-date">${getShortDate(dayDate)}</div>
         </div>
-        <div id="roster-${isoDate}" class="shifts-list"></div>
+        <div id="roster-${isoDate}" class="shifts-list">
+          <div class="default-no-schedule text-center text-white p-3"><small>No shifts scheduled</small></div>
+        </div>
       </div>`;
     scheduleContainer.append(dayCardHtml);
   }
