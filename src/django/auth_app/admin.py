@@ -14,7 +14,9 @@ from auth_app.models import (
 )
 
 
-# Custom filter lists
+# ////////////////// CREATE CUSTOM FILTERS //////////////////////////
+
+
 class ShiftStatusFilter(admin.SimpleListFilter):
     title = _("Shift Status")
     parameter_name = "shift_status"
@@ -53,7 +55,87 @@ class ExpiryStatusFilter(admin.SimpleListFilter):
         return queryset
 
 
-# Register models WITH CUSTOM COLUMNS
+# ////////////////////// CREATE CUSTOM INLINE CLASSES ///////////////////////////
+
+
+class StoreUserAccessInlineForUser(admin.TabularInline):
+    model = StoreUserAccess
+    extra = 0
+    fields = ("store", "assigned_at")
+    readonly_fields = ("assigned_at",)
+    verbose_name = "Associated Store"
+    verbose_name_plural = "Associated Stores"
+
+    def has_add_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+
+class StoreUserAccessInlineForStore(admin.TabularInline):
+    model = StoreUserAccess
+    extra = 0
+    fields = ("user", "assigned_at")
+    readonly_fields = ("assigned_at",)
+    verbose_name = "Associated User"
+    verbose_name_plural = "Associated Users"
+
+    def has_add_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+class ActivityInline(admin.TabularInline):
+    model = Activity
+    extra = 0
+    readonly_fields = (
+        "login_time",
+        "logout_time",
+        "shift_length_mins",
+        "is_public_holiday",
+        "deliveries",
+        "login_timestamp",
+        "logout_timestamp",
+        "last_updated_at",
+    )
+    verbose_name = "Associated Activity"
+    verbose_name_plural = "Associated Activities"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # Only limit if the parent obj exists (i.e. user is saved)
+        if request.resolver_match and request.resolver_match.kwargs.get("object_id"):
+            user_id = request.resolver_match.kwargs.get("object_id")
+            latest_activity_ids = (
+                Activity.objects.filter(employee_id=user_id)
+                .order_by("-login_time")
+                .values("pk")[:6]
+            )
+            return qs.filter(pk__in=latest_activity_ids).order_by("-login_time")
+        return qs.none()
+
+
+# ////////////////// REGISTER MODELS ///////////////////////
+
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
@@ -70,6 +152,7 @@ class UserAdmin(admin.ModelAdmin):
     list_filter = ("is_setup", "is_active", "is_manager", "is_hidden")
     search_fields = ("first_name", "last_name", "email", "pin")
     ordering = ("last_name", "first_name")
+    inlines = [StoreUserAccessInlineForUser, ActivityInline]
 
 
 @admin.register(Store)
@@ -85,6 +168,7 @@ class StoreAdmin(admin.ModelAdmin):
     list_filter = ("is_active",)
     search_fields = ("code", "name", "store_pin")
     ordering = ("name",)
+    inlines = [StoreUserAccessInlineForStore]
 
 
 @admin.register(Activity)
