@@ -601,3 +601,14 @@ table {
   top: 0.25rem;
   right: 0.25rem;
 }
+
+.shift-item .info-tooltip-icon {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.shift-item:hover .info-tooltip-icon {
+  opacity: 1;
+  pointer-events: auto;
+}

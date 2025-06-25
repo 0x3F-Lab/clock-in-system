@@ -323,7 +323,7 @@ function updateShiftRosterAndHistory(week) {
           // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
           const background = !activity.login_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
           const card = `
-            <div class="shift-item text-dark ${background}">
+            <div class="shift-item position-relative text-dark ${background}">
               <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
               <div><strong>${activity.store_code}</strong></div>
               <div class="shift-item-details">
@@ -367,7 +367,7 @@ function updateShiftRosterAndHistory(week) {
 
                 // Build the HTML with the new color logic.
                 shiftsHtml += `
-                  <div class="shift-item" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
+                  <div class="shift-item position-relative" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
                     <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
                     <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
                     <div class="shift-item-details">
