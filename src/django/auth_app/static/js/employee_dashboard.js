@@ -316,26 +316,18 @@ function updateShiftRosterAndHistory(week) {
     success: function(response) {
       $.each(response.activities || {}, function (date, activities) {
         activities.forEach(activity => {
-          const loginDate = new Date(date);
-          const logoutDate = activity.logout_time ? new Date(activity.logout_time) : null;
-
-          const dateStr = loginDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
-          const loginTimeStr = loginDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          const logoutTimeStr = logoutDate
-            ? logoutDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-            : "N/A";
-          const duration = logoutDate
-            ? calculateDuration(loginTimeStr, logoutTimeStr)
+          const duration = activity.logout_time_str
+            ? calculateDuration(activity.login_time_str, activity.logout_time_str)
             : "N/A";
 
           // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
-          const background = !logoutDate ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
+          const background = !activity.login_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
           const card = `
             <div class="shift-item text-dark ${background}">
               <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
               <div><strong>${activity.store_code}</strong></div>
               <div class="shift-item-details">
-                <span>🕒 ${loginTimeStr} – ${logoutTimeStr}</span>
+                <span>🕒 ${activity.login_time_str} – ${activity.logout_time_str ? activity.logout_time_str : 'N/A'}</span>
                 <span>⌛ ${duration}</span>
                 ${activity.deliveries ? `<span>🚚 ${activity.deliveries}</span>` : ''}
                 ${activity.is_public_holiday ? '<span>✅ <em>Public Holiday</em></span>' : ''}

@@ -398,9 +398,11 @@ def get_user_activities(user_id: int, store_id: int, week: str = None):
                     "employee_id": act.employee.id,
                     "store_id": act.store.id,
                     "store_code": act.store.code,
-                    "login_time": login_dt,
-                    "logout_time": (
-                        localtime(act.logout_time) if act.logout_time else None
+                    "login_time_str": login_dt.strftime("%H:%M"),
+                    "logout_time_str": (
+                        localtime(act.logout_time).strftime("%H:%M")
+                        if act.logout_time
+                        else None
                     ),
                     "deliveries": act.deliveries if act.deliveries else None,
                     "is_public_holiday": act.is_public_holiday,
@@ -1204,15 +1206,17 @@ def get_store_exceptions(
         if obj.activity:
             info.update(
                 {
-                    "act_start": obj.activity.login_time.time(),
-                    "act_start_timestamp": obj.activity.login_timestamp.time(),
+                    "act_start": localtime(obj.activity.login_time).strftime("%H:%M"),
+                    "act_start_timestamp": localtime(
+                        obj.activity.login_timestamp
+                    ).time(),
                     "act_end": (
-                        obj.activity.logout_time.time()
+                        localtime(obj.activity.logout_time).strftime("%H:%M")
                         if obj.activity.logout_time
                         else None
                     ),
                     "act_end_timestamp": (
-                        obj.activity.logout_timestamp.time()
+                        localtime(obj.activity.logout_timestamp).time()
                         if obj.activity.logout_timestamp
                         else None
                     ),

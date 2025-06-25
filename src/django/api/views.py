@@ -3329,9 +3329,10 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        current_date = localtime(now()).date()
-        current_time = localtime(now()).time()
-        if date < current_date or (date == current_date and start_time <= current_time):
+        now_datetime = localtime(now())
+        if date < now_datetime.date() or (
+            date == now_datetime.date() and start_time <= now_datetime.time()
+        ):
             return Response(
                 {"Error": "Cannot create a shift in the past."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
