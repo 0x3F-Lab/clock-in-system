@@ -588,21 +588,16 @@ table {
   border-radius: 4px;
 }
 
-#calender.table td {
-  height: 100px !important;
-  vertical-align: top;
-}
-
-.cal-today {
-  position: relative;
-  background-color: #CFE2FF !important;
-}
-
-.cal-today::after {
-  content: "Today";
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
+.info-tooltip-icon {
   font-size: 0.8rem;
-  color: #0d6efd;
+  background-color: #dee2e6;
+  border-radius: 50%;
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  text-align: center;
+  line-height: 1.2rem;
+  font-weight: bold;
+  top: 0.25rem;
+  right: 0.25rem;
 }

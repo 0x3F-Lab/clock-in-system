@@ -330,16 +330,15 @@ function updateShiftRosterAndHistory(week) {
 
           // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
           const background = !logoutDate ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
-          const deliveriesDiv = activity.deliveries ? `<span><i class="fas fa-truck me-2"></i>${activity.deliveries}</span>` : ''
-
           const card = `
             <div class="shift-item text-dark ${background}">
+              <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
               <div><strong>${activity.store_code}</strong></div>
               <div class="shift-item-details">
                 <span>🕒 ${loginTimeStr} – ${logoutTimeStr}</span>
                 <span>⌛ ${duration}</span>
-                ${deliveriesDiv}
-                ${activity.is_public_holiday ? '<span><em>[Public Holiday]</em></span>' : ''}
+                ${activity.deliveries ? `<span>🚚 ${activity.deliveries}</span>` : ''}
+                ${activity.is_public_holiday ? '<span>✅ <em>Public Holiday</em></span>' : ''}
               </div>
             </div>`;
 
@@ -377,6 +376,7 @@ function updateShiftRosterAndHistory(week) {
                 // Build the HTML with the new color logic.
                 shiftsHtml += `
                   <div class="shift-item" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
+                    <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
                     <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
                     <div class="shift-item-details">
                       <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
@@ -406,6 +406,7 @@ function updateShiftRosterAndHistory(week) {
     }
   });
 
+  $('[data-bs-toggle="tooltip"]').tooltip(); // Enable tooltips
   hideSpinner();
 }
 
