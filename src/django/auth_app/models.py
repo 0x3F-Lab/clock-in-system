@@ -1,8 +1,6 @@
 import random
 from datetime import timedelta
 from django.db import models
-from django.dispatch import receiver
-from django.db.models.signals import post_delete
 from django.utils.timezone import now, localtime
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
@@ -773,6 +771,10 @@ class ShiftException(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()  # Enforces validation before saving
+        if self.shift is None and self.activity is None:
+            raise ValidationError(
+                "ShiftException must be linked to a shift or activity."
+            )
         super().save(*args, **kwargs)
 
     def get_date(self):
@@ -852,31 +854,3 @@ class ShiftException(models.Model):
             employee_str = "Unknown Employee"
 
         return f"[{store_code}] {date} - {employee_str}"
-
-
-######################################## SIGNAL HANDLING #####################################################
-# UPON DELETING BOTH RELATED SHIFT (ROSTER) AND ACTIVITY (ACTUAL SHIFT) IT WILL DELETE THE RELATED EXCEPTION #
-@receiver(post_delete, sender=Shift)
-def cleanup_shift_exceptions(sender, instance, **kwargs):
-    try:
-        exc = ShiftException.objects.get(shift=instance)
-        if exc.activity is None:
-            exc.delete()
-        else:
-            exc.shift = None
-            exc.save()
-    except ShiftException.DoesNotExist:
-        pass
-
-
-@receiver(post_delete, sender=Activity)
-def cleanup_activity_exceptions(sender, instance, **kwargs):
-    try:
-        exc = ShiftException.objects.get(activity=instance)
-        if exc.shift is None:
-            exc.delete()
-        else:
-            exc.activity = None
-            exc.save()
-    except ShiftException.DoesNotExist:
-        pass

@@ -3446,7 +3446,15 @@ def manage_store_exception(request, exception_id):
 
         # POST -> APPROVE EXCEPTION (no updates to activity data needed)
         if request.method == "POST":
-            controllers.approve_exception(exception=exception_id)
+            with transaction.atomic():
+                controllers.approve_exception(exception=exception_id)
+
+                logger.info(
+                    f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) APPROVED exception ID {exception.id} for store [{store.code}] with reason '{exception.reason.upper()}'."
+                )
+                logger.debug(
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else "N/A"} -- Reason: {exception.reason.upper()}"
+                )
 
         # PATCH -> UPDATE THE ACTIVITY THEN APPROVE EXCEPTION
         elif request.method == "PATCH":
@@ -3516,11 +3524,11 @@ def manage_store_exception(request, exception_id):
 
             # Update the activity with the new times provided
             with transaction.atomic():
+                delta = logout_dt_rounded - login_dt_rounded
                 activity.login_time = login_dt_rounded
                 activity.login_timestamp = login_dt
                 activity.logout_time = logout_dt_rounded
                 activity.logout_timestamp = logout_dt
-                delta = activity.logout_time - activity.login_time
                 activity.shift_length_mins = int(delta.total_seconds() // 60)
                 activity.save()
 
@@ -3533,6 +3541,13 @@ def manage_store_exception(request, exception_id):
                 )
                 logger.debug(
                     f"[UPDATE: ACTIVITY (ID: {activity.id})] [EXCEP-APRV] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins}"
+                )
+
+                logger.info(
+                    f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) APPROVED exception ID {exception.id} for store [{store.code}] with reason '{exception.reason.upper()}'."
+                )
+                logger.debug(
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else "N/A"} -- Reason: {exception.reason.upper()}"
                 )
 
         # Never practically reached -> ignore this.

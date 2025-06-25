@@ -204,7 +204,7 @@ class NotificationReceiptAdmin(admin.ModelAdmin):
 @admin.register(Role)
 class RoleAdmin(admin.ModelAdmin):
     list_display = ("id", "store_code", "name", "colour_hex", "created_at")
-    list_filter = ("store__code", "store__is_active")
+    list_filter = ("store__code", "store__is_active", "created_at")
     search_fields = ("name", "description", "store__name", "store__code")
     ordering = ("store__code", "name")
 
@@ -223,9 +223,11 @@ class ShiftAdmin(admin.ModelAdmin):
         "start_time",
         "end_time",
         "role_display",
+        "is_deleted",
         "created_at",
     )
     list_filter = (
+        "is_deleted",
         "store__code",
         "role__name",
         "store__is_active",
@@ -276,6 +278,7 @@ class ShiftExceptionAdmin(admin.ModelAdmin):
         "shift__employee__is_active",
         "shift__employee__is_manager",
         "shift__employee__is_hidden",
+        "created_at",
     )
     search_fields = (
         "shift__employee__first_name",
