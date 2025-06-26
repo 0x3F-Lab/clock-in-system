@@ -228,6 +228,11 @@ function handleRoleModification() {
         manageRolesModal.show();
     });
 
+    // CLICK '+' BUTTON ON ROLE MODAL -> SET FORM TO CREATE
+    $('#addNewRoleBtn').on('click', () => {
+        setRoleFormToAddMode();
+    });
+
     // EDIT button click
     $('#existingRolesList').on('click', '.edit-role-btn', function() {
         const $listItem = $(this).closest('.list-group-item');
@@ -272,9 +277,10 @@ function handleRoleModification() {
                 // Dont hide spinner
                 setRoleFormToAddMode();
                 updateStoreInformation(getSelectedStoreID());
+                showNotification(mode==='edit' ? "Successfully updated the role." : "Successfully created a role.", "success");
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                handleAjaxError(jqXHR, mode==='edit' ? "Failed to update the role" : "Failed to create the role");
+                handleAjaxError(jqXHR, mode==='edit' ? "Failed to update the role" : "Failed to create a role");
             }
         });
     });

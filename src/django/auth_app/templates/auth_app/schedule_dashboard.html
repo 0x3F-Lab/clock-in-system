@@ -122,8 +122,8 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="confirmationModalTitle">Are you sure?</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title w-100 text-center" id="confirmationModalTitle">Are you sure?</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="confirmationModalBody">
         </div>
@@ -150,7 +150,7 @@
 
           <div id="editModalEmployeeListContainer" class="mb-4">
             <div class="mb-3">
-              <label for="editModalEmployeeSearchBar" class="form-label fw-semibold">Search Employees</label>
+              <label for="editModalEmployeeSearchBar" class="form-label">Select Employee</label>
               <input
                 type="text"
                 class="form-control"
@@ -172,7 +172,7 @@
 
           <div class="mb-3">
             <label for="editShiftDate" class="form-label">Date:</label>
-            <input type="date" id="editShiftDate" name="date" class="w-100 p-1">
+            <input type="date" id="editShiftDate" name="date" class="form-control w-100">
           </div>
 
           <div class="mb-3">
@@ -217,13 +217,18 @@
   <div class="modal-dialog">
     <div class="modal-content w-75">
       <div class="modal-header">
-        <h5 class="modal-title" id="manageRolesModalLabel">Manage Store Roles</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title w-100 text-center" id="manageRolesModalLabel">Manage Store Roles</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="row">
           <div class="col-md-6 mt-1">
-            <h6 class="fw-semibold">Existing Roles</h6>
+            <div class="d-flex flex-row justify-content-between align-items-center mb-1">
+              <h6 class="fw-semibold mb-0">Existing Roles</h6>
+              <button class="btn btn-sm btn-outline-light rounded-circle" id="addNewRoleBtn" style="width: 30px; height: 30px;">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
             <ul class="list-group scrollable-list" id="existingRolesList">
               <li class="list-group-item">Loading...</li>
             </ul>
