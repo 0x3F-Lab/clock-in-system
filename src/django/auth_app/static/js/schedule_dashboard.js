@@ -23,6 +23,9 @@ $(document).ready(function() {
     // --- Initial Page Load ---
     updateStoreInformation(getSelectedStoreID());
     loadSchedule(new Date().toLocaleDateString('sv-SE'));
+
+    // Add page reloader to force reload after period of inactivity
+    setupVisibilityReload(30); // 30 minutes
 });
 
 
@@ -50,7 +53,7 @@ function handleWeekCopy() {
             showNotification('Cannot copy because a valid week and store are not loaded.', 'warning');
             return;
         }
-        // Show the modal
+        $('#scheduleCopyOverride').prop('checked', false); // Default to false every modal open
         const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
         modal.show();
     });

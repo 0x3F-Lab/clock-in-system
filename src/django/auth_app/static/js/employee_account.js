@@ -25,6 +25,8 @@ $(document).ready(function() {
     submitAccountPassModal();
   });
 
+  // Add page reloader to force reload after period of inactivity
+  setupVisibilityReload(45); // 45 minutes
 });
 
 //////////////////////// ACOUNT INFORMATION HANDLING ////////////////////////////////
