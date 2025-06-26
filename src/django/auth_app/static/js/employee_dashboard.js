@@ -418,7 +418,7 @@ function scheduleAddBaseDayDiv(week) {
 
     const isoDate = dayDate.toISOString().split('T')[0]; // e.g., "2025-07-01"
     const dayCardHtml = `
-      <div class="day-column">
+      <div class="day-column mb-4">
         <div class="day-header">
           <div class="day-name">${getFullDayName(dayDate)}</div>
           <div class="day-date">${getShortDate(dayDate)}</div>

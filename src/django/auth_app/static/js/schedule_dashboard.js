@@ -377,7 +377,7 @@ function loadSchedule(week) {
                 }
                 
                 const dayCardHtml = `
-                    <div class="day-column">
+                    <div class="day-column mb-4">
                         <div class="day-header">
                             <div class="day-name">${getFullDayName(dayDate)}</div>
                             <div class="day-date">${getShortDate(dayDate)}</div>
