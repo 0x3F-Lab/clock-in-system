@@ -147,7 +147,6 @@
       <div class="modal-body">
         <form id="editShiftForm" class="px-1">
           <input type="hidden" id="editShiftId" name="editShiftId">
-          <input type="hidden" id="editShiftDate" name="date">
 
           <div id="editModalEmployeeListContainer" class="mb-4">
             <div class="mb-3">
@@ -172,6 +171,11 @@
           </div>
 
           <div class="mb-3">
+            <label for="editShiftDate" class="form-label">Date:</label>
+            <input type="date" id="editShiftDate" name="date" class="w-100 p-1">
+          </div>
+
+          <div class="mb-3">
             <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
               <span>Role:</span>
               <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
@@ -181,11 +185,11 @@
 
           <div class="row">
             <div class="col">
-              <label for="startTime" class="form-label">Start Time</label>
+              <label for="startTime" class="form-label">Start Time:</label>
               <input type="time" class="form-control" id="editStartTime" name="start_time" required>
             </div>
             <div class="col">
-              <label for="endTime" class="form-label">End Time</label>
+              <label for="endTime" class="form-label">End Time:</label>
               <input type="time" class="form-control" id="editEndTime" name="end_time" required>
             </div>
           </div>

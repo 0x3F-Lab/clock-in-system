@@ -99,6 +99,9 @@ function handleShiftModification() {
         $('#editModalSelectedEmployeeID').val(''); // Select no employee
         $('#editShiftId').val(''); // Set NO ID -> CREATION MODE
         $('#editShiftRole').val('');
+        $('#editStartTime').val('');
+        $('#editEndTime').val('');
+        $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
         
         const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
         addShiftModal.show();
@@ -121,6 +124,7 @@ function handleShiftModification() {
                 $('#editStartTime').val(shiftData.start_time);
                 $('#editEndTime').val(shiftData.end_time);
                 $('#editModalSelectedEmployeeID').val(shiftData.employee_id);
+                $('#deleteShiftBtn').removeClass('d-none'); // Show 'Delete' button
                 
                 hideSpinner();
                 const editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -130,7 +134,7 @@ function handleShiftModification() {
         });
     });
 
-    // --- ADD/CREATE SHIFT ---
+    // --- CREATE/EDIT SHIFT FORM SUBMISSION ---
     $('#saveShiftBtn').on('click', function() {
         const form = $('#editShiftForm');
         const formData = {
@@ -142,7 +146,7 @@ function handleShiftModification() {
         };
 
         if (!formData.date || !formData.employee_id || !formData.start_time || !formData.end_time) {
-            alert('Please fill out all required fields.');
+            showNotification('Cannot submit form without all required fields.', 'warning');
             return;
         }
 
