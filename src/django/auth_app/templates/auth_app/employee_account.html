@@ -1,0 +1,179 @@
+{% extends "auth_app/base.html" %}
+{% block content_container_class %}my-5{% endblock %}
+
+{% block content %}
+
+    <div class="text-center mb-4">
+        <h1 class="fw-bolder"><u>Account Details</u></h1>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+    <button onclick="location.href=`{% url 'home' %}`" class="btn btn-outline-secondary">
+        <i class="fa-solid fa-arrow-left me-2"></i> Back to Home Directory
+    </button>
+    </div>
+
+    <div class="panel rounded shadow p-5 mt-5 text-center">
+        <div id="userAccountInfo" class="text-wrap">
+        <h4 class="text-center fw-bold mb-3">Employee Details</h4>
+        <p>
+            <span class="fw-medium">Name:</span> {{ user_first_name|escape }} {{ user_last_name|escape }}
+            {% if user_is_manager %}
+            <span class="text-danger fw-semibold">(MANAGER)</span>
+            {% endif %}
+            {% if user_is_hidden %}
+            <span class="text-warning fw-semibold">(HIDDEN)</span>
+            {% endif %}
+        </p>
+
+        <p><span class="fw-medium">Email:</span> {{ user_email|escape }}</p>
+        {% if user_phone %}
+        <p><span class="fw-medium">Phone:</span> {{ user_phone|escape }}</p>
+        {% endif %}
+        {% if user_dob %}
+        <p><span class="fw-medium">DOB:</span> {{ user_dob|escape }}</p>
+        {% endif %}
+        <p><span class="fw-medium">Join Date:</span> {{ user_creation_date|escape }}</p>
+        {% if user_updated_date %}
+        <p><span class="fw-medium">Acc Last Updated:</span> {{ user_updated_date|escape }}</p>
+        {% endif %}
+        {% if user_associated_store_count > 1 %}
+        <p><span class="fw-medium"># of Associated Stores:</span> {{ user_associated_store_count }}</p>
+        {% endif %}
+
+        <p class="mt-2 fw-bold" data-bs-toggle="tooltip" title="Use this to manually clock in!">Account PIN: {{ user_pin }}</p>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="d-flex flex-column">
+        <button id="updateAccInfoBtn" class="btn btn-lg btn-info"><i class="fas fa-user-edit me-2"></i>Update Account Info</button>
+        <button id="updateAccPassBtn" class="btn btn-lg btn-danger mt-3"><i class="fas fa-key me-2"></i>Change Account Password</button>
+        </div>
+    </div>
+
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-3 shadow-sm">
+
+        <div class="modal-header text-white">
+            <h5 class="modal-title text-center w-100" id="editModalLabel">Edit Acccount Information</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+            <form id="editForm" class="px-1">
+            <div class="mb-3">
+                <label for="editFirstName" class="form-label fw-semibold">First Name:</label>
+                <input type="text" class="form-control" id="editFirstName" name="first_name" required {% if user_first_name %}value={{ user_first_name|escape }}{% endif %}>
+            </div>
+            <div class="my-3">
+                <label for="editLastName" class="form-label fw-semibold">Last Name:</label>
+                <input type="text" class="form-control" id="editLastName" name="last_name" required {% if user_last_name %}value={{ user_last_name|escape }}{% endif %}>
+            </div>
+            <div class="my-3">
+                <label for="editPhone" class="text-light w-100 fw-semibold d-flex flex-row align-items-center justify-content-between form-label">
+                <span>Phone Number:</span>
+                <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+                </label>
+                <input type="tel" class="form-control" id="editPhone" name="phone_number" {% if user_phone %}value={{ user_phone|escape }}{% endif %}>
+            </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
+            <div><i class="fas fa-circle-info"></i></div>
+            <div>
+                <p class="m-0">Cannot edit account PIN, DOB or email.</p>
+                <p class="m-0">Please contact a store manager or site admin to change these.</p>
+            </div>
+            </div>
+            <div class="d-flex justify-content-end w-100 gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" id="editModalSubmit">
+                <i class="fas fa-floppy-disk me-1"></i> Save Changes
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Password Modal -->
+    <div class="modal fade" id="editPassModal" tabindex="-1" aria-labelledby="editPassModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-3 shadow-sm">
+
+        <div class="modal-header text-white">
+            <h5 class="modal-title text-center w-100" id="editPassModalLabel">Edit Acccount Password</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+            <form id="editPassForm" class="px-1">
+            <div class="mb-3">
+                <label for="editOldPass" class="form-label fw-semibold">Old Password</label>
+                <div class="position-relative w-100">
+                <input type="password" class="form-control" id="editOldPass" name="old_pass" required>
+                <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                    <i class="fa fa-eye cursor-pointer"></i>
+                </button>
+                </div>
+            </div>
+            <div class="my-3">
+                <label for="editNewPass" class="form-label fw-semibold">New Password</label>
+                <div class="position-relative w-100">
+                <input type="password" class="form-control" id="editNewPass" name="old_pass" required>
+                <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                    <i class="fa fa-eye cursor-pointer"></i>
+                </button>
+                </div>
+            </div>
+            <div class="my-3">
+                <label for="editNewPassCopy" class="form-label fw-semibold">Repeat New Password</label>
+                <div class="position-relative w-100">
+                <input type="password" class="form-control" id="editNewPassCopy" name="old_pass_copy" required>
+                <button type="button" class="toggle-password position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 bg-transparent text-secondary" tabindex="-1">
+                    <i class="fa fa-eye cursor-pointer"></i>
+                </button>
+                </div>
+                <div id="repeatPassWarning" class="field-error d-none mt-1">Both new password fields must match.</div>
+            </div>
+            </form>
+        </div>
+
+        <div class="modal-footer">
+            <div id="editPassModalGlobalFieldsWarning" class="d-flex d-none flex-row justify-content-around align-items-center bg-danger text-dark text-center rounded p-2 w-100 mb-2">
+            <div><i class="fas fa-circle-exclamation"></i></div>
+            <div>
+                <p class="m-0">All fields are required.</p>
+            </div>
+            </div>
+            <div class="d-flex justify-content-end w-100 gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                Cancel
+            </button>
+            <button type="submit" class="btn btn-primary" id="editPassModalSubmit">
+                <i class="fas fa-floppy-disk me-1"></i> Save Changes
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    </div>
+    
+{% endblock %}
+{% block extra_urls %}
+    modifyAccountInfo: "{% url 'api:modify_account_information' %}",
+    modifyAccountPass: "{% url 'api:modify_account_password' %}",
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/employee_account.js' %}"></script>
+{% endblock %}
