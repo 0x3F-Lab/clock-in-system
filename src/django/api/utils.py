@@ -5,7 +5,7 @@ import logging
 import holidays
 import api.exceptions as err
 
-from datetime import timedelta, datetime, time
+from datetime import timedelta, datetime, time, date
 from typing import List, Tuple, Optional, Union
 from urllib.parse import urlencode
 from django.db.models import Q
@@ -436,3 +436,10 @@ def check_store_exceptions_in_period(
             )
         )
     ).exists()
+
+
+def get_week_start(d: date) -> date:
+    """
+    Ensure date is on the monday of the given week (roll back if need be)
+    """
+    return d - timedelta(days=d.weekday())  # Monday is weekday 0

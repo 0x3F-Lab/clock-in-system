@@ -111,6 +111,8 @@ urlpatterns = [
         name="manage_store_exception",
     ),
     path(
-        "copy-week-schedule/", views.copy_week_schedule, name="api_copy_week_schedule"
+        "copy-week-schedule/<int:store_id>/",
+        views.copy_week_schedule,
+        name="copy_week_schedule",
     ),
 ]

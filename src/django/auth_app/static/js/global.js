@@ -199,7 +199,6 @@ function formatToDatetimeLocal(dateStr) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
 }
 
-
 // Format to YYYY-MM-DD for input[type="date"]
 function formatDateForInput(date) {
     const year = date.getFullYear();
@@ -217,6 +216,14 @@ function getFullDayName(dateString) {
 function getShortDate(dateString) {
   if (!dateString) return "";
   return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'});
+}
+
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day); // If Sunday, go back 6 days; else subtract (day - 1)
+  d.setDate(d.getDate() + diff);
+  return d;
 }
 
 

@@ -6,7 +6,7 @@ import api.exceptions as err
 import api.controllers as controllers
 import auth_app.tasks as tasks
 
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
@@ -3453,7 +3453,7 @@ def manage_store_exception(request, exception_id):
                     f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) APPROVED exception ID {exception.id} for store [{store.code}] with reason '{exception.reason.upper()}'."
                 )
                 logger.debug(
-                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else "N/A"} -- Reason: {exception.reason.upper()}"
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else 'N/A'} -- Reason: {exception.reason.upper()}"
                 )
 
         # PATCH -> UPDATE THE ACTIVITY THEN APPROVE EXCEPTION
@@ -3547,7 +3547,7 @@ def manage_store_exception(request, exception_id):
                     f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) APPROVED exception ID {exception.id} for store [{store.code}] with reason '{exception.reason.upper()}'."
                 )
                 logger.debug(
-                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else "N/A"} -- Reason: {exception.reason.upper()}"
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {exception.id})] [APRV] Shift ID: {exception.shift_id if exception.shift else 'N/A'} -- Activity ID: {exception.activity_id if exception.activity else 'N/A'} -- Reason: {exception.reason.upper()}"
                 )
 
         # Never practically reached -> ignore this.
@@ -3638,19 +3638,16 @@ def list_store_exceptions(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-
     except err.NotAssociatedWithStoreError:
         return Response(
             {"Error": "Not authorised get exceptions for an unassociated store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except err.InactiveStoreError:
         return Response(
             {"Error": "Not authorised get exceptions for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except Exception as e:
         logger.critical(
             f"Error listing store ID {store_id}'s ShiftExceptions: {str(e)}"
@@ -3664,76 +3661,86 @@ def list_store_exceptions(request, store_id):
 @api_manager_required
 @api_view(["POST"])
 @renderer_classes([JSONRenderer])
-@transaction.atomic
-def copy_week_schedule(request):
+def copy_week_schedule(request, store_id):
     """
     Copies only non-conflicting shifts from a source week to the next week for a specific store.
     Does not delete existing shifts.
     """
     try:
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
-        store_id = request.data.get("store_id")
-        source_week_start_str = request.data.get("source_week_start_date")
+        manager = util.api_get_user_object_from_session(request=request)
+        store = Store.objects.get(pk=store_id)
+        source_week = util.clean_param_str(request.data.get("source_week", None))
+        target_week = util.clean_param_str(request.data.get("target_week", None))
+        override_shifts = util.str_to_bool(request.data.get("override_shifts", "false"))
 
-        if not store_id:
+        if not source_week or not target_week:
             return Response(
-                {"Error": "No active store selected."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"Error": "Missing target or source week in request."},
+                status=status.HTTP_428_PRECONDITION_REQUIRED,
             )
 
-        store = Store.objects.get(id=store_id)
-        if not manager.is_associated_with_store(store=store.id):
+        try:
+            source_week = util.get_week_start(date.fromisoformat(source_week))
+            target_week = util.get_week_start(date.fromisoformat(target_week))
+        except ValueError:
+            return Response(
+                {"Error": "Incorrect date format. Must be in ISO YYYY-MM-DD format."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        if not store.is_active:
+            raise err.InactiveStoreError
+        elif not manager.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
-
-        source_week_start_str = request.data.get("source_week_start_date")
-        source_week_start = datetime.strptime(source_week_start_str, "%Y-%m-%d").date()
-        source_week_end = source_week_start + timedelta(days=6)
-
-        source_shifts = Shift.objects.filter(
-            store=store, date__range=(source_week_start, source_week_end)
-        )
-
-        # Loop and create new shifts ONLY if there is no conflict
-        new_shifts_to_create = []
-        copied_shifts_count = 0
-        skipped_shifts_count = 0
-
-        for old_shift in source_shifts:
-            destination_date = old_shift.date + timedelta(days=7)
-
-            has_conflict = util.employee_has_conflicting_shift(
-                employee=old_shift.employee,
-                store=old_shift.store,
-                date=destination_date,
+        elif target_week <= localtime(now()).date():
+            return Response(
+                {"Error": "Cannot copy schedules into a past week."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
-            if not has_conflict:
-                # If no conflict exists, prepare the new shift for creation
-                new_shifts_to_create.append(
-                    Shift(
-                        store=old_shift.store,
-                        employee=old_shift.employee,
-                        role=old_shift.role,
-                        date=destination_date,
-                        start_time=old_shift.start_time,
-                        end_time=old_shift.end_time,
-                    )
-                )
-                copied_shifts_count += 1
-            else:
-                skipped_shifts_count += 1
-
-        if new_shifts_to_create:
-            Shift.objects.bulk_create(new_shifts_to_create)
-
-        message = f"Successfully copied {copied_shifts_count} shifts. Skipped {skipped_shifts_count} conflicting shifts."
-        logger.info(
-            f"Manager ID {manager_id} copied week for store [{store.code}]: {message}"
+        results = controllers.copy_week_schedule(
+            store=store,
+            source_week=source_week,
+            target_week=target_week,
+            override_shifts=override_shifts,
         )
 
-        return Response({"message": message}, status=status.HTTP_201_CREATED)
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) copied a schedule week {source_week} -> {target_week} for store [{store.code}] [Override: {'YES' if override_shifts else 'NO'}]"
+        )
+        logger.debug(
+            f"[COPY: SHIFTs] Source Wk: {source_week} -- Target Wk: {target_week} -- Override: {'YES' if override_shifts else 'NO'} -- # Created: {results['created']} -- # Updated: {results['updated']} -- # Skipped: {results['skipped']} -- Total: {results['total']}"
+        )
+        return Response(
+            {"results": results, "target_week": target_week},
+            status=status.HTTP_202_ACCEPTED,
+        )
 
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store with ID {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised modify the schedule for an unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to modify the schedule for an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except DatabaseError as e:
+        logger.critical(
+            f"A database error occured when trying to copy a schedule week ({source_week} -> {target_week}) [override: {'YES' if override_shifts else 'NO'}]: {str(e)}"
+        )
+        return Response(
+            {
+                "Error": "Failed to copy schedule week due to internal database errors. Please contact an admin."
+            },
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         logger.critical(f"An error occurred during copy_week_schedule: {str(e)}")
         return Response(

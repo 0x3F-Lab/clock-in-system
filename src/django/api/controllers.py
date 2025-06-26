@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import timedelta, datetime, date, time
 from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models.functions import Coalesce, Concat
 from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
@@ -994,10 +994,8 @@ def get_all_store_schedules(
         raise Exception("Store object or week is None.")
 
     try:
-        raw_date = date.fromisoformat(week)
-        week_start = raw_date - timedelta(
-            days=raw_date.weekday()
-        )  # Roll back to Monday if not provided
+        week_start = date.fromisoformat(week)
+        week_start = util.get_week_start(week_start)  # Ensure its a monday
     except ValueError:
         raise Exception("Week provided is not in ISO format.")
 
@@ -1077,10 +1075,8 @@ def get_user_store_schedules(
         raise Exception("Store or User object is None.")
 
     try:
-        raw_date = date.fromisoformat(week)
-        week_start = raw_date - timedelta(
-            days=raw_date.weekday()
-        )  # Roll back to Monday if not provided
+        week_start = date.fromisoformat(week)
+        week_start = util.get_week_start(week_start)  # Ensure its a monday
     except ValueError:
         raise Exception("Week provided is not in ISO format.")
 
@@ -1552,3 +1548,112 @@ def create_shiftexception_link(
         f"Created an ShiftException with reason {reason.name} for employee ID {activity.employee_id} in the Store ID {activity.store_id}."
     )
     return
+
+
+def copy_week_schedule(
+    store: Store,
+    source_week: datetime.date,
+    target_week: datetime.date,
+    override_shifts: bool = False,
+) -> Dict[str, int]:
+    """
+    Copy non-conflicting shifts from source week to target week.
+    Optionally overrides existing shifts in the target week.
+
+    Args:
+        store (Store): Store instance
+        source_week (datetime.date): Monday of the source week
+        target_week (datetime.date): Monday of the target week
+        override_shifts (bool): Whether to overwrite existing shifts on conflict
+
+    Returns:
+        Dict[str, int]: Counts of 'created', 'overridden', 'skipped', and 'total'
+    """
+    # Ensure dates are at the start of the week
+    source_week = util.get_week_start(source_week)
+    target_week = util.get_week_start(target_week)
+
+    # Determine week ranges
+    source_range = (source_week, source_week + timedelta(days=6))
+    target_range = (target_week, target_week + timedelta(days=6))
+
+    # Fetch shifts in source week
+    source_shifts = Shift.objects.filter(store=store.id, date__range=source_range)
+
+    # Prefetch existing shifts in the target week for faster conflict checking
+    target_shifts = Shift.objects.filter(store=store.id, date__range=target_range)
+
+    # Index by employee, date
+    existing_shifts_map = {(s.employee_id, s.date): s for s in target_shifts}
+
+    count_created = 0
+    count_updated = 0
+    count_skipped = 0
+    new_shifts = []
+    shifts_to_override = []
+
+    # Go through every shift in the source week and copy them (if required)
+    for src_shift in source_shifts:
+        destination_date = target_week + timedelta(
+            days=(src_shift.date - source_week).days
+        )
+
+        # Check for conflicts
+        key = (src_shift.employee_id, destination_date)
+        conflict = key in existing_shifts_map
+
+        if conflict:
+            if override_shifts:
+                target_shift = existing_shifts_map[key]
+                if (
+                    target_shift.start_time != src_shift.start_time
+                    or target_shift.end_time != src_shift.end_time
+                    or target_shift.role_id != src_shift.role_id
+                ):
+                    target_shift.start_time = src_shift.start_time
+                    target_shift.end_time = src_shift.end_time
+                    target_shift.role = src_shift.role
+                    shifts_to_override.append(target_shift)
+                    count_updated += 1
+                else:
+                    # Unchanged -> Ignore
+                    count_skipped += 1
+            else:
+                # Override disabled -> Ignore
+                count_skipped += 1
+
+        else:
+            new_shifts.append(
+                Shift(
+                    store=store,
+                    employee=src_shift.employee,
+                    role=src_shift.role,
+                    date=destination_date,
+                    start_time=src_shift.start_time,
+                    end_time=src_shift.end_time,
+                )
+            )
+            count_created += 1
+
+    try:
+        with transaction.atomic():
+            if new_shifts:
+                Shift.objects.bulk_create(new_shifts)
+
+            if shifts_to_override:
+                Shift.objects.bulk_update(
+                    shifts_to_override, ["start_time", "end_time", "role"]
+                )
+
+    except IntegrityError as e:
+        logger.error(
+            f"IntegrityError occured when trying to copy shifts {source_week} -> {target_week} [override: {'YES' if override_shifts else 'NO'}]: {e}"
+        )
+        raise e
+
+    return {
+        "created": count_created,
+        "updated": count_updated,
+        "skipped": count_skipped,
+        "total": count_created + count_updated + count_skipped,
+    }

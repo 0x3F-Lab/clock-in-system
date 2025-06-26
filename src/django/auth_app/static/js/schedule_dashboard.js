@@ -28,65 +28,57 @@ $(document).ready(function() {
 
 
 function handleWeekCopy() {
+    // Fill in confirmation modal with the current date as source (default)
+    $('#scheduleCopySourceWeek').val(formatDateForInput(getMonday(new Date())));
+
+    // Fill the confirmation modal with date options
+    const labels = ["Next week", "Second next week", "Third next week"];
+    const $select = $("#scheduleCopyTargetWeek");
+    $select.empty(); // Clear previous options
+    $.each(getUpcomingMondays(3), function(index, monday) {
+        const label = labels[index];
+        const text = `(${label}) ${formatWeekTitle(monday)}`;
+        const value = monday.toISOString().split('T')[0]; // YYYY-MM-DD
+        $select.append(`<option value="${value}">${text}</option>`);
+    });
+
     $('#copyWeekBtn').on('click', function() {
         const sourceWeekStartDate = $('#schedule-week-title').data('week-start-date');
         const storeId = getSelectedStoreID();
 
         if (!sourceWeekStartDate || storeId === null) {
-            alert('Cannot copy because a valid week and store are not loaded.');
+            showNotification('Cannot copy because a valid week and store are not loaded.', 'warning');
             return;
         }
-
-        $('#confirmationModalTitle').text('Confirm Schedule Copy');
-        $('#confirmationModalBody').html(
-            "This will copy all non-conflicting shifts from the current week to the next week." +
-            "<br><br><strong>This action cannot be undone.</strong>"
-        );
-        $('#confirmActionBtn').text('Yes, Copy Schedule').removeClass('btn-danger').addClass('btn-primary');
-
-        const $confirmBtn = $('#confirmActionBtn');
-        $confirmBtn.data('action', 'copy-week'); // Identify the action
-        $confirmBtn.data('source-date', sourceWeekStartDate);
-        $confirmBtn.data('store-id', storeId);
-
         // Show the modal
-        const confirmationModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
-        confirmationModal.show();
+        const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+        modal.show();
     });
 
 
     $('#confirmActionBtn').on('click', function() {
         showSpinner();
-        const action = $(this).data('action');
-        const modal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
-        modal.hide();
+        const storeId = getSelectedStoreID();
 
-        if (action === 'copy-week') {
-            const storeId = $(this).data('store-id');
-
-            $.ajax({
-                url: window.djangoURLs.copyWeekSchedule,
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    source_week_start_date: $(this).data('source-date'),
-                    store_id: storeId
-                }),
-                xhrFields: { withCredentials: true },
-                headers: { 'X-CSRFToken': getCSRFToken() },
-                success: function(response) {
-                    // Dont hide spinner -> gets shown in load
-                    showNotification(response.message, 'success');
-                    const nextWeek = $('#next-week-btn').data('week');
-                    loadSchedule(nextWeek, storeId);
-                },
-                error: function(jqXHR) {
-                    hideSpinner();
-                    const errorMessage = jqXHR.responseJSON?.Error || "An unknown error occurred.";
-                    showNotification(errorMessage, "danger");
-                }
-            });
-        }
+        $.ajax({
+            url: `${window.djangoURLs.copyWeekSchedule}${getSelectedStoreID()}/`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                source_week: $('#scheduleCopySourceWeek').val(),
+                target_week: $('#scheduleCopyTargetWeek').val(),
+                override_shifts: $('#scheduleCopyOverride').is(':checked'),
+            }),
+            xhrFields: { withCredentials: true },
+            headers: { 'X-CSRFToken': getCSRFToken() },
+            success: function(response) {
+                // Dont hide spinner -> gets shown in load
+                loadSchedule(response.target_week, storeId); // Load target week
+                bootstrap.Modal.getInstance(document.getElementById('confirmationModal')).hide();
+                showNotification("Successfully copied a schedule week.", "success");
+            },
+            error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to copy schedule week"); }
+        });
     });
 }
 
@@ -300,6 +292,7 @@ function handleRoleModification() {
                 success: function() {
                     // DONT HIDE SPINNER AS IT GETS SHOWN AGAIN WHEN UPDATING INFO
                     updateStoreInformation(getSelectedStoreID());
+                    showNotification("Successfully deleted a role.", "success");
                 },
                 error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to delete the role"); }
             });
@@ -594,4 +587,20 @@ function calculateDuration(startTime, endTime) {
 // Function to format date strings nicely (e.g., "Jun 9, 2025")
 function formatWeekTitle(dateString) {
     return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
+}
+
+function getUpcomingMondays(limit) {
+  const today = new Date();
+  const currentDay = today.getDay();
+
+  // Always go to next Monday (even if today is Monday)
+  const daysUntilNextMonday = ((8 - currentDay) % 7) || 7;
+
+  const mondays = [];
+  for (let i = 0; i < limit; i++) {
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + daysUntilNextMonday + i * 7);
+    mondays.push(monday);
+  }
+  return mondays;
 }

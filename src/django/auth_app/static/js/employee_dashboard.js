@@ -585,14 +585,6 @@ function formatWeekTitle(dateString) {
     return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 }
 
-function getMonday(date) {
-  const d = new Date(date);
-  const day = d.getDay(); // Sunday = 0, Monday = 1, ..., Saturday = 6
-  const diff = (day === 0 ? -6 : 1 - day); // If Sunday, go back 6 days; else subtract (day - 1)
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
 function calculateDuration(startTime, endTime) {
     // Create date objects to calculate the difference. Date itself doesn't matter.
     const start = new Date(`01/01/2000 ${startTime}`);
