@@ -868,6 +868,7 @@ class StaticViewSitemap(Sitemap):
 
 @require_GET
 @ensure_csrf_cookie
+@manager_required
 def schedule_dashboard(request):
     try:
         context, user = get_default_page_context(request)

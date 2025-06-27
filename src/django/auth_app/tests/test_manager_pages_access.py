@@ -79,3 +79,27 @@ def test_employee_cannot_access_manage_stores_page(logged_in_employee):
 
     assert response.status_code == 302
     assert response.url == reverse("home")
+
+
+@pytest.mark.django_db
+def test_employee_cannot_access_store_exception_page(logged_in_employee):
+    """
+    Ensure that a non-manager user is redirected to the home page when
+    attempting to access the manage stores page.
+    """
+    response = logged_in_employee.get(reverse("store_exceptions"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("home")
+
+
+@pytest.mark.django_db
+def test_employee_cannot_access_schedule_dashborad_page(logged_in_employee):
+    """
+    Ensure that a non-manager user is redirected to the home page when
+    attempting to access the manage stores page.
+    """
+    response = logged_in_employee.get(reverse("schedule_dashboard"))
+
+    assert response.status_code == 302
+    assert response.url == reverse("home")

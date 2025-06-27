@@ -28,6 +28,24 @@ def test_employee_dashboard_success(logged_in_employee, employee):
     assert response.status_code == 200
     content = response.content.decode()
 
+    assert "Employee Dashboard" in content
+    assert "Week of" in content
+    assert "Colour Key"
+
+
+@pytest.mark.django_db
+def test_account_details_success(logged_in_employee, employee):
+    """
+    Test that an authenticated employee can successfully access the account details page.
+    """
+    client = logged_in_employee
+
+    url = reverse("employee_account")
+    response = client.get(url)
+
+    assert response.status_code == 200
+    content = response.content.decode()
+
     assert employee.first_name in content
     assert employee.last_name in content
     assert employee.email in content
