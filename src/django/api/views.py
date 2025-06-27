@@ -2159,7 +2159,7 @@ def update_store_info(request, id):
             )
 
         # Regex validation
-        if name and not re.match(settings.VALID_STORE_NAME_PATTERN, name):
+        if name and not re.match(r"^[\w\s.,'\/+\-&]+$", name):
             return Response(
                 {"Error": "Invalid characters in store name."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
@@ -2169,7 +2169,7 @@ def update_store_info(request, id):
                 {"Error": "Store code must be alphanumeric uppercase."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        elif street and not re.match(settings.VALID_STORE_STREET_PATTERN, street):
+        elif street and not re.match(r"^[\w\s.,'\/+\-&]+$", street):
             return Response(
                 {"Error": "Invalid characters in street location."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,

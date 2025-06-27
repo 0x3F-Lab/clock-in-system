@@ -51,13 +51,13 @@ python-dotenv==1.1.0
 pytz==2025.2
 PyYAML==6.0.2
 redis==5.3.0
-requests==2.32.3
+requests==2.32.4
 six==1.17.0
 sqlparse==0.5.3
 tomli==2.2.1
 typing_extensions==4.13.2
 tzdata==2025.2
-urllib3==2.4.0
+urllib3==2.5.0
 vine==5.1.0
 virtualenv==20.30.0
 wcwidth==0.2.13
