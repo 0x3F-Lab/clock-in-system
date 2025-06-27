@@ -2159,17 +2159,17 @@ def update_store_info(request, id):
             )
 
         # Regex validation
-        if name and not re.match(r"^[\w\s.\'\-]+$", name):
+        if name and not re.match(settings.VALID_STORE_NAME_PATTERN, name):
             return Response(
                 {"Error": "Invalid characters in store name."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        elif code and not re.match(r"^[A-Z0-9]+$", code):
+        elif code and not re.match(settings.VALID_STORE_CODE_PATTERN, code):
             return Response(
                 {"Error": "Store code must be alphanumeric uppercase."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-        elif street and not re.match(r"^[\w\s.,'\-]+$", street):
+        elif street and not re.match(settings.VALID_STORE_STREET_PATTERN, street):
             return Response(
                 {"Error": "Invalid characters in street location."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
@@ -2184,21 +2184,42 @@ def update_store_info(request, id):
             "clocking_dist": store.allowable_clocking_dist_m,
         }
 
+        # Ensure only update DB if something has changed
+        update = False
+
         # Check unique store code and name AND SET THEM
-        if code and not Store.objects.filter(code=code.upper()).exists():
+        if (
+            code
+            and not Store.objects.filter(code=code.upper()).exists()
+            and store.code != code.upper()
+        ):
             # If store exists with the new code OR same code for the store, ignore setting it
             store.code = code.upper()
+            update = True
 
-        if name and not Store.objects.filter(name=name).exists():
+        if name and not Store.objects.filter(name=name).exists() and store.name != name:
             store.name = name
+            update = True
 
-        if clocking_dist:
+        if clocking_dist and store.allowable_clocking_dist_m != clocking_dist:
             store.allowable_clocking_dist_m = clocking_dist
+            update = True
 
-        if street:
+        if street and store.location_street != street:
             store.location_street = street
+            update = True
 
+        if not update:
+            return JsonResponse(
+                {"Error": "No changes detected."},
+                status=status.HTTP_418_IM_A_TEAPOT,
+            )
+
+        # Save and inform store managers of change.
         store.save()
+        tasks.notify_managers_store_information_updated.delay(
+            store_id=store.id, manager_id=manager.id
+        )
 
         logger.info(
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE information Store ID {store.id} ({original['code']})."

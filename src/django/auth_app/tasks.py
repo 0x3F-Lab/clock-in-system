@@ -117,7 +117,7 @@ def check_clocked_in_users():
             "Failed to forcefully log the following employees out:\n\n" + usr_err_msg,
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {str(e)}"
         )
         return
 
@@ -149,7 +149,7 @@ def delete_old_notifications():
             f"Failed to delete old notifications, generating the error:\n\n{str(e)}",
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `delete_old_notifications` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `delete_old_notifications` due to the error: {str(e)}"
         )
         return
 
@@ -186,7 +186,7 @@ def deactivate_unassigned_users():
             f"Could not deactivate unassigned users due to error:\n\n{str(e)}",
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `deactivate_unassigned_users` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `deactivate_unassigned_users` due to the error: {str(e)}"
         )
         return
 
@@ -229,7 +229,7 @@ def check_shifts_for_exceptions(
             "Could not link the following shifts:\n\n" + err_msg,
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {str(e)}"
         )
         return
 
@@ -302,7 +302,7 @@ def notify_managers_account_deactivated(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_deactivated` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_account_deactivated` due to the error: {str(e)}"
         )
         return
 
@@ -372,7 +372,7 @@ def notify_managers_account_activated(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_activated` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_account_activated` due to the error: {str(e)}"
         )
         return
 
@@ -469,7 +469,7 @@ def notify_managers_and_employee_account_resigned(
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_resigned` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_resigned` due to the error: {str(e)}"
         )
         return
 
@@ -566,7 +566,7 @@ def notify_managers_and_employee_account_assigned(
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_assigned` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_assigned` due to the error: {str(e)}"
         )
         return
 
@@ -600,7 +600,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
             )
             return
 
-        str_title = util.sanitise_markdown_title_text(f"Account PIN reset")
+        str_title = util.sanitise_markdown_title_text("Account PIN reset")
         extra_note = (
             "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
             if manager.is_hidden
@@ -628,7 +628,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_employee_account_reset_pin` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_employee_account_reset_pin` due to the error: {str(e)}"
         )
         return
 
@@ -662,7 +662,7 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
             )
             return
 
-        str_title = util.sanitise_markdown_title_text(f"Account Password reset")
+        str_title = util.sanitise_markdown_title_text("Account Password reset")
         extra_note = (
             "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
             if manager.is_hidden
@@ -689,7 +689,68 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_employee_account_reset_password` due to the error: {e}"
+            f"[FAILURE] Failed to complete task `notify_employee_account_reset_password` due to the error: {str(e)}"
+        )
+
+
+@shared_task
+def notify_managers_store_information_updated(store_id: int, manager_id: int):
+    logger_beat.info(
+        f"[AUTOMATED] Running task `notify_managers_store_information_updated` due to store ID '{store_id}' being updated by manager ID '{manager_id}'."
+    )
+
+    try:
+        try:
+            manager = User.objects.get(pk=manager_id)
+        except User.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Manager with ID {manager_id} not found. Skipping notification task."
+            )
+            return
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Store with ID {manager_id} not found. Skipping notification task."
+            )
+            return
+
+        if not store.is_active:
+            logger_beat.warning(
+                f"Store ID {store_id} is inactive. Skipping notification task."
+            )
+            return
+
+        str_title = util.sanitise_markdown_title_text(
+            f"[`{store.code}`] Store Information Updated"
+        )
+        extra_note = (
+            "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
+            if manager.is_hidden
+            else ""
+        )
+        str_msg = util.sanitise_markdown_message_text(
+            f"Store information for store '`{store.code}` ({store.name})' has been updated by the manager **{manager.first_name} {manager.last_name} _(Email: {manager.email if not manager.is_hidden else 'HIDDEN'})_**"
+            + extra_note
+            + f"\n\nIf this is a mistake, please fix it by using the store management page."
+        )
+        Notification.send_to_users(
+            users=store.get_store_managers(),
+            title=str_title,
+            message=str_msg,
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.STORE_MANAGERS,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        logger_beat.info(
+            f"Finished running task `notify_managers_store_information_updated` notified store managers for store [{store.code}]."
+        )
+
+    except Exception as e:
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `notify_managers_store_information_updated` due to the error: {str(e)}"
         )
         return
 

@@ -315,7 +315,10 @@ VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower
 VALID_ROLE_NAME_DESC_PATTERN = (
     r"^[0-9a-zA-Z\s\-',()/]+$"  # USED FOR BOTH ROLE NAME AND ROLE DESCRIPTION
 )
-VALID_HEX_COLOUR_PATTERN = r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+VALID_HEX_COLOUR_PATTERN = r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"  # For roles
+VALID_STORE_NAME_PATTERN = r"^[\w\s.&\'\-]+$"  # For store names
+VALID_STORE_STREET_PATTERN = r"^[\w\s.,'&#/\-]+$"  # For store street names
+VALID_STORE_CODE_PATTERN = r"^[A-Z0-9]+$"  # For store codes
 
 
 # Default primary key field type
