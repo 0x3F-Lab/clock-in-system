@@ -3143,6 +3143,10 @@ def manage_store_shift(request, id):
                     status=status.HTTP_406_NOT_ACCEPTABLE,
                 )
 
+            # Check if employee is inactive
+            elif not employee.is_active:
+                raise err.InactiveUserError
+
             # Check the employee is assigned to the store
             elif not employee.is_associated_with_store(store=shift.store.id):
                 return Response(
@@ -3253,6 +3257,13 @@ def manage_store_shift(request, id):
             {"Error": "Not authorised to interact with an inactive store's shift."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.InactiveUserError:
+        return Response(
+            {
+                "Error": "Cannot modify an inactive user's shift. This can only be done via exceptions."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         logger.critical(
             f"An error occured when trying to interact with a store's shift for shift ID {id} for method {request.method}, resulting in the error: {str(e)}"
@@ -3311,10 +3322,10 @@ def create_store_shift(request, store_id):
 
         if not manager.is_associated_with_store(store.id):
             raise err.NotAssociatedWithStoreError
-
         elif not store.is_active:
             raise err.InactiveStoreError
-
+        elif not employee.is_active:
+            raise err.InactiveUserError
         elif role_id and not store.has_role(role=int(role_id)):
             return Response(
                 {"Error": "Role not associated with this store."},
@@ -3392,25 +3403,26 @@ def create_store_shift(request, store_id):
             {"Error": f"Employee with ID {employee_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-
     except Store.DoesNotExist:
         return Response(
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-
     except err.NotAssociatedWithStoreError:
         return Response(
             {"Error": "Not authorised create a shift for an unassociated store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except err.InactiveStoreError:
         return Response(
             {"Error": "Not authorised create a shift for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
+    except err.InactiveUserError:
+        return Response(
+            {"Error": "Not authorised create a shift for an inactive user."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         logger.critical(f"Error creating shift: {str(e)}")
         return Response(
