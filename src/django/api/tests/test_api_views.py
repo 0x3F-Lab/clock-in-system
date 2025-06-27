@@ -596,23 +596,24 @@ def test_list_recent_shifts_success(
     # Use authenticated client
     api_client = logged_in_clocked_in_employee
 
-    url = reverse("api:list_recent_shifts")
-    response = api_client.get(url, {"store_id": str(store.id), "limit_days": 7})
+    url = reverse("api:list_user_activities")
+    response = api_client.get(url, {"store_id": str(store.id), "week": now().date()})
 
     assert response.status_code == 200
 
     data = response.json()
+    assert "activities" in data
+    assert now().date().isoformat() in data["activities"]
 
-    # The result should be a list of shift dictionaries
-    assert isinstance(data, list)
-    assert "login_time" in data[0]
-    assert "logout_time" in data[0]
-    assert "store_id" in data[0]
-    assert "employee_id" in data[0]
-    assert "store_code" in data[0]
-    assert "deliveries" in data[0]
-    assert "is_public_holiday" in data[0]
-    assert "is_modified" in data[0]
+    act = data["activities"][now().date().isoformat()][0]
+    assert "login_time_str" in act
+    assert "logout_time_str" in act
+    assert "store_id" in act
+    assert "employee_id" in act
+    assert "store_code" in act
+    assert "deliveries" in act
+    assert "is_public_holiday" in act
+    assert "is_modified" in act
 
 
 @pytest.mark.django_db
@@ -751,7 +752,10 @@ def test_list_account_summaries_full_hour_breakdown(
 
 
 @pytest.mark.django_db
-def test_update_store_info(logged_in_manager, manager, store, store_associate_manager):
+@patch("auth_app.tasks.notify_managers_store_information_updated.delay")
+def test_update_store_info(
+    mock_notify, logged_in_manager, manager, store, store_associate_manager
+):
     """
     Test that a manager can update an associated store's info.
     """
