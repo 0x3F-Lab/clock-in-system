@@ -62,12 +62,14 @@ if (isDevEnvironment) {
     { url: "{% static 'img/favicon/android-chrome-512x512.png' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'img/gifs/offline.gif' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/employee_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/employee_account.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/manage_employee_details.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/manual_clocking.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/shift_logs.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/notification_page.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/manage_stores.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
-    { url: "{% static 'js/schedule_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" }
+    { url: "{% static 'js/schedule_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/exception_page.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
   ]);
 
   // For full pages
