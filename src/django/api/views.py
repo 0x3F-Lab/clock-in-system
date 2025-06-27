@@ -2946,12 +2946,6 @@ def get_store_shifts(request, id):
         # Get other request data
         get_all = util.str_to_bool(request.query_params.get("get_all", "false"))
         week = util.clean_param_str(request.query_params.get("week", None))
-        ignore_inactive = util.str_to_bool(
-            request.query_params.get("ignore_inactive", "False")
-        )
-        ignore_resigned = util.str_to_bool(
-            request.query_params.get("ignore_inactive", "False")
-        )
         hide_deactivated = util.str_to_bool(
             request.query_params.get("hide_deactive", "false")
         )
@@ -3011,8 +3005,6 @@ def get_store_shifts(request, id):
             data = controllers.get_all_store_schedules(
                 store=store,
                 week=week,
-                ignore_inactive=ignore_inactive,
-                ignore_resigned=ignore_resigned,
                 include_deleted=False,
                 hide_deactivated=hide_deactivated,
                 hide_resigned=hide_resigned,

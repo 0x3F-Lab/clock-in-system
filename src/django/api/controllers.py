@@ -978,8 +978,6 @@ def is_active_account(employee_id: int) -> bool:
 def get_all_store_schedules(
     store: Store,
     week: str,
-    ignore_inactive: bool = False,
-    ignore_resigned: bool = False,
     include_deleted: bool = False,
     hide_deactivated: bool = False,
     hide_resigned: bool = False,
@@ -993,8 +991,6 @@ def get_all_store_schedules(
     Args:
         store (Store obj): The store for which the schedule will be fetched
         week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
-        ignore_inactive (bool): If True, exclude inactive employees.
-        ignore_resigned (bool): If True, exclude resigned employees.
         include_deleted (bool): If True, include Shifts with is_deleted=True
         hide_deactivated (bool): Exclude deactivated employees. Default False.
         hide_resigned (bool): Exclude resigned employees. Default False.
@@ -1025,16 +1021,10 @@ def get_all_store_schedules(
         store=store, date__range=(week_start, week_end)
     ).select_related("employee", "role")
 
-    # Optionally filter based on employee status
-    if ignore_inactive:
-        shifts = shifts.filter(employee__is_active=True)
-    if ignore_resigned:
-        shifts = shifts.filter(employee__store_access__store=store)
-
     # Optional filters
-    if ignore_inactive or hide_deactivated:
+    if hide_deactivated:
         shifts = shifts.filter(employee__is_active=True)
-    if ignore_resigned or hide_resigned:
+    if hide_resigned:
         shifts = shifts.filter(employee__store_access__store=store)
     if not include_deleted:
         shifts = shifts.exclude(is_deleted=True)
