@@ -8,14 +8,23 @@ from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
 from django.db import transaction, IntegrityError
 from django.db.models.functions import Coalesce, Concat
-from django.db.models import Sum, Q, OuterRef, Subquery, IntegerField, Value
 from django.utils.timezone import now, localtime, make_aware
+from django.db.models import (
+    Sum,
+    Q,
+    OuterRef,
+    Subquery,
+    IntegerField,
+    Value,
+    F,
+    ExpressionWrapper,
+    DurationField,
+)
 from auth_app.models import User, Activity, Store, Role, Shift, ShiftException
 from clock_in_system.settings import (
     START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
     FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 )
-from django.utils import timezone
 
 
 logger = logging.getLogger("api")
@@ -468,11 +477,11 @@ def get_all_employee_details(
     if hide_deactivated:
         qs = qs.filter(is_active=True)
 
-    # Annotate full_name for better filtering
-    qs = qs.annotate(full_name=Concat("first_name", Value(" "), "last_name"))
-
     # Name filtering
     if filter_names:
+        # Annotate full_name
+        qs = qs.annotate(full_name=Concat("first_name", Value(" "), "last_name"))
+
         name_filters = Q()
         for name in filter_names:
             name_filters |= Q(full_name__icontains=name)
@@ -563,13 +572,13 @@ def get_all_shifts(
     if end_date:
         qs = qs.filter(login_time__date__lte=end_date)
 
-    # Annotate full_name for better filtering
-    qs = qs.annotate(
-        full_name=Concat("employee__first_name", Value(" "), "employee__last_name")
-    )
-
     # Filter by names
     if filter_names:
+        # Annotate full_name
+        qs = qs.annotate(
+            full_name=Concat("employee__first_name", Value(" "), "employee__last_name")
+        )
+
         name_filters = Q()
         for name in filter_names:
             name_filters |= Q(full_name__icontains=name)
@@ -972,6 +981,11 @@ def get_all_store_schedules(
     ignore_inactive: bool = False,
     ignore_resigned: bool = False,
     include_deleted: bool = False,
+    hide_deactivated: bool = False,
+    hide_resigned: bool = False,
+    sort_field: str = "time",
+    filter_names: List[str] = None,
+    filter_roles: List[str] = None,
 ) -> Dict[str, Any]:
     """
     Get all of a store's schedule information for a given week.
@@ -982,6 +996,11 @@ def get_all_store_schedules(
         ignore_inactive (bool): If True, exclude inactive employees.
         ignore_resigned (bool): If True, exclude resigned employees.
         include_deleted (bool): If True, include Shifts with is_deleted=True
+        hide_deactivated (bool): Exclude deactivated employees. Default False.
+        hide_resigned (bool): Exclude resigned employees. Default False.
+        sort_field (str): One of "time", "name", "length", "role_name".
+        filter_names (List[str]): Case-insensitive names to include.
+        filter_roles (List[str]): Case-insensitive roles to include.
 
     Returns:
         (Dict[str, Any]): A dictionary containing:
@@ -1012,8 +1031,60 @@ def get_all_store_schedules(
     if ignore_resigned:
         shifts = shifts.filter(employee__store_access__store=store)
 
+    # Optional filters
+    if ignore_inactive or hide_deactivated:
+        shifts = shifts.filter(employee__is_active=True)
+    if ignore_resigned or hide_resigned:
+        shifts = shifts.filter(employee__store_access__store=store)
     if not include_deleted:
         shifts = shifts.exclude(is_deleted=True)
+
+    # Filter by employee name (case-insensitive)
+    if filter_names:
+        # Annotate full_name
+        shifts = shifts.annotate(
+            full_name=Concat("employee__first_name", Value(" "), "employee__last_name")
+        )
+
+        name_query = Q()
+        for name in filter_names:
+            name_query |= Q(full_name__icontains=name)
+        shifts = shifts.filter(name_query)
+
+    # Filter by role name (case-insensitive)
+    if filter_roles:
+        role_query = Q()
+        for role in filter_roles:
+            role_query |= Q(role__name__icontains=role)
+        shifts = shifts.filter(role_query)
+
+    if sort_field == "length":
+        shifts = shifts.annotate(
+            shift_length=ExpressionWrapper(
+                F("end_time") - F("start_time"), output_field=DurationField()
+            )
+        )
+
+    # Sorting logic
+    sort_map = {
+        "time": ("date", "start_time", "employee__first_name", "employee__last_name"),
+        "name": ("date", "employee__first_name", "employee__last_name", "start_time"),
+        "length": (
+            "-shift_length",
+            "date",
+            "start_time",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+        "role_name": (
+            "date",
+            "role__name",
+            "start_time",
+            "employee__first_name",
+            "employee__last_name",
+        ),
+    }
+    shifts = shifts.order_by(*sort_map.get(sort_field, sort_map["time"]))
 
     # Order the shifts
     shifts = shifts.order_by(

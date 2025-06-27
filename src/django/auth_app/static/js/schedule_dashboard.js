@@ -14,6 +14,20 @@ $(document).ready(function() {
     // Handle shift edits, deletes and creations
     handleShiftModification();
 
+    // Handle table controls submission
+    $('#tableControllerSubmit').on('click', () => {
+      loadSchedule(new Date().toLocaleDateString('sv-SE'));
+    });
+
+    // Update table controller icon on collapse/show
+    $('#tableControllerCollapse').on('show.bs.collapse', function () {
+        $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+      });
+
+    $('#tableControllerCollapse').on('hide.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+    });
+
     // --- Store Selector ---
     $('#storeSelectDropdown').on('change', function() {
         updateStoreInformation(getSelectedStoreID());
@@ -339,9 +353,15 @@ function handleWeekSwitching() {
 
 
 function loadSchedule(week) {
+    const sort = $('#sortFields input[type="radio"]:checked').val();
+    const filterNames = $('#filterNames').val();
+    const filterRoles = $('#filterRoles').val();
+    const hideDeactive = $('#hideDeactivated').is(':checked');
+    const hideResigned = $('#hideResigned').is(':checked');
+
     showSpinner();
     $.ajax({
-        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}`,
+        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}&sort=${sort}&hide_deactiver=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
         method: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},

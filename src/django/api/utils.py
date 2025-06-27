@@ -6,9 +6,10 @@ import holidays
 import api.exceptions as err
 
 from datetime import timedelta, datetime, time, date
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Pattern
 from urllib.parse import urlencode
 from django.db.models import Q
+from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
@@ -302,19 +303,34 @@ def is_activity_modified(activity: Activity):
     return False
 
 
-def get_filter_list_from_string(list: str) -> List[str]:
+def get_filter_list_from_string(
+    list_str: str,
+    regex_filter: Union[str, Pattern[str]] = settings.VALID_NAME_LIST_PATTERN,
+) -> Optional[List[str]]:
     """
-    Function to get the filter names from the pure string passed from query params.
-    Checks names against RE filter provided in settings.py
+    Parse a comma-separated string of names from query parameters, validate
+    against a regex pattern, and return a list of cleaned names.
 
-    Returns `None` if no list is provided.
-    Raises `ValueError` if invalid characters are provided in the list.
+    Args:
+      list_str: A comma-separated string of names (e.g., "Alice,Bob,Charlie").
+                If None or empty, the function returns None.
+      regex_filter: A regex pattern (string or compiled Pattern) used to validate
+                    the entire input string before splitting. MUST INCLUDE `,` IN THE PATTERN.
+                    Defaults to settings.VALID_NAME_LIST_PATTERN.
+
+    Returns:
+      Optional[List]: A list of stripped name strings if input is non-empty, or None otherwise.
+
+    Raises:
+      ValueError: If the input string contains invalid characters (fails regex match).
     """
-    if list and not re.match(VALID_NAME_LIST_PATTERN, list):
-        raise ValueError
+    if list_str:
+        # Validate input string against the regex
+        if not re.match(regex_filter, list_str):
+            raise ValueError(f"Invalid characters in filter list: '{list_str}'")
 
-    if list:
-        return [name.strip() for name in list.split(",") if name.strip()]
+        # Split on commas and strip whitespace from each entry
+        return [item.strip() for item in list_str.split(",") if item.strip()]
 
     return None
 

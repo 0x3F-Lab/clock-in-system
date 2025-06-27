@@ -2952,6 +2952,19 @@ def get_store_shifts(request, id):
         ignore_resigned = util.str_to_bool(
             request.query_params.get("ignore_inactive", "False")
         )
+        hide_deactivated = util.str_to_bool(
+            request.query_params.get("hide_deactive", "false")
+        )
+        hide_resigned = util.str_to_bool(
+            request.query_params.get("hide_resign", "false")
+        )
+        sort_field = util.clean_param_str(request.query_params.get("sort", "time"))
+        filter_names = util.clean_param_str(
+            request.query_params.get("filter_names", "")
+        )
+        filter_roles = util.clean_param_str(
+            request.query_params.get("filter_roles", "")
+        )
 
         # Only get all shifts IF they're a manager
         if get_all and user.is_manager:
@@ -2968,6 +2981,29 @@ def get_store_shifts(request, id):
             except ValueError:
                 return Response(
                     {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            VALID_SORT_FIELDS = {"time", "name", "role_name", "length"}
+            if sort_field not in VALID_SORT_FIELDS:
+                return Response(
+                    {
+                        "Error": f"Invalid sort field. Must be one of: {', '.join(VALID_SORT_FIELDS)}."
+                    },
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
+
+            # Convert filter_names string to list
+            try:
+                filter_names_list = util.get_filter_list_from_string(
+                    filter_names, settings.VALID_NAME_LIST_PATTERN
+                )
+                filter_roles_list = util.get_filter_list_from_string(
+                    filter_roles, settings.VALID_ROLE_NAME_DESC_PATTERN
+                )
+            except ValueError:
+                return Response(
+                    {"Error": "Invalid characters in either filter list."},
                     status=status.HTTP_406_NOT_ACCEPTABLE,
                 )
 
@@ -2978,6 +3014,11 @@ def get_store_shifts(request, id):
                 ignore_inactive=ignore_inactive,
                 ignore_resigned=ignore_resigned,
                 include_deleted=False,
+                hide_deactivated=hide_deactivated,
+                hide_resigned=hide_resigned,
+                sort_field=sort_field,
+                filter_names=filter_names_list,
+                filter_roles=filter_roles_list,
             )
 
         # Only get the user's shifts
