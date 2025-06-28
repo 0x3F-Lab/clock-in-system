@@ -56,12 +56,14 @@ def get_store_employee_names(
     if isinstance(store_id, Store):
         store = store_id
     elif isinstance(store_id, (int, str)) and str(store_id).isdigit():
-        store = Store.objects.get(id=int(store_id))
+        store = Store.objects.get(pk=int(store_id))
     else:
         raise ValueError("Invalid store_id provided")
 
     # Get users associated with the store (ignore hidden users)
-    users = User.objects.filter(store_access__store=store, is_hidden=False).distinct()
+    users = User.objects.filter(
+        store_access__store_id=store.id, is_hidden=False
+    ).distinct()
 
     # Apply filters
     if only_active:
@@ -103,10 +105,10 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
         # Start a database transaction (rolls back on error)
         with transaction.atomic():
             # Fetch the employee (errors if they dont exist)
-            employee = User.objects.get(id=employee_id)
+            employee = User.objects.get(pk=employee_id)
 
             # Get the store
-            store = Store.objects.get(id=store_id)
+            store = Store.objects.get(pk=store_id)
             time = localtime(now())  # Consistent timestamp
 
             # Check if user is inactive
@@ -197,10 +199,10 @@ def handle_clock_out(
         # Start a database transaction (rolls back on error)
         with transaction.atomic():
             # Fetch the employee (errors if they dont exist)
-            employee = User.objects.get(id=employee_id)
+            employee = User.objects.get(pk=employee_id)
 
             # Get the store
-            store = Store.objects.get(id=store_id)
+            store = Store.objects.get(pk=store_id)
 
             # Check if user is inactive
             if not employee.is_active and not allow_inactive_edits:
@@ -279,8 +281,8 @@ def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
         dict: A dictionary containing employee info and clocked-in details if applicable.
     """
     try:
-        employee = User.objects.get(id=employee_id)
-        store = Store.objects.get(id=store_id)
+        employee = User.objects.get(pk=employee_id)
+        store = Store.objects.get(pk=store_id)
 
         # Check employee is not inactive
         if not employee.is_active:
@@ -375,8 +377,8 @@ def get_user_activities(user_id: int, store_id: int, week: str = None):
         )  # Sunday 23:59:59.999999
 
         # Get objects
-        user = User.objects.get(id=user_id)
-        store = Store.objects.get(id=store_id)
+        user = User.objects.get(pk=user_id)
+        store = Store.objects.get(pk=store_id)
 
         # Validate store and user states
         if not user.is_active:
@@ -390,8 +392,8 @@ def get_user_activities(user_id: int, store_id: int, week: str = None):
         activities = (
             Activity.objects.select_related("store")
             .filter(
-                employee=user,
-                store=store,
+                employee_id=user.id,
+                store_id=store.id,
                 login_time__range=(start_datetime, end_datetime),
             )
             .order_by("-login_time")
@@ -463,7 +465,7 @@ def get_all_employee_details(
         Tuple[List[dict], int]: (results, total count)
     """
     # Get and validate store
-    store = Store.objects.get(id=int(store_id))
+    store = Store.objects.get(pk=int(store_id))
 
     if not store.is_active and not allow_inactive_store:
         raise err.InactiveStoreError
@@ -556,7 +558,7 @@ def get_all_shifts(
         Tuple[List[dict], int]: List of results, and total count.
     """
     # Get store object and ensure its active
-    store = Store.objects.get(id=int(store_id))
+    store = Store.objects.get(pk=int(store_id))
 
     if not store.is_active and not allow_inactive_store:
         raise err.InactiveStoreError
@@ -690,7 +692,7 @@ def get_account_summaries(
     """
     try:
         # Get store object and ensure its active
-        store = Store.objects.get(id=int(store_id))
+        store = Store.objects.get(pk=int(store_id))
 
         # Convert date strings
         start_dt = make_aware(datetime.strptime(start_date, "%Y-%m-%d"))
@@ -878,7 +880,7 @@ def check_new_shift_too_soon(
         # Get the last clock-out activity for the employee
         last_activity = (
             Activity.objects.filter(
-                employee=employee, store=store, logout_timestamp__isnull=False
+                employee_id=employee.id, store=store, logout_timestamp__isnull=False
             )
             .order_by("-logout_timestamp")
             .first()
@@ -954,7 +956,7 @@ def is_active_account(employee_id: int) -> bool:
         bool: True if the account is active, False otherwise.
     """
     try:
-        employee = User.objects.get(id=employee_id)
+        employee = User.objects.get(pk=employee_id)
 
         # Check employee is not inactive
         if employee.is_active:
@@ -1025,7 +1027,7 @@ def get_all_store_schedules(
     if hide_deactivated:
         shifts = shifts.filter(employee__is_active=True)
     if hide_resigned:
-        shifts = shifts.filter(employee__store_access__store=store)
+        shifts = shifts.filter(employee__store_access__store_id=store.id)
     if not include_deleted:
         shifts = shifts.exclude(is_deleted=True)
 
@@ -1145,7 +1147,7 @@ def get_user_store_schedules(
 
     # Fetch shifts for the store during this week
     shifts = Shift.objects.filter(
-        employee=user, store=store, date__range=(week_start, week_end)
+        employee_id=user.id, store_id=store.id, date__range=(week_start, week_end)
     ).select_related("role")
 
     if not include_deleted:
@@ -1432,8 +1434,8 @@ def link_activity_to_shift(
             raise err.IncompleteActivityError
 
         shifts = Shift.objects.filter(
-            store=activity.store_id,
-            employee=activity.employee_id,
+            store_id=activity.store_id,
+            employee_id=activity.employee_id,
             date=activity.login_time.date(),
             is_deleted=False,
         )
@@ -1482,8 +1484,8 @@ def link_activity_to_shift(
     # Given SHIFT -> look for the activity
     elif shift:
         activities = Activity.objects.filter(
-            store=shift.store_id,
-            employee=shift.employee_id,
+            store_id=shift.store_id,
+            employee_id=shift.employee_id,
             login_time__date=shift.date,
         )
 
@@ -1639,10 +1641,10 @@ def copy_week_schedule(
     target_range = (target_week, target_week + timedelta(days=6))
 
     # Fetch shifts in source week
-    source_shifts = Shift.objects.filter(store=store.id, date__range=source_range)
+    source_shifts = Shift.objects.filter(store_id=store.id, date__range=source_range)
 
     # Prefetch existing shifts in the target week for faster conflict checking
-    target_shifts = Shift.objects.filter(store=store.id, date__range=target_range)
+    target_shifts = Shift.objects.filter(store_id=store.id, date__range=target_range)
 
     # Index by employee, date
     existing_shifts_map = {(s.employee_id, s.date): s for s in target_shifts}

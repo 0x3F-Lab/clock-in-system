@@ -134,7 +134,7 @@ def api_get_user_object_from_session(request):
 
     # Get employee data to check state
     try:
-        employee = User.objects.get(id=employee_id)
+        employee = User.objects.get(pk=employee_id)
 
         if not employee.is_active:
             request.session.flush()
@@ -266,7 +266,7 @@ def check_location_data(location_lat, location_long, store_id) -> bool:
         raise err.BadLocationDataError
 
     # Get Store Object
-    store = Store.objects.get(id=store_id)
+    store = Store.objects.get(pk=store_id)
 
     # Obtain distance of user from store
     dist = get_distance_from_lat_lon_in_m(

@@ -244,7 +244,7 @@ function updateExceptions() {
                 <div>
                   <h5 class="mb-1">
                     <span class="${badgeColour} badge me-2">${e.reason}</span>
-                    (${e.date}) ${e.emp_name}
+                    (${e.date}: ${getFullDayName(e.date)}) ${e.emp_name}
                   </h5>
                   <small class="text-muted">Store: [<code>${e.store_code}</code>]</small>
                 </div>

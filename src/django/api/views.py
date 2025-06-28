@@ -79,7 +79,7 @@ def list_store_employee_names(request):
         # Get the user information of the manager requesting this info from their session
         try:
             user_id = request.session.get("user_id")
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(pk=user_id)
         except User.DoesNotExist:
             return Response(
                 {
@@ -281,11 +281,10 @@ def list_all_shift_details(request):
 @api_view(["GET"])
 def list_singular_shift_details(request, id):
     try:
-        act = Activity.objects.get(id=id)
+        act = Activity.objects.get(pk=id)
 
         # Get the account info of the user requesting this shift info
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         if not manager.is_associated_with_store(store=act.store):
             return Response(
@@ -341,11 +340,10 @@ def list_singular_shift_details(request, id):
 @renderer_classes([JSONRenderer])
 def update_shift_details(request, id):
     try:
-        activity = Activity.objects.select_related("employee", "store").get(id=id)
+        activity = Activity.objects.select_related("employee", "store").get(pk=id)
 
         # Get the account info of the user requesting this shift info
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         if not manager.is_associated_with_store(store=activity.store):
             return Response(
@@ -394,8 +392,8 @@ def update_shift_details(request, id):
 
                 # Create exception IF there is a correlated shift
                 shift = Shift.objects.filter(
-                    store=activity.store_id,
-                    employee=activity.employee_id,
+                    store_id=activity.store_id,
+                    employee_id=activity.employee_id,
                     date=activity.login_time.date(),
                     is_deleted=False,
                 ).first()
@@ -403,7 +401,7 @@ def update_shift_details(request, id):
                     controllers.link_activity_to_shift(shift=shift)
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) deleted an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )
             logger.debug(
                 f"[DELETE: ACTIVITY (ID: {original['id']})] [MANUAL] Login: {original['login_time']} ({original['login_timestamp']}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) -- Deliveries: {original['deliveries']} -- Shift Length: {original['shift_length_mins']}mins -- PUBLIC HOLIDAY: {original['is_public_holiday']}"
@@ -555,7 +553,7 @@ def update_shift_details(request, id):
                     controllers.link_activity_to_shift(activity=activity)
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated an ACTIVITY with ID {id} for the employee ID {activity.employee.id} ({activity.employee.first_name} {activity.employee.last_name}) under the store [{activity.store.code}])."
             )
             logger.debug(
                 f"[UPDATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {original['login_time']} ({original['login_timestamp']}) → {activity.login_time} ({activity.login_timestamp}) -- Logout: {original['logout_time']} ({original['logout_timestamp']}) → {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {original['deliveries']} → {activity.deliveries} -- Shift Length: {original['shift_length_mins']} → {activity.shift_length_mins} -- PUBLIC HOLIDAY: {original['is_public_holiday']} → {activity.is_public_holiday}"
@@ -656,10 +654,10 @@ def create_new_shift(request):
             )
 
         # Get the employee
-        employee = User.objects.get(id=employee_id)
+        employee = User.objects.get(pk=employee_id)
 
         # Get the store object to link it
-        store = Store.objects.get(id=store_id)
+        store = Store.objects.get(pk=store_id)
 
         # Check user is authorised to interact with the store and the user
         if not manager.is_associated_with_store(store=int(store_id)):
@@ -812,7 +810,7 @@ def create_new_shift(request):
                 controllers.link_activity_to_shift(activity=activity)
 
         logger.info(
-            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."
         )
         logger.debug(
             f"[CREATE: ACTIVITY (ID: {activity.id})] [MANUAL] Login: {activity.login_time} ({activity.login_timestamp}) -- Logout: {activity.logout_time} ({activity.logout_timestamp}) -- Deliveries: {activity.deliveries} -- Shift Length: {activity.shift_length_mins}mins"
@@ -968,11 +966,10 @@ def list_all_employee_details(request):
 @api_view(["GET"])
 def list_singular_employee_details(request, id):
     try:
-        employee = User.objects.get(id=id)
+        employee = User.objects.get(pk=id)
 
         # Get manager's info from their session
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         # Ensure manager can list employee's info
         if not manager.is_manager_of(employee=employee, ignore_inactive_stores=False):
@@ -1030,11 +1027,10 @@ def create_new_employee(request):
         store_id = util.clean_param_str(request.data.get("store_id", ""))
 
         # Get the store object
-        store = Store.objects.get(id=int(store_id))
+        store = Store.objects.get(pk=int(store_id))
 
         # Get manager account's info
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         # Ensure user is a manager of the store
         if not manager.is_associated_with_store(store=store):
@@ -1089,7 +1085,7 @@ def create_new_employee(request):
             )
 
             logger.info(
-                f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a STORE ASSOCIATION with ID {new_association.id} between employee ID {employee.id} ({employee.first_name} {employee.last_name}) and store ID {store.id} [{store.code}]."
             )
             logger.debug(
                 f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
@@ -1212,7 +1208,7 @@ def create_new_employee(request):
         )
 
         logger.info(
-            f"Manager ID {manager_id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
         )
         logger.debug(
             f"[CREATE: USER (ID: {employee.id})] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- Phone: {employee.phone_number} -- DOB: {employee.birth_date} -- PIN: {employee.pin} -- MANAGER: {employee.is_manager} -- ACTIVE: {employee.is_active} -- SETUP: {employee.is_setup} -- HIDDEN: {employee.is_hidden}"
@@ -1279,8 +1275,7 @@ def modify_account_information(request, id=None):
     try:
         # Get user information from their session
         try:
-            user_id = request.session.get("user_id")
-            user = User.objects.get(id=user_id)
+            user = util.api_get_user_object_from_session(request=request)
             employee_to_update = user
         except User.DoesNotExist:
             return Response(
@@ -1291,7 +1286,7 @@ def modify_account_information(request, id=None):
             )
 
         if id:
-            employee = User.objects.get(id=id)
+            employee = User.objects.get(pk=id)
 
             # Check manager is able to modify employee info
             if not user.is_manager:
@@ -1469,9 +1464,8 @@ def modify_account_status(request, id):
             )
 
         # Get employee and manager
-        employee = User.objects.get(id=id)
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        employee = User.objects.get(pk=id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         # Check account can be modified
         if not manager.is_manager_of(employee=employee):
@@ -1540,7 +1534,7 @@ def modify_account_status(request, id):
                 )
 
             try:
-                store = Store.objects.get(id=int(store_id))
+                store = Store.objects.get(pk=int(store_id))
                 if not employee.is_associated_with_store(store=store):
                     return JsonResponse(
                         {
@@ -1560,7 +1554,7 @@ def modify_account_status(request, id):
 
                 # Resign the user
                 association = StoreUserAccess.objects.filter(
-                    user=employee, store=store
+                    user_id=employee.id, store_id=store.id
                 ).last()
                 association.delete()
 
@@ -1655,7 +1649,7 @@ def modify_account_password(request):
 
         # Get employee
         employee_id = request.session.get("user_id")
-        employee = User.objects.get(id=employee_id)
+        employee = User.objects.get(pk=employee_id)
 
         # Check account can be modified
         if not employee.is_active:
@@ -2103,7 +2097,7 @@ def update_store_info(request, id):
     try:
         # Get the user object from the session information
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(id=id)
+        store = Store.objects.get(pk=id)
 
         if not store.is_active:
             raise err.InactiveStoreError
@@ -2376,8 +2370,7 @@ def list_user_activities(request):
 @renderer_classes([JSONRenderer])
 def list_account_summaries(request):
     try:
-        manager_id = request.session.get("user_id")
-        manager = User.objects.get(id=manager_id)
+        manager = util.api_get_user_object_from_session(request=request)
 
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
         ignore_no_hours = util.str_to_bool(
@@ -2511,7 +2504,7 @@ def mark_notification_read(request, id):
         user_id = request.session.get("user_id")
 
         # Get notification
-        notif = Notification.objects.get(id=id)
+        notif = Notification.objects.get(pk=id)
 
         # Mark the notification as read
         notif.mark_notification_as_read(user=user_id)
@@ -2562,7 +2555,7 @@ def send_employee_notification(request, id):
     try:
         # Get employee info
         try:
-            employee = User.objects.get(id=id)
+            employee = User.objects.get(pk=id)
         except User.DoesNotExist:
             return Response(
                 {"Error": f"Employee not found with the ID {id}."},
@@ -2681,7 +2674,7 @@ def send_employee_notification(request, id):
 def list_store_roles(request, id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(id=id)
+        store = Store.objects.get(pk=id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=store.id):
@@ -2934,7 +2927,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
 def get_store_shifts(request, id):
     try:
         user = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(id=id)
+        store = Store.objects.get(pk=id)
 
         # Ensure manager is authorised
         if not user.is_associated_with_store(store=store.id):
@@ -3066,7 +3059,7 @@ def get_store_shifts(request, id):
 def manage_store_shift(request, id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        shift = Shift.objects.select_related("store", "employee", "role").get(id=id)
+        shift = Shift.objects.select_related("store", "employee", "role").get(pk=id)
 
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=shift.store.id):
@@ -3177,7 +3170,7 @@ def manage_store_shift(request, id):
                 )
 
             # Get the employee
-            employee = User.objects.get(id=int(employee_id))
+            employee = User.objects.get(pk=int(employee_id))
 
             # Check not editing an OLD shift
             current_date = localtime(now()).date()
@@ -3334,7 +3327,7 @@ def manage_store_shift(request, id):
 def create_store_shift(request, store_id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(id=store_id)
+        store = Store.objects.get(pk=store_id)
 
         employee_id = util.clean_param_str(request.data.get("employee_id", None))
         role_id = util.clean_param_str(request.data.get("role_id", None))
@@ -3372,7 +3365,7 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        employee = User.objects.get(id=int(employee_id))
+        employee = User.objects.get(pk=int(employee_id))
 
         if not manager.is_associated_with_store(store.id):
             raise err.NotAssociatedWithStoreError
@@ -3668,7 +3661,7 @@ def manage_store_exception(request, exception_id):
 def list_store_exceptions(request, store_id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(id=store_id)
+        store = Store.objects.get(pk=store_id)
 
         # Get params
         offset, limit = util.get_pagination_values_from_request(request)

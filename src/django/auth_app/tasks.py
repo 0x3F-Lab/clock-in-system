@@ -195,7 +195,9 @@ def deactivate_unassigned_users():
 def check_shifts_for_exceptions(
     age_cutoff_days: int = (settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS + 1),
 ):
-    logger_beat.info(f"[AUTOMATED] Running task `check_shifts_for_exceptions`.")
+    logger_beat.info(
+        f"[AUTOMATED] Running task `check_shifts_for_exceptions` with cutoff={age_cutoff_days} days."
+    )
     err_msg = ""
 
     try:
@@ -204,7 +206,7 @@ def check_shifts_for_exceptions(
         for store in Store.objects.filter(is_active=True).all():
             # Get all shifts to try an link them to their respective shifts (check for missed shifts)
             for shift in Shift.objects.filter(
-                store=store.id, date__lte=cutoff, is_deleted=False
+                store_id=store.id, date__gte=cutoff, is_deleted=False
             ):
                 try:
                     if link_activity_to_shift(shift=shift):
