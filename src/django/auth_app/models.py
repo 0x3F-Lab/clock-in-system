@@ -709,8 +709,8 @@ class Shift(models.Model):
 
     class Meta:
         ordering = ["store", "date", "start_time"]
-        # prevent exact duplicates:
-        unique_together = [("employee", "store", "date", "start_time")]
+        # Only one shift per day per user per store:
+        unique_together = [("employee", "store", "date")]
         indexes = [
             models.Index(fields=["store", "date", "start_time"]),  # For store listing
         ]
