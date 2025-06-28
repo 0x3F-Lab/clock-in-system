@@ -55,7 +55,7 @@ def check_clocked_in_users():
                         allow_inactive_edits=True,
                     )
                 except Exception as e:
-                    usr_err_msg += f"- User ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] with error: {str(e)[:65]}"
+                    usr_err_msg += f"- User ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] with error: {str(e)[:75]}"
                     logger_beat.critical(
                         f"Tried to forcefully clock employee ID {emp.id} ({emp.first_name} {emp.last_name}) from store [{store.code}] and it resulted in error: {str(e)}\n"
                     )
@@ -201,7 +201,8 @@ def check_shifts_for_exceptions(
     err_msg = ""
 
     try:
-        total = 0
+        total_created = 0
+        total_exceptions = 0
         cutoff = localtime(now()).date() - timedelta(days=int(age_cutoff_days))
         for store in Store.objects.filter(is_active=True).all():
             # Get all shifts to try an link them to their respective shifts (check for missed shifts)
@@ -209,11 +210,14 @@ def check_shifts_for_exceptions(
                 store_id=store.id, date__gte=cutoff, is_deleted=False
             ):
                 try:
-                    if link_activity_to_shift(shift=shift):
-                        total += 1
+                    reason, created = link_activity_to_shift(shift=shift)
+                    if created:
+                        total_created += 1
+                    if reason:
+                        total_exceptions += 1
+
                 except Exception as e:
-                    emp_id = getattr(shift, "employee_id", "UNKNOWN")
-                    err_msg += f"- Shift ID: {shift.id} (Date: {shift.date}) for User ID {emp_id} [{store.code}], error: {str(e)[:65]}\n"
+                    err_msg += f"- Shift ID: {shift.id} (Date: {shift.date}) for User ID {shift.employee_id} [{store.code}], error: {str(e)[:75]}\n"
                     pass
 
         if err_msg:
@@ -222,7 +226,7 @@ def check_shifts_for_exceptions(
             )
 
         logger_beat.info(
-            f"Finished running task `check_shifts_for_exceptions` and created {total} exceptions while linking shifts to their activity."
+            f"Finished running task `check_shifts_for_exceptions` and created {total_created} new exceptions while linking shifts to their activity. There exist {total_exceptions} unresolved exceptions."
         )
 
     except Exception as e:

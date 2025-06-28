@@ -1395,7 +1395,7 @@ def approve_exception(
 def link_activity_to_shift(
     activity: Union[Activity, int, str, None] = None,
     shift: Union[Shift, int, str, None] = None,
-) -> Union[ShiftException.Reason, None]:
+) -> Tuple[Union[ShiftException.Reason, None], bool]:
     """
     Check for a perfect link between an activity (actual shift) and a shift (the roster for the shift).
     If no perfect link exists (i.e. either doesnt exist, or slightly wrong) then create a ShiftException. Either option MUST be provided.
@@ -1405,7 +1405,7 @@ def link_activity_to_shift(
         shift (shift, int, str): The shift object or ID to start the link from.
 
     Returns:
-        Union[ShiftException.Reason, None]: The exception reason if one is created OR None if a perfect link exists.
+        Tuple[Union[ShiftException.Reason, None], bool]: The exception reason if one is created OR None if a perfect link exists AND if an exception is generated or not (alr exists).
 
     Raises:
         SyntaxError: If neither activity or shift is provided.
@@ -1450,20 +1450,20 @@ def link_activity_to_shift(
 
         # Worked with no scheduled shift
         elif len(shifts) == 0:
-            create_shiftexception_link(
+            created = create_shiftexception_link(
                 activity=activity, reason=ShiftException.Reason.NO_SHIFT
             )
-            return ShiftException.Reason.NO_SHIFT
+            return ShiftException.Reason.NO_SHIFT, created
 
         elif not check_perfect_shift_activity_timings(
             activity=activity, shift=shifts[0]
         ):
-            create_shiftexception_link(
+            created = create_shiftexception_link(
                 activity=activity,
                 shift=shifts[0],
                 reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
             )
-            return ShiftException.Reason.INCORRECTLY_CLOCKED
+            return ShiftException.Reason.INCORRECTLY_CLOCKED, created
 
         # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
         try:
@@ -1479,7 +1479,7 @@ def link_activity_to_shift(
         except ShiftException.DoesNotExist:
             pass
 
-        return None
+        return None, False
 
     # Given SHIFT -> look for the activity
     elif shift:
@@ -1499,10 +1499,10 @@ def link_activity_to_shift(
 
         # Had a rostered Shift but did not work
         elif len(activities) == 0:
-            create_shiftexception_link(
+            created = create_shiftexception_link(
                 shift=shift, reason=ShiftException.Reason.MISSED_SHIFT
             )
-            return ShiftException.Reason.MISSED_SHIFT
+            return ShiftException.Reason.MISSED_SHIFT, created
 
         # Check activity is FINISHED
         elif not activities[0].logout_time:
@@ -1511,12 +1511,12 @@ def link_activity_to_shift(
         elif not check_perfect_shift_activity_timings(
             activity=activities[0], shift=shift
         ):
-            create_shiftexception_link(
+            created = create_shiftexception_link(
                 shift=shift,
                 activity=activities[0],
                 reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
             )
-            return ShiftException.Reason.INCORRECTLY_CLOCKED
+            return ShiftException.Reason.INCORRECTLY_CLOCKED, created
 
         # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
         try:
@@ -1532,7 +1532,7 @@ def link_activity_to_shift(
         except ShiftException.DoesNotExist:
             pass
 
-        return None
+        return None, False
 
     else:
         raise SyntaxError("Activity OR Shift object MUST BE PASSED.")
@@ -1568,13 +1568,16 @@ def create_shiftexception_link(
     reason: ShiftException.Reason,
     activity: Union[Activity, None] = None,
     shift: Union[Shift, None] = None,
-):
+) -> bool:
     """
     Create a ShiftException based on an activity and/or shift
 
     Args:
         activity (Activity, None): The activity object to link.
         shift (shift, None): The shift object to link.
+
+    Returns:
+        bool: Whether or not a ShiftException was created
 
     Raises:
         SyntaxError: If neither activity or shift is provided.
@@ -1589,7 +1592,7 @@ def create_shiftexception_link(
             excep.is_approved = False
             excep.reason = reason
             excep.save()
-            return
+            return False
         except ShiftException.DoesNotExist:
             pass
 
@@ -1599,7 +1602,7 @@ def create_shiftexception_link(
             excep.is_approved = False
             excep.reason = reason
             excep.save()
-            return
+            return False
         except ShiftException.DoesNotExist:
             pass
 
@@ -1607,10 +1610,15 @@ def create_shiftexception_link(
     ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
 
     # Log it
-    logger.info(
-        f"Created an ShiftException with reason {reason.name} for employee ID {activity.employee_id} in the Store ID {activity.store_id}."
-    )
-    return
+    if activity:
+        logger.info(
+            f"Created an ShiftException with reason {reason.name} for employee ID {activity.employee_id} in the Store ID {activity.store_id}."
+        )
+    else:
+        logger.info(
+            f"Created an ShiftException with reason {reason.name} for employee ID {shift.employee_id} in the Store ID {shift.store_id}."
+        )
+    return True
 
 
 def copy_week_schedule(
