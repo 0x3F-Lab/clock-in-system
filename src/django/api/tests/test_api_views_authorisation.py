@@ -1,7 +1,17 @@
 import pytest
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, make_aware
-from auth_app.models import Activity
+from auth_app.models import (
+    Shift,
+    Role,
+    Store,
+    User,
+    ShiftException,
+    Activity,
+    StoreUserAccess,
+)
+from datetime import date, time, timedelta
+from rest_framework import status
 
 
 @pytest.mark.django_db
@@ -580,3 +590,187 @@ def test_update_store_info(logged_in_employee, store, store_associate_employee):
 
     assert response.status_code == 403
     assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+class TestScheduleAuthorisation:
+    """
+    Test suite specifically for authorisation rules on the schedule-related API views.
+    """
+
+    @pytest.fixture
+    def other_store(self, db):
+        """Creates a second, fully-formed store for testing."""
+        return Store.objects.create(
+            name="Other Store",
+            code="OTH001",
+            is_active=True,
+            location_latitude=2.0,
+            location_longitude=2.0,
+            store_pin="111",
+        )
+
+    # --- Tests for create_store_shift ---
+    def test_create_shift_unauthorised_employee(self, logged_in_employee, store):
+        """
+        GIVEN a logged-in non-manager employee
+        WHEN they attempt to create a shift
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_employee
+        url = reverse("api:create_shift", kwargs={"store_id": store.id})
+        data = {
+            "employee_id": 1,
+            "date": "2025-12-25",
+            "start_time": "09:00",
+            "end_time": "17:00",
+        }
+
+        response = api_client.put(url, data, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # --- Tests for manage_store_shift (e.g., DELETE) ---
+    def test_manage_shift_not_associated_manager(
+        self, logged_in_manager, employee, other_store
+    ):
+        """
+        GIVEN a manager who is NOT associated with a store
+        WHEN they attempt to delete a shift from that store
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_manager
+
+        shift_in_other_store = Shift.objects.create(
+            store=other_store,
+            employee=employee,
+            date=now().date() + timedelta(days=30),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+
+        url = reverse("api:manage_shift", kwargs={"id": shift_in_other_store.id})
+        response = api_client.delete(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # --- Tests for list_store_roles ---
+    def test_list_store_roles_not_associated_manager(
+        self, logged_in_manager, other_store
+    ):
+        """
+        GIVEN a manager who is NOT associated with a store
+        WHEN they attempt to list the roles of that store
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_manager
+        url = reverse("api:list_store_roles", kwargs={"id": other_store.id})
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # --- Tests for manage_store_role (e.g., Create) ---
+    def test_create_role_not_associated_manager(self, logged_in_manager, other_store):
+        """
+        GIVEN a manager who is NOT associated with a store
+        WHEN they attempt to create a role for that store
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_manager
+        url = reverse("api:create_store_role")
+        data = {
+            "name": "Intruder Role",
+            "store_id": other_store.id,
+            "colour_hex": "#000000",
+        }
+
+        response = api_client.post(url, data, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    # --- Tests for copy_week_schedule ---
+    def test_copy_week_unauthorised_employee(self, logged_in_employee, store):
+        """
+        GIVEN a logged-in non-manager employee
+        WHEN they attempt to copy a week's schedule
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_employee
+        url = reverse("api:copy_week_schedule", kwargs={"store_id": store.id})
+        data = {
+            "source_week": "2025-01-06",
+            "target_week": "2025-01-13",
+            "override_shifts": False,
+        }
+
+        response = api_client.post(url, data, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_copy_week_not_associated_manager(self, logged_in_manager, other_store):
+        """
+        GIVEN a manager who is NOT associated with a store
+        WHEN they attempt to copy a schedule for that store
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_manager
+        url = reverse("api:copy_week_schedule", kwargs={"store_id": other_store.id})
+        data = {
+            "source_week": "2025-01-06",
+            "target_week": "2025-01-13",
+            "override_shifts": False,
+        }
+
+        response = api_client.post(url, data, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_manage_exception_unauthorised_employee(
+        self, logged_in_employee, employee, store
+    ):
+        """
+        GIVEN a logged-in non-manager employee
+        WHEN they attempt to approve an exception
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_employee
+        activity = Activity.objects.create(
+            employee=employee, store=store, login_time=now(), logout_time=now()
+        )
+        exception = ShiftException.objects.create(
+            activity=activity, reason=ShiftException.Reason.INCORRECTLY_CLOCKED
+        )
+
+        url = reverse(
+            "api:manage_store_exception", kwargs={"exception_id": exception.id}
+        )
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_manage_exception_not_associated_manager(
+        self, logged_in_manager, employee, other_store
+    ):
+        """
+        GIVEN a manager who is NOT associated with a store
+        WHEN they attempt to approve an exception from that store
+        THEN they should be denied with a 403 Forbidden error.
+        """
+        api_client = logged_in_manager
+        # Create an employee and an activity associated with the other_store
+        StoreUserAccess.objects.create(user=employee, store=other_store)
+        activity_in_other_store = Activity.objects.create(
+            employee=employee, store=other_store, login_time=now(), logout_time=now()
+        )
+        exception_in_other_store = ShiftException.objects.create(
+            activity=activity_in_other_store,
+            reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+        )
+
+        url = reverse(
+            "api:manage_store_exception",
+            kwargs={"exception_id": exception_in_other_store.id},
+        )
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
