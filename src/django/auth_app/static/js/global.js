@@ -49,7 +49,7 @@ function showNotification(message, type = "info") {
 }
 
 
-// Function to handle an API error message
+// Function to handle an API error message -> Returns errorMessage shown
 function handleAjaxError(jqXHR, baseMessage = "Failed to complete task", shouldHideSpinner = true) {
   if (shouldHideSpinner) { hideSpinner(); }
   let errorMessage;
@@ -59,6 +59,7 @@ function handleAjaxError(jqXHR, baseMessage = "Failed to complete task", shouldH
     errorMessage = jqXHR.responseJSON?.Error || `${baseMessage}. Please try again later.`;
   }
   showNotification(errorMessage, "danger");
+  return errorMessage
 }
 
 

@@ -49,10 +49,10 @@ function handleWeekCopy() {
     $('#scheduleCopySourceWeek').val(formatDateForInput(getMonday(new Date())));
 
     // Fill the confirmation modal with date options
-    const labels = ["Next week", "Second next week", "Third next week"];
+    const labels = ["Next week", "In 2 weeks", "In 3 weeks", "In 4 weeks"];
     const $select = $("#scheduleCopyTargetWeek");
     $select.empty(); // Clear previous options
-    $.each(getUpcomingMondays(3), function(index, monday) {
+    $.each(getUpcomingMondays(4), function(index, monday) {
         const label = labels[index];
         const text = `(${label}) ${formatWeekTitle(monday)}`;
         const value = monday.toISOString().split('T')[0]; // YYYY-MM-DD
