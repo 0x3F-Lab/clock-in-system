@@ -1253,10 +1253,14 @@ def get_store_exceptions(
             "emp_name": f"{emp.first_name} {emp.last_name}",
         }
         if obj.shift:
+            start_dt = datetime.combine(info["date"], obj.shift.start_time)
+            end_dt = datetime.combine(info["date"], obj.shift.end_time)
+            shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 1)
             info.update(
                 {
                     "shift_start": obj.shift.start_time,
                     "shift_end": obj.shift.end_time,
+                    "shift_length_hr": shift_length_hr,
                     "shift_role_name": obj.shift.role.name if obj.shift.role else None,
                     "shift_role_id": obj.shift.role.id if obj.shift.role else None,
                 }
@@ -1476,6 +1480,9 @@ def link_activity_to_shift(
                 logger.info(
                     f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
                 )
+                logger.debug(
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {excep.id})] Approved: NO -> Yes"
+                )
         except ShiftException.DoesNotExist:
             pass
 
@@ -1529,6 +1536,9 @@ def link_activity_to_shift(
                 logger.info(
                     f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
                 )
+                logger.debug(
+                    f"[UPDATE: SHIFTEXCEPTION (ID: {excep.id})] Approved: NO -> Yes"
+                )
         except ShiftException.DoesNotExist:
             pass
 
@@ -1554,11 +1564,11 @@ def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bo
         return True
 
     # Check start time matches (use rounded login_time)
-    if shift.start_time != activity.login_time.time():
+    if shift.start_time != localtime(activity.login_time).time():
         return False
 
     # Check end time matches (use rounded logout_time)
-    elif shift.end_time != activity.logout_time.time():
+    elif shift.end_time != localtime(activity.logout_time).time():
         return False
 
     return True
@@ -1618,7 +1628,7 @@ def create_shiftexception_link(
             pass
 
     # Create exception
-    ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
+    excep = ShiftException.objects.create(shift=shift, activity=activity, reason=reason)
 
     # Log it
     if activity:
@@ -1629,6 +1639,9 @@ def create_shiftexception_link(
         logger.info(
             f"Created an ShiftException with reason {reason.name} for employee ID {shift.employee_id} in the Store ID {shift.store_id}."
         )
+    logger.debug(
+        f"[CREATE: SHIFTEXCEPTION (ID: {excep.id})] Shift ID: {shift.id if shift else 'N/A'} -- Activity: {activity.id if activity else 'N/A'} -- Reason: {reason.upper()}"
+    )
     return True
 
 

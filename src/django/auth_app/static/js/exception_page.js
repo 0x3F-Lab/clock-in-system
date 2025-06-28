@@ -319,7 +319,7 @@ function generateExceptionMessage(exception) {
     case "Missed Shift":
       return `
         <p>They were expected to work:<br>
-        ${exception.shift_start} ⟶ ${exception.shift_end} (Role: ${exception.shift_role_name || "N/A"})</p>
+        ${exception.shift_start} ⟶ ${exception.shift_end} (Role: ${exception.shift_role_name || "N/A"}) [Length: ${exception.shift_length_hr ? exception.shift_length_hr : "N/A"} Hours]</p>
         <p>However, they did not show up to their shift.</p>
         <p>By approving this exception, the rostered shift will be deleted from the rosters. <em>This is unrecoverable.</em><br>
         <b>If the employee actually worked this shift, please add it manually using the 'Shift Logs' manager page.</b> This will also update this exception.</p>
@@ -328,12 +328,12 @@ function generateExceptionMessage(exception) {
     default:
       return `
         <p>They were expected to work:<br>
-        ${exception.shift_start} ⟶ ${exception.shift_end} (Role: ${exception.shift_role_name || "N/A"})</p>
+        ${exception.shift_start} ⟶ ${exception.shift_end} (Role: ${exception.shift_role_name || "N/A"}) [Length: ${exception.shift_length_hr ? exception.shift_length_hr : "N/A"} Hours]</p>
         <p>But they worked:<br>
         ${exception.act_start} (${exception.act_start_timestamp}) ⟶ 
         ${exception.act_end ? exception.act_end : "N/A"} (${exception.act_end_timestamp || "N/A"}) [Length: ${exception.act_length_hr ? exception.act_length_hr : "N/A"} Hours]</p>
         ${exception.act_pub_hol ? '<p>This shift was counted as a <em>Public Holiday</em>.</p>' : ''}
-        <p>By approving this exception, both the rostered shift and actual activity log will be updated as such.</p>
+        <p>By approving this exception, the rostered shift will match the worked shift.</p>
       `;
   }
 }
