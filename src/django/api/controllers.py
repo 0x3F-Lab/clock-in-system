@@ -1591,16 +1591,27 @@ def create_shiftexception_link(
             excep = ShiftException.objects.get(activity=activity)
             excep.is_approved = False
             excep.reason = reason
+
+            # Check that BOTH ACTIVITY AND SHIFT are assigned IF given both
+            if shift:
+                excep.shift = shift
+
             excep.save()
             return False
         except ShiftException.DoesNotExist:
             pass
 
-    elif shift:
+    # Check BOTH if BOTH given (prevents violation of DB unique contraints)
+    if shift:
         try:
             excep = ShiftException.objects.get(shift=shift)
             excep.is_approved = False
             excep.reason = reason
+
+            # Check that BOTH ACTIVITY AND SHIFT are assigned IF given both
+            if activity:
+                excep.activity = activity
+
             excep.save()
             return False
         except ShiftException.DoesNotExist:

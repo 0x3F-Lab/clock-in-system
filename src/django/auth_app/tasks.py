@@ -207,7 +207,9 @@ def check_shifts_for_exceptions(
         for store in Store.objects.filter(is_active=True).all():
             # Get all shifts to try an link them to their respective shifts (check for missed shifts)
             for shift in Shift.objects.filter(
-                store_id=store.id, date__gte=cutoff, is_deleted=False
+                store_id=store.id,
+                date__range=(cutoff, localtime(now()).date()),
+                is_deleted=False,
             ):
                 try:
                     reason, created = link_activity_to_shift(shift=shift)
