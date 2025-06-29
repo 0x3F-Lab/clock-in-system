@@ -162,10 +162,12 @@ class StoreAdmin(admin.ModelAdmin):
         "code",
         "name",
         "store_pin",
-        "is_active",
         "allowable_clocking_dist_m",
+        "is_active",
+        "is_clocking_enabled",
+        "is_health_safety_enabled",
     )
-    list_filter = ("is_active",)
+    list_filter = ("is_active", "is_clocking_enabled", "is_health_safety_enabled")
     search_fields = ("code", "name", "store_pin")
     ordering = ("name",)
     inlines = [StoreUserAccessInlineForStore]

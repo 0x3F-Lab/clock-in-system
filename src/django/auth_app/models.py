@@ -278,6 +278,8 @@ class Store(models.Model):
     )
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
+    is_clocking_enabled = models.BooleanField(default=False, null=False)
+    is_health_safety_enabled = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):

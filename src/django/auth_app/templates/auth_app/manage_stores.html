@@ -34,6 +34,9 @@
     <p><span class="fw-semibold">Allowable Clocking Distance:</span> {{ info.clocking_dist|escape }} meters</p>
     <p><span class="fw-semibold">Store Latitude:</span> {{ info.loc_lat|escape }}</p>
     <p><span class="fw-semibold">Store Longitude:</span> {{ info.loc_long|escape }}</p>
+    <p><span class="fw-semibold">Is Store Active:</span> {% if info.is_active %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
+    <p><span class="fw-semibold">Is Store Clocking Capabled:</span> {% if info.is_clocking_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
+    <p><span class="fw-semibold">Is Store Health & Food Safety Capable:</span> {% if info.is_health_safety_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
   </div>
   {% endfor %}
   <button type="button" class="btn btn-lg w-100 btn-primary" id="openEditModal">

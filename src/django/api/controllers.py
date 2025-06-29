@@ -123,6 +123,10 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
+            # Check if store has clocking capabilities
+            elif not store.is_clocking_enabled:
+                raise err.StoreNotClockingCapable
+
             elif employee.has_activity_on_date(store=store, date=time.date()):
                 raise err.AlreadyWorkedTodayError
 
@@ -164,6 +168,7 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
         err.StartingShiftTooSoonError,
         err.NotAssociatedWithStoreError,
         err.InactiveStoreError,
+        err.StoreNotClockingCapable,
     ) as e:
         # Re-raise common errors
         raise e
@@ -220,6 +225,10 @@ def handle_clock_out(
             elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
 
+            # Check if store has clocking capabilities
+            elif not store.is_clocking_enabled:
+                raise err.StoreNotClockingCapable
+
             # Check if the employee is trying to clock out too soon after their last shift (default=10m)
             elif check_clocking_out_too_soon(employee=employee, store=store):
                 raise err.ClockingOutTooSoonError
@@ -259,6 +268,7 @@ def handle_clock_out(
         err.ClockingOutTooSoonError,
         err.NotAssociatedWithStoreError,
         err.InactiveStoreError,
+        err.StoreNotClockingCapable,
     ) as e:
         # Re-raise common errors
         raise e

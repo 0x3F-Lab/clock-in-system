@@ -382,6 +382,16 @@ def manual_clocking(request):
                     {**context, "form": form},
                     status=status.HTTP_409_CONFLICT,
                 )
+            except err.StoreNotClockingCapable:
+                messages.error(
+                    request, "Cannot clock in/out of a clocking incapable store."
+                )
+                return render(
+                    request,
+                    "auth_app/manual_clocking.html",
+                    {**context, "form": form},
+                    status=status.HTTP_423_LOCKED,
+                )
             except Exception as e:
                 logger.warning(
                     f"Failed to manually clock in/out employee with PIN {employee_pin} (ID: {employee.id}) for store PIN {store_pin} (Code: {store.code}) due to the error: {e}"

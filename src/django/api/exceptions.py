@@ -201,3 +201,23 @@ class ShiftExceptionExistsError(Exception):
     def __init__(self, message="The ShiftException must be handled first."):
         self.message = message
         super().__init__(self.message)
+
+
+class StoreNotClockingCapable(Exception):
+    """
+    Raised when trying to interact with a store via clocking who has clocking capabilities disabled.
+    """
+
+    def __init__(self, message="The Store is not clocking capable."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class StoreNotHealthFoodSafetyCapable(Exception):
+    """
+    Raised when trying to interact with a store via health and food safety who has health and food safety capabilities disabled.
+    """
+
+    def __init__(self, message="The Store is not health and food safety capable."):
+        self.message = message
+        super().__init__(self.message)

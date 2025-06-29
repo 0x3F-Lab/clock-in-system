@@ -352,11 +352,10 @@ def update_shift_details(request, id):
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
+        elif not activity.store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
         elif not activity.store.is_active:
-            return Response(
-                {"Error": "Not authorised to update a shift to an inactive store."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise err.InactiveStoreError
         elif activity.employee.is_hidden:
             return Response(
                 {"Error": "Not authorised to interact with a hidden account."},
@@ -585,6 +584,16 @@ def update_shift_details(request, id):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to update a shift to an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
@@ -661,18 +670,12 @@ def create_new_shift(request):
 
         # Check user is authorised to interact with the store and the user
         if not manager.is_associated_with_store(store=int(store_id)):
-            return Response(
-                {
-                    "Error": "Not authorised to create a new shift for an unassociated store."
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            raise err.NotAssociatedWithStoreError
         elif not store.is_active:
-            return Response(
-                {"Error": "Not authorised to interact with an inactive store."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        elif not manager.is_manager_of(employee=employee):
+            raise err.InactiveStoreError
+        elif not store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
+        elif not employee.is_manager_of(store=int(store_id)):
             return Response(
                 {
                     "Error": "Not authorised to create a new shift with another store's employee."
@@ -836,6 +839,23 @@ def create_new_shift(request):
                 "Error": "Could not convert a value into an integer. Did you set your values correctly?"
             },
             status=status.HTTP_400_BAD_REQUEST,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {
+                "Error": "Not authorised to create a new shift for an unassociated store."
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised to interact with an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
         # Handle any unexpected exceptions
@@ -1856,6 +1876,11 @@ def clock_in(request):
             {"Error": f"Can't clock in to an inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except ValueError:
         return Response(
             {
@@ -1989,6 +2014,11 @@ def clock_out(request):
         return Response(
             {"Error": "Can't clock out to an inactive store."},
             status=status.HTTP_409_CONFLICT,
+        )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
         # General error capture -- including database location errors
@@ -2791,6 +2821,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 raise err.NotAssociatedWithStoreError
             elif not store.is_active:
                 raise err.InactiveStoreError
+            elif not store.is_clocking_enabled:
+                raise err.StoreNotClockingCapable
 
             with transaction.atomic():
                 role = Role.objects.create(
@@ -2817,6 +2849,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
             raise err.NotAssociatedWithStoreError
         elif not role.store.is_active:
             raise err.InactiveStoreError
+        elif not role.store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
 
         # Save original role info for logging
         original = {
@@ -2910,6 +2944,11 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 "Error": "Not authorised to update role information for an inactive store."
             },
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
         logger.critical(
@@ -3064,9 +3103,10 @@ def manage_store_shift(request, id):
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=shift.store.id):
             raise err.NotAssociatedWithStoreError
-
         elif not shift.store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
+        elif not shift.store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
 
         # Save original info for logging
         original = {
@@ -3311,6 +3351,11 @@ def manage_store_shift(request, id):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         logger.critical(
             f"An error occured when trying to interact with a store's shift for shift ID {id} for method {request.method}, resulting in the error: {str(e)}"
@@ -3371,6 +3416,8 @@ def create_store_shift(request, store_id):
             raise err.NotAssociatedWithStoreError
         elif not store.is_active:
             raise err.InactiveStoreError
+        elif not store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
         elif not employee.is_active:
             raise err.InactiveUserError
         elif role_id and not store.has_role(role=int(role_id)):
@@ -3470,6 +3517,11 @@ def create_store_shift(request, store_id):
             {"Error": "Not authorised create a shift for an inactive user."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         logger.critical(f"Error creating shift: {str(e)}")
         return Response(
@@ -3500,6 +3552,8 @@ def manage_store_exception(request, exception_id):
             raise err.InactiveStoreError
         elif not manager.is_associated_with_store(store=store):
             raise err.NotAssociatedWithStoreError
+        elif not store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
         elif exception.is_approved:
             raise err.ShiftExceptionAlreadyApprovedError
 
@@ -3647,6 +3701,11 @@ def manage_store_exception(request, exception_id):
             {"Error": "Not authorised interact with exceptions of an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         logger.critical(f"Error approving exception ID {exception_id}: {str(e)}")
         return Response(
@@ -3751,6 +3810,8 @@ def copy_week_schedule(request, store_id):
             raise err.InactiveStoreError
         elif not manager.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
+        elif not store.is_clocking_enabled:
+            raise err.StoreNotClockingCapable
         elif target_week <= localtime(now()).date():
             return Response(
                 {"Error": "Cannot copy schedules into a past week."},
@@ -3790,6 +3851,11 @@ def copy_week_schedule(request, store_id):
             {"Error": "Not authorised to modify the schedule for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.StoreNotClockingCapable:
+        return Response(
+            {"Error": "Not authorised to interact with a clocking incapable store."},
+            status=status.HTTP_423_LOCKED,
+        )
     except DatabaseError as e:
         logger.critical(
             f"A database error occured when trying to copy a schedule week ({source_week} -> {target_week}) [override: {'YES' if override_shifts else 'NO'}]: {str(e)}"
@@ -3798,7 +3864,7 @@ def copy_week_schedule(request, store_id):
             {
                 "Error": "Failed to copy schedule week due to internal database errors. Please contact an admin."
             },
-            status=status.HTTP_423_LOCKED,
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except Exception as e:
         logger.critical(f"An error occurred during copy_week_schedule: {str(e)}")
