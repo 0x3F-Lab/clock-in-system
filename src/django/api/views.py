@@ -675,7 +675,7 @@ def create_new_shift(request):
             raise err.InactiveStoreError
         elif not store.is_clocking_enabled:
             raise err.StoreNotClockingCapable
-        elif not employee.is_manager_of(store=int(store_id)):
+        elif not employee.is_associated_with_store(store=int(store_id)):
             return Response(
                 {
                     "Error": "Not authorised to create a new shift with another store's employee."
