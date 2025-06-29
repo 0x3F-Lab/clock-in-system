@@ -116,6 +116,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "api",
     "auth_app",
+    "health_safety",
 ]
 
 MIDDLEWARE = [
