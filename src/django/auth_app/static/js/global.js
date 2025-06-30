@@ -470,6 +470,7 @@ async function getLocationData() {
     
     if (permissionStatus.state === 'denied') {
       showNotification("Location access is denied. Please enable it in your browser settings.");
+      hideSpinner();
       return null;
     }
 
@@ -495,7 +496,7 @@ async function getLocationData() {
             default:
               showNotification("An unknown error occurred while retrieving your location.");
           }
-
+          hideSpinner();
           reject(null);
         },
         {
@@ -507,6 +508,7 @@ async function getLocationData() {
     });
   } else {
     showNotification("Geolocation is not supported by your browser. Cannot clock in/out.");
+    hideSpinner();
     return null;
   }
 }

@@ -166,51 +166,31 @@ async function clockInOutUser() {
     $.ajax({
       url: `${window.djangoURLs.clockIn}`,
       type: "PUT",
-      xhrFields: {
-        withCredentials: true
-      },
-      headers: {
-        'X-CSRFToken': getCSRFToken(), // Include CSRF token
-      },
+      xhrFields: { withCredentials: true },
+      headers: { 'X-CSRFToken': getCSRFToken() },
       contentType: 'application/json',
       data: JSON.stringify({
         store_id: getSelectedStoreID(),
         location_latitude: userLat,
         location_longitude: userLong,
       }),
-  
       success: function(response) {
         hideSpinner();
+        showNotification("Successfully clocked in.", "success");
 
         // Update the clocked state and subsequently the clocking buttons
         updateClockedState();
         updateShiftHistory();
-        showNotification("Successfully clocked in.");
       },
-  
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to clock in due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock in. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to clock in"); }
     });
 
   } else {
     $.ajax({
       url: `${window.djangoURLs.clockOut}`,
       type: "PUT",
-      xhrFields: {
-        withCredentials: true
-      },
-      headers: {
-        'X-CSRFToken': getCSRFToken(), // Include CSRF token
-      },
+      xhrFields: { withCredentials: true },
+      headers: { 'X-CSRFToken': getCSRFToken() },
       contentType: 'application/json',
       data: JSON.stringify({
         store_id: getSelectedStoreID(),
@@ -218,26 +198,15 @@ async function clockInOutUser() {
         location_longitude: userLong,
         deliveries: deliveries,
       }),
-  
       success: function(response) {
         hideSpinner();
+        showNotification("Successfully clocked out.", "success");
 
         // Update the clocked state and subsequently the clocking buttons
         updateClockedState();
-        showNotification("Successfully clocked out.");
+        updateShiftHistory();
       },
-  
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to clock out due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock out. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to clock out"); }
     });
   }
 }
