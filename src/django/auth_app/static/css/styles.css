@@ -588,7 +588,8 @@ table {
   border-radius: 4px;
 }
 
-.info-tooltip-icon {
+.info-tooltip-icon,
+.danger-tooltip-icon {
   font-size: 0.8rem;
   background-color: #dee2e6;
   border-radius: 50%;
@@ -600,6 +601,10 @@ table {
   font-weight: bold;
   top: 0.25rem;
   right: 0.25rem;
+}
+
+.danger-tooltip-icon {
+  background-color: #F08080;
 }
 
 .shift-item .info-tooltip-icon {

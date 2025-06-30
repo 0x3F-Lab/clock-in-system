@@ -303,7 +303,8 @@ MAX_DATABASE_DUMP_LIMIT = 150
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
 ROLE_NAME_MAX_LENGTH = 200  # DB is 210 max
-ROLE_DESC_MAX_LENGTH = 500  # DB is 500
+ROLE_DESC_MAX_LENGTH = 750  # DB is 750
+SHIFT_COMMENT_MAX_LENGTH = 1500  # DB is 2500
 
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (
@@ -313,12 +314,13 @@ VALID_NAME_LIST_PATTERN = r"^[a-zA-Z\s\-',]+$"  # Allows commas as well
 VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
 VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
 VALID_ROLE_NAME_DESC_PATTERN = (
-    r"^[0-9a-zA-Z\s\-',()/]+$"  # USED FOR BOTH ROLE NAME AND ROLE DESCRIPTION
+    r"^[0-9a-zA-Z\s\-',():/\[\]\.]+$"  # USED FOR BOTH ROLE NAME AND ROLE DESCRIPTION
 )
 VALID_HEX_COLOUR_PATTERN = r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"  # For roles
 VALID_STORE_NAME_PATTERN = r"^[\w\s.&+\'\-]+$"  # For store names
 VALID_STORE_STREET_PATTERN = r"^[\w\s.,'&#/+\-]+$"  # For store street names
 VALID_STORE_CODE_PATTERN = r"^[A-Z0-9]+$"  # For store codes
+VALID_SHIFT_COMMENT_PATTERN = r"^[0-9a-zA-Z\s\-',():/\[\]\.]+$"  # Shift coments
 
 
 # Default primary key field type

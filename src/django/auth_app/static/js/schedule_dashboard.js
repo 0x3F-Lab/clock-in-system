@@ -126,6 +126,7 @@ function handleShiftModification() {
         $.ajax({
             url: `${window.djangoURLs.manageShift}${shiftId}/`,
             method: 'GET',
+            headers: { 'X-CSRFToken': getCSRFToken() },
             xhrFields: { withCredentials: true },
             success: function(shiftData) {
                 $('#editShiftDate').val(shiftData.date); 
@@ -134,6 +135,7 @@ function handleShiftModification() {
                 $('#editStartTime').val(shiftData.start_time);
                 $('#editEndTime').val(shiftData.end_time);
                 $('#editModalSelectedEmployeeID').val(shiftData.employee_id);
+                $('#editComment').val(shiftData.comment);
                 $('#deleteShiftBtn').removeClass('d-none'); // Show 'Delete' button
                 
                 hideSpinner();
@@ -152,7 +154,8 @@ function handleShiftModification() {
             employee_id: form.find('#editModalSelectedEmployeeID').val(),
             role_id: form.find('#editShiftRole').val(),
             start_time: form.find('#editStartTime').val(),
-            end_time: form.find('#editEndTime').val()
+            end_time: form.find('#editEndTime').val(),
+            comment: form.find('#editComment').val(),
         };
 
         if (!formData.date || !formData.employee_id || !formData.start_time || !formData.end_time) {
@@ -170,10 +173,8 @@ function handleShiftModification() {
             method: isNonEmpty(shiftId) ? 'POST' :'PUT',
             contentType: 'application/json',
             data: JSON.stringify(formData),
-            headers: {'X-CSRFToken': getCSRFToken()},
-            xhrFields: {
-            withCredentials: true
-            },
+            headers: { 'X-CSRFToken': getCSRFToken() },
+            xhrFields: { withCredentials: true },
             success: function(response) {
                 // Dont hide spinner
                 bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
@@ -377,20 +378,21 @@ function loadSchedule(week) {
                 let shiftsHtml = '';
                 if (dayShifts && dayShifts.length > 0) {
                     dayShifts.forEach(shift => {
-                        const backgroundColor = '#f8f9fa'; // A soft, off-white color.
+                        const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : '#f8f9fa'; // unscheduled=cyan, otherwise=off-white.
                         const borderColor = shift.role_colour || '#adb5bd'; 
 
                         const duration = calculateDuration(shift.start_time, shift.end_time);
 
                         // Build the HTML with the new color logic.
                         shiftsHtml += `
-                            <div class="shift-item cursor-pointer" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
-                                <div class="shift-item-employee">${shift.employee_name}</div>
-                                <div class="shift-item-details">
-                                    <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                                    <span>⌛ ${duration}</span>
-                                    ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
-                                </div>
+                            <div class="shift-item position-relative cursor-pointer" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                              ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
+                              <div class="shift-item-employee">${shift.employee_name}</div>
+                              <div class="shift-item-details">
+                                <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                                <span>⌛ ${duration}</span>
+                                ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                              </div>
                             </div>`;
                     });
                 } else {
@@ -399,18 +401,18 @@ function loadSchedule(week) {
                 
                 const dayCardHtml = `
                     <div class="day-column mb-4">
-                        <div class="day-header">
-                            <div class="day-name">${getFullDayName(dayDate)}</div>
-                            <div class="day-date">${getShortDate(dayDate)}</div>
-                            <button class="btn add-shift-btn" data-day="${dayDate}" data-bs-toggle="tooltip" title="Add shift for this day">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                        <div class="shifts-list">${shiftsHtml}</div>
+                      <div class="day-header">
+                        <div class="day-name">${getFullDayName(dayDate)}</div>
+                        <div class="day-date">${getShortDate(dayDate)}</div>
+                        <button class="btn add-shift-btn" data-day="${dayDate}" data-bs-toggle="tooltip" title="Add shift for this day">
+                          <i class="fas fa-plus"></i>
+                        </button>
+                      </div>
+                      <div class="shifts-list">${shiftsHtml}</div>
                     </div>`;
                 scheduleContainer.append(dayCardHtml);
             });
-            
+
             // Initialise tooltips for buttons
             $('[data-bs-toggle="tooltip"]').tooltip();
             $('#previous-week-btn').data('week', data.prev_week);

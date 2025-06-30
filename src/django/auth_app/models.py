@@ -664,7 +664,7 @@ class NotificationReceipt(models.Model):
 class Role(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="roles")
     name = models.CharField(max_length=210, null=False)
-    description = models.TextField(max_length=500, null=True, blank=True)
+    description = models.TextField(max_length=750, blank=True, default="")
     colour_hex = models.CharField(
         max_length=10, null=False, default="#adb5bd", validators=[HEX_COLOUR_VALIDATOR]
     )
@@ -700,9 +700,11 @@ class Shift(models.Model):
     role = models.ForeignKey(
         Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
     )
+    comment = models.TextField(max_length=1500, blank=True, default="")
     is_deleted = models.BooleanField(
         null=False, default=False
     )  # ONLY DELETED VISUALLY - STILL IN EXCEPTIONS
+    is_unscheduled = models.BooleanField(null=False, default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -710,7 +712,7 @@ class Shift(models.Model):
     class Meta:
         ordering = ["store", "date", "start_time"]
         # Only one shift per day per user per store:
-        unique_together = [("employee", "store", "date")]
+        unique_together = [("employee", "store", "date", "start_time")]
         indexes = [
             models.Index(fields=["store", "date", "start_time"]),  # For store listing
         ]

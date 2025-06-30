@@ -2758,6 +2758,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 )
 
         if description:
+            description = description.strip().replace("\n", "").replace("\t", "")
             if len(description) > settings.ROLE_DESC_MAX_LENGTH:
                 return Response(
                     {
@@ -2767,7 +2768,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 )
             elif not re.match(settings.VALID_ROLE_NAME_DESC_PATTERN, description):
                 return Response(
-                    {"Error": f"Role description includes invalid characters."},
+                    {"Error": "Role description includes invalid characters."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
@@ -3077,6 +3078,7 @@ def manage_store_shift(request, id):
             "start_time": shift.start_time,
             "end_time": shift.end_time,
             "role": shift.role.name if shift.role else "N/A",
+            "comment": shift.comment[:50] if shift.comment else "N/A",
         }
 
         # If GET -> Get the specific INFO for this one schedule
@@ -3092,6 +3094,9 @@ def manage_store_shift(request, id):
                     "role_id": shift.role.id if shift.role else None,
                     "role_name": shift.role.name if shift.role else None,
                     "role_colour": shift.role.colour_hex if shift.role else None,
+                    "comment": shift.comment if shift.comment else "",
+                    "is_unscheduled": shift.is_unscheduled,
+                    "is_deleted": shift.is_deleted,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -3115,7 +3120,7 @@ def manage_store_shift(request, id):
                 f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) deleted a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
             )
             logger.debug(
-                f"[DELETE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) -- Date: {original['date']} -- Time: {original['start_time']} <> {original['end_time']} -- Role: {original['role']}"
+                f"[DELETE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) -- Date: {original['date']} -- Time: {original['start_time']} <> {original['end_time']} -- Role: {original['role']} -- Comment: {original['comment']}"
             )
             return Response(
                 {
@@ -3136,6 +3141,7 @@ def manage_store_shift(request, id):
             date = util.clean_param_str(request.data.get("date", None))
             start_time = util.clean_param_str(request.data.get("start_time", None))
             end_time = util.clean_param_str(request.data.get("end_time", None))
+            comment = util.clean_param_str(request.data.get("comment", ""))
 
             if not all([employee_id, date, start_time, end_time]):
                 return Response(
@@ -3168,6 +3174,21 @@ def manage_store_shift(request, id):
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
+
+            if comment:
+                comment = comment.strip().replace("\n", "").replace("\t", "")
+                if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                    return Response(
+                        {
+                            "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                        },
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+                elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                    return Response(
+                        {"Error": "Comment includes invalid characters."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
             # Get the employee
             employee = User.objects.get(pk=int(employee_id))
@@ -3258,6 +3279,10 @@ def manage_store_shift(request, id):
                 shift.end_time = end_time
                 update = True
 
+            if shift.comment != comment:
+                shift.comment = comment
+                update = True
+
             if not update:
                 return JsonResponse(
                     {"Error": "No changes detected."},
@@ -3271,7 +3296,7 @@ def manage_store_shift(request, id):
                 f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated a SHIFT with ID {id} (for date {original['date']}) for the employee ID {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) under the store [{shift.store.code}])."
             )
             logger.debug(
-                f"[UPDATE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) → {shift.employee.first_name} {shift.employee.last_name} ({shift.employee.id}) -- Date: {original['date']} → {shift.date} -- Time: {original['start_time']} <> {original['end_time']} → {shift.start_time} <> {shift.end_time}"
+                f"[UPDATE: SHIFT (ID: {original['id']})] Employee: {original['emp_name']} ({original['emp_id']}) → {shift.employee.first_name} {shift.employee.last_name} ({shift.employee.id}) -- Date: {original['date']} → {shift.date} -- Time: {original['start_time']} <> {original['end_time']} → {shift.start_time} <> {shift.end_time} -- Comment: {original['comment']} → {shift.comment if shift.comment else 'N/A'}"
             )
             return JsonResponse(
                 {
@@ -3334,6 +3359,7 @@ def create_store_shift(request, store_id):
         date = util.clean_param_str(request.data.get("date", None))
         start_time = util.clean_param_str(request.data.get("start_time", None))
         end_time = util.clean_param_str(request.data.get("end_time", None))
+        comment = util.clean_param_str(request.data.get("comment", ""))
 
         if not all([employee_id, date, start_time, end_time]):
             return Response(
@@ -3364,6 +3390,21 @@ def create_store_shift(request, store_id):
                 {"Error": "Incorrect date/time format."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
+
+        if comment:
+            comment = comment.strip().replace("\n", "").replace("\t", "")
+            if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                return Response(
+                    {
+                        "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                return Response(
+                    {"Error": "Comment includes invalid characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
 
         employee = User.objects.get(pk=int(employee_id))
 
@@ -3427,6 +3468,7 @@ def create_store_shift(request, store_id):
             date=date,
             start_time=start_time,
             end_time=end_time,
+            comment=comment,
         )
 
         logger.info(
