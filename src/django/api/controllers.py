@@ -1255,7 +1255,7 @@ def get_store_exceptions(
         if obj.shift:
             start_dt = datetime.combine(info["date"], obj.shift.start_time)
             end_dt = datetime.combine(info["date"], obj.shift.end_time)
-            shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 1)
+            shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 2)
             info.update(
                 {
                     "shift_start": obj.shift.start_time,
@@ -1283,7 +1283,7 @@ def get_store_exceptions(
                         if obj.activity.logout_timestamp
                         else None
                     ),
-                    "act_length_hr": round(obj.activity.shift_length_mins / 60, 1),
+                    "act_length_hr": round(obj.activity.shift_length_mins / 60, 2),
                     "act_pub_hol": obj.activity.is_public_holiday,
                 }
             )
