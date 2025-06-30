@@ -16,7 +16,8 @@ $(document).ready(function() {
 
     // Handle table controls submission
     $('#tableControllerSubmit').on('click', () => {
-      loadSchedule(new Date().toLocaleDateString('sv-SE'));
+      const date = $('#schedule-week-title').data('week-start-date') || new Date().toLocaleDateString('sv-SE');
+      loadSchedule(date);
     });
 
     // Update table controller icon on collapse/show
@@ -369,8 +370,6 @@ function loadSchedule(week) {
             $('#schedule-week-title')
                 .text(`Week of ${formatWeekTitle(data.week_start)}`)
                 .data('week-start-date', data.week_start);
-            
-            $('#schedule-week-title').text(`Week of ${formatWeekTitle(data.week_start)}`);
             const scheduleContainer = $('#schedule-container');
             scheduleContainer.empty();
 
@@ -411,9 +410,9 @@ function loadSchedule(week) {
                     </div>`;
                 scheduleContainer.append(dayCardHtml);
             });
+            
             // Initialise tooltips for buttons
             $('[data-bs-toggle="tooltip"]').tooltip();
-
             $('#previous-week-btn').data('week', data.prev_week);
             $('#next-week-btn').data('week', data.next_week);
             hideSpinner();
