@@ -1,0 +1,72 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Health & Food Safety Manager Dashboard{% endblock %}
+
+{% block content_container_class %}my-5{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="fw-bold">Health & Food Safety Manager Dashboard</h1>
+    <p class="lead">Logged in as: <strong>{{ request.session.name|default:"ERROR LOADING USER" }}</strong></p>
+  </div>
+
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
+
+    <div class="col">
+      <a href="{% url 'manage_employee_details' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-orange text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-warehouse fa-2x mb-3"></i>
+          <h5 class="card-title">Delivery Management</h5>
+          <p class="card-text">Manage suppliers and view receival logs.</p>
+        </div>
+      </a>
+    </div>
+    
+    <div class="col">
+      <a href="{% url 'manage_shift_logs' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-orange text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-temperature-high fa-2x mb-3"></i>
+          <h5 class="card-title">Cool Device Management</h5>
+          <p class="card-text">Manage loggable devices and view temperature logs.</p>
+        </div>
+      </a>
+    </div>
+    
+    <div class="col">
+      <a href="{% url 'account_summary' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-orange text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-stopwatch fa-2x mb-3"></i>
+          <h5 class="card-title">Food Time Tracker Logs</h5>
+          <p class="card-text">View ..........</p>
+        </div>
+      </a>
+    </div>
+
+    <div class="col">
+      <a href="{% url 'manage_stores' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-orange text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-list-check fa-2x mb-3"></i>
+          <h5 class="card-title">Checklist Management</h5>
+          <p class="card-text">Manage checklists and view signoff logs.</p>
+        </div>
+      </a>
+    </div>
+
+    <div class="col">
+      <a href="{% url 'manage_stores' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-orange text-decoration-none">
+        <div class="card-body">
+          <i class="fa-solid fa-user-graduate fa-2x mb-3"></i>
+          <h5 class="card-title">Staff Management</h5>
+          <p class="card-text">Manage health and food safety training.</p>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <div class="text-center mt-5">
+    <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+      <i class="fa-solid fa-arrow-left me-2"></i> Back to Manager Dashboard
+    </button>
+  </div>
+</div>
+{% endblock %}

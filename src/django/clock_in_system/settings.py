@@ -381,6 +381,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": False,
         },
+        "health_safety": {
+            "handlers": ["console", "file", "errors"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
         "celery": {  # Celery-specific logger
             "handlers": ["console", "tasks", "errors"],
             "level": "INFO",
