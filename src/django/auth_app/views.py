@@ -27,9 +27,6 @@ from auth_app.forms import (
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
-from django.utils import timezone
-from datetime import timedelta, date
-from .models import Shift
 
 
 logger = logging.getLogger("auth_app")
