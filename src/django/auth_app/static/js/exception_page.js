@@ -83,9 +83,11 @@ function handleExceptionApproveBtns() {
     const login = $(this).attr('data-login');
     const logout = $(this).attr('data-logout');
     const roleID = $(this).attr('data-role-id');
+    const comment = $(this).data('comment');
     if (login) { $('#editLoginTimestamp').val(login); }
     if (logout) { $('#editLogoutTimestamp').val(logout); }
-    if (roleID) { $("#editRoleSelect").val(roleID); }
+    if (roleID) { $('#editRoleSelect').val(roleID); }
+    if (comment) { $('#editComment').val(comment); }
     $('#editModalSubmit').attr('data-id', ID);
     openEditModal();
   });
@@ -123,18 +125,7 @@ function markExceptionApproved(id, edit) {
         showNotification("Successfully approved the exception.", "success");
       },
 
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to approve the exception due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to approve the exception. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to approve the exception"); }
     });
 
     // If making edits to clocking times
@@ -149,6 +140,7 @@ function markExceptionApproved(id, edit) {
           login_time: $('#editLoginTimestamp').val(),
           logout_time: $('#editLogoutTimestamp').val(),
           role_id: $('#editRoleSelect').val(),
+          comment: $('#editComment').val(),
         }),
 
       success: function(req) {
@@ -164,18 +156,7 @@ function markExceptionApproved(id, edit) {
         showNotification("Successfully approved the exception.", "success");
       },
 
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to approve the exception due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to approve the exception. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to approve the exception"); }
     });
   }
 }
@@ -267,6 +248,10 @@ function updateExceptions() {
             </div>
           `;
           excepList.append(row);
+          if (e.shift_comment) {
+            // Use jquery data in case comment is too large
+            $(`#excep-${e.id} .mark-approved-edit`).data('comment', e.shift_comment);
+          }
         });
       } else {
         const msg = isExceptionListTypeUnapproved ? "You're all caught up. New exceptions will appear here for all store managers." : "Your store has no past exceptions. Any new exceptions approved will appear here.";
@@ -287,17 +272,8 @@ function updateExceptions() {
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
       $('#list-title').text(`${isExceptionListTypeUnapproved ? "Active" : "Approved"} Store Exceptions (ERR)`);
-
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to get store exceptions due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to get store exceptions. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      handleAjaxError(jqXHR, "Failed to get store exceptions");
     }
   });
 }
@@ -361,14 +337,6 @@ function updateStoreRoles() {
         }
       },
 
-      error: function(jqXHR, textStatus, errorThrown) {
-        let errorMessage;
-        if (jqXHR.status == 500) {
-            errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
-        } else {
-            errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to load store roles"); }
   });
 }

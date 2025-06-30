@@ -3535,6 +3535,7 @@ def manage_store_exception(request, exception_id):
         login_time = util.clean_param_str(request.data.get("login_time", None))
         logout_time = util.clean_param_str(request.data.get("logout_time", None))
         role_id = util.clean_param_str(request.data.get("role_id", None))
+        comment = util.clean_param_str(request.data.get("comment", ""))
 
         store = exception.get_store()
 
@@ -3574,6 +3575,21 @@ def manage_store_exception(request, exception_id):
                     {"Error": "Invalid datetime format. Expected HH:MM or HH:MM:SS."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
+
+            if comment:
+                comment = comment.strip().replace("\n", "").replace("\t", "")
+                if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                    return Response(
+                        {
+                            "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                        },
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+                elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                    return Response(
+                        {"Error": "Comment includes invalid characters."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
             # Make sure activity is there
             activity = exception.activity
@@ -3634,7 +3650,7 @@ def manage_store_exception(request, exception_id):
                 activity.save()
 
                 controllers.approve_exception(
-                    exception=exception.id, override_role_id=role_id
+                    exception=exception.id, override_role_id=role_id, comment=comment
                 )
 
                 logger.info(

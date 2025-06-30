@@ -1266,6 +1266,7 @@ def get_store_exceptions(
                     "shift_length_hr": shift_length_hr,
                     "shift_role_name": obj.shift.role.name if obj.shift.role else None,
                     "shift_role_id": obj.shift.role.id if obj.shift.role else None,
+                    "shift_comment": obj.shift.comment if obj.shift.comment else "",
                 }
             )
 
@@ -1299,6 +1300,7 @@ def get_store_exceptions(
 def approve_exception(
     exception: Union[ShiftException, int, str],
     override_role_id: Union[str, int, None] = None,
+    comment: Union[str, None] = None,
 ) -> None:
     """
     Approves an exception and updates both the linked shift and/or activity when required.
@@ -1307,6 +1309,7 @@ def approve_exception(
     Args:
         exception (Union[ShiftException, int, str]): The exception to approve.
         override_role_id (Union[str, int, None]): The ID of the role to override the connected shift with. BE WARNED: THIS IS NOT CHECKED IF A STORE HAS ACCESS TO THE ROLE, THIS IS DONE IN THE API VIEW ITSELF.
+        comment (Union[str, None]): The comment to replace on the shift with (if its different). COMMENT MUST BE FILTERED AND CHECKED BEFORE THIS FUNCTION.
 
     Raises:
         ShiftException.DoesNotExist: If the Exception does not exist.
@@ -1353,10 +1356,15 @@ def approve_exception(
             if shift.end_time != activity.logout_time.time():
                 shift.end_time = localtime(activity.logout_time).time()
                 updated = True
-
             # Only update role if its given AND it changes
             if override_role_id and shift.role != role:
                 shift.role = role
+                updated = True
+            if comment and shift.comment != comment:
+                shift.comment = comment
+                updated = True
+            if exception.reason == ShiftException.Reason.NO_SHIFT:
+                shift.is_unscheduled = True
                 updated = True
 
             if updated:
@@ -1376,8 +1384,14 @@ def approve_exception(
             )
 
             # Update role if given
+            updated = False
             if override_role_id:
                 new_shift.role = role
+                updated = True
+            if exception.reason == ShiftException.Reason.NO_SHIFT:
+                new_shift.is_unscheduled = True
+                updated = True
+            if updated:
                 new_shift.save()
 
             # Update exception to link to newly created shift
@@ -1676,7 +1690,9 @@ def copy_week_schedule(
     target_range = (target_week, target_week + timedelta(days=6))
 
     # Fetch shifts in source week
-    source_shifts = Shift.objects.filter(store_id=store.id, date__range=source_range)
+    source_shifts = Shift.objects.filter(
+        store_id=store.id, is_deleted=False, date__range=source_range
+    )
 
     # Prefetch existing shifts in the target week for faster conflict checking
     target_shifts = Shift.objects.filter(store_id=store.id, date__range=target_range)
@@ -1701,6 +1717,17 @@ def copy_week_schedule(
         conflict = key in existing_shifts_map
 
         if conflict:
+            target_shift = existing_shifts_map[key]
+
+            # If target shift is deleted, always override and undelete
+            if target_shift.is_deleted:
+                target_shift.start_time = src_shift.start_time
+                target_shift.end_time = src_shift.end_time
+                target_shift.role = src_shift.role
+                target_shift.is_deleted = False  # undelete it
+                shifts_to_override.append(target_shift)
+                count_updated += 1
+
             if override_shifts:
                 target_shift = existing_shifts_map[key]
                 if (
@@ -1740,7 +1767,7 @@ def copy_week_schedule(
 
             if shifts_to_override:
                 Shift.objects.bulk_update(
-                    shifts_to_override, ["start_time", "end_time", "role"]
+                    shifts_to_override, ["start_time", "end_time", "role", "is_deleted"]
                 )
 
     except IntegrityError as e:
