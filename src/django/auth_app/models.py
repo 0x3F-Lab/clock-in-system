@@ -700,7 +700,7 @@ class Shift(models.Model):
     role = models.ForeignKey(
         Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
     )
-    comment = models.TextField(max_length=1500, blank=True, default="")
+    comment = models.TextField(max_length=1500, blank=True, null=True, default="")
     is_deleted = models.BooleanField(
         null=False, default=False
     )  # ONLY DELETED VISUALLY - STILL IN EXCEPTIONS
