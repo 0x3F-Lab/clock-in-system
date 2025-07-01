@@ -55,6 +55,26 @@ class ExpiryStatusFilter(admin.SimpleListFilter):
         return queryset
 
 
+class HasCommentFilter(admin.SimpleListFilter):
+    title = "Has comment"
+    parameter_name = "has_comment"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("yes", "Has comment"),
+            ("no", "No comment"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.exclude(comment__isnull=True).exclude(comment__exact="")
+        if self.value() == "no":
+            return queryset.filter(comment__isnull=True) | queryset.filter(
+                comment__exact=""
+            )
+        return queryset
+
+
 # ////////////////////// CREATE CUSTOM INLINE CLASSES ///////////////////////////
 
 
@@ -308,12 +328,14 @@ class ShiftAdmin(admin.ModelAdmin):
         "end_time",
         "role_display",
         "is_deleted",
+        "is_unscheduled",
         "created_at",
     )
     list_filter = (
+        HasCommentFilter,
         "is_deleted",
+        "is_unscheduled",
         "store__code",
-        "role__name",
         "store__is_active",
         "employee__is_active",
         "employee__is_manager",

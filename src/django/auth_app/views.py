@@ -320,7 +320,7 @@ def manual_clocking(request):
             # Clock the employee in/out
             try:
                 if employee.is_clocked_in(store=store):
-                    activity = handle_clock_out(
+                    handle_clock_out(
                         employee_id=employee.id,
                         deliveries=deliveries,
                         store_id=store.id,
@@ -328,7 +328,7 @@ def manual_clocking(request):
                     )
                     messages.success(request, "Successfully clocked out.")
                 else:
-                    activity = handle_clock_in(
+                    handle_clock_in(
                         employee_id=employee.id, store_id=store.id, manual=True
                     )
                     messages.success(request, "Successfully clocked in.")
@@ -373,14 +373,6 @@ def manual_clocking(request):
                     "auth_app/manual_clocking.html",
                     {**context, "form": form},
                     status=status.HTTP_417_EXPECTATION_FAILED,
-                )
-            except err.AlreadyWorkedTodayError:
-                messages.error(request, "Cannot work twice in one day.")
-                return render(
-                    request,
-                    "auth_app/manual_clocking.html",
-                    {**context, "form": form},
-                    status=status.HTTP_409_CONFLICT,
                 )
             except Exception as e:
                 logger.warning(

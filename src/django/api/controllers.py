@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import timedelta, datetime, date, time
 from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
+from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.db.models.functions import Coalesce, Concat
 from django.utils.timezone import now, localtime, make_aware
@@ -21,10 +22,6 @@ from django.db.models import (
     DurationField,
 )
 from auth_app.models import User, Activity, Store, Role, Shift, ShiftException
-from clock_in_system.settings import (
-    START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
-    FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
-)
 
 
 logger = logging.getLogger("api")
@@ -122,9 +119,6 @@ def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Ac
             # Check user is associated with the store
             elif not employee.is_associated_with_store(store):
                 raise err.NotAssociatedWithStoreError
-
-            elif employee.has_activity_on_date(store=store, date=time.date()):
-                raise err.AlreadyWorkedTodayError
 
             # Check the store is active
             elif not store.is_active:
@@ -863,7 +857,7 @@ def get_account_summaries(
 def check_new_shift_too_soon(
     employee: User,
     store: Store,
-    limit_mins: int = START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+    limit_mins: int = settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 ) -> bool:
     """
     Check if the user attempts to start a new shift within time limits of their last clock-out.
@@ -908,7 +902,7 @@ def check_new_shift_too_soon(
 def check_clocking_out_too_soon(
     employee: User,
     store: Store,
-    limit_mins: int = FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+    limit_mins: int = settings.FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
 ) -> bool:
     """
     Check if the user attempts to clock out within time limits after their last clock-in.

@@ -18,7 +18,6 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
-from django.shortcuts import get_object_or_404
 from auth_app.models import (
     User,
     Activity,
@@ -32,16 +31,6 @@ from auth_app.models import (
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
-from clock_in_system.settings import (
-    FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS,
-    VALID_NAME_PATTERN,
-    VALID_PHONE_NUMBER_PATTERN,
-    VALID_PASSWORD_PATTERN,
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
-    MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
-    MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS,
-)
 
 
 logger = logging.getLogger("api")
@@ -364,11 +353,11 @@ def update_shift_details(request, id):
             )
         elif activity.login_time.date() < (
             localtime(now()).date()
-            - timedelta(days=MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
+            - timedelta(days=settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
         ):
             return Response(
                 {
-                    "Error": f"Not authorised to interact with a shift older than {MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
+                    "Error": f"Not authorised to interact with a shift older than {settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
                 },
                 status=status.HTTP_424_FAILED_DEPENDENCY,
             )
@@ -533,10 +522,13 @@ def update_shift_details(request, id):
                 activity.shift_length_mins = int(delta.total_seconds() // 60)
 
                 # Check that shift length reaches minimum required shift length
-                if activity.shift_length_mins < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS:
+                if (
+                    activity.shift_length_mins
+                    < settings.FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+                ):
                     return JsonResponse(
                         {
-                            "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
+                            "Error": f"Rounded shift duration must be at least {settings.FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
@@ -719,11 +711,12 @@ def create_new_shift(request):
 
         # Check user isnt editing a shift older than 2 weeks
         elif login_timestamp.date() < (
-            now_time.date() - timedelta(days=MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
+            now_time.date()
+            - timedelta(days=settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
         ):
             return JsonResponse(
                 {
-                    "Error": f"Not authorised to create an activity older than {MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
+                    "Error": f"Not authorised to create an activity older than {settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS} days."
                 },
                 status=status.HTTP_424_FAILED_DEPENDENCY,
             )
@@ -771,11 +764,11 @@ def create_new_shift(request):
             delta = logout_time - login_time
             if (
                 int(delta.total_seconds() // 60)
-                < FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
+                < settings.FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS
             ):
                 return JsonResponse(
                     {
-                        "Error": f"Rounded shift duration must be at least {FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
+                        "Error": f"Rounded shift duration must be at least {settings.FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS} minutes."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -1115,7 +1108,7 @@ def create_new_employee(request):
                 {"Error": "First name cannot be longer than 100 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif not re.match(VALID_NAME_PATTERN, first_name):
+        elif not re.match(settings.VALID_NAME_PATTERN, first_name):
             return Response(
                 {
                     "Error": "Invalid first name. Only letters, spaces, hyphens, and apostrophes are allowed."
@@ -1128,7 +1121,7 @@ def create_new_employee(request):
                 {"Error": "Last name cannot be longer than 100 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif not re.match(VALID_NAME_PATTERN, last_name):
+        elif not re.match(settings.VALID_NAME_PATTERN, last_name):
             return Response(
                 {
                     "Error": "Invalid last name. Only letters, spaces, hyphens, and apostrophes are allowed."
@@ -1151,7 +1144,7 @@ def create_new_employee(request):
                     {"Error": "Phone number cannot be longer than 15 characters."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            elif not re.match(VALID_PHONE_NUMBER_PATTERN, phone_number):
+            elif not re.match(settings.VALID_PHONE_NUMBER_PATTERN, phone_number):
                 return Response(
                     {
                         "Error": "Invalid phone number. Only numbers, spaces, hyphens, and plus are allowed."
@@ -1339,7 +1332,7 @@ def modify_account_information(request, id=None):
                     {"Error": "First name cannot be longer than 100 characters."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            elif not re.match(VALID_NAME_PATTERN, first_name):
+            elif not re.match(settings.VALID_NAME_PATTERN, first_name):
                 return Response(
                     {
                         "Error": "Invalid first name. Only letters, spaces, hyphens, and apostrophes are allowed."
@@ -1355,7 +1348,7 @@ def modify_account_information(request, id=None):
                     {"Error": "Last name cannot be longer than 100 characters."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            elif not re.match(VALID_NAME_PATTERN, last_name):
+            elif not re.match(settings.VALID_NAME_PATTERN, last_name):
                 return Response(
                     {
                         "Error": "Invalid last name. Only letters, spaces, hyphens, and apostrophes are allowed."
@@ -1371,7 +1364,7 @@ def modify_account_information(request, id=None):
                     {"Error": "Phone number cannot be longer than 15 characters."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-            elif not re.match(VALID_PHONE_NUMBER_PATTERN, phone):
+            elif not re.match(settings.VALID_PHONE_NUMBER_PATTERN, phone):
                 return Response(
                     {
                         "Error": "Invalid phone number. Only numbers, spaces, hyphens, and plus are allowed."
@@ -1667,15 +1660,15 @@ def modify_account_password(request):
 
         # Validate new password to generate errors to add
         errors = {"old_pass": [], "new_pass": []}
-        if len(new_pass) < PASSWORD_MIN_LENGTH:
+        if len(new_pass) < settings.PASSWORD_MIN_LENGTH:
             errors["new_pass"].append(
-                f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
+                f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters long."
             )
-        if len(new_pass) > PASSWORD_MAX_LENGTH:
+        if len(new_pass) > settings.PASSWORD_MAX_LENGTH:
             errors["new_pass"].append(
-                f"Password cannot be longer than {PASSWORD_MAX_LENGTH} characters long."
+                f"Password cannot be longer than {settings.PASSWORD_MAX_LENGTH} characters long."
             )
-        if not re.search(VALID_PASSWORD_PATTERN, new_pass):
+        if not re.search(settings.VALID_PASSWORD_PATTERN, new_pass):
             errors["new_pass"].append(
                 f"Password must contain at least one uppercase letter, one lowercase letter, and one number."
             )
@@ -1782,11 +1775,6 @@ def clock_in(request):
         return Response(
             {"Error": "Missing location data in request."},
             status=status.HTTP_400_BAD_REQUEST,
-        )
-    except err.AlreadyWorkedTodayError:
-        return Response(
-            {"Error": "Cannot work twice in one day."},
-            status=status.HTTP_409_CONFLICT,
         )
     except err.MissingStoreObjectOrIDError:
         return Response(
@@ -3235,7 +3223,7 @@ def manage_store_shift(request, id):
             ):
                 return Response(
                     {
-                        "Error": f"A shift cannot be shorter than {MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
+                        "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
@@ -3447,7 +3435,7 @@ def create_store_shift(request, store_id):
         elif not util.is_shift_duration_valid(start_time=start_time, end_time=end_time):
             return Response(
                 {
-                    "Error": f"A shift cannot be shorter than {MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
+                    "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
                 },
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )

@@ -15,15 +15,6 @@ from django.core.cache import cache
 from django.contrib.sessions.models import Session
 from django.utils.timezone import make_aware, is_naive
 from auth_app.models import User, Store, Activity, Shift, ShiftException
-from clock_in_system.settings import (
-    COUNTRY_CODE,
-    COUNTRY_SUBDIV_CODE,
-    UTC_OFFSET,
-    SHIFT_ROUNDING_MINS,
-    VALID_NAME_LIST_PATTERN,
-    MAX_DATABASE_DUMP_LIMIT,
-    MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
-)
 
 logger = logging.getLogger("api")
 
@@ -46,7 +37,10 @@ def flush_user_sessions(user_id: int):
 
 # Function to check if a given date is a public holiday
 def is_public_holiday(
-    time, country=COUNTRY_CODE, subdiv=COUNTRY_SUBDIV_CODE, utc_offset=UTC_OFFSET
+    time,
+    country=settings.COUNTRY_CODE,
+    subdiv=settings.COUNTRY_SUBDIV_CODE,
+    utc_offset=settings.UTC_OFFSET,
 ):
     # Ensure 'time' is timezone-aware
     if time.tzinfo is None:
@@ -153,14 +147,14 @@ def api_get_user_object_from_session(request):
 
 # Function to round the time to the nearest specified minute
 def round_datetime_minute(
-    dt: datetime, rounding_mins: int = SHIFT_ROUNDING_MINS
+    dt: datetime, rounding_mins: int = settings.SHIFT_ROUNDING_MINS
 ) -> datetime:
     """
     Rounds a datetime object to the nearest interval defined by rounding_mins.
 
     Args:
         dt (datetime): The datetime to round.
-        rounding_mins (int, optional): The number of minutes to round to. Defaults to SHIFT_ROUNDING_MINS.
+        rounding_mins (int, optional): The number of minutes to round to. Defaults to settings.SHIFT_ROUNDING_MINS.
 
     Returns:
         datetime: The rounded datetime.
@@ -354,7 +348,7 @@ def get_pagination_values_from_request(request) -> Tuple[int, int]:
         # Enforce min limit = 1 and max limit = 150 (settings controlled)
         limit = min(
             max(int(request.query_params.get("limit", "25")), 1),
-            MAX_DATABASE_DUMP_LIMIT,
+            settings.MAX_DATABASE_DUMP_LIMIT,
         )
     except ValueError:
         limit = 25
@@ -407,7 +401,7 @@ def employee_has_conflicting_shift(
 def is_shift_duration_valid(
     start_time: time,
     end_time: time,
-    min_duration_mins: int = MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    min_duration_mins: int = settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
 ) -> bool:
     """
     Check if the time duration between start_time and end_time is greater than or equal
