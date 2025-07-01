@@ -297,6 +297,113 @@ def is_activity_modified(activity: Activity):
     return False
 
 
+def employee_has_conflicting_activities(
+    employee_id: int,
+    store_id: int,
+    login: datetime,
+    logout: datetime = None,
+    exclude_activity_id: int = None,
+    gap_period_mins: int = settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+) -> bool:
+    """
+    Checks to see if an activity collides with another activity (i.e. A: 9am-5pm and B: 3pm-7pm).
+    This also checks to make sure activities have a `gap_period_mins` between each activity for the user for a store for a day.
+    THIS WILL ALLOW ACTIVITIES ENDING AT MIDNIGHT AND STARTING NEXT DAY AT MIDNIGHT.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        store_id (int): The ID of the store.
+        login (datetime): The proposed activity login time.
+        logout (datetime, optional): The proposed activity logout time. Defaults to None.
+        exclude_activity_id (int, optional): ID of an existing activity to exclude (e.g., when updating). Defaults to None.
+        gap_period_mins (int): Minimum gap (in minutes) required between activities. Defaults to settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS.
+
+
+    Returns:
+        bool: Whether there is a conflict or not.
+    """
+    # Get activities for the employee on the given day for the given store
+    activities = Activity.objects.filter(
+        employee_id=employee_id, store_id=store_id, login_time__date=login.date()
+    )
+
+    # Exclude an acitivity if given (i.e. updating an existing activity)
+    if exclude_activity_id:
+        activities = activities.exclude(pk=exclude_activity_id)
+
+    for act in activities:
+        # Determine actual range of the compared activity
+        other_start = act.login_time
+        # Extend open-ended activity to end of the day (23:59:59)
+        other_end = act.logout_time or datetime.combine(other_start.date(), time.max)
+
+        # Apply buffer to both sides
+        login_start_buffer = login - timedelta(minutes=gap_period_mins)
+        logout_end_buffer = (
+            logout + timedelta(minutes=gap_period_mins)
+            if logout
+            else datetime.combine(login.date(), time.max)
+        )
+
+        # Check overlap (inclusive of buffer zone)
+        if login_start_buffer < other_end and logout_end_buffer > other_start:
+            return True
+
+    return False
+
+
+def employee_has_conflicting_shifts(
+    employee_id: int,
+    store_id: int,
+    date: datetime.date,
+    login: datetime.time,
+    logout: datetime.time,
+    exclude_shift_id: int = None,
+    gap_period_mins: int = settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+) -> bool:
+    """
+    Checks to see if a scheduled shift collides with another shift (i.e. A: 9am-5pm and B: 3pm-7pm).
+    This also checks to make sure shifts have a `gap_period_mins` between each activity for the user for a store for a day.
+    THIS WILL ALLOW SCHEDULED SHIFTS ENDING AT MIDNIGHT AND STARTING NEXT DAY AT MIDNIGHT.
+
+    Args:
+        employee_id (int): The ID of the employee.
+        store_id (int): The ID of the store.
+        date (datetime.date): The propposed shift date.
+        login (datetime.time): The proposed shift login time.
+        logout (datetime, optional): The proposedshift logout time. Defaults to None.
+        exclude_shift_id (int, optional): ID of an existing shift to exclude (e.g., when updating). Defaults to None.
+        gap_period_mins (int): Minimum gap (in minutes) required between shifts. Defaults to settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS.
+
+
+    Returns:
+        bool: Whether there is a conflict or not.
+    """
+    # Get activities for the employee on the given day for the given store
+    shifts = Shift.objects.filter(employee_id=employee_id, store_id=store_id, date=date)
+
+    # Exclude an acitivity if given (i.e. updating an existing activity)
+    if exclude_shift_id:
+        shifts = shifts.exclude(pk=exclude_shift_id)
+
+    for shift in shifts:
+        # Use datetime variables by using date to combine them with time
+        other_start = datetime.combine(date, shift.start_time)
+        other_end = datetime.combine(date, shift.end_time)
+        this_start = datetime.combine(date, login)
+        this_end = datetime.combine(date, logout)
+
+        # Add/subtract buffer
+        this_start_buffer = this_start - timedelta(minutes=gap_period_mins)
+        this_end_buffer = this_end + timedelta(minutes=gap_period_mins)
+
+        # Check for overlap
+        if this_start_buffer < other_end and this_end_buffer > other_start:
+            return True
+
+    return False
+
+
 def get_filter_list_from_string(
     list_str: str,
     regex_filter: Union[str, Pattern[str]] = settings.VALID_NAME_LIST_PATTERN,
@@ -370,32 +477,6 @@ def clean_param_str(value):
         return None
     else:
         return str(value).strip()
-
-
-def employee_has_conflicting_shift(
-    employee: User,
-    store: Store,
-    date: datetime.date,
-    exclude_shift_id: Optional[int] = None,
-) -> bool:
-    """
-    Check if an employee has any other shift on a given date for the given store, excluding a specific shift by ID.
-
-    Args:
-        employee (User): The employee to check shifts for.
-        store (Store): The store to check shifts against.
-        date (datetime.date): The date to check for existing shifts.
-        exclude_shift_id (int, optional): The ID of the shift to exclude from the check (usually the current shift being updated).
-
-    Returns:
-        bool: True if there is a conflicting shift on that date (other than the one excluded), False otherwise.
-    """
-    qs = Shift.objects.filter(
-        employee=employee, store=store, date=date, is_deleted=False
-    )
-    if exclude_shift_id:
-        qs = qs.exclude(id=exclude_shift_id)
-    return qs.exists()
 
 
 def is_shift_duration_valid(

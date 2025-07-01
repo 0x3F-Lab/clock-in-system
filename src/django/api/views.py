@@ -418,7 +418,8 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     login_timestamp = localtime(make_aware(login_timestamp))
-                    activity.login_time = util.round_datetime_minute(login_timestamp)
+                    login_time = util.round_datetime_minute(login_timestamp)
+                    activity.login_time = login_time
                     activity.login_timestamp = login_timestamp
                 else:
                     return Response(
@@ -432,7 +433,8 @@ def update_shift_details(request, id):
                     )
                     # Add timezone information to timstamp
                     logout_timestamp = localtime(make_aware(logout_timestamp))
-                    activity.logout_time = util.round_datetime_minute(logout_timestamp)
+                    logout_time = util.round_datetime_minute(logout_timestamp)
+                    activity.logout_time = logout_time
                     activity.logout_timestamp = logout_timestamp
                 else:
                     # If manually deleting start time, set logout time to null
@@ -447,19 +449,8 @@ def update_shift_details(request, id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-            # Check user has not already worked on the given date
-            if activity.employee.has_activity_on_date(
-                store=activity.store_id,
-                date=login_timestamp.date(),
-                ignore_activity=activity.id,
-            ):
-                return JsonResponse(
-                    {"Error": "Employee has already worked on the given date."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-
             # Check when deleting clockout time (hence clocking user in) for shift older than current day.
-            elif (not logout_timestamp) and (login_timestamp.date() != now_time.date()):
+            if (not logout_timestamp) and (login_timestamp.date() != now_time.date()):
                 return Response(
                     {
                         "Error": "Cannot have a missing clock out time for a shift older than the current day."
@@ -508,6 +499,9 @@ def update_shift_details(request, id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
+            # Set default shift length
+            activity.shift_length_mins = 0
+
             # Update shift length if both login and logout time exist
             if activity.login_time and activity.logout_time:
                 # Check that logout time is not before login time
@@ -533,9 +527,20 @@ def update_shift_details(request, id):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Else reset shift length time
-            else:
-                activity.shift_length_mins = 0
+            # Check shift does not interfere with another one (i.e doesnt start right after another one - exception is over midnight break)
+            if util.employee_has_conflicting_activities(
+                employee_id=activity.employee_id,
+                store_id=activity.store_id,
+                login=login_time,
+                logout=logout_time,
+                exclude_activity_id=activity.id,
+            ):
+                return JsonResponse(
+                    {
+                        "Error": "Activity has interferes with another activity or has an inadequate gap between other activities."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
 
             with transaction.atomic():
                 activity.save()
@@ -702,15 +707,8 @@ def create_new_shift(request):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        # Check user has not already worked on the given date
-        if employee.has_activity_on_date(store=store, date=login_timestamp.date()):
-            return JsonResponse(
-                {"Error": "Employee has already worked on the given date."},
-                status=status.HTTP_409_CONFLICT,
-            )
-
         # Check user isnt editing a shift older than 2 weeks
-        elif login_timestamp.date() < (
+        if login_timestamp.date() < (
             now_time.date()
             - timedelta(days=settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS)
         ):
@@ -783,6 +781,20 @@ def create_new_shift(request):
             # Set shift length field
             delta = logout_time - login_time
             shift_length_mins = int(delta.total_seconds() // 60)
+
+        # Check shift does not interfere with another one (i.e doesnt start right after another one - exception is over midnight break)
+        if util.employee_has_conflicting_activities(
+            employee_id=employee.id,
+            store_id=store.id,
+            login=login_time,
+            logout=logout_time,
+        ):
+            return JsonResponse(
+                {
+                    "Error": "Activity has interferes with another activity or has an inadequate gap between other activities."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
         with transaction.atomic():
             # Create the new activity record
@@ -3228,15 +3240,19 @@ def manage_store_shift(request, id):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-            # Check if the employee already has a different shift on the same date
-            elif util.employee_has_conflicting_shift(
-                employee=employee,
-                store=shift.store,
+            # Check shift does not interfere with another one (i.e doesnt start right after another one - exception is over midnight break)
+            elif util.employee_has_conflicting_shifts(
+                employee_id=employee.id,
+                store_id=shift.store_id,
                 date=date,
+                login=start_time,
+                logout=end_time,
                 exclude_shift_id=shift.id,
             ):
-                return Response(
-                    {"Error": "Employee already has another shift on this date."},
+                return JsonResponse(
+                    {
+                        "Error": "Shift has interferes with another shift or has an inadequate gap between other shifts."
+                    },
                     status=status.HTTP_409_CONFLICT,
                 )
 
@@ -3440,11 +3456,18 @@ def create_store_shift(request, store_id):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        elif util.employee_has_conflicting_shift(
-            employee=employee, store=store, date=date
+        # Check shift does not interfere with another one (i.e doesnt start right after another one - exception is over midnight break)
+        elif util.employee_has_conflicting_shifts(
+            employee_id=employee.id,
+            store_id=store.id,
+            date=date,
+            login=start_time,
+            logout=end_time,
         ):
-            return Response(
-                {"Error": "Employee already has another shift on this date."},
+            return JsonResponse(
+                {
+                    "Error": "Shift has interferes with another shift or has an inadequate gap between other shifts."
+                },
                 status=status.HTTP_409_CONFLICT,
             )
 
