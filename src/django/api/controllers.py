@@ -1661,6 +1661,7 @@ def copy_week_schedule(
     source_week: datetime.date,
     target_week: datetime.date,
     override_shifts: bool = False,
+    include_unscheduled: bool = False,
 ) -> Dict[str, int]:
     """
     Copy non-conflicting shifts from source week to target week.
@@ -1671,6 +1672,7 @@ def copy_week_schedule(
         source_week (datetime.date): Monday of the source week
         target_week (datetime.date): Monday of the target week
         override_shifts (bool): Whether to overwrite existing shifts on conflict
+        include_unscheduled (bool): Whether to include unscheduled shifts in copy process.
 
     Returns:
         Dict[str, int]: Counts of 'created', 'overridden', 'skipped', and 'total'
@@ -1685,7 +1687,10 @@ def copy_week_schedule(
 
     # Fetch shifts in source week
     source_shifts = Shift.objects.filter(
-        store_id=store.id, is_deleted=False, date__range=source_range
+        store_id=store.id,
+        is_deleted=False,
+        is_unscheduled=include_unscheduled,
+        date__range=source_range,
     )
 
     # Prefetch existing shifts in the target week for faster conflict checking

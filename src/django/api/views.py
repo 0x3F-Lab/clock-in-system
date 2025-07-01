@@ -3216,7 +3216,7 @@ def manage_store_shift(request, id):
                 raise err.InactiveUserError
 
             # Check the employee is assigned to the store
-            elif not employee.is_associated_with_store(store=shift.store.id):
+            elif not employee.is_associated_with_store(store=shift.store_id):
                 return Response(
                     {
                         "Error": "Not authorised to assign an unassociated user to the shift."
@@ -3800,6 +3800,9 @@ def copy_week_schedule(request, store_id):
         source_week = util.clean_param_str(request.data.get("source_week", None))
         target_week = util.clean_param_str(request.data.get("target_week", None))
         override_shifts = util.str_to_bool(request.data.get("override_shifts", "false"))
+        include_unscheduled = util.str_to_bool(
+            request.data.get("include_unscheduled", "false")
+        )
 
         if not source_week or not target_week:
             return Response(
@@ -3831,6 +3834,7 @@ def copy_week_schedule(request, store_id):
             source_week=source_week,
             target_week=target_week,
             override_shifts=override_shifts,
+            include_unscheduled=include_unscheduled,
         )
 
         logger.info(

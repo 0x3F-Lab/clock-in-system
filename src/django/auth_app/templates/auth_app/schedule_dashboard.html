@@ -185,6 +185,20 @@
   </div>
 </div>
 
+<div class="d-flex justify-content-center mt-4">
+  <div class="container panel rounded shadow p-3 mt-1 mb-3 d-flex flex-column w-50">
+    <div class="fw-bold fs-4 text-center">
+      <i class="fa-solid fa-palette me-2"></i>Colour Key
+    </div>
+    <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap justify-content-center">
+      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+        <span class="badge bg-info-subtle mb-0">&nbsp;</span>
+        Unscheduled shift (from exceptions)
+      </li>
+    </ul>
+  </div>
+</div>
+
 <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -204,6 +218,10 @@
         <div class="form-check form-switch mb-4">
           <input type="checkbox" id="scheduleCopyOverride" class="form-check-input p-2" />
           <label for="scheduleCopyOverride" class="form-check-label">Override shifts in target week</label>
+        </div>
+        <div class="form-check form-switch mb-4">
+          <input type="checkbox" id="scheduleCopyIncludeUnscheduled" class="form-check-input p-2" />
+          <label for="scheduleCopyIncludeUnscheduled" class="form-check-label">Include unscheduled shifts in source week</label>
         </div>
         <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger-subtle text-dark text-center rounded p-2 w-100 mb-2">
           <div><i class="fas fa-circle-exclamation"></i></div>

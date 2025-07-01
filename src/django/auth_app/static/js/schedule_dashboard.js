@@ -69,6 +69,7 @@ function handleWeekCopy() {
             return;
         }
         $('#scheduleCopyOverride').prop('checked', false); // Default to false every modal open
+        $('#scheduleCopyIncludeUnscheduled').prop('checked', false);
         const modal = new bootstrap.Modal(document.getElementById('confirmationModal'));
         modal.show();
     });
@@ -86,6 +87,7 @@ function handleWeekCopy() {
                 source_week: $('#scheduleCopySourceWeek').val(),
                 target_week: $('#scheduleCopyTargetWeek').val(),
                 override_shifts: $('#scheduleCopyOverride').is(':checked'),
+                include_unscheduled: $('#scheduleCopyIncludeUnscheduled').is(':checked'),
             }),
             xhrFields: { withCredentials: true },
             headers: { 'X-CSRFToken': getCSRFToken() },
