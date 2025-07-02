@@ -993,13 +993,7 @@ class TestScheduleAndRoleAPIs:
         THEN the request should fail with a 410 Gone error.
         """
 
-        past_shift = Shift.objects.create(
-            store=self.store,
-            employee=self.employee,
-            date=(now() - timedelta(days=1)).date(),
-            start_time=time(9, 0),
-            end_time=time(17, 0),
-        )
+        past_shift = self.shift1
         url = reverse("api:manage_shift", kwargs={"id": past_shift.id})
         response = api_client.delete(url)
         assert response.status_code == status.HTTP_410_GONE
