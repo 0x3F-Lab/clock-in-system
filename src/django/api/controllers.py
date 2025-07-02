@@ -971,7 +971,7 @@ def is_active_account(employee_id: int) -> bool:
 ################################ SCHEDULING ################################
 
 
-def get_all_store_schedules(
+def get_all_store_schedules_legacy(
     store: Store,
     week: str,
     include_deleted: bool = False,
@@ -1091,6 +1091,7 @@ def get_all_store_schedules(
                 "role_colour": shift.role.colour_hex if shift.role else None,
                 "is_unscheduled": shift.is_unscheduled,
                 "comment": shift.comment,
+                "has_exception": hasattr(shift, "shift_shiftexception"),
             }
         )
         if shift.is_deleted:

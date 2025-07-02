@@ -2998,7 +2998,7 @@ def get_store_shifts(request, id):
                 )
 
             # Get the schedules
-            data = controllers.get_all_store_schedules(
+            data = controllers.get_all_store_schedules_legacy(
                 store=store,
                 week=week,
                 include_deleted=False,

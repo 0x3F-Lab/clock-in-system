@@ -380,7 +380,7 @@ function loadSchedule(week) {
                 let shiftsHtml = '';
                 if (dayShifts && dayShifts.length > 0) {
                     dayShifts.forEach(shift => {
-                        const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : '#f8f9fa'; // unscheduled=cyan, otherwise=off-white.
+                        const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : (shift.has_exception ? '#FFF3CD' : '#f8f9fa'); // unscheduled=cyan, has exception=yellow, otherwise=off-white.
                         const borderColor = shift.role_colour || '#adb5bd'; 
 
                         const duration = calculateDuration(shift.start_time, shift.end_time);
