@@ -1786,68 +1786,64 @@ def copy_week_schedule(
         date__range=source_range,
     )
 
-    # Prefetch existing shifts in the target week for faster conflict checking
+    # Prefetch all target week shifts, grouped by (employee_id, date) -> Faster collision checking instead of DB queries
     target_shifts = Shift.objects.filter(store_id=store.id, date__range=target_range)
 
-    # Index by employee, date
-    existing_shifts_map = {(s.employee_id, s.date): s for s in target_shifts}
+    shift_map = defaultdict(list)
+    for s in target_shifts:
+        shift_map[(s.employee_id, s.date)].append(s)
 
     count_created = 0
     count_updated = 0
     count_skipped = 0
     new_shifts = []
-    shifts_to_override = []
 
-    # Go through every shift in the source week and copy them (if required)
     for src_shift in source_shifts:
-        destination_date = target_week + timedelta(
-            days=(src_shift.date - source_week).days
-        )
+        dest_date = target_week + timedelta(days=(src_shift.date - source_week).days)
+        shift_start = src_shift.start_time
+        shift_end = src_shift.end_time
+        existing_shifts = shift_map.get((src_shift.employee_id, dest_date), [])
 
-        # Check for conflicts
-        key = (src_shift.employee_id, destination_date)
-        conflict = key in existing_shifts_map
+        # Check for any overlaps (within gap threshold)
+        colliding_shifts = [
+            s
+            for s in existing_shifts
+            if util.schedule_copy_do_shifts_collide(
+                datetime.combine(s.date, s.start_time),
+                datetime.combine(s.date, s.end_time),
+                datetime.combine(dest_date, shift_start),
+                datetime.combine(dest_date, shift_end),
+            )
+        ]
 
-        if conflict:
-            target_shift = existing_shifts_map[key]
-
-            # If target shift is deleted, always override and undelete
-            if target_shift.is_deleted:
-                target_shift.start_time = src_shift.start_time
-                target_shift.end_time = src_shift.end_time
-                target_shift.role = src_shift.role
-                target_shift.is_deleted = False  # undelete it
-                shifts_to_override.append(target_shift)
-                count_updated += 1
-
+        if colliding_shifts:
             if override_shifts:
-                target_shift = existing_shifts_map[key]
-                if (
-                    target_shift.start_time != src_shift.start_time
-                    or target_shift.end_time != src_shift.end_time
-                    or target_shift.role_id != src_shift.role_id
-                ):
-                    target_shift.start_time = src_shift.start_time
-                    target_shift.end_time = src_shift.end_time
-                    target_shift.role = src_shift.role
-                    shifts_to_override.append(target_shift)
-                    count_updated += 1
-                else:
-                    # Unchanged -> Ignore
-                    count_skipped += 1
-            else:
-                # Override disabled -> Ignore
-                count_skipped += 1
+                # Hard delete colliding shifts
+                Shift.objects.filter(id__in=[s.id for s in colliding_shifts]).delete()
 
+                # Create new shift
+                new_shifts.append(
+                    Shift(
+                        store=store,
+                        employee=src_shift.employee,
+                        role=src_shift.role,
+                        date=dest_date,
+                        start_time=shift_start,
+                        end_time=shift_end,
+                    )
+                )
+                count_updated += 1
+            else:
+                count_skipped += 1
         else:
             new_shifts.append(
                 Shift(
                     store=store,
                     employee=src_shift.employee,
                     role=src_shift.role,
-                    date=destination_date,
-                    start_time=src_shift.start_time,
-                    end_time=src_shift.end_time,
+                    date=dest_date,
+                    start_time=shift_start,
+                    end_time=shift_end,
                 )
             )
             count_created += 1
@@ -1857,14 +1853,9 @@ def copy_week_schedule(
             if new_shifts:
                 Shift.objects.bulk_create(new_shifts)
 
-            if shifts_to_override:
-                Shift.objects.bulk_update(
-                    shifts_to_override, ["start_time", "end_time", "role", "is_deleted"]
-                )
-
     except IntegrityError as e:
         logger.error(
-            f"IntegrityError occured when trying to copy shifts {source_week} -> {target_week} [override: {'YES' if override_shifts else 'NO'}]: {e}"
+            f"IntegrityError occurred during week copy from {source_week} -> {target_week} [Override: {'YES' if override_shifts else 'NO'}]: {e}"
         )
         raise e
 

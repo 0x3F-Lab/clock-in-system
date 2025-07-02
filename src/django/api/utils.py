@@ -647,3 +647,17 @@ def ensure_aware_datetime(dt: datetime) -> datetime:
     Return timezone aware datetime if given niave dt.
     """
     return make_aware(dt) if is_naive(dt) else dt
+
+
+def schedule_copy_do_shifts_collide(
+    shift1_start,
+    shift1_end,
+    shift2_start,
+    shift2_end,
+    gap=settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS,
+):
+    """Return True if shift1 and shift2 overlap or are too close."""
+    gap_delta = timedelta(minutes=gap)
+    return not (
+        shift1_end + gap_delta <= shift2_start or shift2_end + gap_delta <= shift1_start
+    )

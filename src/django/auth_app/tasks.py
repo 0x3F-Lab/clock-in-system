@@ -1,4 +1,5 @@
 import logging
+import traceback
 import auth_app.utils as util
 
 from datetime import timedelta
@@ -16,7 +17,6 @@ from auth_app.models import (
     Shift,
     notification_default_expires_on,
 )
-from clock_in_system.settings import NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS
 
 
 # Get the loggers
@@ -117,7 +117,7 @@ def check_clocked_in_users():
             "Failed to forcefully log the following employees out:\n\n" + usr_err_msg,
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `check_clocked_in_users` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -128,7 +128,9 @@ def delete_old_notifications():
 
     try:
         today = localtime(now()).date()
-        max_age_date = today - timedelta(days=NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS)
+        max_age_date = today - timedelta(
+            days=settings.NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS
+        )
 
         expired_notifications = Notification.objects.filter(
             Q(expires_on__lte=today) | Q(created_at__date__lte=max_age_date)
@@ -149,7 +151,7 @@ def delete_old_notifications():
             f"Failed to delete old notifications, generating the error:\n\n{str(e)}",
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `delete_old_notifications` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `delete_old_notifications` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -186,9 +188,40 @@ def deactivate_unassigned_users():
             f"Could not deactivate unassigned users due to error:\n\n{str(e)}",
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `deactivate_unassigned_users` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `deactivate_unassigned_users` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
+
+
+@shared_task
+def delete_old_unused_shifts():
+    logger_beat.info("[AUTOMATED] Running task `delete_old_unused_shifts`.")
+
+    try:
+        today = localtime(now()).date()
+        threshold_date = today - timedelta(
+            days=(settings.MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS + 1)
+        )
+
+        old_shifts = Shift.objects.filter(is_deleted=True, date__lt=threshold_date)
+
+        total_count = old_shifts.count()
+
+        # Delete the old soft-deleted shifts
+        old_shifts.delete()
+
+        logger_beat.info(
+            f"Finished task `delete_old_unused_shifts`: deleted {total_count} old soft-deleted shifts."
+        )
+
+    except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `delete_old_unused_shifts`",
+            f"Failed to delete old soft-deleted shifts:\n\n{str(e)}",
+        )
+        logger_beat.critical(
+            f"[FAILURE] Task `delete_old_unused_shifts` failed: {str(e)}\n{traceback.format_exc()}"
+        )
 
 
 @shared_task
@@ -237,7 +270,7 @@ def check_shifts_for_exceptions(
             "Could not link the following shifts:\n\n" + err_msg,
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -310,7 +343,7 @@ def notify_managers_account_deactivated(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_deactivated` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_managers_account_deactivated` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -380,7 +413,7 @@ def notify_managers_account_activated(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_account_activated` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_managers_account_activated` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -477,7 +510,7 @@ def notify_managers_and_employee_account_resigned(
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_resigned` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_resigned` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -574,7 +607,7 @@ def notify_managers_and_employee_account_assigned(
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_assigned` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_managers_and_employee_account_assigned` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -636,7 +669,7 @@ def notify_employee_account_reset_pin(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_employee_account_reset_pin` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_employee_account_reset_pin` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -697,7 +730,7 @@ def notify_employee_account_reset_password(user_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_employee_account_reset_password` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_employee_account_reset_password` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
 
 
@@ -758,7 +791,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
 
     except Exception as e:
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task `notify_managers_store_information_updated` due to the error: {str(e)}"
+            f"[FAILURE] Failed to complete task `notify_managers_store_information_updated` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
