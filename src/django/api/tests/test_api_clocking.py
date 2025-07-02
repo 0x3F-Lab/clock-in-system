@@ -295,4 +295,7 @@ def test_clock_in_too_soon_after_clock_out(
     clock_in_response = api_client.post(clock_in_url, clock_in_payload)
 
     assert clock_in_response.status_code == 409
-    assert clock_in_response.json()["Error"] == "Cannot work twice in one day."
+    assert (
+        clock_in_response.json()["Error"]
+        == "Can't start a shift too soon after your last shift."
+    )

@@ -328,78 +328,78 @@ VALID_SHIFT_COMMENT_PATTERN = r"^[0-9a-zA-Z\s\-',():/\[\]\.]+$"  # Shift coments
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "[{levelname}] [{module}] {asctime}: {message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "[{levelname}] {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "level": os.getenv("LOG_LEVEL_CONSOLE", "INFO").upper(),
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-        "file": {
-            "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
-            "class": "logging.FileHandler",
-            "filename": "./logs/debug.log",
-            "formatter": "verbose",
-        },
-        "tasks": {
-            "level": os.getenv("LOG_LEVEL_TASKS_FILE", "DEBUG").upper(),
-            "class": "logging.FileHandler",
-            "filename": "./logs/tasks.log",
-            "formatter": "verbose",
-        },
-        "errors": {
-            "level": "WARNING",
-            "class": "logging.FileHandler",
-            "filename": "./logs/errors.log",
-            "formatter": "verbose",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "DEBUG",  # Minimum level this logger will process
-            "propagate": False,
-        },
-        "api": {
-            "handlers": ["console", "file", "errors"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "auth_app": {
-            "handlers": ["console", "file", "errors"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "celery": {  # Celery-specific logger
-            "handlers": ["console", "tasks", "errors"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "celery_beat": {  # Celery Beat-specific logger
-            "handlers": ["console", "tasks", "errors"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-        "middleware": {
-            "handlers": ["console", "file"],
-            "level": "DEBUG",
-            "propagate": False,
-        },
-    },
-    "root": {  # Root logger for broader debugging
-        "handlers": ["console"],
-        "level": "DEBUG",
-    },
-}
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "formatters": {
+#         "verbose": {
+#             "format": "[{levelname}] [{module}] {asctime}: {message}",
+#             "style": "{",
+#         },
+#         "simple": {
+#             "format": "[{levelname}] {message}",
+#             "style": "{",
+#         },
+#     },
+#     "handlers": {
+#         "console": {
+#             "level": os.getenv("LOG_LEVEL_CONSOLE", "INFO").upper(),
+#             "class": "logging.StreamHandler",
+#             "formatter": "verbose",
+#         },
+#         "file": {
+#             "level": os.getenv("LOG_LEVEL_FILE", "DEBUG").upper(),
+#             "class": "logging.FileHandler",
+#             "filename": "./logs/debug.log",
+#             "formatter": "verbose",
+#         },
+#         "tasks": {
+#             "level": os.getenv("LOG_LEVEL_TASKS_FILE", "DEBUG").upper(),
+#             "class": "logging.FileHandler",
+#             "filename": "./logs/tasks.log",
+#             "formatter": "verbose",
+#         },
+#         "errors": {
+#             "level": "WARNING",
+#             "class": "logging.FileHandler",
+#             "filename": "./logs/errors.log",
+#             "formatter": "verbose",
+#         },
+#     },
+#     "loggers": {
+#         "django": {
+#             "handlers": ["console"],
+#             "level": "DEBUG",  # Minimum level this logger will process
+#             "propagate": False,
+#         },
+#         "api": {
+#             "handlers": ["console", "file", "errors"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "auth_app": {
+#             "handlers": ["console", "file", "errors"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "celery": {  # Celery-specific logger
+#             "handlers": ["console", "tasks", "errors"],
+#             "level": "INFO",
+#             "propagate": False,
+#         },
+#         "celery_beat": {  # Celery Beat-specific logger
+#             "handlers": ["console", "tasks", "errors"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#         "middleware": {
+#             "handlers": ["console", "file"],
+#             "level": "DEBUG",
+#             "propagate": False,
+#         },
+#     },
+#     "root": {  # Root logger for broader debugging
+#         "handlers": ["console"],
+#         "level": "DEBUG",
+#     },
+# }

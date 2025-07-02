@@ -718,7 +718,7 @@ class Shift(models.Model):
         ]
 
     def __str__(self):
-        return f"[{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
+        return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
 
 
 class ShiftException(models.Model):
@@ -728,19 +728,19 @@ class ShiftException(models.Model):
         NO_SHIFT = "no_shift", "No Shift"
         OTHER = "other", "Other"
 
-    shift = models.ForeignKey(
+    shift = models.OneToOneField(
         Shift,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="shift_exceptions",
+        related_name="shift_shiftexception",  # IT CAN ONLY HAVE AT MOST 1 SHIFT RELATED
     )  # ROSTER -- can be null if user didnt have a rostered shift
-    activity = models.ForeignKey(
+    activity = models.OneToOneField(
         Activity,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="activity_exceptions",
+        related_name="activity_shiftexception",  # IT CAN ONLY HAVE AT MOST 1 ACTIVITY RELATED
     )  # ACTUAL SHIFT -- can be null if user didnt clock in
     reason = models.CharField(
         max_length=25,
@@ -752,20 +752,6 @@ class ShiftException(models.Model):
     is_approved = models.BooleanField(null=False, default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=False, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, null=False)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["shift"],
-                name="unique_shift_exception",
-                condition=~models.Q(shift=None),
-            ),
-            models.UniqueConstraint(
-                fields=["activity"],
-                name="unique_activity_exception",
-                condition=~models.Q(activity=None),
-            ),
-        ]
 
     def clean(self):
         if self.shift is None and self.activity is None:

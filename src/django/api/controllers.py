@@ -1440,149 +1440,242 @@ def link_activity_to_shift(
         except (ValueError, Shift.DoesNotExist):
             raise Shift.DoesNotExist
 
-    # NOTE: There is ONLY 1 of shift/activity PER DAY, so no need to check through multiple a day for a user for a certain store
+    # Require a transaction due to multiple concurrent saves in certain cases
+    with transaction.atomic():
+        if activity:
+            if not activity.logout_time:
+                raise err.IncompleteActivityError
 
-    # Given ACTIVITY -> look for the shift
-    if activity:
-        # Check activity is FINISHED
-        if not activity.logout_time:
-            raise err.IncompleteActivityError
+            # Check for existing exception (use getattr as it throws errors if it doesnt exist)
+            existing_exception = getattr(activity, "activity_shiftexception", None)
 
-        shifts = Shift.objects.filter(
-            store_id=activity.store_id,
-            employee_id=activity.employee_id,
-            date=activity.login_time.date(),
-            is_deleted=False,
-        )
-
-        if len(shifts) > 1:
-            logger.critical(
-                f"Found {len(shifts)} linked SHIFTS to ACTIVITY ID {activity.id}. This should not be possible and has caused an error when checking for exceptions."
-            )
-            raise Exception(
-                "More than 1 shift was found when trying to link an activity."
+            # Get shifts for same user/store/day (DONT FILTER DB LEVEL, as realistically at most 2 shifts per user per day per store -> more work to filter on DB level)
+            shifts = Shift.objects.filter(
+                store_id=activity.store_id,
+                employee_id=activity.employee_id,
+                date=activity.login_time.date(),
+                is_deleted=False,
             )
 
-        # Worked with no scheduled shift
-        elif len(shifts) == 0:
-            created = create_shiftexception_link(
-                activity=activity, reason=ShiftException.Reason.NO_SHIFT
-            )
-            return ShiftException.Reason.NO_SHIFT, created
+            # Preload other activities ONCE -> Used to check if shift is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
+            other_activities = Activity.objects.filter(
+                store_id=activity.store_id,
+                employee_id=activity.employee_id,
+                login_time__date=activity.login_time.date(),
+            ).exclude(pk=activity.id)
 
-        elif not check_perfect_shift_activity_timings(
-            activity=activity, shift=shifts[0]
-        ):
-            created = create_shiftexception_link(
-                activity=activity,
-                shift=shifts[0],
-                reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
-            )
-            return ShiftException.Reason.INCORRECTLY_CLOCKED, created
-
-        # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
-        try:
-            excep = ShiftException.objects.get(activity=activity)
-            if not excep.is_approved:
-                excep.is_approved = True
-                if not excep.shift:
-                    excep.shift = shifts[0]
-                excep.save()
-                logger.info(
-                    f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
+            # Filter shifts that do NOT have an full exception (have both linked shift and activity) — BUT allow the one linked to this activity's exception
+            valid_shifts = [
+                s
+                for s in shifts
+                if util.is_valid_linking_shift_candidate(
+                    possible_shift=s,
+                    existing_exception=existing_exception,
+                    other_activities=other_activities,
                 )
-                logger.debug(
-                    f"[UPDATE: SHIFTEXCEPTION (ID: {excep.id})] Approved: NO -> Yes"
+            ]
+
+            # If no shifts left, treat as NO_SHIFT
+            if not valid_shifts:
+                created = create_shiftexception_link(
+                    activity=activity, reason=ShiftException.Reason.NO_SHIFT
                 )
-        except ShiftException.DoesNotExist:
-            pass
+                return ShiftException.Reason.NO_SHIFT, created
 
-        return None, False
-
-    # Given SHIFT -> look for the activity
-    elif shift:
-        activities = Activity.objects.filter(
-            store_id=shift.store_id,
-            employee_id=shift.employee_id,
-            login_time__date=shift.date,
-        )
-
-        if len(activities) > 1:
-            logger.critical(
-                f"Found {len(activities)} linked ACTIVITIES to SHIFT ID {shift.id}. This should not be possible and has caused an error when checking for exceptions."
-            )
-            raise Exception(
-                "More than 1 activity was found when trying to link a shift."
+            # Pick the best match
+            best_shift = min(
+                valid_shifts,
+                key=lambda s: abs(
+                    util.ensure_aware_datetime(datetime.combine(s.date, s.start_time))
+                    - localtime(activity.login_time)
+                ),
             )
 
-        # Had a rostered Shift but did not work
-        elif len(activities) == 0:
-            created = create_shiftexception_link(
-                shift=shift, reason=ShiftException.Reason.MISSED_SHIFT
-            )
-            return ShiftException.Reason.MISSED_SHIFT, created
+            # If best shift is one with an existing exception WITH NO ACTIVITY -> set to current exsiting_exception (ensures exception gets updated)
+            best_shift_exception = getattr(best_shift, "shift_shiftexception", None)
+            if (
+                not existing_exception
+                and best_shift_exception
+                and not best_shift_exception.activity
+            ):
+                existing_exception = best_shift_exception
 
-        # Check activity is FINISHED
-        elif not activities[0].logout_time:
-            raise err.IncompleteActivityError
+            # If it already has a related exception
+            if existing_exception:
+                updated = False
 
-        elif not check_perfect_shift_activity_timings(
-            activity=activities[0], shift=shift
-        ):
-            created = create_shiftexception_link(
-                shift=shift,
-                activity=activities[0],
-                reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
-            )
-            return ShiftException.Reason.INCORRECTLY_CLOCKED, created
+                # If it doesnt have a shift related to exception -> add best_shift
+                if not existing_exception.shift:
+                    existing_exception.shift = best_shift
+                    updated = True
 
-        # Check for existing exceptions (update it to be approved since its a PERFECT LINK)
-        try:
-            excep = ShiftException.objects.get(shift=shift)
-            if not excep.is_approved:
-                excep.is_approved = True
-                if not excep.activity:
-                    excep.activity = activities[0]
-                excep.save()
-                logger.info(
-                    f"Automatically marked EXCEPTION ID {excep.id} as APPROVED due to the activity being manually fixed."
+                # Check if the related shift has perfect clocking times
+                if util.check_perfect_shift_activity_timings(
+                    activity=activity, shift=existing_exception.shift
+                ):
+                    # If its an incomplete exception -> add the given activity to exception
+                    if not existing_exception.activity:
+                        existing_exception.activity = activity
+                        updated = True
+
+                    # If its unapproved -> automatically approve it
+                    if not existing_exception.is_approved:
+                        existing_exception.is_approved = True
+                        updated = True
+                        logger.info(
+                            f"Automatically marked EXCEPTION ID {existing_exception.id} as APPROVED due to the activity being manually fixed."
+                        )
+                        logger.debug(
+                            f"[UPDATE: SHIFTEXCEPTION (ID: {existing_exception.id})] Approved: NO → Yes"
+                        )
+
+                    if updated:
+                        existing_exception.save()
+                    return None, False
+
+                else:
+                    if updated:
+                        existing_exception.save()
+                    created = create_shiftexception_link(
+                        activity=activity,
+                        shift=existing_exception.shift,
+                        reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+                    )
+                    return ShiftException.Reason.INCORRECTLY_CLOCKED, created
+
+            # Has no related exception -> using best_shift, check if it matches clocking times
+            if not util.check_perfect_shift_activity_timings(
+                activity=activity, shift=best_shift
+            ):
+                created = create_shiftexception_link(
+                    activity=activity,
+                    shift=best_shift,
+                    reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
                 )
-                logger.debug(
-                    f"[UPDATE: SHIFTEXCEPTION (ID: {excep.id})] Approved: NO -> Yes"
+                return ShiftException.Reason.INCORRECTLY_CLOCKED, created
+
+            # Else, perfectly clocked all around -> no need to do anything
+            return None, False
+
+        elif shift:
+            # Check for existing exception (use getattr as it throws errors if it doesnt exist)
+            existing_exception = getattr(shift, "shift_shiftexception", None)
+
+            # Get activities for same user/store/day (DONT FILTER DB LEVEL, as realistically at most 2 activities per user per day per store -> more work to filter on DB level)
+            activities = Activity.objects.filter(
+                store_id=shift.store_id,
+                employee_id=shift.employee_id,
+                login_time__date=shift.date,
+            )
+
+            # Preload other shifts ONCE -> Used to check if activity is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
+            other_shifts = Shift.objects.filter(
+                store_id=shift.store_id,
+                employee_id=shift.employee_id,
+                date=shift.date,
+                is_deleted=False,
+            ).exclude(pk=shift.id)
+
+            # Filter valid activities using preloaded shifts
+            valid_activities = [
+                a
+                for a in activities
+                if util.is_valid_linking_activity_candidate(
+                    possible_activity=a,
+                    existing_exception=existing_exception,
+                    other_shifts=other_shifts,
                 )
-        except ShiftException.DoesNotExist:
-            pass
+            ]
 
-        return None, False
+            # If no activities left, treat as MISSED_SHIFT
+            if not valid_activities:
+                created = create_shiftexception_link(
+                    shift=shift, reason=ShiftException.Reason.MISSED_SHIFT
+                )
+                return ShiftException.Reason.MISSED_SHIFT, created
 
-    else:
-        raise SyntaxError("Activity OR Shift object MUST BE PASSED.")
+            # Pick the best match
+            best_activity = min(
+                valid_activities,
+                key=lambda a: abs(
+                    localtime(a.login_time)
+                    - util.ensure_aware_datetime(
+                        datetime.combine(shift.date, shift.start_time)
+                    )
+                ),
+            )
 
+            # If best activity is one with an existing exception WITH NO SHIFT -> set to current exsiting_exception (ensures exception gets updated)
+            best_activity_exception = getattr(
+                best_activity, "activity_shiftexception", None
+            )
+            if (
+                not existing_exception
+                and best_activity_exception
+                and not best_activity_exception.activity
+            ):
+                existing_exception = best_activity_exception
 
-def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:
-    """
-    Check if the provided activity and shift are perfectly matched in terms of timings of clocking in/out. (Rounded of course)
+            # If it already has a related exception
+            if existing_exception:
+                updated = False
 
-    Args:
-        activity (Activity): The activity object to compare.
-        shift (Shift): The shift object to compare.
+                # If it doesnt have a shift related to exception -> add best_shift
+                if not existing_exception.activity:
+                    existing_exception.activity = best_activity
+                    updated = True
 
-    Returns:
-        bool: If there exists a perfect link between the two. If either is slightly off then it returns False.
-    """
-    # If activity is not finished -> IGNORE
-    if not activity.logout_time:
-        return True
+                # Check if the related shift has perfect clocking times
+                if util.check_perfect_shift_activity_timings(
+                    shift=shift, activity=existing_exception.activity
+                ):
+                    # If its an incomplete exception -> add the given shift to exception
+                    if not existing_exception.shift:
+                        existing_exception.shift = shift
+                        updated = True
 
-    # Check start time matches (use rounded login_time)
-    if shift.start_time != localtime(activity.login_time).time():
-        return False
+                    # If its unapproved -> automatically approve it
+                    if not existing_exception.is_approved:
+                        existing_exception.is_approved = True
+                        updated = True
+                        logger.info(
+                            f"Automatically marked EXCEPTION ID {existing_exception.id} as APPROVED due to the activity being manually fixed."
+                        )
+                        logger.debug(
+                            f"[UPDATE: SHIFTEXCEPTION (ID: {existing_exception.id})] Approved: NO → Yes"
+                        )
 
-    # Check end time matches (use rounded logout_time)
-    elif shift.end_time != localtime(activity.logout_time).time():
-        return False
+                    if updated:
+                        existing_exception.save()
+                    return None, False
 
-    return True
+                # Has non-perfect clocking times
+                else:
+                    if updated:
+                        existing_exception.save()
+                    created = create_shiftexception_link(
+                        activity=existing_exception.activity,
+                        shift=shift,
+                        reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+                    )
+                    return ShiftException.Reason.INCORRECTLY_CLOCKED, created
+
+            # Has no related exception -> using best_shift, check if it matches clocking times
+            if not util.check_perfect_shift_activity_timings(
+                activity=best_activity, shift=shift
+            ):
+                created = create_shiftexception_link(
+                    activity=best_activity,
+                    shift=shift,
+                    reason=ShiftException.Reason.INCORRECTLY_CLOCKED,
+                )
+                return ShiftException.Reason.INCORRECTLY_CLOCKED, created
+
+            # Else, perfectly clocked all around -> no need to do anything
+            return None, False
+
+        else:
+            raise SyntaxError("Activity OR Shift object MUST BE PASSED.")
 
 
 def create_shiftexception_link(

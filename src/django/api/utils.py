@@ -13,7 +13,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.contrib.sessions.models import Session
-from django.utils.timezone import make_aware, is_naive
+from django.utils.timezone import make_aware, is_naive, localtime
 from auth_app.models import User, Store, Activity, Shift, ShiftException
 
 logger = logging.getLogger("api")
@@ -534,3 +534,116 @@ def get_week_start(d: date) -> date:
     Ensure date is on the monday of the given week (roll back if need be)
     """
     return d - timedelta(days=d.weekday())  # Monday is weekday 0
+
+
+def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:
+    """
+    Check if the provided activity and shift are perfectly matched in terms of timings of clocking in/out. (Rounded of course)
+
+    Args:
+        activity (Activity): The activity object to compare.
+        shift (Shift): The shift object to compare.
+
+    Returns:
+        bool: If there exists a perfect link between the two. If either is slightly off then it returns False.
+    """
+    # If activity is not finished -> IGNORE
+    if not activity.logout_time:
+        return True
+
+    # Check start time matches (use rounded login_time)
+    if shift.start_time != localtime(activity.login_time).time():
+        return False
+
+    # Check end time matches (use rounded logout_time)
+    elif shift.end_time != localtime(activity.logout_time).time():
+        return False
+
+    return True
+
+
+def is_valid_linking_activity_candidate(
+    possible_activity: Activity,
+    existing_exception: Optional[ShiftException] = None,
+    other_shifts: Optional[List[Shift]] = None,
+) -> bool:
+    """
+    Check whether the given activity is a valid candidate for linking to a shift.
+
+    Args:
+        possible_activity (Activity): The activity to validate.
+        existing_exception (ShiftException, optional): Existing exception, if any.
+        other_shifts (List[Shift], optional): Preloaded list of other shifts for performance. Used to check if perfect match already exists for possible activity.
+
+    Returns:
+        bool: True if this activity is valid for linking, else False.
+    """
+    if not possible_activity.logout_time:
+        return False
+
+    # Check if the given activity has a related exception
+    related_exception = getattr(possible_activity, "activity_shiftexception", None)
+
+    if related_exception:
+        # Linked to current shift's exception
+        if existing_exception and possible_activity == existing_exception.activity:
+            return True
+        # Linked exception has no shift
+        elif not related_exception.shift:
+            return True
+        # Otherwise it's already a full exception — not valid
+        return False
+
+    # Skip if it's already has a perfect match (with another shift)
+    if other_shifts:
+        for s in other_shifts:
+            if check_perfect_shift_activity_timings(
+                activity=possible_activity, shift=s
+            ):
+                return False
+
+    return True
+
+
+def is_valid_linking_shift_candidate(
+    possible_shift: Shift,
+    existing_exception: Optional[ShiftException] = None,
+    other_activities: Optional[List[Activity]] = None,
+) -> bool:
+    """
+    Check whether the given shift is a valid candidate for linking to an activity.
+
+    Args:
+        possible_shift (Shift): The shift to validate.
+        existing_exception (ShiftException, optional): Existing exception, if any.
+        other_activities (List[Activity], optional): Preloaded list of other activities for performance. Used to check if perfect match already exists for possible shift.
+
+    Returns:
+        bool: True if this shift is valid for linking, else False.
+    """
+    related_exception = getattr(possible_shift, "shift_shiftexception", None)
+
+    if related_exception:
+        # Allow if already linked to the activity's exception
+        if existing_exception and possible_shift == existing_exception.shift:
+            return True
+        # Allow if the shift exception exists but has no linked activity
+        elif not related_exception.activity:
+            return True
+        # Otherwise it's already a full exception — not valid
+        return False
+
+    # Skip if it's already has a perfect match (with another shift)
+    if other_activities:
+        for a in other_activities:
+            if check_perfect_shift_activity_timings(shift=possible_shift, activity=a):
+                return False
+
+    return True
+
+
+def ensure_aware_datetime(dt: datetime) -> datetime:
+    """
+    Return timezone aware datetime if given niave dt.
+    """
+    return make_aware(dt) if is_naive(dt) else dt

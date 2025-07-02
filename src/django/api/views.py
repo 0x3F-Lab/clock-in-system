@@ -1,6 +1,7 @@
 import re
 import string
 import logging
+import traceback
 import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
@@ -1991,9 +1992,8 @@ def clock_out(request):
             status=status.HTTP_409_CONFLICT,
         )
     except Exception as e:
-        # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when trying to clock out employee ID '{user_id}' for store ID '{store_id}': {str(e)}"
+            f"An error occured when trying to clock out employee ID '{user_id}' for store ID '{store_id}': {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
