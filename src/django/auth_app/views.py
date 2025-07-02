@@ -1,4 +1,5 @@
 import logging
+import traceback
 import api.exceptions as err
 
 from rest_framework import status
@@ -203,7 +204,7 @@ def setup_account(request):
                     "Failed to setup account due to internal server error. Please try again later.",
                 )
                 logger.critical(
-                    f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}"
+                    f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}\n{traceback.format_exc()}"
                 )
                 return render(
                     request,
@@ -251,7 +252,7 @@ def manual_clocking(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -422,7 +423,7 @@ def employee_dashboard(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -443,7 +444,7 @@ def employee_account(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -483,7 +484,7 @@ def notification_page(request):
     try:
         context, user = get_default_page_context(request, include_notifications=True)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -601,7 +602,7 @@ def notification_page(request):
 
         except Exception as e:
             logger.critical(
-                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}"
+                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
             )
             messages.error(
                 request,
@@ -630,7 +631,7 @@ def home_directory(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -651,7 +652,7 @@ def manager_dashboard(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -672,7 +673,7 @@ def manage_employee_details(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -696,7 +697,7 @@ def manage_shift_logs(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -717,7 +718,7 @@ def manage_account_summary(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -738,7 +739,7 @@ def manage_stores(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -763,7 +764,7 @@ def store_exceptions(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -845,7 +846,7 @@ def schedule_dashboard(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )

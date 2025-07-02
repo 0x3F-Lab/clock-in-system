@@ -113,7 +113,9 @@ def list_store_employee_names(request):
         )
     except Exception as e:
         # Handle any unexpected exceptions
-        logger.critical(f"Failed to list all users, resulting in the error: {str(e)}")
+        logger.critical(
+            f"Failed to list all users, resulting in the error: {str(e)}\n{traceback.format_exc()}"
+        )
         return Response(
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -259,7 +261,7 @@ def list_all_shift_details(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list all shift details (full dump), resulting in the error: {str(e)}"
+            f"Failed to list all shift details (full dump), resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -317,7 +319,7 @@ def list_singular_shift_details(request, id):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list activity details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to list activity details for ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -586,7 +588,7 @@ def update_shift_details(request, id):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to update activity details for activity ID {id}, resulting in the error: {str(e)}"
+            f"Failed to update activity details for activity ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -846,7 +848,7 @@ def create_new_shift(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to create new shift for employee ID {employee_id}, resulting in the error: {str(e)}"
+            f"Failed to create new shift for employee ID {employee_id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -960,7 +962,7 @@ def list_all_employee_details(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list all employee data (full dump), resulting in the error: {str(e)}"
+            f"Failed to list all employee data (full dump), resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1011,7 +1013,7 @@ def list_singular_employee_details(request, id):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to list employee details for ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1244,7 +1246,7 @@ def create_new_employee(request):
         )
     except IntegrityError as e:
         logger.critical(
-            f"Failed to create new employee account with email {email} ({first_name} {last_name}) due to an database integrity error, resulting in the error: {str(e)}"
+            f"Failed to create new employee account with email {email} ({first_name} {last_name}) due to an database integrity error, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1263,7 +1265,7 @@ def create_new_employee(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to create new employee account for store ID {store_id} with employee name '{first_name} {last_name}', resulting in the error: {str(e)}"
+            f"Failed to create new employee account for store ID {store_id} with employee name '{first_name} {last_name}', resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1444,7 +1446,7 @@ def modify_account_information(request, id=None):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to update employee details for ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1627,7 +1629,7 @@ def modify_account_status(request, id):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to update employee status of type '{status_type}' for ID {id}, resulting in the error: {str(e)}"
+            f"Failed to update employee status of type '{status_type}' for ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1743,7 +1745,7 @@ def modify_account_password(request):
     except Exception as e:
         # Handle any unexpected exceptions
         logger.critical(
-            f"Failed to update employee password for user with ID {employee_id}, resulting in the error: {str(e)}"
+            f"Failed to update employee password for user with ID {employee_id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1867,7 +1869,7 @@ def clock_in(request):
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when clocking in employee ID '{user_id}' for store ID '{store_id}', giving the error: {str(e)}"
+            f"An error occured when clocking in employee ID '{user_id}' for store ID '{store_id}', giving the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -1993,7 +1995,7 @@ def clock_out(request):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to clock out employee ID '{user_id}' for store ID '{store_id}': {str(e)}\n{traceback.format_exc()}"
+            f"An error occured when trying to clock out employee ID '{user_id}' for store ID '{store_id}': {str(e)}\n{traceback.format_exc()}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2082,7 +2084,7 @@ def clocked_state_view(request):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to get the clocked state of employee ID '{employee.id}' for store ID '{store_id}', giving the error: {str(e)}"
+            f"An error occured when trying to get the clocked state of employee ID '{employee.id}' for store ID '{store_id}', giving the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2257,7 +2259,7 @@ def update_store_info(request, id):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to update the store ID ({id})'s information, resulting in the error: {str(e)}"
+            f"An error occured when trying to update the store ID ({id})'s information, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2300,7 +2302,7 @@ def list_associated_stores(request):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to get a user ID ({employee.id})'s associated stores, resulting in the error: {str(e)}"
+            f"An error occured when trying to get a user ID ({employee.id})'s associated stores, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2357,7 +2359,7 @@ def list_user_activities(request):
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when trying to get recent shifts for employee ID {user_id} associated to the store ID {store_id}, resulting in the error: {str(e)}"
+            f"An error occured when trying to get recent shifts for employee ID {user_id} associated to the store ID {store_id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2487,7 +2489,7 @@ def list_account_summaries(request):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}"
+            f"An error occured when trying to get account summaries for store ID {store_id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2528,7 +2530,7 @@ def mark_notification_read(request, id):
             status=status.HTTP_404_NOT_FOUND,
         )
     except NotificationReceipt.DoesNotExist:
-        logger.critical(
+        logger.error(
             f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}' due to a missing NotificationReceipt."
         )
         return Response(
@@ -2540,7 +2542,7 @@ def mark_notification_read(request, id):
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}', producing the error: {str(e)}"
+            f"An error occured when trying to mark notification ID '{id}' as READ for user ID '{user_id}', producing the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2657,7 +2659,7 @@ def send_employee_notification(request, id):
     except Exception as e:
         # General error capture -- including database location errors
         logger.critical(
-            f"An error occured when manager ID '{manager.id}' ({manager.first_name} {manager.last_name}) tried to send a message to employee ID '{id}' : {str(e)}"
+            f"An error occured when manager ID '{manager.id}' ({manager.first_name} {manager.last_name}) tried to send a message to employee ID '{id}' : {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2720,7 +2722,7 @@ def list_store_roles(request, id):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to get a store's roles for store ID {id}, resulting in the error: {str(e)}"
+            f"An error occured when trying to get a store's roles for store ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -2914,7 +2916,7 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to manage Role ID {role_id} with method {request.method}, resulting in the error: {str(e)}"
+            f"An error occured when trying to manage Role ID {role_id} with method {request.method}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -3042,11 +3044,11 @@ def get_store_shifts(request, id):
     except Exception as e:
         if get_all:
             logger.critical(
-                f"An error occured when trying to get a store's entire schedule for store ID {id} for week {week}, resulting in the error: {str(e)}"
+                f"An error occured when trying to get a store's entire schedule for store ID {id} for week {week}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
             )
         else:
             logger.critical(
-                f"An error occured when trying to get user ID {user.id}'s schedule for store ID {id}, resulting in the error: {str(e)}"
+                f"An error occured when trying to get user ID {user.id}'s schedule for store ID {id}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
             )
         return Response(
             {"Error": "Internal error."},
@@ -3342,7 +3344,7 @@ def manage_store_shift(request, id):
         )
     except Exception as e:
         logger.critical(
-            f"An error occured when trying to interact with a store's shift for shift ID {id} for method {request.method}, resulting in the error: {str(e)}"
+            f"An error occured when trying to interact with a store's shift for shift ID {id} for method {request.method}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."},
@@ -3524,7 +3526,7 @@ def create_store_shift(request, store_id):
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
-        logger.critical(f"Error creating shift: {str(e)}")
+        logger.critical(f"Error creating shift: {str(e)}\n{traceback.format_exc()}")
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
@@ -3717,7 +3719,9 @@ def manage_store_exception(request, exception_id):
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
-        logger.critical(f"Error approving exception ID {exception_id}: {str(e)}")
+        logger.critical(
+            f"Error approving exception ID {exception_id}: {str(e)}\n{traceback.format_exc()}"
+        )
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
@@ -3778,7 +3782,7 @@ def list_store_exceptions(request, store_id):
         )
     except Exception as e:
         logger.critical(
-            f"Error listing store ID {store_id}'s ShiftExceptions: {str(e)}"
+            f"Error listing store ID {store_id}'s ShiftExceptions: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -3865,7 +3869,7 @@ def copy_week_schedule(request, store_id):
         )
     except DatabaseError as e:
         logger.critical(
-            f"A database error occured when trying to copy a schedule week ({source_week} -> {target_week}) [override: {'YES' if override_shifts else 'NO'}]: {str(e)}"
+            f"A database error occured when trying to copy a schedule week ({source_week} -> {target_week}) [override: {'YES' if override_shifts else 'NO'}]: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {
@@ -3874,7 +3878,9 @@ def copy_week_schedule(request, store_id):
             status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
-        logger.critical(f"An error occurred during copy_week_schedule: {str(e)}")
+        logger.critical(
+            f"An error occurred during copy_week_schedule: {str(e)}\n{traceback.format_exc()}"
+        )
         return Response(
             {"Error": "An internal error occurred while copying the schedule."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
