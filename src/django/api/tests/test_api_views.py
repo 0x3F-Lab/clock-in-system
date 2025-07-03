@@ -862,7 +862,7 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for list_store_shifts
     # ===============================================
-    def test_list_store_shifts_success(self, logged_in_manager, api_client):
+    def test_list_store_shifts_legacy_success(self, logged_in_manager, api_client):
         """
         GIVEN a logged-in manager
         WHEN they request shifts for a specific week
@@ -871,7 +871,7 @@ class TestScheduleAndRoleAPIs:
 
         url = (
             reverse("api:list_store_shifts", kwargs={"id": self.store.id})
-            + f"?get_all=true&week={self.week_start.isoformat()}"
+            + f"?get_all=true&legacy=true&week={self.week_start.isoformat()}"
         )
         response = api_client.get(url)
         data = response.json()  # Parse the JSON response
