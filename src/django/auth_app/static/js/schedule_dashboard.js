@@ -376,18 +376,23 @@ function loadScheduleViaPagination() {
     loadSchedule(week);
 }
 
-
 function loadSchedule(week) {
-    const legacy = $('#useLegacy').is(':checked');
-    const sort = legacy ? $('#sortFieldsLegacy input[type="radio"]:checked').val() : $('#sortFields input[type="radio"]:checked').val();
+    const isLegacyView = $('#useLegacy').is(':checked');
+    const storeId = getSelectedStoreID();
+
+    // Get all filter and sort values
+    const sort = isLegacyView ? $('#sortFieldsLegacy input[type="radio"]:checked').val() : $('#sortFields input[type="radio"]:checked').val();
     const filterNames = $('#filterNames').val();
     const filterRoles = $('#filterRoles').val();
     const hideDeactive = $('#hideDeactivated').is(':checked');
     const hideResigned = $('#hideResigned').is(':checked');
+    const offset = getPaginationOffset();
+    const limit = getPaginationLimit();
 
     showSpinner();
     $.ajax({
-        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&legacy=${legacy}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
+        // The URL now includes the 'legacy' parameter to tell the backend which data to send
+        url: `${window.djangoURLs.listStoreShifts}${storeId}/?get_all=true&legacy=${isLegacyView}&offset=${offset}&limit=${limit}&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
         method: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},
@@ -395,56 +400,23 @@ function loadSchedule(week) {
             $('#schedule-week-title')
                 .text(`Week of ${formatWeekTitle(data.week_start)}`)
                 .data('week-start-date', data.week_start);
-            const scheduleContainer = $('#schedule-container');
-            scheduleContainer.empty();
-
-            $.each(data.schedule || {}, function (dayDate, dayShifts) {
-                let shiftsHtml = '';
-                if (dayShifts && dayShifts.length > 0) {
-                    dayShifts.forEach(shift => {
-                        const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : (shift.has_exception ? '#FFF3CD' : '#f8f9fa'); // unscheduled=cyan, has exception=yellow, otherwise=off-white.
-                        const borderColor = shift.role_colour || '#adb5bd'; 
-
-                        const duration = calculateDuration(shift.start_time, shift.end_time);
-
-                        // Build the HTML with the new color logic.
-                        shiftsHtml += `
-                            <div class="shift-item position-relative cursor-pointer" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
-                              ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
-                              <div class="shift-item-employee">${shift.employee_name}</div>
-                              <div class="shift-item-details">
-                                <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                                <span>⌛ ${duration}</span>
-                                ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
-                              </div>
-                            </div>`;
-                    });
-                } else {
-                    shiftsHtml = '<div class="text-center text-white p-3"><small>No shifts scheduled</small></div>';
-                }
-                
-                const dayCardHtml = `
-                    <div class="day-column mb-4">
-                      <div class="day-header">
-                        <div class="day-name">${getFullDayName(dayDate)}</div>
-                        <div class="day-date">${getShortDate(dayDate)}</div>
-                        <button class="btn add-shift-btn" data-day="${dayDate}" data-bs-toggle="tooltip" title="Add shift for this day">
-                          <i class="fas fa-plus"></i>
-                        </button>
-                      </div>
-                      <div class="shifts-list">${shiftsHtml}</div>
-                    </div>`;
-                scheduleContainer.append(dayCardHtml);
-            });
-
-            // Initialise tooltips for buttons
-            $('[data-bs-toggle="tooltip"]').tooltip();
+            
             $('#previous-week-btn').data('week', data.prev_week);
             $('#next-week-btn').data('week', data.next_week);
-            if (!legacy) { setPaginationValues(data.offset, data.total); } // Set pagination values IF the display uses it.
-            hideSpinner();
+            
+            // The success handler now acts as a router
+            if (isLegacyView) {
+                renderLegacyCardView(data);
+                if (!$('#paginationController').hasClass('d-none')) { $('#paginationController').addClass('d-none'); }
+            } else {
+                renderModernTableView(data);
+                setPaginationValues(data.offset, data.total_employees);
+                if ($('#paginationController').hasClass('d-none')) { $('#paginationController').removeClass('d-none'); }
+            }
+            
+            $('[data-bs-toggle="tooltip"]').tooltip();
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function(jqXHR) {
             $('#schedule-container').html(`
                 <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
                     <div><i class="fas fa-circle-exclamation"></i></div>
@@ -454,10 +426,139 @@ function loadSchedule(week) {
                 </div>`);
             handleAjaxError(jqXHR, "Failed to load the roster week");
             setPaginationValues(0, 0); // Set pagination values to ensure selector doesnt become bugged
+        },
+        complete: function() {
+            hideSpinner();
         }
     });
 }
 
+
+function renderLegacyCardView(data) {
+    console.log(data);
+    const scheduleContainer = $('#schedule-container');
+    scheduleContainer.empty();
+
+    $.each(data.schedule || {}, function (dayDate, dayShifts) {
+        let shiftsHtml = '';
+        if (dayShifts && dayShifts.length > 0) {
+            dayShifts.forEach(shift => {
+                const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : (shift.has_exception ? '#FFF3CD' : '#f8f9fa'); // unscheduled=cyan, has exception=yellow, otherwise=off-white.
+                const borderColor = shift.role_colour || '#adb5bd'; 
+
+                const duration = calculateDuration(shift.start_time, shift.end_time);
+
+                shiftsHtml += `
+                    <div class="shift-item position-relative cursor-pointer" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                        ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
+                        <div class="shift-item-employee">${shift.employee_name}</div>
+                        <div class="shift-item-details">
+                        <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                        <span>⌛ ${duration}</span>
+                        ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                        </div>
+                    </div>`;
+            });
+        } else {
+            shiftsHtml = '<div class="text-center text-white p-3"><small>No shifts scheduled</small></div>';
+        }
+        const dayCardHtml = `
+            <div class="day-column mb-4">
+                <div class="day-header">
+                <div class="day-name">${getFullDayName(dayDate)}</div>
+                <div class="day-date">${getShortDate(dayDate)}</div>
+                <button class="btn add-shift-btn" data-day="${dayDate}" data-bs-toggle="tooltip" title="Add shift for this day">
+                    <i class="fas fa-plus"></i>
+                </button>
+                </div>
+                <div class="shifts-list">${shiftsHtml}</div>
+            </div>`;
+        scheduleContainer.append(dayCardHtml);
+    });
+}
+
+function renderModernTableView(data) {
+    const scheduleContainer = $('#schedule-container');
+    scheduleContainer.empty();
+
+    // The key from the API is 'schedule' (singular), and its value is an OBJECT.
+    const employeeSchedules = data.schedule; 
+
+    // Get an array of employee names from the object's keys.
+    const employeeNames = Object.keys(employeeSchedules || {}).sort();
+
+    if (!employeeSchedules || employeeNames.length === 0) {
+        scheduleContainer.html('<p class="text-center text-white">No employees are scheduled for this week.</p>');
+        return;
+    }
+
+
+    const firstEmployeeSchedule = employeeSchedules[employeeNames[0]];
+    const days = Object.keys(firstEmployeeSchedule || {}).sort();
+
+    if (days.length === 0) {
+        scheduleContainer.html('<p class="text-center text-white">No schedule data available for this week.</p>');
+        return;
+    }
+
+
+    // --- Build the complete, valid HTML table ---
+    let tableHtml = `
+        <table class="schedule-table-view">
+            <thead>
+                <tr>
+                    <th class="employee-name-cell">Employee</th>
+                    ${days.map(dayDate => `
+                        <th>
+                            ${getFullDayName(dayDate)}<br>
+                            <small class="day-date">${getShortDate(dayDate)}</small>
+                            <button class="btn add-shift-btn" data-day="${dayDate}" title="Add shift for this day">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </th>
+                    `).join('')}
+                </tr>
+            </thead>
+            <tbody>`;
+
+    // Loop through each unique employee name we found
+    employeeNames.forEach(name => {
+        const shiftsByDay = employeeSchedules[name]; // Get the schedule object for this employee
+
+        tableHtml += `<tr><td class="employee-name-cell">${name}</td>`;
+        
+        // For each employee, loop through all the days of the week to build the cells
+        days.forEach(dayDate => {
+            const dayShifts = shiftsByDay[dayDate]; // This is the array of shifts for this day
+            
+            tableHtml += `<td class="shift-cell">`;
+            if (dayShifts && dayShifts.length > 0) {
+                dayShifts.forEach(shift => {
+                    // Your existing logic to render a single shift item
+                    const duration = calculateDuration(shift.start_time, shift.end_time);
+                    const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : (shift.has_exception ? '#FFF3CD' : '#f8f9fa');
+                    const borderColor = shift.role_colour || '#adb5bd';
+                    
+                    tableHtml += `
+                        <div class="shift-item cursor-pointer mb-2" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                            <div class="shift-item-details">
+                                <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                                <span>⌛ ${duration}</span>
+                                ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                            </div>
+                        </div>`;
+                });
+            }
+            tableHtml += `</td>`; // Close the cell
+        });
+        tableHtml += `</tr>`; // End the row
+    });
+
+    tableHtml += `</tbody></table>`;
+
+    // Inject the final HTML into the container
+    scheduleContainer.html(tableHtml);
+}
 
 /**
  * Fetches employees and roles for the currently selected store and updates

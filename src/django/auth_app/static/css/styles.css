@@ -553,13 +553,18 @@ table {
 
 .shift-item-employee {
     font-weight: 600;
+    white-space: normal; /* Allow text to wrap */
+    word-break: break-word; /* Break long words if necessary */
 }
+
 .shift-item-details {
     font-size: 0.85rem;
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
     margin-top: 0.35rem;
+    white-space: normal;
+    word-break: break-word;
 }
 
 @keyframes fadeIn {
@@ -618,3 +623,82 @@ table {
   pointer-events: auto;
 }
 
+.schedule-table-view {
+    width: 100%;
+    min-width: 1500px;
+    
+    border-collapse: separate;
+    border-spacing: 0.5rem 0; /* 0.5rem horizontal gap, 0 vertical gap */
+    background-color: transparent; /* The background is now on the cells, not the table */
+    border-radius: 0; /* No longer needed on the main table */
+    overflow: visible; /* No longer needed */
+    table-layout: fixed;
+}
+
+.schedule-table-view th,
+.schedule-table-view td {
+    padding: 0.75rem;
+    text-align: left;
+    vertical-align: top; /* Align content to the top of the cell */
+    border-bottom: 1px solid #4a5568;
+}
+
+/* Style the header row */
+.schedule-table-view thead {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.schedule-table-view th {
+    font-weight: 600;
+}
+
+/* Style the first "Employee" column */
+.schedule-table-view .employee-name-cell {
+    width: 200px; /* Give the name column a generous fixed width */
+    font-weight: 600;
+    border-right: 1px solid #4a5568;
+    vertical-align: middle; /* Center the employee name vertically */
+    white-space: normal; 
+    word-break: break-word;
+}
+
+/* Style the cells that contain the shifts */
+.schedule-table-view .shift-cell {
+    min-height: 110px; /* Sets a minimum height for the cell */
+    height: 1px; /* A trick to make min-height work reliably in tables */
+}
+
+/* The container inside each cell that holds the shifts */
+.schedule-table-view .shift-cell > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* This creates the gap between multiple shifts in the same day */
+}
+
+.schedule-table-view th {
+    position: relative; /* This is crucial for positioning the button inside */
+    font-weight: 600;
+    padding: 0.75rem 0.5rem;
+}
+
+/* Style the new add button in the table header */
+.schedule-table-view .add-shift-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    transition: all 0.2s ease;
+}
+
+.schedule-table-view .add-shift-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
