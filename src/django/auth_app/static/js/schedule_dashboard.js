@@ -365,7 +365,7 @@ function loadSchedule(week) {
 
     showSpinner();
     $.ajax({
-        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
+        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&legacy=true&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
         method: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},

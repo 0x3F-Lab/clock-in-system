@@ -2,12 +2,13 @@ import logging
 import api.exceptions as err
 import api.utils as util
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from datetime import timedelta, datetime, date, time
 from typing import Union, Dict, List, Dict, Tuple, Union, Any
 from datetime import timedelta, datetime
 from django.conf import settings
 from django.db import transaction, IntegrityError
+from django.db.models import Prefetch
 from django.db.models.functions import Coalesce, Concat
 from django.utils.timezone import now, localtime, make_aware
 from django.db.models import (
@@ -1014,8 +1015,8 @@ def get_all_store_schedules_legacy(
 
     # Fetch shifts for the store during this week
     shifts = Shift.objects.filter(
-        store=store, date__range=(week_start, week_end)
-    ).select_related("employee", "role")
+        store=store, date__range=(week_start, week_end), employee__is_hidden=False
+    ).select_related("employee", "role", "shift_shiftexception")
 
     # Optional filters
     if hide_deactivated:
@@ -1109,6 +1110,165 @@ def get_all_store_schedules_legacy(
         "week_start": week_start,
         "prev_week": week_start - timedelta(days=7),
         "next_week": week_start + timedelta(days=7),
+    }
+
+
+def get_all_store_schedules(
+    store: Store,
+    week: str,
+    offset: int,
+    limit: int,
+    include_deleted: bool = False,
+    hide_deactivated: bool = False,
+    hide_resigned: bool = False,
+    sort_field: str = "name",
+    filter_names: List[str] = None,
+    filter_roles: List[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get all of a store's schedule information for a given week.
+
+    Args:
+        store (Store obj): The store for which the schedule will be fetched
+        week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
+        offset (int): Pagination offset.
+        limit (int): Pagination limit.
+        include_deleted (bool): If True, include Shifts with is_deleted=True
+        hide_deactivated (bool): Exclude deactivated employees. Default False.
+        hide_resigned (bool): Exclude resigned employees. Default False.
+        sort_field (str): One of "name", "age", "acc_age".
+        filter_names (List[str]): Case-insensitive names to include.
+        filter_roles (List[str]): Case-insensitive roles to include.
+
+    Returns:
+        {
+            'schedule': {
+                'Employee Name': {'1-1-2025': [shifts], ... },
+                ...
+            },
+            'week_start': ...,
+            'prev_week': ...,
+            'next_week': ...
+        }
+    """
+    if store is None or week is None:
+        raise Exception("Store object or week is None.")
+
+    try:
+        week_start = date.fromisoformat(week)
+        week_start = util.get_week_start(week_start)  # Ensure Monday
+    except ValueError:
+        raise Exception("Week provided is not in ISO format.")
+
+    week_end = week_start + timedelta(days=6)
+    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+
+    # Employees currently in the store (via StoreAccess)
+    current_employees_qs = store.get_store_employees(include_hidden=False)
+
+    # Employees with shifts in the target week (TO ENSURE RESIGNED EMPLOYEES ARE OBTAINED)
+    shift_employee_ids = (
+        Shift.objects.filter(
+            store=store,
+            date__range=(week_start, week_end),
+        )
+        .values_list("employee_id", flat=True)
+        .distinct()
+    )
+
+    # Combine both querysets using union of Q objects
+    employee_qs = User.objects.filter(
+        Q(id__in=current_employees_qs.values_list("id", flat=True))
+        | Q(id__in=shift_employee_ids)
+    ).prefetch_related("store_access")
+
+    # Exclude hidden users
+    employee_qs = employee_qs.filter(is_hidden=False)
+
+    # Optional filters
+    if hide_deactivated:
+        employee_qs = employee_qs.filter(is_active=True)
+    if hide_resigned:
+        employee_qs = employee_qs.filter(store_access__store_id=store.id)
+
+    # Filter by name if specified
+    if filter_names:
+        # Annotate full_name
+        employee_qs = employee_qs.annotate(
+            full_name=Concat("first_name", Value(" "), "last_name")
+        )
+        name_query = Q()
+        for name in filter_names:
+            name_query |= Q(full_name__icontains=name)
+        employee_qs = employee_qs.filter(name_query)
+
+    # Add prefetch for shifts within appropriate range
+    filtered_shifts = (
+        Shift.objects.filter(
+            store=store,
+            date__range=(week_start, week_end),
+        )
+        .select_related("role", "shift_shiftexception")
+        .order_by("date", "start_time")
+    )
+
+    # Filter out deleted shifts if requested
+    if not include_deleted:
+        filtered_shifts = filtered_shifts.filter(is_deleted=False)
+
+    # Add role filter on shifts if given
+    if filter_roles:
+        role_query = Q()
+        for role in filter_roles:
+            role_query |= Q(role__name__icontains=role)
+        filtered_shifts = filtered_shifts.filter(role_query)
+
+    employee_qs = employee_qs.prefetch_related(
+        Prefetch("shifts", queryset=filtered_shifts, to_attr="filtered_shifts")
+    )
+
+    sort_map = {
+        "name": ("first_name", "last_name", "birth_date"),
+        "age": ("birth_date", "first_name", "last_name"),
+        "acc_age": ("created_at", "first_name", "last_name"),
+    }
+    employee_qs = employee_qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+
+    # Apply pagination
+    total = employee_qs.count()
+    employees = employee_qs[offset : offset + limit]
+
+    schedule = OrderedDict()
+
+    for emp in employees:
+        # Add each day of week to dict (in order)
+        shifts = {day.isoformat(): [] for day in week_dates}
+
+        for shift in getattr(emp, "filtered_shifts", []):
+            day_key = shift.date.isoformat()
+            shifts[day_key].append(
+                {
+                    "id": shift.id,
+                    "start_time": shift.start_time.strftime("%H:%M"),
+                    "end_time": shift.end_time.strftime("%H:%M"),
+                    "role_name": shift.role.name if shift.role else None,
+                    "role_colour": shift.role.colour_hex if shift.role else None,
+                    "is_unscheduled": shift.is_unscheduled,
+                    "comment": shift.comment,
+                    "has_exception": hasattr(shift, "shift_shiftexception"),
+                }
+            )
+
+        # Add to schedule dict
+        schedule[f"{emp.first_name} {emp.last_name}"] = shifts
+
+    return {
+        "schedule": schedule,
+        "week_start": week_start,
+        "prev_week": week_start - timedelta(days=7),
+        "next_week": week_start + timedelta(days=7),
+        "total": total,
+        "offset": offset,
     }
 
 
@@ -1456,14 +1616,18 @@ def link_activity_to_shift(
                 employee_id=activity.employee_id,
                 date=activity.login_time.date(),
                 is_deleted=False,
-            )
+            ).prefetch_related("shift_shiftexception")
 
             # Preload other activities ONCE -> Used to check if shift is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
-            other_activities = Activity.objects.filter(
-                store_id=activity.store_id,
-                employee_id=activity.employee_id,
-                login_time__date=activity.login_time.date(),
-            ).exclude(pk=activity.id)
+            other_activities = (
+                Activity.objects.filter(
+                    store_id=activity.store_id,
+                    employee_id=activity.employee_id,
+                    login_time__date=activity.login_time.date(),
+                )
+                .exclude(pk=activity.id)
+                .prefetch_related("activity_shiftexception")
+            )
 
             # Filter shifts that do NOT have an full exception (have both linked shift and activity) — BUT allow the one linked to this activity's exception
             valid_shifts = [
@@ -1567,15 +1731,19 @@ def link_activity_to_shift(
                 store_id=shift.store_id,
                 employee_id=shift.employee_id,
                 login_time__date=shift.date,
-            )
+            ).prefetch_related("activity_shiftexception")
 
             # Preload other shifts ONCE -> Used to check if activity is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
-            other_shifts = Shift.objects.filter(
-                store_id=shift.store_id,
-                employee_id=shift.employee_id,
-                date=shift.date,
-                is_deleted=False,
-            ).exclude(pk=shift.id)
+            other_shifts = (
+                Shift.objects.filter(
+                    store_id=shift.store_id,
+                    employee_id=shift.employee_id,
+                    date=shift.date,
+                    is_deleted=False,
+                )
+                .exclude(pk=shift.id)
+                .prefetch_related("shift_shiftexception")
+            )
 
             # Filter valid activities using preloaded shifts
             valid_activities = [

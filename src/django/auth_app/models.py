@@ -294,18 +294,34 @@ class Store(models.Model):
         self.code = code
         self.save()
 
+    def get_store_employees(self, include_hidden=False, include_inactive=True):
+        """
+        Returns a queryset of employees (incl managers) who have access to the given store.
+        Args:
+          - include_hidden (bool) = False: Include hidden accounts (super admins) in the list.
+          - include_inactive (bool) = True: Include inactive accounts in the list.
+        """
+        qs = User.objects.filter(store_access__store=self)
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        if not include_hidden:
+            qs = qs.filter(is_hidden=False)
+        return qs.distinct()
+
     def get_store_managers(self, include_hidden=False):
         """
         Returns a queryset of ACTIVE managers who have access to the given store.
         Args:
           - include_hidden (bool) = False: Include hidden accounts (super admins) in the list.
         """
-        return User.objects.filter(
+        qs = User.objects.filter(
             store_access__store=self,
             is_manager=True,
             is_active=True,  # Only include active users
-            is_hidden=include_hidden,
-        ).distinct()
+        )
+        if not include_hidden:
+            qs = qs.filter(is_hidden=False)
+        return qs.distinct()
 
     def get_clocked_in_employees(self, include_inactive=True):
         """

@@ -436,11 +436,14 @@ def get_filter_list_from_string(
     return None
 
 
-def get_pagination_values_from_request(request) -> Tuple[int, int]:
+def get_pagination_values_from_request(
+    request, default_limit: int = 25
+) -> Tuple[int, int]:
     """
     Get the pagination values (offset & limit) from the request and handle limits.
     Args:
       request: The request object.
+      default_limit (int): The default limit if none is provided.
 
     Returns:
       Tuple[int, int]: Returned in the order (offset, limit)
@@ -454,11 +457,11 @@ def get_pagination_values_from_request(request) -> Tuple[int, int]:
     try:
         # Enforce min limit = 1 and max limit = 150 (settings controlled)
         limit = min(
-            max(int(request.query_params.get("limit", "25")), 1),
+            max(int(request.query_params.get("limit", default_limit)), 1),
             settings.MAX_DATABASE_DUMP_LIMIT,
         )
     except ValueError:
-        limit = 25
+        limit = 25  # Revert to 25 if any errors
 
     return offset, limit
 
