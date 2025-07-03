@@ -2959,7 +2959,7 @@ def get_store_shifts(request, id):
             request.query_params.get("filter_roles", "")
         )
         offset, limit = util.get_pagination_values_from_request(
-            request, default_limit=150
+            request, default_limit=100
         )
 
         # Only get all shifts IF they're a manager
@@ -3022,7 +3022,7 @@ def get_store_shifts(request, id):
 
             # Use new function to get data if not requesting legacy view
             else:
-                data = controllers.get_all_store_schedules_legacy(
+                data = controllers.get_all_store_schedules(
                     store=store,
                     week=week,
                     offset=offset,

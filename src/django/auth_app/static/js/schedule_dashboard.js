@@ -16,18 +16,27 @@ $(document).ready(function() {
 
     // Handle table controls submission
     $('#tableControllerSubmit').on('click', () => {
+      if ($('#useLegacy').is(':checked')) {
+          $('#paginationController').addClass('d-none');
+      } else {
+          $('#paginationController').removeClass('d-none');
+      }
+      resetPaginationValues();
       const date = $('#schedule-week-title').data('week-start-date') || new Date().toLocaleDateString('sv-SE');
       loadSchedule(date);
     });
 
     // Update table controller icon on collapse/show
     $('#tableControllerCollapse').on('show.bs.collapse', function () {
-        $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
-      });
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+    });
 
     $('#tableControllerCollapse').on('hide.bs.collapse', function () {
       $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
     });
+
+    // Update table controller sort options on legacy style checkbox change
+    $('#useLegacy').on('change', () => { showCorrectSortOptions(); });
 
     // --- Store Selector ---
     $('#storeSelectDropdown').on('change', function() {
@@ -38,6 +47,10 @@ $(document).ready(function() {
     // --- Initial Page Load ---
     updateStoreInformation(getSelectedStoreID());
     loadSchedule(new Date().toLocaleDateString('sv-SE'));
+    $('#paginationController').addClass('d-none'); // STARTS OFF HIDDEN ---- REMOVE THIS ONCE SET DEFAULT TO NEW VISUAL METHOD
+
+    // Activate the pagination system (set the update function)
+    handlePagination({updateFunc: loadScheduleViaPagination});
 
     // Add page reloader to force reload after period of inactivity
     setupVisibilityReload(30); // 30 minutes
@@ -356,8 +369,17 @@ function handleWeekSwitching() {
 }
 
 
+// Intermediary function to be used by pagination system to load schedule for CURRENTLY LOADED WEEK with updated pagination
+// Cant use loadSchedule directly as it expected `week`.
+function loadScheduleViaPagination() {
+    const week = $('#schedule-week-title').data('week-start-date') || new Date().toLocaleDateString('sv-SE');
+    loadSchedule(week);
+}
+
+
 function loadSchedule(week) {
-    const sort = $('#sortFields input[type="radio"]:checked').val();
+    const legacy = $('#useLegacy').is(':checked');
+    const sort = legacy ? $('#sortFieldsLegacy input[type="radio"]:checked').val() : $('#sortFields input[type="radio"]:checked').val();
     const filterNames = $('#filterNames').val();
     const filterRoles = $('#filterRoles').val();
     const hideDeactive = $('#hideDeactivated').is(':checked');
@@ -365,7 +387,7 @@ function loadSchedule(week) {
 
     showSpinner();
     $.ajax({
-        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&legacy=true&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
+        url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?get_all=true&legacy=${legacy}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&week=${week}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
         method: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},
@@ -419,6 +441,7 @@ function loadSchedule(week) {
             $('[data-bs-toggle="tooltip"]').tooltip();
             $('#previous-week-btn').data('week', data.prev_week);
             $('#next-week-btn').data('week', data.next_week);
+            if (!legacy) { setPaginationValues(data.offset, data.total); } // Set pagination values IF the display uses it.
             hideSpinner();
         },
         error: function(jqXHR, textStatus, errorThrown) {
@@ -430,6 +453,7 @@ function loadSchedule(week) {
                     </div>
                 </div>`);
             handleAjaxError(jqXHR, "Failed to load the roster week");
+            setPaginationValues(0, 0); // Set pagination values to ensure selector doesnt become bugged
         }
     });
 }
@@ -562,6 +586,19 @@ function setRoleFormToAddMode() {
     $form[0].reset();
     $form.parent().find('h6').text('Add New Role');
     $submitBtn.text('Add Role').removeClass('btn-success').addClass('btn-primary');
+}
+
+
+// This function shows the correct sort field in table controls based on legacy style or not
+function showCorrectSortOptions() {
+    const legacy = $('#useLegacy').is(':checked');
+    if (legacy) {
+      $('#legacy-sort').removeClass('d-none');
+      $('#new-sort').addClass('d-none');
+    } else {
+      $('#legacy-sort').addClass('d-none');
+      $('#new-sort').removeClass('d-none');
+    }
 }
 
 

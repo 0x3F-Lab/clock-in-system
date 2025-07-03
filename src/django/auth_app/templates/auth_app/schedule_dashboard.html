@@ -33,20 +33,34 @@
 
   <div class="collapse" id="tableControllerCollapse">
     <div class="p-3 pt-2">
-      <div class="mb-4">
+      <div id="legacy-sort" class="mb-4">
         <label class="form-label d-block">Sort By:</label>
-        <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
-          <input type="radio" class="btn-check" name="sortField" id="sortTime" value="time" autocomplete="off" checked>
+        <div id="sortFieldsLegacy" class="btn-group w-100" role="group" aria-label="Sort Options">
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortTime" value="time" autocomplete="off" checked>
           <label class="btn btn-outline-info" for="sortTime">Start Time</label>
 
-          <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off">
-          <label class="btn btn-outline-info" for="sortName">Name</label>
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortNameLegacy" value="name" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortNameLegacy">Name</label>
 
-          <input type="radio" class="btn-check" name="sortField" id="sortRoleName" value="role_name" autocomplete="off">
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortRoleName" value="role_name" autocomplete="off">
           <label class="btn btn-outline-info" for="sortRoleName">Role Name</label>
 
-          <input type="radio" class="btn-check" name="sortField" id="sortLength" value="length" autocomplete="off">
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortLength" value="length" autocomplete="off">
           <label class="btn btn-outline-info" for="sortLength">Shift Length</label>
+        </div>
+      </div>
+
+      <div id="new-sort" class="mb-4 d-none">
+        <label class="form-label d-block">Sort By:</label>
+        <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
+          <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
+          <label class="btn btn-outline-info" for="sortName">Name</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortAge" value="age" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortAge">Age</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortAccAge" value="acc_age" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortAccAge">Account Age</label>
         </div>
       </div>
 
@@ -58,8 +72,14 @@
           </div>
 
           <div class="form-check form-switch mb-4">
-            <input type="checkbox" id="hideResigned" class="form-check-input p-2" />
-            <label for="hideResigned" class="form-check-label">Hide Resigned Employees</label>
+            <input type="checkbox" id="useLegacy" class="form-check-input p-2" checked />
+            <label for="useLegacy" class="form-check-label">Use Legacy Layout</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="hideDeactivated" class="form-check-input p-2" />
+            <label for="hideDeactivated" class="form-check-label">Hide Deactivated Employees</label>
           </div>
         </div>
       </div>
@@ -202,6 +222,8 @@
     </ul>
   </div>
 </div>
+
+{% include "components/pagination_controller.html" with limit=100 %}
 
 <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel">
   <div class="modal-dialog modal-lg">
