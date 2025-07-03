@@ -1073,11 +1073,6 @@ def get_all_store_schedules_legacy(
     }
     shifts = shifts.order_by(*sort_map.get(sort_field, sort_map["time"]))
 
-    # Order the shifts
-    shifts = shifts.order_by(
-        "date", "start_time", "employee__first_name", "employee__last_name"
-    )
-
     # Group shifts by date using a defaultdict
     grouped_shifts = defaultdict(list)
 
