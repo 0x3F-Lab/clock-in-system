@@ -182,19 +182,9 @@ function updateShiftLogsTable() {
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-
-      // Add error data
-      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">ERROR OBTAINING SHIFTS</td></tr>`);
-
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to load shift logs table due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to load shift logs table. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      const errorMessage = handleAjaxError(jqXHR, "Failed to load shift logs table");
+      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">${errorMessage}</td></tr>`);
+      setPaginationValues(0, 0);
     }
   });
 }

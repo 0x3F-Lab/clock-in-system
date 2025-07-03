@@ -79,6 +79,7 @@ function updateSummaryTable() {
     error: function(jqXHR, textStatus, errorThrown) {
       const errorMessage = handleAjaxError(jqXHR, "Failed to load summary table");
       $('#summaryTable tbody').html(`<tr><td colspan="7" class="table-danger">${errorMessage}</td></tr>`);
+      setPaginationValues(0, 0);
     }
   });
 }

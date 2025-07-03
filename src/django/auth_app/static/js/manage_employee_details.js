@@ -312,19 +312,9 @@ function updateEmployeeDetailsTable() {
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-
-      // Add error row
-      $('#employeeTable tbody').html(`<tr><td colspan="7" class="table-danger">ERROR OBTAINING EMPLOYEES</td></tr>`);
-
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to load employee details table due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee details table. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      const errorMessage = handleAjaxError(jqXHR, "Failed to load employee details table");
+      $('#employeeTable tbody').html(`<tr><td colspan="7" class="table-danger">${errorMessage}</td></tr>`);
+      setPaginationValues(0, 0);
     }
   });
 }
