@@ -44,10 +44,16 @@ $(document).ready(function() {
         loadSchedule(new Date().toLocaleDateString('sv-SE'));
     });
 
+    // Update page to use legacy style if the screen is <medium
+    if ($(window).width() < 992) {
+      $('#useLegacy').prop('checked', true);
+      showCorrectSortOptions();
+      $('#paginationController').addClass('d-none');
+    }
+
     // --- Initial Page Load ---
     updateStoreInformation(getSelectedStoreID());
     loadSchedule(new Date().toLocaleDateString('sv-SE'));
-    $('#paginationController').addClass('d-none'); // STARTS OFF HIDDEN ---- REMOVE THIS ONCE SET DEFAULT TO NEW VISUAL METHOD
 
     // Activate the pagination system (set the update function)
     handlePagination({updateFunc: loadScheduleViaPagination});
@@ -179,7 +185,6 @@ function handleShiftModification() {
         }
 
         const shiftId = $('#editShiftId').val();
-        console.log(form.find('#editShiftRole').val());
         
         // EITHER CREATE OR UPDATE EXISTING SHIFT DEPENDING IF shiftID SET
         showSpinner();
@@ -410,7 +415,7 @@ function loadSchedule(week) {
                 if (!$('#paginationController').hasClass('d-none')) { $('#paginationController').addClass('d-none'); }
             } else {
                 renderModernTableView(data);
-                setPaginationValues(data.offset, data.total_employees);
+                setPaginationValues(data.offset, data.total);
                 if ($('#paginationController').hasClass('d-none')) { $('#paginationController').removeClass('d-none'); }
             }
             
@@ -435,7 +440,6 @@ function loadSchedule(week) {
 
 
 function renderLegacyCardView(data) {
-    console.log(data);
     const scheduleContainer = $('#schedule-container');
     scheduleContainer.empty();
 

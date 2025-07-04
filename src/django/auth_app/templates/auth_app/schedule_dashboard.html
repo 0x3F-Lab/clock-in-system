@@ -33,7 +33,7 @@
 
   <div class="collapse" id="tableControllerCollapse">
     <div class="p-3 pt-2">
-      <div id="legacy-sort" class="mb-4">
+      <div id="legacy-sort" class="mb-4 d-none">
         <label class="form-label d-block">Sort By:</label>
         <div id="sortFieldsLegacy" class="btn-group w-100" role="group" aria-label="Sort Options">
           <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortTime" value="time" autocomplete="off" checked>
@@ -50,7 +50,7 @@
         </div>
       </div>
 
-      <div id="new-sort" class="mb-4 d-none">
+      <div id="new-sort" class="mb-4">
         <label class="form-label d-block">Sort By:</label>
         <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
           <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
@@ -72,7 +72,7 @@
           </div>
 
           <div class="form-check form-switch mb-4">
-            <input type="checkbox" id="useLegacy" class="form-check-input p-2" checked />
+            <input type="checkbox" id="useLegacy" class="form-check-input p-2" />
             <label for="useLegacy" class="form-check-label">Use Legacy Layout</label>
           </div>
         </div>
