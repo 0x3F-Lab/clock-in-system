@@ -21,10 +21,9 @@ def test_get_users_name_only_active(
     """
     users = controllers.get_store_employee_names(store_id=store.id, only_active=True)
 
-    # Only the active user should be returned
     assert len(users) == 1
-    assert employee.id in users
-    assert users[employee.id] == "John Doe"
+    assert users[0]["id"] == employee.id
+    assert users[0]["name"] == "John Doe"
 
 
 @pytest.mark.django_db
@@ -38,10 +37,9 @@ def test_get_users_name_ignore_managers(
         store_id=store.id, only_active=True, ignore_managers=True
     )
 
-    # The manager should be excluded
     assert len(users) == 1
-    assert employee.id in users
-    assert users[employee.id] == "John Doe"
+    assert users[0]["id"] == employee.id
+    assert users[0]["name"] == "John Doe"
 
 
 @pytest.mark.django_db
@@ -55,9 +53,8 @@ def test_get_users_name_order_by_first_name(
         store_id=store.id, order=True, order_by_first_name=True
     )
 
-    # The users should be ordered by first name
     assert len(users) == 2
-    ordered_names = list(users.values())
+    ordered_names = [user["name"] for user in users]
     assert ordered_names == ["Jane Doe", "John Doe"]
 
 
@@ -72,9 +69,8 @@ def test_get_users_name_order_by_last_name(
         store_id=store.id, order=True, order_by_first_name=False
     )
 
-    # The users should be ordered by last name
     assert len(users) == 2
-    ordered_names = list(users.values())
+    ordered_names = [user["name"] for user in users]
     assert ordered_names == ["John Doe", "Manager Test"]
 
 
@@ -83,11 +79,11 @@ def test_get_users_name_no_results(
     inactive_employee, store, store_associate_inactive_employee
 ):
     """
-    Test the scenario where no users match the given criteria (should return None).
+    Test the scenario where no users match the given criteria (should return empty list).
     """
     users = controllers.get_store_employee_names(store_id=store.id, only_active=True)
 
-    assert len(users) == 0
+    assert users == []
 
 
 @pytest.mark.django_db
@@ -97,13 +93,12 @@ def test_get_users_name_empty_query(
     """
     Test the scenario when no filters are applied (default behavior).
     """
-
     users = controllers.get_store_employee_names(store_id=store.id)
 
-    # All active users should be returned
+    user_ids = {user["id"] for user in users}
     assert len(users) == 2
-    assert employee.id in users
-    assert manager.id in users
+    assert employee.id in user_ids
+    assert manager.id in user_ids
 
 
 @pytest.mark.django_db

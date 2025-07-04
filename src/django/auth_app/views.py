@@ -1,4 +1,5 @@
 import logging
+import traceback
 import api.exceptions as err
 
 from rest_framework import status
@@ -27,6 +28,9 @@ from auth_app.forms import (
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
+from django.utils import timezone
+from datetime import timedelta, date
+from .models import Shift
 
 
 logger = logging.getLogger("auth_app")
@@ -200,7 +204,7 @@ def setup_account(request):
                     "Failed to setup account due to internal server error. Please try again later.",
                 )
                 logger.critical(
-                    f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}"
+                    f"Failed to setup account with email {email} ({first_name} {last_name}), producing the error: {e}\n{traceback.format_exc()}"
                 )
                 return render(
                     request,
@@ -248,7 +252,7 @@ def manual_clocking(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -317,7 +321,7 @@ def manual_clocking(request):
             # Clock the employee in/out
             try:
                 if employee.is_clocked_in(store=store):
-                    activity = handle_clock_out(
+                    handle_clock_out(
                         employee_id=employee.id,
                         deliveries=deliveries,
                         store_id=store.id,
@@ -325,7 +329,7 @@ def manual_clocking(request):
                     )
                     messages.success(request, "Successfully clocked out.")
                 else:
-                    activity = handle_clock_in(
+                    handle_clock_in(
                         employee_id=employee.id, store_id=store.id, manual=True
                     )
                     messages.success(request, "Successfully clocked in.")
@@ -370,17 +374,6 @@ def manual_clocking(request):
                     "auth_app/manual_clocking.html",
                     {**context, "form": form},
                     status=status.HTTP_417_EXPECTATION_FAILED,
-                )
-            except err.NoActiveClockingRecordError:
-                messages.error(
-                    request,
-                    "Could not clock out user due to bugged user state. State has been reset, please retry.",
-                )
-                return render(
-                    request,
-                    "auth_app/manual_clocking.html",
-                    {**context, "form": form},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
             except Exception as e:
                 logger.warning(
@@ -430,7 +423,28 @@ def employee_dashboard(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/employee_dashboard.html", context)
+
+
+@employee_required
+@ensure_csrf_cookie
+@require_GET
+def employee_account(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -460,8 +474,7 @@ def employee_dashboard(request):
         ),
     }
     context.update(info)
-
-    return render(request, "auth_app/employee_dashboard.html", context)
+    return render(request, "auth_app/employee_account.html", context)
 
 
 @employee_required
@@ -471,7 +484,7 @@ def notification_page(request):
     try:
         context, user = get_default_page_context(request, include_notifications=True)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -589,7 +602,7 @@ def notification_page(request):
 
         except Exception as e:
             logger.critical(
-                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}"
+                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
             )
             messages.error(
                 request,
@@ -618,7 +631,7 @@ def home_directory(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -639,7 +652,7 @@ def manager_dashboard(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -660,7 +673,7 @@ def manage_employee_details(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -684,7 +697,7 @@ def manage_shift_logs(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -705,7 +718,7 @@ def manage_account_summary(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -726,7 +739,7 @@ def manage_stores(request):
     try:
         context, user = get_default_page_context(request)
     except User.DoesNotExist:
-        logger.critical(
+        logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
                 request.session.get("user_id", None)
             )
@@ -742,6 +755,27 @@ def manage_stores(request):
     return render(
         request, "auth_app/manage_stores.html", {**context, "store_info": store_info}
     )
+
+
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def store_exceptions(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.error(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/exception_page.html", context)
 
 
 @require_GET
@@ -803,3 +837,24 @@ class StaticViewSitemap(Sitemap):
         elif item == "manual_clocking":
             return 0.7
         return 0.5
+
+
+@require_GET
+@ensure_csrf_cookie
+@manager_required
+def schedule_dashboard(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.error(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/schedule_dashboard.html", context)

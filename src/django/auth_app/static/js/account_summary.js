@@ -38,16 +38,11 @@ function updateSummaryTable() {
   $.ajax({
     url: `${window.djangoURLs.listAccountSummaries}?offset=${getPaginationOffset()}&limit=${getPaginationLimit()}&store_id=${getSelectedStoreID()}&start=${startDate}&end=${endDate}&sort=${sort}&ignore_no_hours=${ignoreNoHrs}&filter=${filter}`,
     type: "GET",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
+    xhrFields: { withCredentials: true },
+    headers: { 'X-CSRFToken': getCSRFToken() },
 
     success: function(req) {
       hideSpinner();
-
       const summaries = req.results || [];
 
       if (legacyStyle) {
@@ -82,19 +77,9 @@ function updateSummaryTable() {
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-
-      // Add error row
-      $('#summaryTable tbody').html(`<tr><td colspan="7" class="table-danger">ERROR OBTAINING SUMMARIES</td></tr>`);
-
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to load summary table due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to load summary table. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      const errorMessage = handleAjaxError(jqXHR, "Failed to load summary table");
+      $('#summaryTable tbody').html(`<tr><td colspan="7" class="table-danger">${errorMessage}</td></tr>`);
+      setPaginationValues(0, 0);
     }
   });
 }

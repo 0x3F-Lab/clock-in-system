@@ -1,10 +1,19 @@
 import pytest
 from unittest.mock import patch
 from freezegun import freeze_time
-from datetime import date, timedelta
+from datetime import date, timedelta, time
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
-from auth_app.models import Activity
+from rest_framework import status
+from auth_app.models import (
+    Shift,
+    Role,
+    Store,
+    User,
+    ShiftException,
+    Activity,
+    StoreUserAccess,
+)
 
 
 @pytest.mark.django_db
@@ -36,14 +45,23 @@ def test_list_store_employee_names_success(
     )
 
     assert response.status_code == 200
-    data = {int(k): v for k, v in response.json().items()}
 
-    # The result should be a dict mapping user IDs to full names
-    assert isinstance(data, dict)
-    assert employee.id in data
-    assert data[employee.id] == f"{employee.first_name} {employee.last_name}"
-    assert manager.id not in data  # Because ignore_managers=True
-    assert inactive_employee.id not in data
+    names_data = response.json().get("names", [])
+    assert isinstance(names_data, list)
+
+    # Extract IDs from the returned list
+    returned_ids = {entry["id"] for entry in names_data}
+    returned_map = {entry["id"]: entry["name"] for entry in names_data}
+
+    # Should contain active non-manager employee
+    assert employee.id in returned_ids
+    assert returned_map[employee.id] == f"{employee.first_name} {employee.last_name}"
+
+    # Should not contain manager (ignore_managers=True)
+    assert manager.id not in returned_ids
+
+    # Should not contain inactive employee
+    assert inactive_employee.id not in returned_ids
 
 
 @freeze_time("2025-01-01 15:00:00")
@@ -596,23 +614,24 @@ def test_list_recent_shifts_success(
     # Use authenticated client
     api_client = logged_in_clocked_in_employee
 
-    url = reverse("api:list_recent_shifts")
-    response = api_client.get(url, {"store_id": str(store.id), "limit_days": 7})
+    url = reverse("api:list_user_activities")
+    response = api_client.get(url, {"store_id": str(store.id), "week": now().date()})
 
     assert response.status_code == 200
 
     data = response.json()
+    assert "activities" in data
+    assert now().date().isoformat() in data["activities"]
 
-    # The result should be a list of shift dictionaries
-    assert isinstance(data, list)
-    assert "login_time" in data[0]
-    assert "logout_time" in data[0]
-    assert "store_id" in data[0]
-    assert "employee_id" in data[0]
-    assert "store_code" in data[0]
-    assert "deliveries" in data[0]
-    assert "is_public_holiday" in data[0]
-    assert "is_modified" in data[0]
+    act = data["activities"][now().date().isoformat()][0]
+    assert "login_time_str" in act
+    assert "logout_time_str" in act
+    assert "store_id" in act
+    assert "employee_id" in act
+    assert "store_code" in act
+    assert "deliveries" in act
+    assert "is_public_holiday" in act
+    assert "is_modified" in act
 
 
 @pytest.mark.django_db
@@ -751,7 +770,10 @@ def test_list_account_summaries_full_hour_breakdown(
 
 
 @pytest.mark.django_db
-def test_update_store_info(logged_in_manager, manager, store, store_associate_manager):
+@patch("auth_app.tasks.notify_managers_store_information_updated.delay")
+def test_update_store_info(
+    mock_notify, logged_in_manager, manager, store, store_associate_manager
+):
     """
     Test that a manager can update an associated store's info.
     """
@@ -781,3 +803,356 @@ def test_update_store_info(logged_in_manager, manager, store, store_associate_ma
     assert store.code == send_data["code"]
     assert store.location_street == send_data["loc_street"]
     assert store.allowable_clocking_dist_m == send_data["clocking_dist"]
+
+
+# Helper to get the start of the current week (Monday)
+def get_monday_of_week(dt=None):
+    if dt is None:
+        dt = now().date()
+    return dt - timedelta(days=dt.weekday())
+
+
+# Mark all tests in this class to use the database
+@pytest.mark.django_db
+class TestScheduleAndRoleAPIs:
+    """
+    Test suite for API views related to schedule and role management.
+    """
+
+    # --- Fixture for test-specific setup ---
+    @pytest.fixture(autouse=True)
+    def setup_class(
+        self,
+        db,
+        store,
+        manager,
+        employee,
+        clocked_in_employee,
+        store_associate_manager,
+        store_associate_employee,
+    ):
+        """
+        Creates a common setup for all tests in this class, including roles, shifts, and exceptions.
+        This fixture runs automatically for every test in this class.
+        """
+        self.manager = manager
+        self.employee = employee
+        self.store = store
+        self.week_start = get_monday_of_week()
+
+        # Create roles for the store
+        self.cook_role = Role.objects.create(
+            store=self.store, name="Cook", colour_hex="#3498db"
+        )
+        self.cashier_role = Role.objects.create(
+            store=self.store, name="Cashier", colour_hex="#e74c3c"
+        )
+
+        # Create shifts for testing
+        self.shift1 = Shift.objects.create(
+            store=self.store,
+            employee=self.employee,
+            role=self.cook_role,
+            date=self.week_start,
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        # Create a shift exception for testing
+        self.activity = Activity.objects.create(
+            employee=self.employee,
+            store=self.store,
+            login_time=now() - timedelta(hours=1),
+            logout_time=now(),
+        )
+        self.exception = ShiftException.objects.create(
+            activity=self.activity, reason=ShiftException.Reason.INCORRECTLY_CLOCKED
+        )
+
+    # ===============================================
+    # == Tests for list_store_shifts
+    # ===============================================
+    def test_list_store_shifts_legacy_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager
+        WHEN they request shifts for a specific week
+        THEN they should receive a 200 OK and a schedule object.
+        """
+
+        url = (
+            reverse("api:list_store_shifts", kwargs={"id": self.store.id})
+            + f"?get_all=true&legacy=true&week={self.week_start.isoformat()}"
+        )
+        response = api_client.get(url)
+        data = response.json()  # Parse the JSON response
+        assert response.status_code == status.HTTP_200_OK
+        assert "schedule" in data
+        assert str(self.week_start) in data["schedule"]
+
+    def test_list_store_shifts_unauthorized(self, api_client):
+        """
+        GIVEN an unauthenticated user
+        WHEN they request shifts
+        THEN they should receive a 401 Unauthorized error.
+        """
+
+        url = reverse("api:list_store_shifts", kwargs={"id": self.store.id})
+        response = api_client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    # ===============================================
+    # == Tests for create_store_shift
+    # ===============================================
+    def test_create_shift_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager
+        WHEN they send valid data for a new shift
+        THEN a new shift should be created and a 201 status returned.
+        """
+        url = reverse("api:create_shift", kwargs={"store_id": self.store.id})
+        shift_count_before = Shift.objects.count()
+
+        future_date = (now() + timedelta(days=9)).date()
+
+        data = {
+            "employee_id": self.employee.id,
+            "role_id": self.cook_role.id,
+            "date": future_date.isoformat(),
+            "start_time": "10:00",
+            "end_time": "18:00",
+        }
+        response = api_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Shift.objects.count() == shift_count_before + 1
+
+    def test_create_shift_in_past_fails(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager
+        WHEN they attempt to create a shift in the past
+        THEN the request should fail with a 412 error.
+        """
+        url = reverse("api:create_shift", kwargs={"store_id": self.store.id})
+        data = {
+            "employee_id": self.employee.id,
+            "date": (self.week_start - timedelta(days=10)).isoformat(),  # A past date
+            "start_time": "10:00",
+            "end_time": "18:00",
+        }
+        response = api_client.put(url, data, format="json")
+        assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+
+    # ===============================================
+    # == Tests for manage_store_shift (Update/Delete)
+    # ===============================================
+    def test_update_shift_role(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager and an existing shift
+        WHEN they change the role of the shift
+        THEN the shift's role should be updated in the database.
+        """
+
+        future_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.employee,
+            role=self.cook_role,
+            date=(now() + timedelta(days=10)).date(),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        url = reverse("api:manage_shift", kwargs={"id": future_shift.id})
+        data = {
+            "employee_id": future_shift.employee.id,
+            "role_id": self.cashier_role.id,  # Change from Cook to Cashier
+            "date": future_shift.date.isoformat(),
+            "start_time": "09:30",  # Change start time
+            "end_time": "17:30",
+        }
+        response = api_client.post(
+            url, data, format="json"
+        )  # Your view uses POST for updates
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        future_shift.refresh_from_db()
+        assert future_shift.role == self.cashier_role
+        assert future_shift.start_time == time(9, 30)
+
+    def test_delete_future_shift_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager and a future shift
+        WHEN they send a DELETE request
+        THEN the shift should be deleted.
+        """
+        future_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.employee,
+            date=now().date() + timedelta(days=30),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        shift_count_before = Shift.objects.count()
+        url = reverse("api:manage_shift", kwargs={"id": future_shift.id})
+        response = api_client.delete(url)
+        assert (
+            response.status_code == status.HTTP_200_OK
+        )  # Your view returns 200 OK on delete
+        assert Shift.objects.count() == shift_count_before - 1
+
+    def test_delete_past_shift_fails(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager and a past shift
+        WHEN they send a DELETE request
+        THEN the request should fail with a 410 Gone error.
+        """
+
+        past_shift = self.shift1
+        url = reverse("api:manage_shift", kwargs={"id": past_shift.id})
+        response = api_client.delete(url)
+        assert response.status_code == status.HTTP_410_GONE
+
+    # ===============================================
+    # == Tests for list_store_roles
+    # ===============================================
+    def test_list_store_roles_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager
+        WHEN they request the list of roles for their store
+        THEN they should receive a 200 OK and a list containing the roles.
+        """
+        url = reverse("api:list_store_roles", kwargs={"id": self.store.id})
+        response = api_client.get(url)
+
+        data = response.json()
+        assert response.status_code == status.HTTP_200_OK
+        assert len(data["data"]) == 2
+        assert data["data"][0]["name"] == "Cashier"  # It's ordered by name
+
+    # ===============================================
+    # == Tests for manage_store_role
+    # ===============================================
+    def test_role_crud_lifecycle(self, logged_in_manager, api_client):
+        """
+        Tests the full Create, Update (PATCH), and Delete lifecycle for roles.
+        """
+        role_count_before = Role.objects.filter(store=self.store).count()
+
+        # 1. CREATE a new role
+
+        create_url = reverse("api:create_store_role")
+        create_data = {
+            "name": "Driver",
+            "store_id": self.store.id,
+            "colour_hex": "#2ecc71",
+        }
+        response = api_client.post(create_url, create_data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert Role.objects.filter(store=self.store).count() == role_count_before + 1
+        new_role_id = response.json()["id"]
+
+        # 2. UPDATE (PATCH) the new role
+        update_url = reverse("api:manage_store_role", kwargs={"role_id": new_role_id})
+        update_data = {"name": "Lead Driver", "colour_hex": "#27ae60"}
+        response = api_client.patch(update_url, update_data, format="json")
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        updated_role = Role.objects.get(id=new_role_id)
+        assert updated_role.name == "Lead Driver"
+        assert updated_role.colour_hex == "#27ae60"
+
+        # 3. DELETE the new role
+        delete_url = reverse("api:manage_store_role", kwargs={"role_id": new_role_id})
+        response = api_client.delete(delete_url)
+        assert response.status_code == status.HTTP_200_OK
+        assert Role.objects.filter(store=self.store).count() == role_count_before
+
+    # ===============================================
+    # == Tests for manage_store_exception
+    # ===============================================
+    def test_approve_exception_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager and an unapproved exception
+        WHEN they send a POST request to approve it
+        THEN the exception should be marked as approved.
+        """
+        assert not self.exception.is_approved
+        url = reverse(
+            "api:manage_store_exception", kwargs={"exception_id": self.exception.id}
+        )
+        response = api_client.post(url, {}, format="json")
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        self.exception.refresh_from_db()
+        assert self.exception.is_approved
+
+    def test_approve_exception_with_patch_success(self, logged_in_manager, api_client):
+        """
+        GIVEN a logged-in manager
+        WHEN they send a PATCH request to approve an exception with new times
+        THEN the associated activity should be updated and the exception approved.
+        """
+        url = reverse(
+            "api:manage_store_exception", kwargs={"exception_id": self.exception.id}
+        )
+        original_logout_time = self.activity.logout_time
+        data = {"login_time": "08:00:00", "logout_time": "16:30:00"}
+        response = api_client.patch(url, data, format="json")
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        self.activity.refresh_from_db()
+        assert self.activity.logout_time != original_logout_time
+        assert localtime(self.activity.logout_time).strftime("%H:%M:%S") == "16:30:00"
+
+    # ===============================================
+    # == Tests for copy_week_schedule
+    # ===============================================
+    def test_copy_week_schedule_non_override(
+        self, logged_in_manager, api_client, store
+    ):
+        """
+        GIVEN a manager
+        WHEN they copy a week with one conflicting and one non-conflicting shift
+        THEN only the non-conflicting shift should be created.
+        """
+
+        Shift.objects.all().delete()
+
+        emp_a = User.objects.create(email="emp_a@test.com", first_name="Copied")
+        emp_b = User.objects.create(email="emp_b@test.com", first_name="Skipped")
+        StoreUserAccess.objects.create(user=emp_a, store=store)
+        StoreUserAccess.objects.create(user=emp_b, store=store)
+
+        source_week = get_monday_of_week()
+        target_week = source_week + timedelta(days=7)
+
+        # SHIFT A (Non-conflicting): This shift should be copied successfully.
+        Shift.objects.create(
+            store=store,
+            employee=emp_a,
+            date=source_week,
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+
+        # SHIFT B (Conflicting): This shift should be skipped.
+        Shift.objects.create(
+            store=store,
+            employee=emp_b,
+            date=source_week,
+            start_time=time(10, 0),
+            end_time=time(18, 0),
+        )
+        # Create the conflicting shift in the target week
+        Shift.objects.create(
+            store=store,
+            employee=emp_b,
+            date=target_week,
+            start_time=time(11, 0),
+            end_time=time(19, 0),
+        )
+
+        url = reverse("api:copy_week_schedule", kwargs={"store_id": store.id})
+        data = {
+            "source_week": source_week.isoformat(),
+            "target_week": target_week.isoformat(),
+            "override_shifts": False,
+        }
+        response = api_client.post(url, data, format="json")
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        results = response.json()["results"]
+        assert results["created"] == 1, "Should have created the non-conflicting shift."
+        assert results["skipped"] == 1, "Should have skipped the conflicting shift."

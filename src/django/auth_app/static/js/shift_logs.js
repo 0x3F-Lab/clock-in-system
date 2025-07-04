@@ -182,19 +182,9 @@ function updateShiftLogsTable() {
     },
 
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-
-      // Add error data
-      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">ERROR OBTAINING SHIFTS</td></tr>`);
-
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to load shift logs table due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to load shift logs table. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      const errorMessage = handleAjaxError(jqXHR, "Failed to load shift logs table");
+      $('#shiftLogsTable tbody').html(`<tr><td colspan="9" class="table-danger">${errorMessage}</td></tr>`);
+      setPaginationValues(0, 0);
     }
   });
 }
@@ -255,37 +245,26 @@ function handleShiftDetailsEdit() {
       $.ajax({
         url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}`,
         type: 'GET',
-        xhrFields: {
-          withCredentials: true
-        },
-        headers: {
-          'X-CSRFToken': getCSRFToken(),
-        },
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
     
         success: function(response) {
-          // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
-          const keys = Object.keys(response);
+          const employeeList = response.names;
 
-          if (keys.length > 0) {
-            keys.forEach(userID => {
-              const name = response[userID];
-              const option = `<li class="list-group-item" data-id="${userID}" style="cursor: pointer;">${name}</li>`;
-              $("#editModalEmployeeList").append(option);
+          if (Array.isArray(employeeList) && employeeList.length > 0) {
+            employeeList.forEach(employee => {
+              $("#editModalEmployeeList").append(
+                `<li class="list-group-item cursor-pointer" data-id="${employee.id}">${employee.name}</li>`
+              );
             });
           } else {
-            $dropdown.append('<option value="">No stores available</option>');
+            $("#editModalEmployeeList").append('<option value="">No Employees available</option>');
             showNotification("There are no employees associated to the selected store.", "danger");
           }
         },
-    
         error: function(jqXHR, textStatus, errorThrown) {
-          let errorMessage;
-          if (jqXHR.status == 500) {
-            errorMessage = "Failed to load employee names due to internal server errors. Please try again.";
-          } else {
-            errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee names. Please try again.";
-          }
-          showNotification(errorMessage, "danger");
+          handleAjaxError(jqXHR, "Failed to load employee names", false);
+          $("#editModalEmployeeList").append('<option value="">Error loading employees</option>');
         }
       });
 

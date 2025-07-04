@@ -49,6 +49,20 @@ function showNotification(message, type = "info") {
 }
 
 
+// Function to handle an API error message -> Returns errorMessage shown
+function handleAjaxError(jqXHR, baseMessage = "Failed to complete task", shouldHideSpinner = true) {
+  if (shouldHideSpinner) { hideSpinner(); }
+  let errorMessage;
+  if (jqXHR.status === 500) {
+    errorMessage = `${baseMessage} due to internal server errors. Please contact an admin.`;
+  } else {
+    errorMessage = jqXHR.responseJSON?.Error || `${baseMessage}. Please try again later.`;
+  }
+  showNotification(errorMessage, "danger");
+  return errorMessage
+}
+
+
 // Function to save a single notification which appears on the next page load (or reload) -- ACTIONS NOTIFICATION IF IT CANT SAVE IT
 function saveNotificationForReload(message, type = "info", errorNotification = message) {
   try {
@@ -140,12 +154,12 @@ function ensureSafeInt(val, min, max) {
   val = parseInt(val, 10);
 
   // Ensure the int is within range
-  if (min) {
+  if (min != null) {
     min = parseInt(min, 10);
     val = Math.max(val, min)
   }
   
-  if (max) {
+  if (max != null) {
     max = parseInt(max, 10);
     val = Math.min(val, max)
   }
@@ -159,17 +173,22 @@ function ensureSafeFloat(val, min, max) {
   val = parseFloat(val);
 
   // Ensure the number is within range
-  if (min) {
-    min = parseFloat(min, 10);
+  if (min != null) {
+    min = parseFloat(min);
     val = Math.max(val, min)
   }
   
-  if (max) {
-    max = parseFloat(max, 10);
+  if (max != null) {
+    max = parseFloat(max);
     val = Math.min(val, max)
   }
 
   return val
+}
+
+
+function isNonEmpty(val) {
+  return val !== null && val !== undefined && val !== "";
 }
 
 
@@ -181,7 +200,6 @@ function formatToDatetimeLocal(dateStr) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
 }
 
-
 // Format to YYYY-MM-DD for input[type="date"]
 function formatDateForInput(date) {
     const year = date.getFullYear();
@@ -191,25 +209,48 @@ function formatDateForInput(date) {
   };
 
 
+function getFullDayName(dateString) {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleDateString('en-US', {weekday: 'long', timeZone: 'UTC'});
+}
+
+function getShortDate(dateString) {
+  if (!dateString) return "";
+  return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', timeZone: 'UTC'});
+}
+
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = (day === 0 ? -6 : 1 - day); // If Sunday, go back 6 days; else subtract (day - 1)
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+
+////////////// SPINNER /////////////////////
+
 // Ensure global variable to ensure spinner timeout can be adjusted
 let spinnerTimeout;
+let isSpinnerActive = false;
 
 // Hide / show progress spinner
 function showSpinner(delay = 150) {
+  if (isSpinnerActive) return; // Do nothing if already active
   clearTimeout(spinnerTimeout); // Prevent any previous timers
 
   spinnerTimeout = setTimeout(() => {
-    const $spinner = $('#spinnerContainer');
-    $spinner.removeClass('d-none').stop(true, true).fadeIn(300);
+    $('#spinnerContainer').removeClass('d-none').stop(true, true).fadeIn(300);
+    isSpinnerActive = true;
   }, delay);
 }
 
 function hideSpinner() {
   clearTimeout(spinnerTimeout); // Cancel pending show
-  const $spinner = $('#spinnerContainer');
 
-  $spinner.stop(true, true).fadeOut(300, function () {
+  $('#spinnerContainer').stop(true, true).fadeOut(300, function () {
     $(this).addClass('d-none');
+    isSpinnerActive = false;
   });
 }
 
@@ -267,7 +308,7 @@ function resetPaginationValues() {
 
 function updatePaginationPageButtons() {
   const totCount = ensureSafeInt($('#paginationVariables').attr('data-count'), 0, null);
-  const offset = ensureSafeInt($('#paginationVariables').attr('data-offset'), 0, totCount - 1);
+  const offset = ensureSafeInt($('#paginationVariables').attr('data-offset'), 0, Math.max(totCount - 1, 0)); // Limit offset to max total-1 (or 0 if total=0)
   const pageLimit = ensureSafeInt($('#pageLimitInput').val(), 1, null);
   const totalPages = Math.max(Math.ceil(totCount / pageLimit), 1); // Ensure there is at least 1 page (even if totCount=0)
   const currentPage = Math.floor(offset / pageLimit) + 1;
@@ -387,7 +428,7 @@ function getPaginationLimit() {
 function setPaginationValues(offset, totalCount) {
   totalCount = ensureSafeInt(totalCount, 0, null);
   
-  if (totalCount) {
+  if (totalCount != null) {
     offset = ensureSafeInt(offset, 0, totalCount-1);
     $('#paginationVariables').attr('data-count', totalCount);
 
@@ -395,7 +436,7 @@ function setPaginationValues(offset, totalCount) {
     offset = ensureSafeInt(offset, 0, null);
   }
 
-  if (offset || offset == 0) { // If offset was given in request response
+  if (offset != null) { // If offset was given in request response
     $('#paginationVariables').attr('data-offset', offset);
   }
 
@@ -429,6 +470,7 @@ async function getLocationData() {
     
     if (permissionStatus.state === 'denied') {
       showNotification("Location access is denied. Please enable it in your browser settings.");
+      hideSpinner();
       return null;
     }
 
@@ -454,7 +496,7 @@ async function getLocationData() {
             default:
               showNotification("An unknown error occurred while retrieving your location.");
           }
-
+          hideSpinner();
           reject(null);
         },
         {
@@ -466,6 +508,7 @@ async function getLocationData() {
     });
   } else {
     showNotification("Geolocation is not supported by your browser. Cannot clock in/out.");
+    hideSpinner();
     return null;
   }
 }

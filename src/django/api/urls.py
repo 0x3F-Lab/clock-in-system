@@ -7,7 +7,9 @@ urlpatterns = [
     path("clock-in/", views.clock_in, name="clock_in"),
     path("clock-out/", views.clock_out, name="clock_out"),
     path("clocked-state/", views.clocked_state_view, name="clocked_state"),
-    path("list-recent-shifts/", views.list_recent_shifts, name="list_recent_shifts"),
+    path(
+        "list-user-activities/", views.list_user_activities, name="list_user_activities"
+    ),
     path(
         "list-account-summaries/",
         views.list_account_summaries,
@@ -82,5 +84,35 @@ urlpatterns = [
         "send-employee-message/<int:id>/",
         views.send_employee_notification,
         name="send_employee_message",
+    ),
+    ############################ SCHEDULING ############################
+    path("list-store-roles/<int:id>/", views.list_store_roles, name="list_store_roles"),
+    path(
+        "manage-store-role/<int:role_id>/",
+        views.manage_store_role,
+        name="manage_store_role",
+    ),
+    path("manage-store-role/", views.manage_store_role, name="create_store_role"),
+    path(
+        "list-store-shifts/<int:id>/",
+        views.get_store_shifts,
+        name="list_store_shifts",
+    ),
+    path("manage-shift/<int:id>/", views.manage_store_shift, name="manage_shift"),
+    path("create-shift/<int:store_id>/", views.create_store_shift, name="create_shift"),
+    path(
+        "list-store-exceptions/<int:store_id>/",
+        views.list_store_exceptions,
+        name="list_store_exceptions",
+    ),
+    path(
+        "manage-store-exception/<int:exception_id>/",
+        views.manage_store_exception,
+        name="manage_store_exception",
+    ),
+    path(
+        "copy-week-schedule/<int:store_id>/",
+        views.copy_week_schedule,
+        name="copy_week_schedule",
     ),
 ]

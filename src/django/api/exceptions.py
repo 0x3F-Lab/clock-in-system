@@ -161,3 +161,43 @@ class MissingStoreObjectOrIDError(Exception):
     def __init__(self, message="Missing Store object or ID."):
         self.message = message
         super().__init__(self.message)
+
+
+class AlreadyWorkedTodayError(Exception):
+    """
+    Raised when an attempt is made to clock in a user who already has an activity registered to the date.
+    """
+
+    def __init__(self, message="User cannot work more than once a day."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class IncompleteActivityError(Exception):
+    """
+    Raised when an activity (actual shift) is incomplete without a logout time.
+    """
+
+    def __init__(self, message="Activity is incomplete (not finished)."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ShiftExceptionAlreadyApprovedError(Exception):
+    """
+    Raised when an trying to approve an exception but its already approved.
+    """
+
+    def __init__(self, message="Exception is already approved."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class ShiftExceptionExistsError(Exception):
+    """
+    Raised when trying to interact with a store's shifts etc. when there is a ShiftException for the period/object.
+    """
+
+    def __init__(self, message="The ShiftException must be handled first."):
+        self.message = message
+        super().__init__(self.message)

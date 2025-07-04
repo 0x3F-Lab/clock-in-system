@@ -1,0 +1,418 @@
+{% extends "auth_app/base.html" %}
+{% load custom_tags %}
+{% load static %}
+
+{% block title %}Pizza Clock-in || Schedule Dashboard{% endblock %}
+{% block content_container_class %}my-5{% endblock %}
+
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Rostering</u></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+  </button>
+</div>
+
+<div class="d-flex justify-content-center my-4">
+  {% include "components/store_selection_controller.html" %}
+</div>
+
+<div class="container panel rounded shadow p-3 my-5">
+  <button type="button"
+          class="w-100 bg-transparent text-light border-0 p-1 d-flex align-items-center"
+          data-bs-toggle="collapse"
+          data-bs-target="#tableControllerCollapse"
+          aria-expanded="true"
+          aria-controls="tableControllerCollapse"
+          style="cursor: pointer;">
+    <span style="width: 24px;"></span>
+    <h3 class="flex-grow-1 text-center fw-semibold m-0">Table Controls</h3>
+    <i class="fa-solid fa-chevron-right ms-2 border border-secondary rounded px-2 py-2" id="tableControllerToggleIcon" style="width: 34px;"></i>
+  </button>
+
+  <div class="collapse" id="tableControllerCollapse">
+    <div class="p-3 pt-2">
+      <div id="legacy-sort" class="mb-4 d-none">
+        <label class="form-label d-block">Sort By:</label>
+        <div id="sortFieldsLegacy" class="btn-group w-100" role="group" aria-label="Sort Options">
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortTime" value="time" autocomplete="off" checked>
+          <label class="btn btn-outline-info" for="sortTime">Start Time</label>
+
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortNameLegacy" value="name" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortNameLegacy">Name</label>
+
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortRoleName" value="role_name" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortRoleName">Role Name</label>
+
+          <input type="radio" class="btn-check" name="sortFieldLegacy" id="sortLength" value="length" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortLength">Shift Length</label>
+        </div>
+      </div>
+
+      <div id="new-sort" class="mb-4">
+        <label class="form-label d-block">Sort By:</label>
+        <div id="sortFields" class="btn-group w-100" role="group" aria-label="Sort Options">
+          <input type="radio" class="btn-check" name="sortField" id="sortName" value="name" autocomplete="off" checked>
+          <label class="btn btn-outline-info" for="sortName">Name</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortAge" value="age" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortAge">Age</label>
+
+          <input type="radio" class="btn-check" name="sortField" id="sortAccAge" value="acc_age" autocomplete="off">
+          <label class="btn btn-outline-info" for="sortAccAge">Account Age</label>
+        </div>
+      </div>
+
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="hideDeactivated" class="form-check-input p-2" />
+            <label for="hideDeactivated" class="form-check-label">Hide Deactivated Employees</label>
+          </div>
+
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="useLegacy" class="form-check-input p-2" />
+            <label for="useLegacy" class="form-check-label">Use Legacy Layout</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-check form-switch mb-4">
+            <input type="checkbox" id="hideResigned" class="form-check-input p-2" />
+            <label for="hideResigned" class="form-check-label">Hide Resigned Employees</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
+        <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
+        <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
+      </div>
+
+      <div class="mb-4">
+        <label for="filterRoles" class="form-label">Filter by Role Names (Case Insensitive)</label>
+        <input type="text" id="filterRoles" class="form-control" placeholder="e.g. Cooker, Cashier" />
+        <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
+      </div>
+
+      <div class="text-center">
+        <button type="button" class="btn btn-lg btn-success" id="tableControllerSubmit">
+          <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="schedule-header" class="d-flex justify-content-between align-items-center mb-4 py-0 px-2 px-md-4 rounded" style="background-color: #2d3748;">
+  <div>
+    <a class="btn btn-outline-light" href="#" id="previous-week-btn">
+      <i class="fas fa-arrow-left"></i> Back
+    </a>
+  </div>
+  <div class="text-center my-3">
+    <h3 class="mb-0 fw-semibold" id="schedule-week-title">Week of .......</h3>
+  </div>
+  <a class="btn btn-outline-light" href="#" id="next-week-btn">
+    <i class="fas fa-arrow-right"></i> Next 
+  </a>
+</div>
+
+<div class="dropdown" id="roster_dropdown">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
+        OPTIONS
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        <li>
+            <button class="dropdown-item" type="button" id="copyWeekBtn">
+                <i class="fas fa-copy me-2"></i> Copy Schedule Week
+            </button>
+        </li>
+        <li>
+            <button class="dropdown-item" type="button" id="manageRolesBtn">
+                <i class="fas fa-user-tag me-2"></i> Manage Roles
+            </button>
+        </li>
+    </ul>
+</div>
+
+<div class="scroll-container break-content-container">
+  <div class="d-flex" id="schedule-container">
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Monday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Tuesday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Wednesday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Thursday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Friday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Saturday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+    <div class="day-column mb-4">
+      <div class="day-header">
+        <div class="day-name">Sunday</div>
+        <button class="btn add-shift-btn" data-bs-toggle="tooltip" title="Add shift for this day">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+      <div class="shifts-list">Loading Shifts...</div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-center mt-4">
+  <div class="container panel rounded shadow p-3 px-5 mt-1 mb-3 d-flex flex-column w-auto">
+    <div class="fw-bold fs-4 text-center">
+      <i class="fa-solid fa-palette me-2"></i>Colour Key
+    </div>
+    <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap justify-content-center">
+      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+        <span class="badge bg-info-subtle mb-0">&nbsp;</span>
+        Unscheduled shift (from exceptions)
+      </li>
+      <li class="d-flex flex-column align-items-center me-4 mb-3 mb-md-1">
+        <span class="badge bg-warning-subtle mb-0">&nbsp;</span>
+        Has an exception
+      </li>
+    </ul>
+  </div>
+</div>
+
+{% include "components/pagination_controller.html" with limit=100 %}
+
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title w-100 text-center" id="confirmationModalTitle">Confirm Schedule Copy</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="confirmationModalBody">
+        <div class="mb-3">
+          <label for="scheduleCopySourceWeek" class="form-label w-100">Source Week (Mon):</label>
+          <input type="date" id="scheduleCopySourceWeek" class="form-control w-100">
+        </div>
+        <div class="mb-3">
+          <label for="scheduleCopyTargetWeek" class="form-label w-100">Target Week (Mon):</label>
+          <select class="form-select" id="scheduleCopyTargetWeek" required></select>
+        </div>
+        <div class="form-check form-switch mb-4">
+          <input type="checkbox" id="scheduleCopyOverride" class="form-check-input p-2" />
+          <label for="scheduleCopyOverride" class="form-check-label">Override shifts in target week</label>
+        </div>
+        <div class="form-check form-switch mb-4">
+          <input type="checkbox" id="scheduleCopyIncludeUnscheduled" class="form-check-input p-2" />
+          <label for="scheduleCopyIncludeUnscheduled" class="form-check-label">Include unscheduled shifts in source week</label>
+        </div>
+        <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger-subtle text-dark text-center rounded p-2 w-100 mb-2">
+          <div><i class="fas fa-circle-exclamation"></i></div>
+          <div>
+            <p class="m-0">By enabling <strong>Shift Override</strong>, it overrides conflicting shifts in the target week if they exist.</p>
+            <p class="m-0">Otherwise, conflicting shifts are skipped.</p>
+            <p><em>This action is <u>IRREVERSIBLE</u>.</em></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+
+      <div class="modal-header text-white">
+        <h5 class="modal-title w-100 text-center" id="editModalLabel">Add New Shift</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="editShiftForm" class="px-1">
+          <input type="hidden" id="editShiftId" name="editShiftId">
+
+          <div id="editModalEmployeeListContainer" class="mb-4">
+            <div class="mb-3">
+              <label for="editModalEmployeeSearchBar" class="form-label">Select Employee</label>
+              <input
+                type="text"
+                class="form-control"
+                id="editModalEmployeeSearchBar"
+                placeholder="Type to filter employees..."
+              >
+            </div>
+            <ul
+              id="editModalEmployeeList"
+              class="list-group mb-3 scrollable-list"
+            ></ul>
+            <input
+              type="hidden"
+              id="editModalSelectedEmployeeID"
+              name="employeeID"
+              value=""
+            >
+          </div>
+
+          <div class="mb-3">
+            <label for="editShiftDate" class="form-label">Date:</label>
+            <input type="date" id="editShiftDate" name="date" class="form-control w-100">
+          </div>
+
+          <div class="mb-3">
+            <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Role:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <select class="form-select" id="editShiftRole" name="role" required></select>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col">
+              <label for="startTime" class="form-label">Start Time:</label>
+              <input type="time" class="form-control" id="editStartTime" name="start_time" required>
+            </div>
+            <div class="col">
+              <label for="endTime" class="form-label">End Time:</label>
+              <input type="time" class="form-control" id="editEndTime" name="end_time" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="editComment" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Comment:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <textarea class="form-control" id="editComment" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="saveShiftBtn">
+          <i class="fa-solid fa-floppy-disk me-1"></i> Save Shift
+        </button>
+        <button type="button" class="btn btn-danger" id="deleteShiftBtn">
+          <i class="fa-solid fa-trash me-1"></i> Delete
+        </button>
+        <button type="button" class="btn btn-warning d-none" id="confirmDeleteBtn">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i> Confirm Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-xl fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
+  <div class="modal-dialog">
+    <div class="modal-content w-75">
+      <div class="modal-header">
+        <h5 class="modal-title w-100 text-center" id="manageRolesModalLabel">Manage Store Roles</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6 mt-1">
+            <div class="d-flex flex-row justify-content-between align-items-center mb-1">
+              <h6 class="fw-semibold mb-0">Existing Roles</h6>
+              <button class="btn btn-sm btn-outline-light rounded-circle" id="addNewRoleBtn" style="width: 30px; height: 30px;">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+            <ul class="list-group scrollable-list" id="existingRolesList">
+              <li class="list-group-item">Loading...</li>
+            </ul>
+          </div>
+          <div class="col-md-6 mt-4 mt-md-1">
+            <h6 class="fw-semibold">Add New Role</h6>
+            <form id="addRoleForm">
+              <div class="mb-3">
+                <label for="newRoleName" class="text-light">Role Name:</label>
+                <input type="text" class="form-control" id="newRoleName" required>
+              </div>
+              <div class="mb-3">
+                <label for="newRoleDescription" class="text-light w-100 d-flex flex-row align-items-center justify-content-between">
+                  <span>Description:</span>
+                  <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+                </label>
+                <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
+              </div>
+              <div class="mb-3 d-flex flex-column">
+                <label for="newRoleColor" class="text-light">Color:</label>
+                <input type="color" class="form-control form-control-color w-75 align-self-center" id="newRoleColor" value='#adb5bd' title="Choose a color">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Add Role</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_urls %}
+    listStoreEmployeeNames: "{% url 'api:list_store_employee_names' %}",
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
+    manageStoreRole: "{% url 'api:manage_store_role' 0 %}".slice(0, -2),
+    createStoreRole: "{% url 'api:create_store_role' %}",
+    listStoreShifts: "{% url 'api:list_store_shifts' 0 %}".slice(0, -2),
+    manageShift: "{% url 'api:manage_shift' 0 %}".slice(0, -2),
+    createShift: "{% url 'api:create_shift' 0 %}".slice(0, -2),
+    copyWeekSchedule: "{% url 'api:copy_week_schedule' 0 %}".slice(0, -2),
+{% endblock %}
+
+
+{% block customscripts %}
+  <script src="{% static 'js/schedule_dashboard.js' %}"></script>
+{% endblock %}

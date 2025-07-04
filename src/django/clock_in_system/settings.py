@@ -23,7 +23,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.1.2"  #
+STATIC_CACHE_VER = "v1.2.0"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -223,15 +223,23 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
-        "schedule": crontab(hour=23, minute=0),
+        "schedule": crontab(hour=23, minute=40),
     },
     "delete_old_notifications": {
         "task": "auth_app.tasks.delete_old_notifications",
         "schedule": crontab(hour=2, minute=0, day_of_week=2),  # Tues
     },
+    "delete_old_unused_shifts": {
+        "task": "auth_app.tasks.delete_old_unused_shifts",
+        "schedule": crontab(hour=2, minute=30, day_of_week=2),  # Tues
+    },
     "deactivate_unassigned_users": {
         "task": "auth_app.tasks.deactivate_unassigned_users",
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
+    },
+    "check_shifts_for_exceptions": {
+        "task": "auth_app.tasks.check_shifts_for_exceptions",
+        "schedule": crontab(hour=0, minute=5),
     },
 }
 
@@ -281,17 +289,26 @@ NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 30
 SHIFT_ROUNDING_MINS = 15  # Default is 15min
 
 # How long a user must wait between finishing a shift and starting a new one
-START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 30  # Default is 30m
+START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 60  # Default is 60m
 
 # How long a user must wait between starting a shift and finishing it
 FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 
+# How long should a shift be (minimum)
+MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 30  # Default is 30m
+
+# What is the maximum period a manager (non-admin) can modify a shift/activity (exceptions are handled up to this+1 days)
+MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
+
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
-# Define minimum and maximum password length
+# Define minimum and maximum field lengths
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
+ROLE_NAME_MAX_LENGTH = 200  # DB is 210 max
+ROLE_DESC_MAX_LENGTH = 750  # DB is 750
+SHIFT_COMMENT_MAX_LENGTH = 1500  # DB is 2500
 
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (
@@ -300,6 +317,14 @@ VALID_NAME_PATTERN = (
 VALID_NAME_LIST_PATTERN = r"^[a-zA-Z\s\-',]+$"  # Allows commas as well
 VALID_PHONE_NUMBER_PATTERN = r"^[0-9\s\-\+]+$"  # Allows nums, spaces, dashes, +
 VALID_PASSWORD_PATTERN = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)"  # Must have 1 lower case, 1 upper case and 1 number
+VALID_ROLE_NAME_DESC_PATTERN = (
+    r"^[0-9a-zA-Z\s\-',():/\[\]\.]+$"  # USED FOR BOTH ROLE NAME AND ROLE DESCRIPTION
+)
+VALID_HEX_COLOUR_PATTERN = r"^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"  # For roles
+VALID_STORE_NAME_PATTERN = r"^[\w\s.&+\'\-]+$"  # For store names
+VALID_STORE_STREET_PATTERN = r"^[\w\s.,'&#/+\-]+$"  # For store street names
+VALID_STORE_CODE_PATTERN = r"^[A-Z0-9]+$"  # For store codes
+VALID_SHIFT_COMMENT_PATTERN = r"^[0-9a-zA-Z\s\-',():/\[\]\.]+$"  # Shift coments
 
 
 # Default primary key field type
@@ -338,6 +363,12 @@ LOGGING = {
             "filename": "./logs/tasks.log",
             "formatter": "verbose",
         },
+        "errors": {
+            "level": "WARNING",
+            "class": "logging.FileHandler",
+            "filename": "./logs/errors.log",
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django": {
@@ -346,22 +377,22 @@ LOGGING = {
             "propagate": False,
         },
         "api": {
-            "handlers": ["console", "file"],
+            "handlers": ["console", "file", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },
         "auth_app": {
-            "handlers": ["console", "file"],
+            "handlers": ["console", "file", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },
         "celery": {  # Celery-specific logger
-            "handlers": ["console", "tasks"],
+            "handlers": ["console", "tasks", "errors"],
             "level": "INFO",
             "propagate": False,
         },
         "celery_beat": {  # Celery Beat-specific logger
-            "handlers": ["console", "tasks"],
+            "handlers": ["console", "tasks", "errors"],
             "level": "DEBUG",
             "propagate": False,
         },

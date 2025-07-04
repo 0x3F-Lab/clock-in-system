@@ -2,11 +2,24 @@ import random
 from datetime import timedelta
 from django.db import models
 from django.utils.timezone import now, localtime
+from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password
 from clock_in_system.settings import (
     NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS,
     NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS,
 )
+
+
+######################## CUSTOM VALIDATORS #############################
+
+HEX_COLOUR_VALIDATOR = RegexValidator(
+    regex=r"^#(?:[0-9a-fA-F]{3}){1,2}$",
+    message="Enter a valid hex color code (e.g., #AABBCC)",
+)
+
+
+############################ USERS ##########################################
 
 
 class User(models.Model):
@@ -214,6 +227,36 @@ class User(models.Model):
             .order_by("-created_at")
         )
 
+    def has_activity_on_date(self, date, store=None, ignore_activity=None) -> bool:
+        """
+        Checks if the user has an activity on the given date.
+
+        Args:
+            date (datetime.date): The date to check.
+            store (Store or int or str, optional): Optional filter for store.
+            ignore_activity (Activity or int or str, optional): Ignore the given activity. (i.e. updating the same activity)
+
+        Returns:
+            bool: True if a shift exists for that date, otherwise False.
+        """
+        qs = Activity.objects.filter(employee=self, login_timestamp__date=date)
+
+        if store:
+            if isinstance(store, Store):
+                qs = qs.filter(store=store)
+            elif isinstance(store, (int, str)) and str(store).isdigit():
+                qs = qs.filter(store_id=int(store))
+        if ignore_activity:
+            if isinstance(ignore_activity, Activity):
+                qs = qs.exclude(id=ignore_activity.id)
+            elif (
+                isinstance(ignore_activity, (int, str))
+                and str(ignore_activity).isdigit()
+            ):
+                qs = qs.exclude(id=int(ignore_activity))
+
+        return qs.exists()
+
 
 ########################## STORES ##########################
 
@@ -251,18 +294,34 @@ class Store(models.Model):
         self.code = code
         self.save()
 
+    def get_store_employees(self, include_hidden=False, include_inactive=True):
+        """
+        Returns a queryset of employees (incl managers) who have access to the given store.
+        Args:
+          - include_hidden (bool) = False: Include hidden accounts (super admins) in the list.
+          - include_inactive (bool) = True: Include inactive accounts in the list.
+        """
+        qs = User.objects.filter(store_access__store=self)
+        if not include_inactive:
+            qs = qs.filter(is_active=True)
+        if not include_hidden:
+            qs = qs.filter(is_hidden=False)
+        return qs.distinct()
+
     def get_store_managers(self, include_hidden=False):
         """
         Returns a queryset of ACTIVE managers who have access to the given store.
         Args:
           - include_hidden (bool) = False: Include hidden accounts (super admins) in the list.
         """
-        return User.objects.filter(
+        qs = User.objects.filter(
             store_access__store=self,
             is_manager=True,
             is_active=True,  # Only include active users
-            is_hidden=include_hidden,
-        ).distinct()
+        )
+        if not include_hidden:
+            qs = qs.filter(is_hidden=False)
+        return qs.distinct()
 
     def get_clocked_in_employees(self, include_inactive=True):
         """
@@ -292,6 +351,17 @@ class Store(models.Model):
             return StoreUserAccess.objects.filter(
                 store=self, user_id=int(user)
             ).exists()
+        return False
+
+    def has_role(self, role):
+        """
+        Checks if the store has the given role.
+        Accepts a Role instance or a role ID (int or numeric string).
+        """
+        if isinstance(role, Role):
+            return role.store_id == self.id
+        elif isinstance(role, int) or (isinstance(role, str) and role.isdigit()):
+            return self.roles.filter(id=int(role)).exists()
         return False
 
 
@@ -602,3 +672,189 @@ class NotificationReceipt(models.Model):
         if not self.read_at:
             self.read_at = localtime(now())
             self.save(update_fields=["read_at"])
+
+
+########################## SCHEDULING ##########################
+
+
+class Role(models.Model):
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="roles")
+    name = models.CharField(max_length=210, null=False)
+    description = models.TextField(max_length=750, blank=True, default="")
+    colour_hex = models.CharField(
+        max_length=10, null=False, default="#adb5bd", validators=[HEX_COLOUR_VALIDATOR]
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Prevent duplicate entries
+        constraints = [
+            models.UniqueConstraint(fields=["store", "name"], name="unique_store_role")
+        ]
+
+    def __str__(self):
+        return f"[{self.store.code}] {self.name}"
+
+    def belongs_to_store(self, store):
+        """
+        Checks if the role belongs to the given store.
+        Accepts a Store instance or a store ID (int or numeric string).
+        """
+        if isinstance(store, Store):
+            return self.store == store
+        elif isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
+            return self.store_id == int(store)
+        return False
+
+
+class Shift(models.Model):
+    employee = models.ForeignKey(User, on_delete=models.CASCADE, related_name="shifts")
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="shifts")
+    date = models.DateField(null=False)
+    start_time = models.TimeField(null=False)
+    end_time = models.TimeField(null=False)
+    role = models.ForeignKey(
+        Role, on_delete=models.SET_NULL, null=True, blank=True, related_name="shifts"
+    )
+    comment = models.TextField(max_length=1500, blank=True, null=True, default="")
+    is_deleted = models.BooleanField(
+        null=False, default=False
+    )  # ONLY DELETED VISUALLY - STILL IN EXCEPTIONS
+    is_unscheduled = models.BooleanField(null=False, default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["store", "date", "start_time"]
+        # Only one shift per day per user per store:
+        unique_together = [("employee", "store", "date", "start_time")]
+        indexes = [
+            models.Index(fields=["store", "date", "start_time"]),  # For store listing
+        ]
+
+    def __str__(self):
+        return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
+
+
+class ShiftException(models.Model):
+    class Reason(models.TextChoices):
+        INCORRECTLY_CLOCKED = "bad_clocking", "Incorrectly Clocked"
+        MISSED_SHIFT = "missed_shift", "Missed Shift"
+        NO_SHIFT = "no_shift", "No Shift"
+        OTHER = "other", "Other"
+
+    shift = models.OneToOneField(
+        Shift,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="shift_shiftexception",  # IT CAN ONLY HAVE AT MOST 1 SHIFT RELATED
+    )  # ROSTER -- can be null if user didnt have a rostered shift
+    activity = models.OneToOneField(
+        Activity,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activity_shiftexception",  # IT CAN ONLY HAVE AT MOST 1 ACTIVITY RELATED
+    )  # ACTUAL SHIFT -- can be null if user didnt clock in
+    reason = models.CharField(
+        max_length=25,
+        choices=Reason.choices,
+        default=Reason.OTHER,
+        null=False,
+        help_text="The type of Shift Exception",
+    )
+    is_approved = models.BooleanField(null=False, default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=False, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, null=False)
+
+    def clean(self):
+        if self.shift is None and self.activity is None:
+            raise ValidationError("At least one of 'shift' or 'activity' must be set.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Enforces validation before saving
+        if self.shift is None and self.activity is None:
+            raise ValidationError(
+                "ShiftException must be linked to a shift or activity."
+            )
+        super().save(*args, **kwargs)
+
+    def get_date(self):
+        """
+        Function to get the date that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.date
+        elif self.activity is not None:
+            return self.activity.login_timestamp.date()
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
+    def get_store(self) -> Store:
+        """
+        Function to get the Store object that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.store
+        elif self.activity is not None:
+            return self.activity.store
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
+    def get_employee(self) -> User:
+        """
+        Function to get the User object that the exception is related to (handles if either shift or activity is NULL).
+        Raises an exception is both are NULL.
+        """
+        if self.shift is not None:
+            return self.shift.employee
+        elif self.activity is not None:
+            return self.activity.employee
+        else:
+            raise Exception("Both shift and activity are NULL for this exception.")
+
+    def __str__(self):
+        shift = self.shift
+        activity = self.activity
+
+        try:
+            store_code = (
+                shift.store.code
+                if shift and shift.store
+                else activity.store.code if activity and activity.store else "N/A"
+            )
+        except Exception:
+            store_code = "N/A"
+
+        try:
+            date = (
+                shift.date
+                if shift and shift.date
+                else (
+                    activity.login_time.date()
+                    if activity and activity.login_time
+                    else "N/A"
+                )
+            )
+        except Exception:
+            date = "N/A"
+
+        try:
+            employee = (
+                shift.employee
+                if shift and shift.employee
+                else activity.employee if activity and activity.employee else None
+            )
+            employee_str = (
+                f"{employee.first_name} {employee.last_name} ({employee.id})"
+                if employee
+                else "Unknown Employee"
+            )
+        except Exception:
+            employee_str = "Unknown Employee"
+
+        return f"[{store_code}] {date} - {employee_str}"

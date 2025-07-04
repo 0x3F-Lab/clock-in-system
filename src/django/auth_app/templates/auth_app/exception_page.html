@@ -1,0 +1,125 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Notification Page{% endblock %}
+
+
+{% block content_container_class %}container-fluid py-5{% endblock %}
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Store Exception Handling</u></h1>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+    <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
+  </button>
+</div>
+
+<div class="row">
+  <!-- Sidebar Navigation -->
+  <div class="col-md-3 mb-4 mb-md-0 d-flex flex-column align-items-center">
+    <div class="list-group shadow-sm w-100">
+      <button id="excep-btn" class="list-group-item list-group-item-action active">
+        Store Exceptions
+      </button>
+      <button id="approved-excep-btn" class="list-group-item list-group-item-action">
+        Approved Store Exceptions
+      </button>
+    </div>
+
+    <div class="d-flex justify-content-center my-4">
+      {% include "components/store_selection_controller.html" %}
+    </div>
+  </div>
+
+  <div id="excep-page" class="col-md-9" data-type="unapproved">
+    <div class="panel rounded shadow p-4 mb-4">
+      <h2 id="list-title" class="fw-bold text-center mb-4">Store Exceptions (0)</h2>
+
+      <div id="excep-list" class="list-group">
+        <div class="list-group-item list-group-item-action flex-column align-items-start p-3 bg-light text-muted">
+          <div class="d-flex w-100 justify-content-between align-items-center">
+            <h5 class="mb-1">
+              <i class="fas fa-bell-slash me-2"></i>No Active Store Exceptions
+            </h5>
+          </div>
+          <small class="mt-2">You're all caught up. New exceptions will appear here for all store managers.</small>
+        </div>
+      </div>
+    </div>
+
+    <div id="approved-excep-info" class="d-none d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
+      <div><i class="fas fa-circle-info"></i></div>
+      <div>
+        <p class="m-0">Only approved exceptions newer than 30 days are shown. Everything else is considered frozen.</p>
+      </div>
+    </div>
+
+    {% include "components/pagination_controller.html" %}
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+
+      <div class="modal-header text-white">
+        <h5 class="modal-title text-center w-100" id="editModalLabel">Edit Activity</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="editForm" class="px-1">
+          <input type="hidden" id="editActivityId" name="editActivityId">
+
+          <div class="col-md-6 my-3 w-100">
+            <label for="editLoginTimestamp" class="form-label fw-semibold">Login Timestamp</label>
+            <input type="time" class="form-control w-100" id="editLoginTimestamp" name="editLoginTimestamp" required>
+          </div>
+
+          <div class="col-md-6 my-3 w-100">
+            <label for="editLogoutTimestamp" class="form-label fw-semibold">Logout Timestamp</label>
+            <input type="time" class="form-control w-100" id="editLogoutTimestamp" name="editLogoutTimestamp" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="editShiftRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Role:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <select class="form-select" id="editRoleSelect" name="role" required></select>
+          </div>
+
+          <div class="mb-3">
+            <label for="editComment" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Comment:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <textarea class="form-control" id="editComment" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="editModalSubmit">
+          <i class="fa-solid fa-floppy-disk me-1"></i> Edit and Approve Exception
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block extra_urls %}
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
+    listStoreExceptions: "{% url 'api:list_store_exceptions' 0 %}".slice(0, -2),
+    manageStoreException: "{% url 'api:manage_store_exception' 0 %}".slice(0, -2),
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/exception_page.js' %}"></script>
+{% endblock %}

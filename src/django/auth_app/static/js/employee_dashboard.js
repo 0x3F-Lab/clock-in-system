@@ -1,46 +1,24 @@
 $(document).ready(function() {
-  // Initial state & history set
-  updateClockedState();
-  updateShiftHistory();
-
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
     updateClockedState();
-    updateShiftHistory();
+    updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
   });
 
   // Handle deliveries adjustment
   handleDeliveryAdjustment();
+
+  // Handle week switching on the roster dash
+  handleWeekSwitching();
 
   // Attach event to clock in/out submission to actually request the API
   $('#clockingButton').on('click', () => {
     clockInOutUser();
   });
 
-  // Add tooltip to user pin
-  $('[data-bs-toggle="tooltip"]').tooltip();
-
-  // Open edit modal when clicking on edit button
-  $('#updateAccInfoBtn').on('click', () => {
-    openEditModal();
-  });
-
-  // Open edit password modal when clicking on edit pass button at bottom
-  $('#updateAccPassBtn').on('click', () => {
-    openEditPassModal();
-  });
-
-  // When submitting account infromation modal, send info to API
-  $('#editModalSubmit').on('click', function (e) {
-    e.preventDefault();
-    submitAccountInfoModal();
-  });
-  
-  // When submitting password edit modal, send pass to API
-  $('#editPassModalSubmit').on('click', function (e) {
-    e.preventDefault();
-    submitAccountPassModal();
-  });
+  // Initial state & history set
+  updateClockedState();
+  updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
 
   // Add page reloader to force reload after period of inactivity
   setupVisibilityReload(30); // 30 minutes
@@ -188,51 +166,31 @@ async function clockInOutUser() {
     $.ajax({
       url: `${window.djangoURLs.clockIn}`,
       type: "PUT",
-      xhrFields: {
-        withCredentials: true
-      },
-      headers: {
-        'X-CSRFToken': getCSRFToken(), // Include CSRF token
-      },
+      xhrFields: { withCredentials: true },
+      headers: { 'X-CSRFToken': getCSRFToken() },
       contentType: 'application/json',
       data: JSON.stringify({
         store_id: getSelectedStoreID(),
         location_latitude: userLat,
         location_longitude: userLong,
       }),
-  
       success: function(response) {
         hideSpinner();
+        showNotification("Successfully clocked in.", "success");
 
         // Update the clocked state and subsequently the clocking buttons
         updateClockedState();
         updateShiftHistory();
-        showNotification("Successfully clocked in.");
       },
-  
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to clock in due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock in. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to clock in"); }
     });
 
   } else {
     $.ajax({
       url: `${window.djangoURLs.clockOut}`,
       type: "PUT",
-      xhrFields: {
-        withCredentials: true
-      },
-      headers: {
-        'X-CSRFToken': getCSRFToken(), // Include CSRF token
-      },
+      xhrFields: { withCredentials: true },
+      headers: { 'X-CSRFToken': getCSRFToken() },
       contentType: 'application/json',
       data: JSON.stringify({
         store_id: getSelectedStoreID(),
@@ -240,26 +198,15 @@ async function clockInOutUser() {
         location_longitude: userLong,
         deliveries: deliveries,
       }),
-  
       success: function(response) {
         hideSpinner();
+        showNotification("Successfully clocked out.", "success");
 
         // Update the clocked state and subsequently the clocking buttons
         updateClockedState();
-        showNotification("Successfully clocked out.");
+        updateShiftHistory();
       },
-  
-      error: function(jqXHR, textStatus, errorThrown) {
-        hideSpinner();
-        // Extract the error message from the API response if available
-        let errorMessage;
-        if (jqXHR.status == 500) {
-          errorMessage = "Failed to clock out due to internal server errors. Please try again.";
-        } else {
-          errorMessage = jqXHR.responseJSON?.Error || "Failed to clock out. Please try again.";
-        }
-        showNotification(errorMessage, "danger");
-      }
+      error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to clock out"); }
     });
   }
 }
@@ -267,205 +214,170 @@ async function clockInOutUser() {
 
 //////////////////////// SHIFT HISTORY & SHIFT ROSTER HANDLING //////////////////////////////
 
-function updateShiftHistory() {
-  $('#shiftHistoryContainer').empty();
+function handleWeekSwitching() {
+    // --- Shift Previous Week --- 
+    $('#previous-week-btn').on('click', function(e) {
+        e.preventDefault();
+        const previousWeek = $(this).data('week');
+        console.log(previousWeek);
+        if (isNonEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
+    });
 
-  if (getSelectedStoreID() === null) {
-    showNotification("Cannot update shift history due to not having selected a store.", "danger");
-    $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">Failed to load shifts.</div>');
+    // --- Shift Next Week ---
+    $('#next-week-btn').on('click', function(e) {
+        e.preventDefault();
+        const nextWeek = $(this).data('week');
+        if (isNonEmpty(nextWeek)) { updateShiftRosterAndHistory(nextWeek); }
+    });
+}
+
+
+function updateShiftRosterAndHistory(week) {
+  $('#schedule-container').empty();
+  
+  if (getSelectedStoreID() == null) {
+    showNotification("Cannot update roster table due to not having selected a store.", "danger");
+    $('#schedule-container').html(`
+      <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
+        <div><i class="fas fa-circle-exclamation"></i></div>
+        <div>
+          <p class="m-0">Error loading roster. Please try again later.</p>
+        </div>
+      </div>`);
     return;
   }
 
+  // Load the base week headers
+  showSpinner();
+  scheduleAddBaseDayDiv(week);
+
+  // LOAD PAST ACTIVITIES (WORKED SHIFTS)
   $.ajax({
-    url: `${window.djangoURLs.listRecentShifts}?store_id=${getSelectedStoreID()}`,
+    url: `${window.djangoURLs.listUserActivities}?store_id=${getSelectedStoreID()}&week=${week}`,
     type: "GET",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
-
+    xhrFields: {withCredentials: true},
+    headers: {'X-CSRFToken': getCSRFToken()},
     success: function(response) {
-      if (response.length === 0) {
-        $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">No shifts found within last 7 days.</div>');
-        return;
-      }
+      $.each(response.activities || {}, function (date, activities) {
+        activities.forEach(activity => {
+          const duration = activity.logout_time_str
+            ? calculateDuration(activity.login_time_str, activity.logout_time_str)
+            : "N/A";
 
-      response.forEach(shift => {
-        const loginDate = new Date(shift.login_time);
-        const logoutDate = shift.logout_time ? new Date(shift.logout_time) : null;
+          // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
+          const background = !activity.logout_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
+          const card = `
+            <div class="shift-item position-relative text-dark ${background}">
+              <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
+              <div><strong>${activity.store_code}</strong></div>
+              <div class="shift-item-details">
+                <span>🕒 ${activity.login_time_str} – ${activity.logout_time_str ? activity.logout_time_str : 'N/A'}</span>
+                <span>⌛ ${duration}</span>
+                ${activity.deliveries ? `<span>🚚 ${activity.deliveries}</span>` : ''}
+                ${activity.is_public_holiday ? '<span>✅ <em>Public Holiday</em></span>' : ''}
+              </div>
+            </div>`;
 
-        const dateStr = loginDate.toLocaleDateString('en-GB'); // DD/MM/YYYY
-        const loginTimeStr = loginDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        const logoutTimeStr = logoutDate
-          ? logoutDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-          : "N/A";
-
-        // Decide background colour based on priority highest to lowest (not finished [green], has been modified by manager [red], is public holiday [blue], then [white])
-        const background = !logoutDate ? 'bg-success-subtle' : (shift.is_modified ? 'bg-danger-subtle' : (shift.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
-        const deliveriesDiv = shift.deliveries ? `<div><i class="fas fa-truck me-2"></i>${shift.deliveries}</div>` : ''
-
-        const card = `
-          <div class="p-3 m-2 rounded ${background} shadow-sm text-center" style="min-width: 220px;">
-            <div><strong>${shift.store_code}</strong></div>
-            <div>${shift.is_public_holiday ? `<em>${dateStr}</em>` : dateStr}</div>
-            <div><span class="fw-medium">Start:</span> ${loginTimeStr}</div>
-            <div><span class="fw-medium">End:</span> ${logoutTimeStr}</div>
-            ${deliveriesDiv}
+          const $roster = $(`#roster-${date}`);
+          $roster.find('.default-no-schedule').remove(); // Remove placeholder if exists
+          $roster.append(card);
+        });
+      });
+    },
+    error: function(jqXHR, textStatus, errorThrown) {
+      $('#schedule-container').html(`
+        <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
+          <div><i class="fas fa-circle-exclamation"></i></div>
+          <div>
+            <p class="m-0">Error loading past shifts. Please try again later.</p>
           </div>
-        `;
-
-        $('#shiftHistoryContainer').append(card);
-      });
-    },
-
-    error: function(jqXHR, textStatus, errorThrown) {
-      $('#shiftHistoryContainer').append('<div class="rounded bg-danger-subtle text-dark p-4">Failed to load shifts.</div>');
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to get shift history for selected store due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to get shift history for selected store. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+        </div>`);
+      handleAjaxError(jqXHR, "Failed to load past shifts in this week");
+      return;
     }
   });
-}
 
-
-//////////////////////// ACOUNT INFORMATION HANDLING ////////////////////////////////
-
-function openEditModal() {
-  const editModal = new bootstrap.Modal(document.getElementById("editModal"));
-  editModal.show();
-}
-
-
-function openEditPassModal() {
-  const editPassModal = new bootstrap.Modal(document.getElementById("editPassModal"));
-  editPassModal.show();
-}
-
-
-function submitAccountInfoModal() {
-  showSpinner();
-
+  // LOAD ROSTERED SHIFTS
   $.ajax({
-    url: `${window.djangoURLs.modifyAccountInfo}`,
-    type: "POST",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
-    contentType: 'application/json',
-    data: JSON.stringify({
-      first_name: $('#editFirstName').val(),
-      last_name: $('#editLastName').val(),
-      phone: $('#editPhone').val(),
-    }),
+    url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?&week=${week}`,
+    method: 'GET',
+    xhrFields: {withCredentials: true},
+    headers: {'X-CSRFToken': getCSRFToken()},
+    success: function(data) {
+      $.each(data.schedule || {}, function (dayDate, dayShifts) {
+        let shiftsHtml = '';
+        if (dayShifts && dayShifts.length > 0) {
+          dayShifts.forEach(shift => {
+            const borderColor = shift.role_colour || '#adb5bd'; 
+            const duration = calculateDuration(shift.start_time, shift.end_time);
 
-    success: function(response) {
-      hideSpinner();
-      const editModal = new bootstrap.Modal(document.getElementById("editModal"));
-      editModal.hide();
-      const saved = saveNotificationForReload("Successfully updated account information.", "success", "Successfully updated account information. Please reload the page to see changes.");
-      if (saved) {location.reload();}
-    },
+            // Build the HTML with the new color logic.
+            shiftsHtml += `
+              <div class="shift-item position-relative" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
+                <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
+                <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
+                <div class="shift-item-details">
+                  <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                  <span>⌛ ${duration}</span>
+                </div>
+              </div>`;
+          });
+        }
+        const $roster = $(`#roster-${dayDate}`);
+        if (shiftsHtml !== '') { $roster.find('.default-no-schedule').remove(); } // Remove placeholder if exists
+        $roster.append(shiftsHtml);
+      });
 
+      $('#previous-week-btn').data('week', data.prev_week);
+      $('#next-week-btn').data('week', data.next_week);
+    },
     error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to update account information due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to update account information. Please try again.";
-      }
-      showNotification(errorMessage, "danger");
+      $('#schedule-container').html(`
+        <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
+          <div><i class="fas fa-circle-exclamation"></i></div>
+          <div>
+            <p class="m-0">Error loading roster. Please try again later.</p>
+          </div>
+        </div>`);
+      handleAjaxError(jqXHR, "Failed to load the roster week");
+      return;
     }
   });
+
+  $('[data-bs-toggle="tooltip"]').tooltip(); // Enable tooltips
+  hideSpinner();
 }
 
 
-function submitAccountPassModal() {
-  // Ensure fields are set
-  if (!$('#editOldPass').val() || !$('#editNewPass').val() || !$('#editNewPassCopy').val()) {
-    $('#editPassModalGlobalFieldsWarning').removeClass('d-none');
-    return;
-  } else {
-    $('#editPassModalGlobalFieldsWarning').addClass('d-none');
+function scheduleAddBaseDayDiv(week) {
+  const scheduleContainer = $('#schedule-container');
+  scheduleContainer.empty(); // Clear existing content
+
+  const weekStart = new Date(week);
+  const monday = getMonday(weekStart); // Ensure it's Monday
+
+  for (let i = 0; i < 7; i++) {
+    const dayDate = new Date(monday);
+    dayDate.setDate(monday.getDate() + i);
+
+    const isoDate = dayDate.toISOString().split('T')[0]; // e.g., "2025-07-01"
+    const dayCardHtml = `
+      <div class="day-column mb-4">
+        <div class="day-header">
+          <div class="day-name">${getFullDayName(dayDate)}</div>
+          <div class="day-date">${getShortDate(dayDate)}</div>
+        </div>
+        <div id="roster-${isoDate}" class="shifts-list">
+          <div class="default-no-schedule text-center text-white p-3"><small>No shifts scheduled</small></div>
+        </div>
+      </div>`;
+    scheduleContainer.append(dayCardHtml);
   }
 
-  // Ensure the new password and copy is exactly the same.
-  if ($('#editNewPass').val() !== $('#editNewPassCopy').val()) {
-    $('#repeatPassWarning').removeClass('d-none');
-    return;
-  } else {
-    $('#repeatPassWarning').addClass('d-none');
-  }
-
-  showSpinner();
-
-  $.ajax({
-    url: `${window.djangoURLs.modifyAccountPass}`,
-    type: "PUT",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
-    contentType: 'application/json',
-    data: JSON.stringify({
-      old_pass: $('#editOldPass').val(),
-      new_pass: $('#editNewPass').val(),
-    }),
-
-    success: function(response) {
-      hideSpinner();
-
-      // Remove old errors/field data
-      $('.editPassFieldError').remove();
-      $('#editOldPass').val("");
-      $('#editNewPass').val("");
-      $('#editNewPassCopy').val("");
-
-      const editPassModal = bootstrap.Modal.getInstance(document.getElementById("editPassModal"));
-      editPassModal.hide();
-      const saved = saveNotificationForReload("Successfully updated account password. Please login again.", "success", "Successfully updated account password. Please login again.");
-      if (saved) {location.href = window.djangoURLs.login;}
-    },
-
-    error: function(jqXHR, textStatus, errorThrown) {
-      hideSpinner();
-      // Extract the error message from the API response if available
-      let errorMessage;
-      if (jqXHR.status == 500) {
-        errorMessage = "Failed to update account password due to internal server errors. Please try again.";
-      } else {
-        errorMessage = jqXHR.responseJSON?.Error || "Failed to update account password. Please try again.";
-      }
-
-      // Remove old field errors
-      $('.editPassFieldError').remove();
-
-      // Add field errors
-      $.each(jqXHR.responseJSON?.field_errors?.old_pass || [], function (index, err) {
-        $('#editOldPass').after(`<div class="editPassFieldError field-error mt-1">${err}</div>`);
-      });
-      $.each(jqXHR.responseJSON?.field_errors?.new_pass || [], function (index, err) {
-        $('#editNewPass').after(`<div class="editPassFieldError field-error mt-1">${err}</div>`);
-      });
-
-      showNotification(errorMessage, "danger");
-    }
-  });
+  $('#schedule-week-title')
+    .text(`Week of ${formatWeekTitle(monday)}`)
+    .data('week-start-date', monday.toISOString());
 }
-
 
 //////////////////////////// HELPER FUNCTIONS ///////////////////////////////////////
 
@@ -478,4 +390,25 @@ function formatTime(text) {
   const options = { hour: 'numeric', minute: 'numeric', hour12: true };
   
   return new Intl.DateTimeFormat('en-US', options).format(date);
+}
+
+function formatWeekTitle(dateString) {
+    return new Date(dateString).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
+}
+
+function calculateDuration(startTime, endTime) {
+    // Create date objects to calculate the difference. Date itself doesn't matter.
+    const start = new Date(`01/01/2000 ${startTime}`);
+    let end = new Date(`01/01/2000 ${endTime}`);
+
+    // Handle overnight shifts
+    if (end < start) {
+        end.setDate(end.getDate() + 1);
+    }
+    
+    let diffMs = end - start;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+
+    return `${hours}h ${minutes}m`;
 }
