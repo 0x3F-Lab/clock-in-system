@@ -1138,7 +1138,7 @@ def get_all_store_schedules(
     Returns:
         {
             'schedule': {
-                'Employee Name': {'1-1-2025': [shifts], ... },
+                'Employee Name': {'id': employee.id, 'roster': {'1-1-2025': [shifts], ... }},
                 ...
             },
             'week_start': ...,
@@ -1255,7 +1255,10 @@ def get_all_store_schedules(
             )
 
         # Add to schedule dict
-        schedule[f"{emp.first_name} {emp.last_name}"] = shifts
+        schedule[f"{emp.first_name} {emp.last_name}"] = {
+            "id": emp.id,
+            "roster": shifts,
+        }
 
     return {
         "schedule": schedule,

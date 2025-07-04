@@ -167,6 +167,22 @@ function handleShiftModification() {
         });
     });
 
+    // CLICK ON EMPLOYEE NAME (MODERN VIEW) -> OPEN MODEL AND SET TO CREATION
+    $(document).on('click', '.employee-name-cell.cursor-pointer', function () {
+      const id = $(this).data('id') || '';
+      // Reset form and ONLY SET EMPLOYEE
+      $('#editShiftDate').val('');
+      $('#editModalSelectedEmployeeID').val(id); // Select employee
+      $('#editShiftId').val('');
+      $('#editShiftRole').val('');
+      $('#editStartTime').val('');
+      $('#editEndTime').val('');
+      $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
+      
+      const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
+      addShiftModal.show();
+    });
+
     // --- CREATE/EDIT SHIFT FORM SUBMISSION ---
     $('#saveShiftBtn').on('click', function() {
         const form = $('#editShiftForm');
@@ -489,7 +505,7 @@ function renderModernTableView(data) {
     const employeeSchedules = data.schedule; 
 
     // Get an array of employee names from the object's keys.
-    const employeeNames = Object.keys(employeeSchedules || {}).sort();
+    const employeeNames = Object.keys(employeeSchedules || {});
 
     if (!employeeSchedules || employeeNames.length === 0) {
         scheduleContainer.html('<p class="text-center text-white">No employees are scheduled for this week.</p>');
@@ -497,8 +513,8 @@ function renderModernTableView(data) {
     }
 
 
-    const firstEmployeeSchedule = employeeSchedules[employeeNames[0]];
-    const days = Object.keys(firstEmployeeSchedule || {}).sort();
+    const firstEmployeeSchedule = employeeSchedules[employeeNames[0]]['roster'];
+    const days = Object.keys(firstEmployeeSchedule || {});
 
     if (days.length === 0) {
         scheduleContainer.html('<p class="text-center text-white">No schedule data available for this week.</p>');
@@ -527,9 +543,9 @@ function renderModernTableView(data) {
 
     // Loop through each unique employee name we found
     employeeNames.forEach(name => {
-        const shiftsByDay = employeeSchedules[name]; // Get the schedule object for this employee
+        const shiftsByDay = employeeSchedules[name]['roster']; // Get the schedule object for this employee
 
-        tableHtml += `<tr><td class="employee-name-cell">${name}</td>`;
+        tableHtml += `<tr><td class="employee-name-cell cursor-pointer" data-id="${employeeSchedules[name]['id']}">${name}</td>`;
         
         // For each employee, loop through all the days of the week to build the cells
         days.forEach(dayDate => {
@@ -588,7 +604,7 @@ function updateStoreInformation(storeId) {
 
     // Fetch employees names
     $.ajax({
-        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${storeId}`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},
