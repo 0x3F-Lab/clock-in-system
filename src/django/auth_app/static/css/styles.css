@@ -717,3 +717,10 @@ table {
     background-color: rgba(255, 255, 255, 0.2);
     transform: scale(1.1);
 }
+
+.schedule-table-view .shift-item {
+    display: inline-block; /* Allows the item to be centered */
+    text-align: left;      /* Resets the text alignment for the content inside */
+    width: auto;           /* Allow the card to size to its content, up to the max width */
+    max-width: 100%;       /* Prevents the card from overflowing the cell */
+}
