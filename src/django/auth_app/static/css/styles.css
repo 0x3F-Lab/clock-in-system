@@ -491,6 +491,21 @@ table {
   .scroll-container .card:last-child { margin-right: 0; }
 }
 
+/* CLASS TO ALLOW THE GIVEN CONTAINER TO USE FULL SCREEN WIDTH AND BREAK INTO THE CONTENT CONTAINER DIV */
+.break-content-container {
+  width: 75vw;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  overflow-x: auto;
+}
+
+@media (max-width: 1399.98px) {
+  .break-content-container {
+    width: 90vw;
+  }
+}
+
 
 .day-column {
     display: flex;
