@@ -538,14 +538,14 @@ function renderModernTableView(data) {
             tableHtml += `<td class="shift-cell">`;
             if (dayShifts && dayShifts.length > 0) {
                 dayShifts.forEach(shift => {
-                    // Your existing logic to render a single shift item
                     const duration = calculateDuration(shift.start_time, shift.end_time);
                     const backgroundColor = shift.is_unscheduled ? '#E0FFFF' : (shift.has_exception ? '#FFF3CD' : '#f8f9fa');
                     const borderColor = shift.role_colour || '#adb5bd';
                     
                     tableHtml += `
-                        <div class="shift-item cursor-pointer mb-2" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                        <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
                             <div class="shift-item-details">
+                                ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
                                 <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
                                 <span>⌛ ${duration}</span>
                                 ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
