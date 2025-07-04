@@ -45,14 +45,23 @@ def test_list_store_employee_names_success(
     )
 
     assert response.status_code == 200
-    data = {int(k): v for k, v in response.json().items()}
 
-    # The result should be a dict mapping user IDs to full names
-    assert isinstance(data, dict)
-    assert employee.id in data
-    assert data[employee.id] == f"{employee.first_name} {employee.last_name}"
-    assert manager.id not in data  # Because ignore_managers=True
-    assert inactive_employee.id not in data
+    names_data = response.json().get("names", [])
+    assert isinstance(names_data, list)
+
+    # Extract IDs from the returned list
+    returned_ids = {entry["id"] for entry in names_data}
+    returned_map = {entry["id"]: entry["name"] for entry in names_data}
+
+    # Should contain active non-manager employee
+    assert employee.id in returned_ids
+    assert returned_map[employee.id] == f"{employee.first_name} {employee.last_name}"
+
+    # Should not contain manager (ignore_managers=True)
+    assert manager.id not in returned_ids
+
+    # Should not contain inactive employee
+    assert inactive_employee.id not in returned_ids
 
 
 @freeze_time("2025-01-01 15:00:00")

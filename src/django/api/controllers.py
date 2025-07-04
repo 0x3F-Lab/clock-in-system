@@ -35,7 +35,7 @@ def get_store_employee_names(
     order: bool = True,
     order_by_first_name: bool = True,
     ignore_clocked_in: bool = False,
-) -> Dict[int, str]:
+) -> List[dict]:
     """
     Fetches a list of users with their IDs and full names.
 
@@ -48,7 +48,7 @@ def get_store_employee_names(
         order_by_first_name (bool): Order by first name if True, otherwise by last name.
 
     Returns:
-        Dict[int, str]: A dictionary where the ID is the key and the value is the user's full name.
+        List[dict]: A list of dicts like {"id": 1, "name": "Alice Smith"} preserving order.
     """
     # Ensure store is provided
     if isinstance(store_id, Store):
@@ -84,7 +84,9 @@ def get_store_employee_names(
             ),
         )
 
-    return {user.id: f"{user.first_name} {user.last_name}" for user in users}
+    return [
+        {"id": user.id, "name": f"{user.first_name} {user.last_name}"} for user in users
+    ]
 
 
 def handle_clock_in(employee_id: int, store_id: int, manual: bool = False) -> Activity:

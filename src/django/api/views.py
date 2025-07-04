@@ -44,6 +44,7 @@ def list_store_employee_names(request):
     """
     API view to fetch a list of users with their IDs and full names who are related to a certain store.
     The authenticated user MUST be associated to the store to list their employees.
+    SUCCESS FORMAT: {"names": [{"id": 1, "name": "Alice Smith"}, {..}, ...]}
     """
     try:
         # Extract query parameters from the request, with defaults
@@ -96,7 +97,7 @@ def list_store_employee_names(request):
         )
 
         # Return the list of users in the response
-        return Response(users_list, status=status.HTTP_200_OK)
+        return Response({"names": users_list}, status=status.HTTP_200_OK)
 
     except User.DoesNotExist:
         # Return a 404 if the user does not exist

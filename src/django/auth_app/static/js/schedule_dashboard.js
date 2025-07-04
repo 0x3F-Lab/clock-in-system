@@ -610,12 +610,13 @@ function updateStoreInformation(storeId) {
         headers: {'X-CSRFToken': getCSRFToken()},
 
         success: function(response) {
-            // Data should be {1: "Alice Jane", 2: "Akhil Mitanoski"} etc.
-            const keys = Object.keys(response);
-            if (keys.length > 0) {
-                keys.forEach(userID => {
-                    const name = response[userID];
-                    $("#editModalEmployeeList").append(`<li class="list-group-item cursor-pointer" data-id="${userID}">${name}</li>`);
+            const employeeList = response.names;
+
+            if (Array.isArray(employeeList) && employeeList.length > 0) {
+                employeeList.forEach(employee => {
+                    $("#editModalEmployeeList").append(
+                        `<li class="list-group-item cursor-pointer" data-id="${employee.id}">${employee.name}</li>`
+                    );
                 });
             } else {
                 $("#editModalEmployeeList").append('<option value="">No Employees available</option>');
@@ -624,13 +625,8 @@ function updateStoreInformation(storeId) {
         },
 
         error: function(jqXHR, textStatus, errorThrown) {
-            let errorMessage;
-            if (jqXHR.status == 500) {
-                errorMessage = "Failed to load employee names due to internal server errors. Please try again.";
-            } else {
-                errorMessage = jqXHR.responseJSON?.Error || "Failed to load employee names. Please try again.";
-            }
-            showNotification(errorMessage, "danger");
+            handleAjaxError(jqXHR, "Failed to load employee names", false);
+            $("#editModalEmployeeList").append('<option value="">Error getting employees</option>');
         }
     });
 
@@ -675,7 +671,7 @@ function updateStoreInformation(storeId) {
             });
         } else {
             showNotification("There are no ROLES associated to the selected store.", "info");
-            $existingRolesList.append('<li class="list-group-item">No roles found.</li>');
+            $existingRolesList.append('<li class="list-group-item">No roles found</li>');
         }
 
         $addRoleSelect.append(roleOptionsHtml);
@@ -683,13 +679,8 @@ function updateStoreInformation(storeId) {
     },
 
         error: function(jqXHR, textStatus, errorThrown) {
-            let errorMessage;
-            if (jqXHR.status == 500) {
-                errorMessage = "Failed to load store roles due to internal server errors. Please try again.";
-            } else {
-                errorMessage = jqXHR.responseJSON?.Error || "Failed to load store roles. Please try again.";
-            }
-            showNotification(errorMessage, "danger");
+            handleAjaxError(jqXHR, "Failed to load store roles", false);
+            $existingRolesList.append('<li class="list-group-item">Error getting roles</li>');
         }
     });
 
