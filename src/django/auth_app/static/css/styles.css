@@ -493,7 +493,7 @@ table {
 
 /* CLASS TO ALLOW THE GIVEN CONTAINER TO USE FULL SCREEN WIDTH AND BREAK INTO THE CONTENT CONTAINER DIV */
 .break-content-container {
-  width: 75vw;
+  width: 80vw;
   position: relative;
   left: 50%;
   transform: translateX(-50%);
@@ -505,7 +505,6 @@ table {
     width: 90vw;
   }
 }
-
 
 .day-column {
     display: flex;
