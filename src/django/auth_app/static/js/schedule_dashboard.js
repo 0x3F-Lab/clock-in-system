@@ -469,7 +469,7 @@ function renderLegacyCardView(data) {
                 const duration = calculateDuration(shift.start_time, shift.end_time);
 
                 shiftsHtml += `
-                    <div class="shift-item position-relative cursor-pointer" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                    <div class="shift-item position-relative cursor-pointer" style="border-left: 8px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
                         ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
                         <div class="shift-item-employee">${shift.employee_name}</div>
                         <div class="shift-item-details">
@@ -559,7 +559,7 @@ function renderModernTableView(data) {
                     const borderColor = shift.role_colour || '#adb5bd';
                     
                     tableHtml += `
-                        <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 4px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
+                        <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 8px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
                             <div class="shift-item-details">
                                 ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
                                 <span>🕒 ${shift.start_time} – ${shift.end_time}</span>

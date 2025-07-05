@@ -313,7 +313,7 @@ function updateShiftRosterAndHistory(week) {
 
             // Build the HTML with the new color logic.
             shiftsHtml += `
-              <div class="shift-item position-relative" style="border-left: 4px solid ${borderColor}; background-color: #f8f9fa;">
+              <div class="shift-item position-relative" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;">
                 <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
                 <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
                 <div class="shift-item-details">
