@@ -309,6 +309,7 @@ PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep b
 ROLE_NAME_MAX_LENGTH = 200  # DB is 210 max
 ROLE_DESC_MAX_LENGTH = 750  # DB is 750
 SHIFT_COMMENT_MAX_LENGTH = 1500  # DB is 2500
+NOTIFICATION_MESSAGE_MAX_LENGTH = 2500  # CHAR LENGTH - DB has no limit
 
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (

@@ -3,16 +3,10 @@ import auth_app.utils as util
 
 from bleach import clean
 from django import forms
+from django.conf import settings
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
 from auth_app.models import User, Notification, Store
-from clock_in_system.settings import (
-    VALID_NAME_PATTERN,
-    VALID_PHONE_NUMBER_PATTERN,
-    VALID_PASSWORD_PATTERN,
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
-)
 
 
 class LoginForm(forms.Form):
@@ -132,7 +126,7 @@ class AccountSetupForm(forms.Form):
             raise ValidationError(
                 "First name cannot be longer than 100 characters long."
             )
-        if not re.match(VALID_NAME_PATTERN, first_name):
+        if not re.match(settings.VALID_NAME_PATTERN, first_name):
             raise ValidationError("First name contains invalid characters.")
         return first_name.title()
 
@@ -142,7 +136,7 @@ class AccountSetupForm(forms.Form):
             raise ValidationError(
                 "Last name cannot be longer than 100 characters long."
             )
-        if not re.match(VALID_NAME_PATTERN, last_name):
+        if not re.match(settings.VALID_NAME_PATTERN, last_name):
             raise ValidationError("Last name contains invalid characters.")
         return last_name.title()
 
@@ -154,7 +148,7 @@ class AccountSetupForm(forms.Form):
                 raise ValidationError(
                     "Phone number cannot be longer than 15 characters long."
                 )
-            if not re.match(VALID_PHONE_NUMBER_PATTERN, phone):
+            if not re.match(settings.VALID_PHONE_NUMBER_PATTERN, phone):
                 raise ValidationError("Phone number contains invalid characters.")
         return phone.strip() if phone else phone
 
@@ -168,15 +162,15 @@ class AccountSetupForm(forms.Form):
 
     def clean_password(self):
         password = util.sanitise_plain_text(self.cleaned_data.get("password", ""))
-        if len(password) < PASSWORD_MIN_LENGTH:
+        if len(password) < settings.PASSWORD_MIN_LENGTH:
             raise ValidationError(
-                f"Password must be at least {PASSWORD_MIN_LENGTH} characters long."
+                f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters long."
             )
-        if len(password) > PASSWORD_MAX_LENGTH:
+        if len(password) > settings.PASSWORD_MAX_LENGTH:
             raise ValidationError(
-                f"Password cannot be longer than {PASSWORD_MAX_LENGTH} characters long."
+                f"Password cannot be longer than {settings.PASSWORD_MAX_LENGTH} characters long."
             )
-        if not re.search(VALID_PASSWORD_PATTERN, password):
+        if not re.search(settings.VALID_PASSWORD_PATTERN, password):
             raise ValidationError(
                 "Password must contain at least one uppercase letter, one lowercase letter, and one number."
             )
@@ -252,8 +246,8 @@ class NotificationForm(forms.Form):
     message = forms.CharField(
         required=True,
         label="Message",
-        max_length=1000,
-        help_text="Max 1000 characters. Newlines and Unicode allowed.",
+        max_length=settings.NOTIFICATION_MESSAGE_MAX_LENGTH,
+        help_text=f"Max {settings.NOTIFICATION_MESSAGE_MAX_LENGTH} characters. Newlines and Unicode allowed.",
         widget=forms.Textarea(
             attrs={"rows": 4, "class": "w-100 p-2", "placeholder": "Enter message"}
         ),
@@ -500,8 +494,10 @@ class NotificationForm(forms.Form):
 
         if len(bleached_html) == 0:
             raise ValidationError("Message cannot be empty or just whitespace.")
-        if len(bleached_html) > 1000:
-            raise ValidationError("Message cannot exceed 1000 characters.")
+        if len(bleached_html) > settings.NOTIFICATION_MESSAGE_MAX_LENGTH:
+            raise ValidationError(
+                f"Message cannot exceed {settings.NOTIFICATION_MESSAGE_MAX_LENGTH} characters."
+            )
 
         return safe_html
 
