@@ -237,9 +237,11 @@ def check_shifts_for_exceptions(
         total_created = 0
         total_exceptions = 0
         cutoff = localtime(now()).date() - timedelta(days=int(age_cutoff_days))
-        for store in Store.objects.filter(is_active=True).all():
+        for store in Store.objects.filter(
+            is_active=True, is_scheduling_enabled=True
+        ).all():
             # Get all shifts to try an link them to their respective shifts (check for missed shifts)
-            for shift in Shift.objects.filter(
+            for shift in Shift.objects.select_related("store").filter(
                 store_id=store.id,
                 date__range=(cutoff, localtime(now()).date()),
                 is_deleted=False,

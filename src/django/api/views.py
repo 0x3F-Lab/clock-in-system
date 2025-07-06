@@ -384,12 +384,16 @@ def update_shift_details(request, id):
                 activity.delete()
 
                 # Create exception IF there is a correlated shift
-                shift = Shift.objects.filter(
-                    store_id=activity.store_id,
-                    employee_id=activity.employee_id,
-                    date=activity.login_time.date(),
-                    is_deleted=False,
-                ).first()
+                shift = (
+                    Shift.objects.select_related("store")
+                    .filter(
+                        store_id=activity.store_id,
+                        employee_id=activity.employee_id,
+                        date=activity.login_time.date(),
+                        is_deleted=False,
+                    )
+                    .first()
+                )
                 if shift:
                     controllers.link_activity_to_shift(shift=shift)
 
@@ -816,7 +820,7 @@ def create_new_shift(request):
 
             # If activity is finished -> check for exceptions
             if activity.logout_time:
-                controllers.link_activity_to_shift(activity=activity)
+                controllers.link_activity_to_shift(activity=activity.id)
 
         logger.info(
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a new ACTIVITY with ID {activity.id} for the employee ID {employee.id} ({employee.first_name} {employee.last_name}) under the store [{store.code}]."
@@ -2795,6 +2799,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 raise err.NotAssociatedWithStoreError
             elif not store.is_active:
                 raise err.InactiveStoreError
+            elif not store.is_scheduling_enabled:
+                raise err.StoreNotSchedulingCapable
 
             with transaction.atomic():
                 role = Role.objects.create(
@@ -2914,6 +2920,11 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 "Error": "Not authorised to update role information for an inactive store."
             },
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotSchedulingCapable:
+        return Response(
+            {"Error": "Store does not have scheduling enabled."},
+            status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
         logger.critical(
@@ -3094,9 +3105,10 @@ def manage_store_shift(request, id):
         # Ensure manager is authorised
         if not manager.is_associated_with_store(store=shift.store.id):
             raise err.NotAssociatedWithStoreError
-
         elif not shift.store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
+        elif not shift.store.is_scheduling_enabled and request.method != "GET":
+            raise err.StoreNotSchedulingCapable
 
         # Save original info for logging
         original = {
@@ -3369,6 +3381,11 @@ def manage_store_shift(request, id):
             },
             status=status.HTTP_403_FORBIDDEN,
         )
+    except err.StoreNotSchedulingCapable:
+        return Response(
+            {"Error": "Store does not have scheduling enabled."},
+            status=status.HTTP_423_LOCKED,
+        )
     except Exception as e:
         logger.critical(
             f"An error occured when trying to interact with a store's shift for shift ID {id} for method {request.method}, resulting in the error: {str(e)}\n{traceback.format_exc()}"
@@ -3445,6 +3462,8 @@ def create_store_shift(request, store_id):
             raise err.NotAssociatedWithStoreError
         elif not store.is_active:
             raise err.InactiveStoreError
+        elif not store.is_scheduling_enabled:
+            raise err.StoreNotSchedulingCapable
         elif not employee.is_active:
             raise err.InactiveUserError
         elif role_id and not store.has_role(role=int(role_id)):
@@ -3551,6 +3570,11 @@ def create_store_shift(request, store_id):
         return Response(
             {"Error": "Not authorised create a shift for an inactive user."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotSchedulingCapable:
+        return Response(
+            {"Error": "Store does not have scheduling enabled."},
+            status=status.HTTP_423_LOCKED,
         )
     except Exception as e:
         logger.critical(f"Error creating shift: {str(e)}\n{traceback.format_exc()}")
@@ -3852,6 +3876,8 @@ def copy_week_schedule(request, store_id):
 
         if not store.is_active:
             raise err.InactiveStoreError
+        elif not store.is_scheduling_enabled:
+            raise err.StoreNotSchedulingCapable
         elif not manager.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
         elif target_week <= localtime(now()).date():
@@ -3893,6 +3919,11 @@ def copy_week_schedule(request, store_id):
         return Response(
             {"Error": "Not authorised to modify the schedule for an inactive store."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.StoreNotSchedulingCapable:
+        return Response(
+            {"Error": "Store does not have scheduling enabled."},
+            status=status.HTTP_423_LOCKED,
         )
     except DatabaseError as e:
         logger.critical(

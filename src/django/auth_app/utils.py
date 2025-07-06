@@ -308,6 +308,7 @@ def get_user_associated_stores_full_info(user: User) -> dict:
             "clocking_dist": int(store.allowable_clocking_dist_m),
             "pin": store.store_pin,
             "is_active": store.is_active,
+            "is_scheduling_enabled": store.is_scheduling_enabled,
         }
 
     return store_data

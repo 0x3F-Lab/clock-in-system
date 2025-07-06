@@ -109,19 +109,34 @@ class User(models.Model):
 
         return active_activities.exists()
 
-    def get_last_active_activity_for_store(self, store):
+    def get_last_active_activity_for_store(
+        self, store, preselect_store_info: bool = False
+    ):
         """
-        Returns the current active (ongoing) Activity for this user limited to the provided store.
-        Provide 'store' as the Store object or its ID.
-        Returns None if no active activity exists.
+        Returns the latest active (ongoing) Activity for this user in the given store.
+
+        Args:
+            store (Store | int | str): Store object or its ID.
+            preselect_store_info (bool): If True, uses select_related("store") to avoid additional DB hits.
+
+        Returns:
+            Activity | None: The most recent active activity (logout_time is NULL), or None if none found.
         """
         activities = Activity.objects.filter(employee=self, logout_time__isnull=True)
 
         # Filter by store
-        if isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
-            activities = activities.filter(store_id=int(store))
-        elif isinstance(store, Store):
+        if isinstance(store, Store):
             activities = activities.filter(store=store)
+        elif isinstance(store, (int, str)) and str(store).isdigit():
+            activities = activities.filter(store_id=int(store))
+        else:
+            raise ValueError(
+                "Invalid store value passed to get_last_active_activity_for_store"
+            )
+
+        # Optionally eager-load store relation
+        if preselect_store_info:
+            activities = activities.select_related("store")
 
         return activities.order_by("-login_time").first()  # Returns None if no match
 
@@ -278,6 +293,7 @@ class Store(models.Model):
     )
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
+    is_scheduling_enabled = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):

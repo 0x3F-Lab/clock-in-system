@@ -368,7 +368,7 @@ function scheduleAddBaseDayDiv(week) {
           <div class="day-date">${getShortDate(dayDate)}</div>
         </div>
         <div id="roster-${isoDate}" class="shifts-list">
-          <div class="default-no-schedule text-center text-white p-3"><small>No shifts scheduled</small></div>
+          <div class="default-no-schedule text-center text-white p-3"><small>No shifts</small></div>
         </div>
       </div>`;
     scheduleContainer.append(dayCardHtml);

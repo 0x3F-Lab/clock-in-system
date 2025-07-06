@@ -221,8 +221,10 @@ def handle_clock_out(
             elif check_clocking_out_too_soon(employee=employee, store=store):
                 raise err.ClockingOutTooSoonError
 
-            # Fetch the last active clock-in record
-            activity = employee.get_last_active_activity_for_store(store=store)
+            # Fetch the last active clock-in record -> PRE-SELECT STORE INFO FOR USE IN EXCEPTIONS
+            activity = employee.get_last_active_activity_for_store(
+                store=store, preselect_store_info=True
+            )
 
             time = localtime(now())
             activity.logout_timestamp = time
@@ -1575,6 +1577,7 @@ def link_activity_to_shift(
     """
     Check for a perfect link between an activity (actual shift) and a shift (the roster for the shift).
     If no perfect link exists (i.e. either doesnt exist, or slightly wrong) then create a ShiftException. Either option MUST be provided.
+    WARNING: If store has is_scheduling_enabled=False, this function is skipped.
 
     Args:
         activity (Activity, int, str): The activity object or ID to start the link from.
@@ -1592,19 +1595,21 @@ def link_activity_to_shift(
     # Resolve activity and shift if ID or str is provided
     if activity and not isinstance(activity, Activity):
         try:
-            activity = Activity.objects.get(pk=int(activity))
+            activity = Activity.objects.select_related("store").get(pk=int(activity))
         except (ValueError, Activity.DoesNotExist):
             raise Activity.DoesNotExist
     elif shift and not isinstance(shift, Shift):
         try:
-            shift = Shift.objects.get(pk=int(shift))
+            shift = Shift.objects.select_related("store").get(pk=int(shift))
         except (ValueError, Shift.DoesNotExist):
             raise Shift.DoesNotExist
 
     # Require a transaction due to multiple concurrent saves in certain cases
     with transaction.atomic():
         if activity:
-            if not activity.logout_time:
+            if not activity.store.is_scheduling_enabled:
+                return None, False  # Silently skip
+            elif not activity.logout_time:
                 raise err.IncompleteActivityError
 
             # Check for existing exception (use getattr as it throws errors if it doesnt exist)
@@ -1723,6 +1728,9 @@ def link_activity_to_shift(
             return None, False
 
         elif shift:
+            if not shift.store.is_scheduling_enabled:
+                return None, False  # Silently skip
+
             # Check for existing exception (use getattr as it throws errors if it doesnt exist)
             existing_exception = getattr(shift, "shift_shiftexception", None)
 
@@ -1871,7 +1879,7 @@ def create_shiftexception_link(
     # Check an exception doesnt already exist
     if activity:
         try:
-            excep = ShiftException.objects.get(activity=activity)
+            excep = activity.activity_shiftexception  # Reverse FK access
             excep.is_approved = False
             excep.reason = reason
 
@@ -1887,7 +1895,7 @@ def create_shiftexception_link(
     # Check BOTH if BOTH given (prevents violation of DB unique contraints)
     if shift:
         try:
-            excep = ShiftException.objects.get(shift=shift)
+            excep = shift.shift_shiftexception
             excep.is_approved = False
             excep.reason = reason
 
