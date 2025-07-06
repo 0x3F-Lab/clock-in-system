@@ -753,6 +753,71 @@ class Shift(models.Model):
         return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
 
 
+class ShiftRequest(models.Model):
+    class Type(models.TextChoices):
+        SWAP = "swap_request", "Swap Shift Request"  # SWAP BETWEEN CERTAIN PEOPLE
+        COVER = "cover_request", "Cover Shift Request"  # SWAP SHIFT OPEN TO WHOLE STORE
+        BID = "BID_request", "New Shift Bid"  # SHIFT BID FOR WHOLE STORE
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+        APPROVED = "approved", "Approved"  # MANAGER APROVAL
+        CANCELLED = "cancelled", "Cancelled"
+
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.BID,
+        null=False,
+        help_text="The type of Shift Request",
+    )
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    requester = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_shift_requests"
+    )
+    target_user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="received_shift_requests",
+    )
+    store = models.ForeignKey(
+        Store,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="store_shift_requests",
+    )
+    shift = models.ForeignKey(
+        Shift,
+        on_delete=models.CASCADE,
+        related_name="shift_requests",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.pk}] {self.type.upper()}: {self.requester.first_name} {self.requester.last_name} -> {f'{self.target_user.first_name} {self.target_user.last_name}' if self.target_user else (f'[{self.store.code}]' if self.store else 'ERROR')}"
+
+    def clean(self):
+        if self.type == self.Type.SWAP and not self.target_user:
+            raise ValidationError("SWAP requests must have a target user.")
+        if self.type in [self.Type.COVER, self.Type.BID] and not self.store:
+            raise ValidationError(
+                f"{self.type.upper()} requests must be tied to a store."
+            )
+
+
 class ShiftException(models.Model):
     class Reason(models.TextChoices):
         INCORRECTLY_CLOCKED = "bad_clocking", "Incorrectly Clocked"
