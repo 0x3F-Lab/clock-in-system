@@ -670,7 +670,6 @@ function updateStoreInformation(storeId) {
                 $('[data-bs-toggle="tooltip"]').tooltip();
             });
         } else {
-            showNotification("There are no ROLES associated to the selected store.", "info");
             $existingRolesList.append('<li class="list-group-item">No roles found</li>');
         }
 

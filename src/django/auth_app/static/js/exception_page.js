@@ -332,8 +332,6 @@ function updateStoreRoles() {
                 // Build options for the <select> dropdowns
                 $editRoleSelect.append(`<option value="${role.id}">${role.name}</option>`);
             });
-        } else {
-            showNotification("There are NO ROLES associated to the selected store.", "info");
         }
       },
 
