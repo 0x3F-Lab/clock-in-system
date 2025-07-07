@@ -1528,7 +1528,7 @@ def approve_exception(
                 )
                 if conflicting:
                     logger.debug(
-                        f"[DELETE: SHIFT (ID: {conflicting.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted)"
+                        f"[DELETE: SHIFT (ID: {conflicting.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted) -- Employee ID: {existing.employee_id} -- Time: ({existing.date}) {existing.start_time} -> {existing.end_time}"
                     )
                     conflicting.delete()
 
@@ -1566,25 +1566,21 @@ def approve_exception(
             }
 
             # IF IT FAILS TO CREATE SHIFT DUE TO ONE ALREADY EXISTING BUT WITH (is_deleted=True), DELETE IT AND TRY AGAIN
-            try:
-                new_shift = Shift.objects.create(**shift_data)
-            except IntegrityError:
-                existing = Shift.objects.filter(
-                    employee_id=shift_data["employee"].id,
-                    store_id=shift_data["store"].id,
-                    date=shift_data["date"],
-                    start_time=shift_data["start_time"],
-                    is_deleted=True,
-                ).first()
-                if existing:
-                    logger.debug(
-                        f"[DELETE: SHIFT (ID: {existing.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted)"
-                    )
-                    existing.delete()
-                    # Retry creating shift
-                    new_shift = Shift.objects.create(**shift_data)
-                else:
-                    raise  # re-raise the original IntegrityError
+            existing = Shift.objects.filter(
+                employee_id=shift_data["employee"].id,
+                store_id=shift_data["store"].id,
+                date=shift_data["date"],
+                start_time=shift_data["start_time"],
+                is_deleted=True,
+            ).first()
+
+            if existing:
+                logger.debug(
+                    f"[DELETE: SHIFT (ID: {existing.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted) -- Employee ID: {existing.employee_id} -- Time: ({existing.date}) {existing.start_time} -> {existing.end_time}"
+                )
+                existing.delete()
+
+            new_shift = Shift.objects.create(**shift_data)
 
             # Update role if given
             updated = False
