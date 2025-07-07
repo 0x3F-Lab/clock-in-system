@@ -241,7 +241,10 @@ def check_shifts_for_exceptions(
             # Get all shifts to try an link them to their respective shifts (check for missed shifts)
             for shift in Shift.objects.filter(
                 store_id=store.id,
-                date__range=(cutoff, localtime(now()).date()),
+                date__range=(
+                    cutoff,
+                    localtime(now()).date() - timedelta(days=1),
+                ),  # IGNORE CURRENT DAY, AS AUTOMATED TASK RUNS AT 12:05AM -> will mark everyone as missed_shift
                 is_deleted=False,
             ):
                 try:

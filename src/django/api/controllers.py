@@ -1503,17 +1503,44 @@ def approve_exception(
             if not activity.login_time or not activity.logout_time:
                 raise err.IncompleteActivityError
 
-            # Ensure shift times match activity times
+            elif shift.date != localtime(activity.login_time).date():
+                raise Exception(
+                    "Exception linked ACTIVITY and SHIFT are on DIFFERENT DATES. This should not be possible."
+                )
+
             updated = False
-            if shift.start_time != activity.login_time.time():
-                shift.start_time = localtime(activity.login_time).time()
+            new_start_time = localtime(activity.login_time).time()
+            new_end_time = localtime(activity.logout_time).time()
+
+            # Ensure shift times match activity times
+            if shift.start_time != new_start_time:
+                # Check if update would violate uniqueness due to soft-deleted shift
+                conflicting = (
+                    Shift.objects.filter(
+                        employee_id=shift.employee_id,
+                        store_id=shift.store_id,
+                        date=localtime(activity.login_time).date(),
+                        start_time=new_start_time,
+                        is_deleted=True,
+                    )
+                    .exclude(pk=shift.pk)
+                    .first()
+                )
+                if conflicting:
+                    logger.debug(
+                        f"[DELETE: SHIFT (ID: {conflicting.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted)"
+                    )
+                    conflicting.delete()
+
+                # Update the shift
+                shift.start_time = new_start_time
                 updated = True
-            if shift.end_time != activity.logout_time.time():
-                shift.end_time = localtime(activity.logout_time).time()
+
+            if shift.end_time != new_end_time:
+                shift.end_time = new_end_time
                 updated = True
-            # Only update role if its given AND it changes
             if override_role_id and shift.role != role:
-                shift.role = role
+                shift.role = role  # Only update role if its given AND it changes
                 updated = True
             if comment and shift.comment != comment:
                 shift.comment = comment
@@ -1530,13 +1557,34 @@ def approve_exception(
             if not activity.login_time or not activity.logout_time:
                 raise err.IncompleteActivityError
 
-            new_shift = Shift.objects.create(
-                employee=activity.employee,
-                store=activity.store,
-                date=localtime(activity.login_time).date(),
-                start_time=localtime(activity.login_time).time(),
-                end_time=localtime(activity.logout_time).time(),
-            )
+            shift_data = {
+                "employee": activity.employee,
+                "store": activity.store,
+                "date": localtime(activity.login_time).date(),
+                "start_time": localtime(activity.login_time).time(),
+                "end_time": localtime(activity.logout_time).time(),
+            }
+
+            # IF IT FAILS TO CREATE SHIFT DUE TO ONE ALREADY EXISTING BUT WITH (is_deleted=True), DELETE IT AND TRY AGAIN
+            try:
+                new_shift = Shift.objects.create(**shift_data)
+            except IntegrityError:
+                existing = Shift.objects.filter(
+                    employee_id=shift_data["employee"].id,
+                    store_id=shift_data["store"].id,
+                    date=shift_data["date"],
+                    start_time=shift_data["start_time"],
+                    is_deleted=True,
+                ).first()
+                if existing:
+                    logger.debug(
+                        f"[DELETE: SHIFT (ID: {existing.id})] Deleted due to it interfering with an exception approval (it was already soft-deleted)"
+                    )
+                    existing.delete()
+                    # Retry creating shift
+                    new_shift = Shift.objects.create(**shift_data)
+                else:
+                    raise  # re-raise the original IntegrityError
 
             # Update role if given
             updated = False
