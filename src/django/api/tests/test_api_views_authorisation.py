@@ -608,6 +608,7 @@ class TestScheduleAuthorisation:
             location_latitude=2.0,
             location_longitude=2.0,
             store_pin="111",
+            is_scheduling_enabled=True,
         )
 
     # --- Tests for create_store_shift ---

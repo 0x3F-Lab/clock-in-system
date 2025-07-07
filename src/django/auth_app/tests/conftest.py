@@ -23,6 +23,7 @@ def store(db):
         allowable_clocking_dist_m=500,
         store_pin="000",
         is_active=True,
+        is_scheduling_enabled=True,
     )
 
 
