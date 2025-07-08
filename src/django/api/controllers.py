@@ -1253,7 +1253,7 @@ def get_all_store_schedules(
                     "role_name": shift.role.name if shift.role else None,
                     "role_colour": shift.role.colour_hex if shift.role else None,
                     "is_unscheduled": shift.is_unscheduled,
-                    "comment": shift.comment,
+                    "has_comment": True if shift.comment else False,
                     "has_exception": hasattr(shift, "shift_shiftexception"),
                 }
             )
@@ -1325,9 +1325,10 @@ def get_user_store_schedules(
                 "id": shift.id,
                 "start_time": shift.start_time.strftime("%H:%M"),
                 "end_time": shift.end_time.strftime("%H:%M"),
+                "role_id": shift.role_id if shift.role else None,
                 "role_name": shift.role.name if shift.role else None,
                 "role_colour": shift.role.colour_hex if shift.role else None,
-                "is_unscheduled": shift.is_unscheduled,
+                "has_comment": True if shift.comment else False,
             }
         )
         if include_deleted and shift.is_deleted:

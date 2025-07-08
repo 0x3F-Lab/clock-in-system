@@ -3094,7 +3094,7 @@ def get_store_shifts(request, id):
         )
 
 
-@api_manager_required
+@api_employee_required
 @api_view(["GET", "POST", "DELETE"])
 @renderer_classes([JSONRenderer])
 def manage_store_shift(request, id):
@@ -3103,7 +3103,16 @@ def manage_store_shift(request, id):
         shift = Shift.objects.select_related("store", "employee", "role").get(pk=id)
 
         # Ensure manager is authorised
-        if not manager.is_associated_with_store(store=shift.store.id):
+        if not manager.is_manager and (
+            request.method != "GET"
+            or shift.employee_id != manager.id
+            or shift.is_deleted
+        ):
+            return Response(
+                {"Error": "Not authorised to make this request."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not manager.is_associated_with_store(store=shift.store.id):
             raise err.NotAssociatedWithStoreError
         elif not shift.store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
@@ -3124,18 +3133,27 @@ def manage_store_shift(request, id):
 
         # If GET -> Get the specific INFO for this one schedule
         if request.method == "GET":
+            info = {
+                "id": shift.id,
+                "employee_id": shift.employee_id,
+                "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
+                "date": shift.date.isoformat(),
+                "start_time": shift.start_time.strftime("%H:%M"),
+                "end_time": shift.end_time.strftime("%H:%M"),
+                "role_id": shift.role.id if shift.role else None,
+                "role_name": shift.role.name if shift.role else None,
+                "role_desc": shift.role.description if shift.role else None,
+                "role_colour": shift.role.colour_hex if shift.role else None,
+                "comment": shift.comment if shift.comment else "",
+            }
+
+            # IF REGULAR EMPLOYEE -> REMOVE SOME CONTENT
+            if not manager.is_manager:
+                return Response(info, status=status.HTTP_200_OK)
+
             return Response(
                 {
-                    "id": shift.id,
-                    "employee_id": shift.employee.id,
-                    "employee_name": f"{shift.employee.first_name} {shift.employee.last_name}",
-                    "date": shift.date.isoformat(),
-                    "start_time": shift.start_time.strftime("%H:%M"),
-                    "end_time": shift.end_time.strftime("%H:%M"),
-                    "role_id": shift.role.id if shift.role else None,
-                    "role_name": shift.role.name if shift.role else None,
-                    "role_colour": shift.role.colour_hex if shift.role else None,
-                    "comment": shift.comment if shift.comment else "",
+                    **info,
                     "is_unscheduled": shift.is_unscheduled,
                     "is_deleted": shift.is_deleted,
                 },
