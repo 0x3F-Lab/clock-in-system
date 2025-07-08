@@ -1419,8 +1419,8 @@ def get_store_exceptions(
             shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 2)
             info.update(
                 {
-                    "shift_start": obj.shift.start_time,
-                    "shift_end": obj.shift.end_time,
+                    "shift_start": obj.shift.start_time.strftime("%H:%M"),
+                    "shift_end": obj.shift.end_time.strftime("%H:%M"),
                     "shift_length_hr": shift_length_hr,
                     "shift_role_name": obj.shift.role.name if obj.shift.role else None,
                     "shift_role_id": obj.shift.role.id if obj.shift.role else None,
