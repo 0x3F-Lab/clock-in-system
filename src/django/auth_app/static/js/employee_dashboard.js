@@ -405,7 +405,7 @@ function handleShiftModal() {
         $('#displayComment').text(shiftData.comment || "No Comment");
 
         // Clear selected user (if one was selected before)
-        $('#displayModalSelectedEmployeeID').val('');
+        $('#editModalSelectedEmployeeID').val('');
 
         // If role has description, add it
         $('#displayShiftRoleDesc').text('');
@@ -417,6 +417,23 @@ function handleShiftModal() {
       },
       error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to get shift information"); }
     });
+  });
+
+  // HANDLE EMPLOYEE LIST INPUT/SELECTION
+  // Filter list on input
+  $("#editModalEmployeeSearchBar").on("input", function() {
+      const term = $(this).val().toLowerCase();
+      $("#editModalEmployeeList").children("li").each(function() {
+          $(this).toggle($(this).text().toLowerCase().includes(term));
+      });
+  });
+
+  // Click on an employee name to select
+  $("#editModalEmployeeList").on("click", "li", function() {
+      $("#editModalEmployeeList li").removeClass("active");
+      $(this).addClass("active");
+      const userId = $(this).data("id");
+      $("#editModalSelectedEmployeeID").val(userId);
   });
 
   // CLICK ON COVER SUBMISSION BUTTON -> SEND TO API
