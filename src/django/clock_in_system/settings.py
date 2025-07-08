@@ -23,7 +23,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.2.0.1"  #
+STATIC_CACHE_VER = "v1.2.0.2"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -239,7 +239,9 @@ CELERY_BEAT_SCHEDULE = {
     },
     "check_shifts_for_exceptions": {
         "task": "auth_app.tasks.check_shifts_for_exceptions",
-        "schedule": crontab(hour=0, minute=5),
+        "schedule": crontab(
+            hour=0, minute=5
+        ),  # DO NOT CHANGE FROM 12:05AM - UNLESS CONSULTED TASK FUNCTION
     },
 }
 

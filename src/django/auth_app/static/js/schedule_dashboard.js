@@ -40,7 +40,7 @@ $(document).ready(function() {
 
     // --- Store Selector ---
     $('#storeSelectDropdown').on('change', function() {
-        updateStoreInformation(getSelectedStoreID());
+        updateStoreInformation();
         loadSchedule(new Date().toLocaleDateString('sv-SE'));
     });
 
@@ -52,7 +52,7 @@ $(document).ready(function() {
     }
 
     // --- Initial Page Load ---
-    updateStoreInformation(getSelectedStoreID());
+    updateStoreInformation();
     loadSchedule(new Date().toLocaleDateString('sv-SE'));
 
     // Activate the pagination system (set the update function)
@@ -323,7 +323,7 @@ function handleRoleModification() {
             success: function(response) {
                 // Dont hide spinner
                 setRoleFormToAddMode();
-                updateStoreInformation(getSelectedStoreID());
+                updateStoreInformation();
                 showNotification(mode==='edit' ? "Successfully updated the role." : "Successfully created a role.", "success");
             },
             error: function(jqXHR, textStatus, errorThrown) {
@@ -346,7 +346,7 @@ function handleRoleModification() {
                 headers: {'X-CSRFToken': getCSRFToken()},
                 success: function() {
                     // DONT HIDE SPINNER AS IT GETS SHOWN AGAIN WHEN UPDATING INFO
-                    updateStoreInformation(getSelectedStoreID());
+                    updateStoreInformation();
                     showNotification("Successfully deleted a role.", "success");
                 },
                 error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to delete the role"); }
@@ -584,27 +584,23 @@ function renderModernTableView(data) {
  * Fetches employees and roles for the currently selected store and updates
  * the dropdowns in BOTH the 'Add Shift' and 'Edit Shift' modals.
  */
-function updateStoreInformation(storeId) {
-    if (storeId === null) return;
-
+function updateStoreInformation() {
     showSpinner();
 
-    const $addEmployeeSelect = $("#employeeSelect");
-    const $editEmployeeSelect = $("#editEmployeeSelect");
+    const $editEmployeeList = $("#editModalEmployeeList");
     const $addRoleSelect = $("#addRoleSelect");
     const $editRoleSelect = $("#editShiftRole");
     const $existingRolesList = $("#existingRolesList");
 
     // Clear everything first
-    $addEmployeeSelect.empty();
-    $editEmployeeSelect.empty();
+    $editEmployeeList.empty();
     $addRoleSelect.html(`<option value="" selected>No Role</option>`);
     $editRoleSelect.html(`<option value="" selected>No Role</option>`);
     $existingRolesList.html('<li class="list-group-item">Loading...</li>');
 
     // Fetch employees names
     $.ajax({
-        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=false`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},
@@ -632,7 +628,7 @@ function updateStoreInformation(storeId) {
 
     // Fetch store roles
     $.ajax({
-        url: `${window.djangoURLs.listStoreRoles}${storeId}/`,
+        url: `${window.djangoURLs.listStoreRoles}${getSelectedStoreID()}/`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},
