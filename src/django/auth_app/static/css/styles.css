@@ -219,6 +219,23 @@ table {
   border-radius: 50% !important;
 }
 
+/*Below code adds fade to navbar along with styling for the buttons on it and icons*/
+.che-header{
+  background: radial-gradient(
+      120% 180% at 50% 0%,
+      #011a2d 0%,
+      #001227 100%
+  );
+}
+.che-header .nav-link,
+.che-header .navbar-brand span,
+.che-header .fa-circle-user,
+.che-header .btn-light,
+.che-header .btn-light .fa-circle-user{
+  color: #29b9e4 !important;
+}
+
+
 /* If you still want the login box centered, apply flex styling only to the login container */
 .login-container {
     display: flex;
