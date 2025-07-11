@@ -3,9 +3,16 @@ body, html {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
-    background-color: #1a202c; /* Dark background */
-    color: #f4f4f9;            /* Light text color */
-    min-height: 100vh;         /* Let the document grow taller than the viewport */
+    background: radial-gradient(
+        90% 90% at 50% 0%,   
+        #052D44 0%,          
+        #041D31 35%,         
+        #021021 70%,         
+        #010A19 100%         
+    );
+    background-attachment: fixed; 
+    color: #f4f4f9;            
+    min-height: 100vh;
 }
 
 .cursor-pointer {
