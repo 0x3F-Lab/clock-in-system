@@ -757,7 +757,7 @@ class ShiftRequest(models.Model):
     class Type(models.TextChoices):
         SWAP = "swap_request", "Swap Shift Request"  # SWAP BETWEEN CERTAIN PEOPLE
         COVER = "cover_request", "Cover Shift Request"  # SWAP SHIFT OPEN TO WHOLE STORE
-        BID = "BID_request", "New Shift Bid"  # SHIFT BID FOR WHOLE STORE
+        BID = "bid_request", "New Shift Bid"  # SHIFT BID FOR WHOLE STORE
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -793,10 +793,10 @@ class ShiftRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="store_shift_requests",
     )
-    shift = models.ForeignKey(
+    shift = models.OneToOneField(  # ONLY ALLOW 1 REQ PER SHIFT
         Shift,
         on_delete=models.CASCADE,
-        related_name="shift_requests",
+        related_name="shift_request",
         null=True,
         blank=True,
     )

@@ -29,6 +29,7 @@ from auth_app.models import (
     Shift,
     Role,
     ShiftException,
+    ShiftRequest,
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
@@ -3960,4 +3961,117 @@ def copy_week_schedule(request, store_id):
         return Response(
             {"Error": "An internal error occurred while copying the schedule."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_employee_required
+@api_view(["POST", "PATCH"])  # POST=REQUEST FROM STORE, PATCH=REQUEST FROM USER
+@renderer_classes([JSONRenderer])
+def request_shift_cover(request, shift_id):
+    try:
+        employee = util.api_get_user_object_from_session(request)
+        shift = Shift.objects.select_related("store").get(pk=shift_id)
+        selected_employee_id = util.clean_param_str(
+            request.data.get("selected_employee_id", None)
+        )
+
+        if not shift.store.is_active:
+            raise err.InactiveStoreError
+        elif employee.id != shift.employee_id:
+            return Response(
+                {"Error": "Can only interact with your own shifts."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif hasattr(shift, "shift_request"):
+            return Response(
+                {"Error": "A cover request already exists for this shift."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        elif shift.date <= localtime(now()).date():
+            return Response(
+                {"Error": "Cover requests can only be made for future shifts."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        # POST -> REQUEST COVER FROM THE WHOLE STORE
+        if request.method == "POST":
+            # Create a cover request
+            req = ShiftRequest.objects.create(
+                type=ShiftRequest.Type.COVER,
+                requester=employee,
+                store=shift.store,
+                shift=shift,
+            )
+
+        # PATCH -> REQUEST COVER FROM THE SELECTED EMPLOYEE
+        elif request.method == "PATCH":
+            if not selected_employee_id:
+                return Response(
+                    {"Error": "Missing `selected_employee_id` in request."},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            elif selected_employee_id == employee.id:
+                return Response(
+                    {"Error": "Cannot select yourself to cover the shift."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Check selected user is assigned to store
+            elif not shift.store.is_associated_with_user(selected_employee_id):
+                return Response(
+                    {"Error": "Selected employee is not associated to the store."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Get user object to check if they're active
+            selected_employee = User.objects.get(pk=int(selected_employee_id))
+            if not selected_employee.is_active:
+                raise err.InactiveUserError
+
+            # Create a cover request
+            req = ShiftRequest.objects.create(
+                type=ShiftRequest.Type.SWAP,
+                requester=employee,
+                target_user=selected_employee,
+                store=shift.store,
+                shift=shift,
+            )
+
+        logger.info(
+            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) requested COVER for shift ID {shift.id} from {f'[{shift.store.code}]' if request.method == 'POST' else f'Employee ID {selected_employee_id}'}."
+        )
+        logger.debug(
+            f"[CREATE: SHIFTREQUEST (ID: {req.id})] Shift ID: {shift.id} -- Type: {req.type.upper()} -- Store Code: {shift.store.code} -- Target User ID: {selected_employee_id}"
+        )
+        return JsonResponse(
+            {"shift_id": shift_id, "request_id": req.id}, status=status.HTTP_201_CREATED
+        )
+
+    except ValueError:
+        return Response(
+            {"Error": "A invalid value was passed in the request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Shift.DoesNotExist:
+        return Response(
+            {"Error": f"Shift with ID {shift_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised interact with an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveUserError:
+        return Response(
+            {"Error": "Not authorised interact with an inactive user account."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"Error requesting cover for shift ID {shift_id}: {str(e)}\n{traceback.format_exc()}"
+        )
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

@@ -224,7 +224,6 @@ function handleWeekSwitching() {
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
         const previousWeek = $(this).data('week');
-        console.log(previousWeek);
         if (isNonEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
     });
 
@@ -406,6 +405,7 @@ function handleShiftModal() {
 
         // Clear selected user (if one was selected before)
         $('#editModalSelectedEmployeeID').val('');
+        $("#editModalEmployeeList li").removeClass("active");
 
         // If role has description, add it
         $('#displayShiftRoleDesc').text('');
@@ -437,7 +437,32 @@ function handleShiftModal() {
   });
 
   // CLICK ON COVER SUBMISSION BUTTON -> SEND TO API
-  
+  $('#editModal').on("click", ".cover-btn", function() {
+    const method = $(this).data("type").toLowerCase() === "store" ? "POST" : "PATCH";  // 'POST'=store or 'PATCH'=employee
+    const shiftId = $('#displayShiftId').val();
+    const selectedEmployee = $("#editModalSelectedEmployeeID").val();
+
+    if (method === "PATCH" && !isNonEmpty(selectedEmployee)) {
+      showNotification("Please select an employee.", "danger");
+      return;
+    }
+    
+    showSpinner();
+    $.ajax({
+      url: `${window.djangoURLs.requestCover}${shiftId}/`,
+      method: method,
+      headers: { 'X-CSRFToken': getCSRFToken() },
+      xhrFields: { withCredentials: true },
+      contentType: 'application/json',
+      data: JSON.stringify({ selected_employee_id: $("#editModalSelectedEmployeeID").val() }),
+      success: function(resp) {
+        hideSpinner();
+        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        showNotification("Successfully requested cover for the shift.", "success");
+      },
+      error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to request cover"); }
+    });
+  });
 }
 
 
@@ -447,7 +472,7 @@ function updateStoreInformation() {
 
     // Fetch employees names
     $.ajax({
-        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=false`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},

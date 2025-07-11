@@ -115,4 +115,7 @@ urlpatterns = [
         views.copy_week_schedule,
         name="copy_week_schedule",
     ),
+    path(
+        "request-cover/<int:shift_id>/", views.request_shift_cover, name="request_cover"
+    ),
 ]
