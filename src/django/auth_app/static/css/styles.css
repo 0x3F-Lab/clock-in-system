@@ -747,3 +747,32 @@ table {
     width: auto;           /* Allow the card to size to its content, up to the max width */
     max-width: 100%;       /* Prevents the card from overflowing the cell */
 }
+
+/* Manager-dashboard tiles */
+.dashboard-tile{
+  background: linear-gradient(135deg,#01334a 0%,#020f20 100%) !important;
+  color:#fff;
+  border-radius:1rem;
+  position:relative;          /* needed for the border trick below */
+  overflow:hidden;
+  transition:transform .25s;
+}
+
+.dashboard-tile i{ color:#29b9e4 !important; }
+
+.dashboard-tile:hover{ transform:translateY(-4px); }
+
+/* gradient stroke (1 px) */
+.dashboard-tile::before{
+  content:"";
+  position:absolute; inset:0;
+  padding:1px;
+  border-radius:inherit;
+  background:linear-gradient(135deg,#265a70 0%, #17364f 100%);
+  -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+          mask-composite:exclude;
+  pointer-events:none;
+}
