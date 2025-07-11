@@ -13,7 +13,7 @@
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
     {% if request.session.user_id %}
     <div class="col">
-      <a href="{% url 'dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white text-decoration-none dashboard-tile">
         <div class="card-body">
           <i class="fa-solid fa-user-clock fa-2x mb-3"></i>
           <h5 class="fw-semibold card-title">Employee Dashboard</h5>
@@ -25,7 +25,7 @@
 
     {% if request.session.is_manager %}
     <div class="col">
-      <a href="{% url 'manager_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'manager_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white text-decoration-none dashboard-tile">
         <div class="card-body">
           <i class="fa-solid fa-clipboard-list fa-2x mb-3"></i>
           <h5 class="fw-semibold card-title">Manager Dashboard</h5>
@@ -36,7 +36,7 @@
     {% endif %}
 
     <div class="col">
-      <a href="{% url 'manual_clocking' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'manual_clocking' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white text-decoration-none dashboard-tile">
         <div class="card-body">
           <i class="fa-solid fa-keyboard fa-2x mb-3"></i>
           <h5 class="fw-semibold card-title">Manual Clock-in/out</h5>
