@@ -2673,7 +2673,7 @@ def send_employee_notification(request, id):
         )
 
 
-################################### SCHEDULING ###################################
+################################### SCHEDULING ######################################################################
 
 
 @api_manager_required
@@ -3964,6 +3964,9 @@ def copy_week_schedule(request, store_id):
         )
 
 
+################################### SHIFT COVERING ######################################################################
+
+
 @api_employee_required
 @api_view(["POST", "PATCH"])  # POST=REQUEST FROM STORE, PATCH=REQUEST FROM USER
 @renderer_classes([JSONRenderer])
@@ -4011,23 +4014,26 @@ def request_shift_cover(request, shift_id):
                     status=status.HTTP_428_PRECONDITION_REQUIRED,
                 )
 
-            elif selected_employee_id == employee.id:
+            # Get user object to check if they're active
+            selected_employee = User.objects.get(pk=int(selected_employee_id))
+            if not selected_employee.is_active:
+                raise err.InactiveUserError
+
+            elif selected_employee.id == employee.id:
                 return Response(
                     {"Error": "Cannot select yourself to cover the shift."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
             # Check selected user is assigned to store
-            elif not shift.store.is_associated_with_user(selected_employee_id):
+            elif (
+                not shift.store.is_associated_with_user(selected_employee.id)
+                or selected_employee.is_hidden
+            ):
                 return Response(
                     {"Error": "Selected employee is not associated to the store."},
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
-
-            # Get user object to check if they're active
-            selected_employee = User.objects.get(pk=int(selected_employee_id))
-            if not selected_employee.is_active:
-                raise err.InactiveUserError
 
             # Create a cover request
             req = ShiftRequest.objects.create(
@@ -4071,6 +4077,163 @@ def request_shift_cover(request, shift_id):
     except Exception as e:
         logger.critical(
             f"Error requesting cover for shift ID {shift_id}: {str(e)}\n{traceback.format_exc()}"
+        )
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_employee_required
+@api_view(
+    ["POST", "PUT", "PATCH", "DELETE"]
+)  # POST=ACCEPT, PUT=MANAGER APPROV, PATCH=REJECT, DELETE=DELETE/CANCEL
+@renderer_classes([JSONRenderer])
+def manage_shift_request(request, req_id):
+    try:
+        employee = util.api_get_user_object_from_session(request)
+        req = ShiftRequest.objects.select_related("shift", "shift__store").get(
+            pk=req_id
+        )
+
+        if not req.shift.store.is_active:
+            raise err.InactiveStoreError
+        if not req.shift.store.is_associated_with_user(employee):
+            raise err.NotAssociatedWithStoreError
+
+        # POST -> REQUESTING EMPLOYEE ACCEPTS THE COVER
+        if request.method == "POST":
+            # Ensure request can be covered
+            if req.status != ShiftRequest.Status.PENDING:
+                return Response(
+                    {"Error": "Can only accept a PENDING request."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Ensure user isnt covering for themselves
+            elif employee.id == req.requester_id:
+                return Response(
+                    {"Error": "Cannot accept your own request."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Ensure cover acceptance happens before current date of shift
+            elif req.shift.date <= localtime(now()).date():
+                return Response(
+                    {"Error": "Can only accept future shifts."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+            # Update request
+            req.target_user_id = employee.id
+            req.status = ShiftRequest.Status.ACCEPTED
+            req.save()
+
+        # PUT -> MANAGER APPROVES THE COVER -> UPDATE SHIFT
+        elif request.method == "PUT":
+            # Ensure user is manager
+            if not employee.is_manager:
+                return Response(
+                    {"Error": "Not authorised to approve a shift request."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            elif req.status != ShiftRequest.Status.ACCEPTED:
+                return Response(
+                    {"Error": "Can only approve ACCEPTED shift requests."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            elif not req.target_user:
+                raise Exception(
+                    "Could not APPROVE SHIFT REQUEST due to request missing `target_user` field."
+                )
+
+            # DELETE RELAVENT EXCEPTIONS (IF MANAGER DIDNT APPROVE BEFORE SHIFT WAS WORKED)
+            # then UPDATE SHIFT
+            # then IF IN PAST -> CHECK EXCEPTIONS
+            with transaction.atomic():
+                try:
+                    excep = ShiftException.objects.get(shift=req.shift)
+                    excep.delete()
+                except ShiftException.DoesNotExist:
+                    pass
+
+                req.shift.employee = (
+                    req.target_user
+                )  ### THIS IS NIAVE -> Need to check no conflicting shift/exception exists
+                req.status = ShiftRequest.Status.APPROVED
+                req.save()
+
+                # If shift in past -> check for exception
+                shift_dt = make_aware(
+                    datetime.combine(req.shift.date, req.shift.end_time)
+                )
+                if shift_dt < localtime(now()):
+                    controllers.link_activity_to_shift(shift=req.shift_id)
+
+        # PATCH -> MANAGER/TARGET USER REJECTS REQUEST
+        elif request.method == "PUT":
+            if req.status not in [
+                ShiftRequest.Status.PENDING,
+                ShiftRequest.Status.ACCEPTED,
+            ]:
+                return Response(
+                    {"Error": "Can only reject PENDING or ACCEPTED requests."},
+                    status=status.HTTP_424_FAILED_DEPENDENCY,
+                )
+
+            # Only target user OR manager can reject request
+            elif not (employee.id == req.target_user_id or employee.is_manager):
+                return Response(
+                    {"Error": "Not authorised to reject the request."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            req.status = ShiftRequest.Status.REJECTED
+            req.save()
+
+        # DELETE -> MANAGER/REQUESTING USER DELETES IT IN `PENDING` STATE
+        elif request.method == "DELETE":
+            # Ensure user is MANAGER or AUTHORING user
+            if not (req.requester_id == employee.id or employee.is_manager):
+                return Response(
+                    {"Error": "Not authorised to delete a shift request."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if req.status != ShiftRequest.Status.PENDING:
+                return Response(
+                    {"Error": "Can only delete PENDING requests."},
+                    status=status.HTTP_424_FAILED_DEPENDENCY,
+                )
+
+            req.delete()
+
+        return JsonResponse({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
+
+    except ValueError:
+        return Response(
+            {"Error": "A invalid value was passed in the request."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Shift.DoesNotExist:
+        return Response(
+            {"Error": f"Shift Request with ID {req_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised interact with an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Cannot interact with an unassociated store's shift request."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"Error managing Shift Request ID {req_id} [Method: {request.method}]: {str(e)}\n{traceback.format_exc()}"
         )
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
