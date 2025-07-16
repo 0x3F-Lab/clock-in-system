@@ -776,3 +776,43 @@ table {
           mask-composite:exclude;
   pointer-events:none;
 }
+
+/* ─── Generic gradient table ───────────────────────────────────────── */
+.gradient-table{
+  --grad-start:#0e3749;
+  --grad-end:#091525;
+
+
+  background:linear-gradient(135deg,var(--grad-start) 0%,var(--grad-end) 100%);
+  border-color:#1f2d3c;
+
+  border-radius:0.75rem;
+  overflow:hidden;
+}
+
+.gradient-table thead{
+  background:inherit;
+}
+
+.gradient-table thead th{
+  background:transparent !important;
+  color:#f4f4f9;
+  border-bottom:2px solid #1f2d3c;
+}
+
+/* make ordinary cells transparent so the gradient shows.
+   but leave any Bootstrap status colour (`table-*`) alone              */
+.gradient-table tbody tr:not([class*="table-"])
+               td:not([class*="table-"]){
+  background-color:transparent !important;
+  color:#f4f4f9;
+}
+
+.gradient-table.table-striped > tbody > tr:nth-of-type(odd):not([class*="table-"])
+        > td:not([class*="table-"]){
+  background-color:transparent !important;
+}
+
+/* Don't forget: Add border gradient here later on */
+.gradient-table th,
+.gradient-table td{ border-color:#1f2d3c; }
