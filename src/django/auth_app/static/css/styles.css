@@ -816,3 +816,25 @@ table {
 /* Don't forget: Add border gradient here later on */
 .gradient-table th,
 .gradient-table td{ border-color:#1f2d3c; }
+
+
+/* ────────────────────────────────────────────────────────────────
+   gradient‑panel / Add lighter gradient to divs than the background of site
+─────────────────────────────────────────────────────────────────*/
+.gradient-panel{
+  --grad-start:#0e3749;
+  --grad-end:#091525;
+
+  background:linear-gradient(135deg,var(--grad-start) 0%,var(--grad-end) 100%) !important;
+
+  border-radius:0.75rem;
+  box-shadow:0 4px 8px rgba(0,0,0,.25);
+  color:#e2e8f0;
+  border:1px solid #1f2d3c; 
+}
+
+.gradient-panel h3,
+.gradient-panel h4,
+.gradient-panel h5{
+  color:#f4f4f9;
+}

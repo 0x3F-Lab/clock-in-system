@@ -15,7 +15,7 @@
 </div>
 
 <div class="d-flex flex-column align-items-center">
-  <div class="panel rounded shadow p-5">
+  <div class="panel rounded gradient-panel shadow p-5">
     <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
       {% csrf_token %}
       {{ form.deliveries }}
@@ -54,7 +54,7 @@
     </form>
   </div>
 
-  <div class="panel rounded shadow p-5 mt-5">
+  <div class="panel rounded gradient-panel shadow p-5 mt-5">
       <button id="clockingButton" type="submit" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
       <div class="deliveries flex">
           <button id="minusButton" class="btn">-</button>
