@@ -4,10 +4,10 @@
 
 {% block content_container_class %}my-5{% endblock %}
 {% block content %}
-<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Account Summary</u></h1>
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder">Account Summary</h1>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary dashboard-tile">
     <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
   </button>
 </div>
@@ -16,7 +16,7 @@
   {% include "components/store_selection_controller.html" %}
 </div>
 
-<div id="summaryTableController" class="container panel rounded shadow p-5 my-5">
+<div id="summaryTableController" class="container panel gradient-panel shadow p-5 my-5">
   <h3 class="mb-4 fw-semibold text-center">Table Controls</h3>
 
   <div class="row mb-3">
@@ -64,7 +64,7 @@
   </div>
 
   <div class="text-center">
-    <button type="button" class="btn btn-lg btn-success" id="summaryTableControllerSubmit">
+    <button type="button" class="btn btn-lg btn-gradient" id="summaryTableControllerSubmit">
       <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
     </button>
   </div>
@@ -72,7 +72,7 @@
 
 <!-- Summary Table -->
 <div class="table-responsive">
-  <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
+  <table id="summaryTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle gradient-table">
     <thead>
       <tr>
         <th>Staff Name</th>
@@ -90,7 +90,7 @@
 
 <!-- LEGACY Summary Table -->
 <div class="table-responsive">
-  <table id="legacySummaryTable" class="d-none table table-hover table-striped table-bordered border-dark text-center align-middle">
+  <table id="legacySummaryTable" class="d-none table table-hover table-striped table-bordered border-dark text-center align-middle gradient-table">
     <thead>
       <tr>
         <th class="fs-3">Staff Summary</th>
@@ -108,7 +108,7 @@
   </div>
 </div>
 
-<div class="container panel rounded shadow p-3 mt-1 mb-3">
+<div class="container panel gradient-panel rounded shadow p-3 mt-1 mb-3">
   <div class="fw-bold fs-4 text-center">
     <i class="fa-solid fa-palette me-2"></i>Colour Key
   </div>
