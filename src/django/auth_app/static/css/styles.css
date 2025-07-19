@@ -859,3 +859,31 @@ table {
   transform:translateY(-2px);
   box-shadow:0 4px 10px rgba(0,0,0,.35);
 }
+
+/* Styling of the select a store dropdown */
+#storeSelectDropdown{
+  background:#1e2530;
+  border:1px solid #3b82f6;
+  color:#f4f4f9;
+  appearance:none;
+}
+#storeSelectDropdown:focus{
+  box-shadow:0 0 0 .15rem rgba(59,130,246,.5);
+  border-color:#3b82f6;
+}
+
+.select-pill-container{
+  background:transparent;
+}
+
+.select-icon,
+.select-icon i{
+  pointer-events:none;
+  color:#9ca3af;
+}
+
+#storeSelectionController,
+#storeSelectionController .select-pill-container,
+#storeSelectDropdown{
+  box-shadow:none !important;
+}
