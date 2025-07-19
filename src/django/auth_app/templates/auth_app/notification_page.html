@@ -28,7 +28,7 @@
 
   <!-- Sub-Page: Account Notifications -->
   <div id="account-notifications" class="col-md-9">
-    <div class="panel rounded shadow p-4 mb-4">
+    <div class="panel rounded shadow gradient-panel p-4 mb-4">
       <h2 class="fw-bold text-center mb-4">Your <u>Unread</u> Notifications (<span id="notification-page-count">{{ notification_count }}</span>)</h2>
 
       {% if notifications.unread %}
@@ -111,7 +111,7 @@
 
   <!-- Sub-Page: ALREADY READ Account Notifications -->
   <div id="account-read-notifications" class="col-md-9">
-    <div class="panel rounded shadow p-4 mb-4">
+    <div class="panel rounded shadow gradient-panel p-4 mb-4">
       <h2 class="fw-bold text-center mb-4">Your <u>Read</u> Notifications (<span id="read-notification-page-count">{{ notifications.read_count }}</span>)</h2>
 
       {% if notifications.read %}
@@ -194,7 +194,7 @@
 
   <!-- Sub-Page: SENT Account Notifications -->
   <div id="account-sent-notifications" class="col-md-9">
-    <div class="panel rounded shadow p-4 mb-4">
+    <div class="panel rounded shadow gradient-panel p-4 mb-4">
       <h2 class="fw-bold text-center mb-4">Your <u>Sent</u> Notifications (<span id="sent-notification-page-count">{{ notifications.sent_count }}</span>)</h2>
 
       {% if notifications.sent %}
@@ -277,7 +277,7 @@
 
   <!-- Sub-Page: Send Notifications -->
   <div id="send-notification-form" class="col-md-9 d-none">
-    <div class="panel rounded shadow p-4 mb-4">
+    <div class="panel rounded shadow gradient-panel p-4 mb-4">
       <h2 class="fw-bold text-center">Send Notification</h2>
       <form method="POST" action="{% url 'notification_page' %}" class="mt-4">
         {% csrf_token %}
@@ -304,7 +304,7 @@
           {% endif %}
         {% endfor %}
 
-        <button type="submit" class="btn btn-lg btn-success w-100 p-3 mt-5">Send Notification</button>
+        <button type="submit" class="btn btn-lg btn-success btn-gradient w-100 p-3 mt-5">Send Notification</button>
 
         {% for error in form.non_field_errors %}
         <div class="nonFieldErrors text-danger text-wrap mt-2">{{ error|escape }}</div>
