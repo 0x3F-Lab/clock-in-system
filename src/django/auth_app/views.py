@@ -858,3 +858,24 @@ def schedule_dashboard(request):
         return redirect("home")
 
     return render(request, "auth_app/schedule_dashboard.html", context)
+
+
+@require_GET
+@ensure_csrf_cookie
+@manager_required
+def shift_requests(request):
+    try:
+        context, user = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.error(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/shift_requests.html", context)
