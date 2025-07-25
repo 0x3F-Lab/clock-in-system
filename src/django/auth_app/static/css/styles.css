@@ -3,9 +3,16 @@ body, html {
     margin: 0;
     padding: 0;
     font-family: Arial, sans-serif;
-    background-color: #1a202c; /* Dark background */
-    color: #f4f4f9;            /* Light text color */
-    min-height: 100vh;         /* Let the document grow taller than the viewport */
+    background: radial-gradient(
+        90% 90% at 50% 0%,   
+        #052D44 0%,          
+        #041D31 35%,         
+        #021021 70%,         
+        #010A19 100%         
+    );
+    background-attachment: fixed; 
+    color: #f4f4f9;            
+    min-height: 100vh;
 }
 
 .cursor-pointer {
@@ -60,13 +67,13 @@ table {
 
 .card-link:hover {
   background-color: #f8f9fa !important; /* Light background */
-  color: #000 !important; /* Black text */
+  color: #fff !important;
 }
 
 .card-link:hover i,
 .card-link:hover h5,
 .card-link:hover p {
-  color: #000 !important;
+  color: #fff !important;
 }
 
 .notification-badge {
@@ -158,7 +165,7 @@ table {
 }
 
 .table-red {
-  background-color: #ff3b3b !important;
+  background-color: #d45e5e !important;
   color: black;
 }
 
@@ -211,6 +218,23 @@ table {
   justify-content: center;
   border-radius: 50% !important;
 }
+
+/*Below code adds fade to navbar along with styling for the buttons on it and icons*/
+.che-header{
+  background: radial-gradient(
+      120% 180% at 50% 0%,
+      #011a2d 0%,
+      #001227 100%
+  );
+}
+.che-header .nav-link,
+.che-header .navbar-brand span,
+.che-header .fa-circle-user,
+.che-header .btn-light,
+.che-header .btn-light .fa-circle-user{
+  color: #29b9e4 !important;
+}
+
 
 /* If you still want the login box centered, apply flex styling only to the login container */
 .login-container {
@@ -722,4 +746,143 @@ table {
     text-align: left;      /* Resets the text alignment for the content inside */
     width: auto;           /* Allow the card to size to its content, up to the max width */
     max-width: 100%;       /* Prevents the card from overflowing the cell */
+}
+
+/* Manager-dashboard tiles */
+.dashboard-tile{
+  background: linear-gradient(135deg,#01334a 0%,#020f20 100%) !important;
+  color:#fff;
+  border-radius:1rem;
+  position:relative;          /* needed for the border trick below */
+  overflow:hidden;
+  transition:transform .25s;
+}
+
+.dashboard-tile i{ color:#29b9e4 !important; }
+
+.dashboard-tile:hover{ transform:translateY(-4px); }
+
+/* gradient stroke (1 px) */
+.dashboard-tile::before{
+  content:"";
+  position:absolute; inset:0;
+  padding:1px;
+  border-radius:inherit;
+  background:linear-gradient(135deg,#265a70 0%, #17364f 100%);
+  -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+          mask-composite:exclude;
+  pointer-events:none;
+}
+
+/* ─── Generic gradient table ───────────────────────────────────────── */
+.gradient-table{
+  --grad-start:#0e3749;
+  --grad-end:#091525;
+
+
+  background:linear-gradient(135deg,var(--grad-start) 0%,var(--grad-end) 100%);
+  border-color:#1f2d3c;
+
+  border-radius:0.75rem;
+  overflow:hidden;
+}
+
+.gradient-table thead{
+  background:inherit;
+}
+
+.gradient-table thead th{
+  background:transparent !important;
+  color:#f4f4f9;
+  border-bottom:2px solid #1f2d3c;
+}
+
+/* make ordinary cells transparent so the gradient shows.
+   but leave any Bootstrap status colour (`table-*`) alone              */
+.gradient-table tbody tr:not([class*="table-"])
+               td:not([class*="table-"]){
+  background-color:transparent !important;
+  color:#f4f4f9;
+}
+
+.gradient-table.table-striped > tbody > tr:nth-of-type(odd):not([class*="table-"])
+        > td:not([class*="table-"]){
+  background-color:transparent !important;
+}
+
+/* Don't forget: Add border gradient here later on */
+.gradient-table th,
+.gradient-table td{ border-color:#1f2d3c; }
+
+
+/* ────────────────────────────────────────────────────────────────
+   gradient‑panel / Add lighter gradient to divs than the background of site
+─────────────────────────────────────────────────────────────────*/
+.gradient-panel{
+  --grad-start:#0e3749;
+  --grad-end:#091525;
+
+  background:linear-gradient(135deg,var(--grad-start) 0%,var(--grad-end) 100%) !important;
+
+  border-radius:0.75rem;
+  box-shadow:0 4px 8px rgba(0,0,0,.25);
+  color:#e2e8f0;
+  border:1px solid #1f2d3c; 
+}
+
+.gradient-panel h3,
+.gradient-panel h4{
+  color:#f4f4f9;
+}
+
+/* ────────────────────────────────────────────────────────────────
+   btn-gradient  •  (generally used for 'save changes' button) 
+─────────────────────────────────────────────────────────────────*/
+.btn-gradient{
+  background:#2596be !important;   /* flat teal-blue */
+  border:none;
+  color:#fff !important;
+
+  border-radius:0.5rem;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);
+  transition:transform .2s,box-shadow .2s;
+}
+
+/* subtle lift on hover / focus */
+.btn-gradient:hover,
+.btn-gradient:focus{
+  background:#2084a6 !important;   /* slightly darker */
+  transform:translateY(-2px);
+  box-shadow:0 4px 10px rgba(0,0,0,.35);
+}
+
+/* Styling of the select a store dropdown */
+#storeSelectDropdown{
+  background:#1e2530;
+  border:1px solid #3b82f6;
+  color:#f4f4f9;
+  appearance:none;
+}
+#storeSelectDropdown:focus{
+  box-shadow:0 0 0 .15rem rgba(59,130,246,.5);
+  border-color:#3b82f6;
+}
+
+.select-pill-container{
+  background:transparent;
+}
+
+.select-icon,
+.select-icon i{
+  pointer-events:none;
+  color:#9ca3af;
+}
+
+#storeSelectionController,
+#storeSelectionController .select-pill-container,
+#storeSelectDropdown{
+  box-shadow:none !important;
 }
