@@ -165,7 +165,7 @@ table {
 }
 
 .table-red {
-  background-color: #ff3b3b !important;
+  background-color: #d45e5e !important;
   color: black;
 }
 
@@ -834,8 +834,7 @@ table {
 }
 
 .gradient-panel h3,
-.gradient-panel h4,
-.gradient-panel h5{
+.gradient-panel h4{
   color:#f4f4f9;
 }
 
