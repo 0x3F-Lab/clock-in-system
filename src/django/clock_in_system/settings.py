@@ -208,6 +208,12 @@ CELERY_TIMEZONE = os.getenv(
     "TZ", "Australia/Perth"
 )  # Set the default timezone (you can change this to your preferred timezone)
 CELERY_ENABLE_UTC = False  # Keep local time (for schedules)
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "max_retries": 100,
+    "interval_start": 0,
+    "interval_step": 2,
+    "interval_max": 30,
+}
 
 CELERY_TASK_RESULT_EXPIRES = 345600  # Results expire after 4 days
 CELERY_TASK_DEFAULT_RETRY_DELAY = 30  # Retry delay in seconds
@@ -219,6 +225,7 @@ CELERY_TASK_SOFT_TIME_LIMIT = (
 
 # Celery Beat Configuration for Periodic Tasks (Cron-like jobs)
 ### !! TO ENSURE TASKS ARE CORRECTLY SET ON TIME, THE DOCKER COMPOSE MUST BE REBUILT WITH `--build` !!
+#### PROD NOTE: A AUTO SCRIPT RESTARTS __ALL__ CONTAINERS ~4AM EVERY DAY, SCHEDULE TASKS AROUND THIS.
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
