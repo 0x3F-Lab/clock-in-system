@@ -9,8 +9,6 @@ from .settings import *
 #                                                                 #
 ###################################################################
 
-USE_TZ = True
-TIME_ZONE = "Australia/Perth"
 
 # Override the DATABASES setting for testing
 DATABASES["default"] = {
