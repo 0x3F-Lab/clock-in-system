@@ -4,9 +4,43 @@
 {% block content_container_class %}my-5{% endblock %}
 
 {% block content %}
-    <h1> test </h1>
+
+    <h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Requests</u></h1>
+
+    <div class="row">
+    <!-- Sidebar Navigation -->
+        <div class="col-md-3 mb-4 mb-md-0 d-flex flex-column align-items-center">
+            <div class="list-group shadow-sm w-100">
+                <button id="notification-page-btn" class="list-group-item list-group-item-action active">
+                    My Shift Requests
+                </button>
+                <button id="read-notification-page-btn" class="list-group-item list-group-item-action">
+                    Requests Sent to Me
+                </button>
+                <button id="sent-notification-page-btn" class="list-group-item list-group-item-action">
+                    Manager Approval
+                </button>
+                <button id="send-msg-page-btn" class="list-group-item list-group-item-action">
+                    Shift Pool
+                </button>
+                <button id="settings-page-btn" class="list-group-item list-group-item-action">
+                    Request History
+                </button>
+            </div>
+        </div>
+
+        <!-- Sub-Page: User Requests -->
+        <div id="my-requests" class="col-md-9">
+            <div class="panel rounded shadow p-4 mb-4">
+                Ding Dong
+            </div>
+        </div>
+
+    </div>
+
 {% endblock %}
 
 {% block customscripts %}
 {% load static %}
+<script src="{% static 'js/shift_requests.js' %}"></script>
 {% endblock %}
