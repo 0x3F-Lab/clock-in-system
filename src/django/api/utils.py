@@ -124,7 +124,10 @@ def is_public_holiday(
 
 def api_get_user_object_from_session(request):
     # Get user's id
-    employee_id = request.session.get("user_id")
+    employee_id = request.session.get("user_id", None)
+
+    if employee_id is None:
+        raise Exception("No user_id set in session details!")
 
     # Get employee data to check state
     try:

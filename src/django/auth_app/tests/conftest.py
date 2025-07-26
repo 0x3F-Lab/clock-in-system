@@ -37,7 +37,6 @@ def employee(db, store):
         email="john.doe@example.com",
         phone_number="1234567890",
         is_active=True,
-        is_manager=False,
         is_setup=True,
     )
     employee.set_password("testpassword")
@@ -59,7 +58,6 @@ def unsetup_employee(db, store):
         email="temp.user@example.com",
         phone_number="0987654321",
         is_active=True,
-        is_manager=False,
         is_setup=False,
     )
     user.set_unique_pin()
@@ -79,7 +77,6 @@ def inactive_employee(db, store):
         email="mary.jane@example.com",
         phone_number="1234567555",
         is_active=False,
-        is_manager=False,
         is_setup=True,
     )
     employee.set_password("testpassword")
@@ -100,14 +97,13 @@ def clocked_in_employee(db, store):
         email="jane.doe@example.com",
         phone_number="0987654321",
         is_active=True,
-        is_manager=False,
         is_setup=True,
     )
     employee.set_password("testpassword")
     employee.set_unique_pin()
     employee.save()
 
-    StoreUserAccess.objects.create(user=employee, store=store)
+    StoreUserAccess.objects.create(user=employee, store=store, is_manager=False)
 
     login_time = localtime(now()) - timedelta(hours=2)
 
@@ -132,7 +128,6 @@ def manager(db, store):
         email="manager.test@example.com",
         phone_number="1234567522",
         is_active=True,
-        is_manager=True,
         is_setup=True,
     )
     manager.set_password("testpassword")
@@ -161,7 +156,7 @@ def store_associate_employee(db, store, employee):
     """
     Creates an association link between store and the employee.
     """
-    StoreUserAccess.objects.create(user=employee, store=store)
+    StoreUserAccess.objects.create(user=employee, store=store, is_manager=False)
 
 
 @pytest.fixture
@@ -169,7 +164,7 @@ def store_associate_manager(db, store, manager):
     """
     Creates an association link between store and the manager.
     """
-    StoreUserAccess.objects.create(user=manager, store=store)
+    StoreUserAccess.objects.create(user=manager, store=store, is_manager=True)
 
 
 @pytest.fixture
@@ -177,7 +172,9 @@ def store_associate_inactive_employee(db, store, inactive_employee):
     """
     Creates an association link between store and the inactive employee.
     """
-    StoreUserAccess.objects.create(user=inactive_employee, store=store)
+    StoreUserAccess.objects.create(
+        user=inactive_employee, store=store, is_manager=False
+    )
 
 
 @pytest.fixture

@@ -56,7 +56,7 @@
                   <i class="fa-solid fa-user-clock me-2"></i> Employee Dash
                 </a>
               </li>
-              {% if request.session.is_manager %}
+              {% if request.session.is_some_store_manager %}
               <li>
                 <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'manager_dashboard' %}">
                   <i class="fa-solid fa-chart-line me-2"></i> Manager Dash

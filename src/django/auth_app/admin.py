@@ -81,7 +81,7 @@ class HasCommentFilter(admin.SimpleListFilter):
 class StoreUserAccessInlineForUser(admin.TabularInline):
     model = StoreUserAccess
     extra = 0
-    fields = ("store", "assigned_at")
+    fields = ("store", "is_manager", "assigned_at")
     readonly_fields = ("assigned_at",)
     verbose_name = "Associated Store"
     verbose_name_plural = "Associated Stores"
@@ -99,7 +99,7 @@ class StoreUserAccessInlineForUser(admin.TabularInline):
 class StoreUserAccessInlineForStore(admin.TabularInline):
     model = StoreUserAccess
     extra = 0
-    fields = ("user", "assigned_at")
+    fields = ("user", "is_manager", "assigned_at")
     readonly_fields = ("assigned_at",)
     verbose_name = "Associated User"
     verbose_name_plural = "Associated Users"
@@ -165,11 +165,10 @@ class UserAdmin(admin.ModelAdmin):
         "email",
         "is_setup",
         "is_active",
-        "is_manager",
         "is_hidden",
         "created_at",
     )
-    list_filter = ("is_setup", "is_active", "is_manager", "is_hidden")
+    list_filter = ("is_setup", "is_active", "is_hidden")
     search_fields = ("first_name", "last_name", "email", "pin")
     ordering = ("last_name", "first_name")
     inlines = [StoreUserAccessInlineForUser, ActivityInline]
@@ -214,7 +213,14 @@ class ActivityAdmin(admin.ModelAdmin):
 
 @admin.register(StoreUserAccess)
 class StoreUserAccessAdmin(admin.ModelAdmin):
-    list_display = ("id", "user_full_name", "store_code", "role", "assigned_at")
+    list_display = (
+        "id",
+        "user_full_name",
+        "store_code",
+        "is_manager",
+        "role",
+        "assigned_at",
+    )
     search_fields = (
         "user__first_name",
         "user__last_name",
@@ -222,8 +228,8 @@ class StoreUserAccessAdmin(admin.ModelAdmin):
         "store__code",
     )
     list_filter = (
+        "is_manager",
         "user__is_active",
-        "user__is_manager",
         "user__is_hidden",
         "user__is_setup",
         "store__is_active",
@@ -242,10 +248,10 @@ class StoreUserAccessAdmin(admin.ModelAdmin):
     @admin.display(description="Role")
     def role(self, obj):
         if obj.user.is_hidden:
-            if obj.user.is_manager:
+            if obj.is_manager:
                 return "Manager/Hidden"
             return "Hidden"
-        elif obj.user.is_manager:
+        elif obj.is_manager:
             return "Manager"
         return "Employee"
 
@@ -293,7 +299,6 @@ class NotificationReceiptAdmin(admin.ModelAdmin):
         "notification__recipient_group",
         "user__is_setup",
         "user__is_active",
-        "user__is_manager",
         "user__is_hidden",
     )
     search_fields = (
@@ -338,7 +343,6 @@ class ShiftAdmin(admin.ModelAdmin):
         "store__code",
         "store__is_active",
         "employee__is_active",
-        "employee__is_manager",
         "employee__is_hidden",
         "date",
     )
@@ -382,7 +386,6 @@ class ShiftExceptionAdmin(admin.ModelAdmin):
         "shift__store__code",
         "shift__store__is_active",
         "shift__employee__is_active",
-        "shift__employee__is_manager",
         "shift__employee__is_hidden",
         "created_at",
     )
