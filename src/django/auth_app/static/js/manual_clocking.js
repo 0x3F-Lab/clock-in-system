@@ -1,6 +1,7 @@
 $(document).ready(function() {
   // Ensure submit button outside form works
-  $('#clockingButton').on('click', () => {
+  $('#clockingButton').on('click', function(e) {
+    e.preventDefault();
     handleManualClockingFormSubmission();
   });
 

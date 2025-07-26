@@ -48,6 +48,18 @@
         {% endfor %}
       </div>
 
+      {% for error in form.deliveries.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
+      {% for error in form.latitude.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
+      {% for error in form.longitude.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
       {% for error in form.non_field_errors %}
       <div class="nonfield-error">{{ error|escapejs }}</div>
       {% endfor %}
@@ -55,7 +67,7 @@
   </div>
 
   <div class="panel rounded shadow p-5 mt-5">
-      <button id="clockingButton" type="submit" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
+      <button id="clockingButton" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
       <div class="deliveries flex">
           <button id="minusButton" class="btn">-</button>
           <input type="number" id="visibleDeliveries" value="0" min="0" class="form-control w-25">
