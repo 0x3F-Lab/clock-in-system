@@ -255,7 +255,7 @@ function updateEmployeeDetailsTable() {
           const activationButton = employee.is_active
             ? `<button type="button" class="dropdown-item actionBtn text-warning" data-action="deactivate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-xmark me-2"></i> Deactivate</button>`
             : `<button type="button" class="dropdown-item actionBtn text-success" data-action="activate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-check me-2"></i> Activate</button>`;
-          const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_manager ? 'table-info' : '');
+          const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_store_manager ? 'table-info' : '');
 
           const row = `
             <tr class="${rowColour}">
