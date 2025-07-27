@@ -275,20 +275,24 @@ function handlePagination(config) {
   const { updateFunc } = config;
 
   $('#prevPageBtn').on('click', function () {
-    const newOffset = $(this).attr('data-offset');
+    const newOffset = $(this).attr('data-offset') ?? 0;
     $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
 
   $('#nextPageBtn').on('click', function () {
-    const newOffset = $(this).attr('data-offset');
+    const newOffset = $(this).attr('data-offset') ?? 0;
     $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
 
-  // For clicking any specific page number (done so that it dynamically adjusts when they're added/removed)
-  $(document).on('click', 'li.page-item button', function () {
-    const newOffset = $(this).attr('data-offset');
+  // For clicking any specific page number (supports dynamic adjustments of the buttons)
+  $(document).on('click', 'li.page-number button', function () {
+    // Don't run updateFunc if this page is already active
+    const $li = $(this).closest('li.page-number');
+    if ($li.hasClass('active')) { return; }
+
+    const newOffset = $(this).attr('data-offset') ?? 0;
     $('#paginationVariables').attr('data-future-offset', newOffset);
     updateFunc();
   });
@@ -407,7 +411,6 @@ function getPaginationPages(currentPage, totalPages, size = 7) {
   pages.push('...', totalPages);
   return pages;
 }
-
 
 
 function getPaginationOffset() {
