@@ -362,11 +362,16 @@ def get_default_page_context(request, include_notifications: bool = False):
             "Your account has no associated stores. Please contact a store manager.",
         )
     store_data = {store.id: store.code for store in stores}
+    store_as_manager_data = {
+        store.id: store.code
+        for store in employee.get_associated_stores(get_only_stores_as_manager=True)
+    }
 
     # Get user's notifications
-    unread_notifs = employee.get_unread_notifications().select_related("sender")
+    unread_notifs = employee.get_unread_notifications()
 
     if include_notifications:
+        unread_notifs = unread_notifs.select_related("sender")
         unread_notifications = []
         for notif in unread_notifs:
             unread_notifications.append(
@@ -432,6 +437,7 @@ def get_default_page_context(request, include_notifications: bool = False):
             "user_id": employee_id,
             "user_name": employee.first_name,
             "associated_stores": store_data,
+            "associated_stores_as_manager": store_as_manager_data,
             "notifications": {
                 "unread": unread_notifications,
                 "read": read_notifications,
@@ -447,6 +453,7 @@ def get_default_page_context(request, include_notifications: bool = False):
         "user_id": employee_id,
         "user_name": employee.first_name,
         "associated_stores": store_data,
+        "associated_stores_as_manager": store_as_manager_data,
         "notification_count": unread_notifs.count(),
     }, employee
 

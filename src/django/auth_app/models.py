@@ -155,16 +155,25 @@ class User(models.Model):
             ).exists()
         return False
 
-    def get_associated_stores(self, show_inactive_for_managers: bool = True):
+    def get_associated_stores(
+        self,
+        show_inactive_for_managers: bool = True,
+        get_only_stores_as_manager: bool = False,
+    ):
         """
         Returns a queryset of stores this user is associated with.
 
-        - Always includes active stores.
-        - If show_inactive_for_managers is True, also includes inactive stores
-          where the user is a manager.
+        - If get_only_stores_as_manager is True, returns only stores where the user is a manager.
+        - Otherwise:
+            - Always includes active stores.
+            - If show_inactive_for_managers is True, also includes inactive stores
+              where the user is a manager.
         """
         base_qs = Store.objects.filter(user_access__user=self)
-        if show_inactive_for_managers:
+
+        if get_only_stores_as_manager:
+            qs = base_qs.filter(user_access__is_manager=True)
+        elif show_inactive_for_managers:
             qs = base_qs.filter(
                 Q(is_active=True) | Q(is_active=False, user_access__is_manager=True)
             )
