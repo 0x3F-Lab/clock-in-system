@@ -192,6 +192,10 @@ table {
   color: #6610f2;
 }
 
+.text-pink {
+  color: #db33f5;
+}
+
 .text-cyan {
   color: #0dcaf0;
 }
@@ -722,4 +726,18 @@ table {
     text-align: left;      /* Resets the text alignment for the content inside */
     width: auto;           /* Allow the card to size to its content, up to the max width */
     max-width: 100%;       /* Prevents the card from overflowing the cell */
+}
+
+/* Remove default show password icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    display: none !important;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
 }

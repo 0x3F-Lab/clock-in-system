@@ -1457,9 +1457,9 @@ def modify_account_status(request, id):
         ).lower()
         store_id = util.clean_param_str(request.data.get("store_id"))
 
-        if not status_type:
+        if not status_type or not store_id:
             return JsonResponse(
-                {"Error": "Required status type field missing."},
+                {"Error": "Required status type and store ID fields are missing."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
@@ -1468,7 +1468,12 @@ def modify_account_status(request, id):
         manager = util.api_get_user_object_from_session(request=request)
 
         # Check account can be modified
-        if not manager.is_manager_of(employee=employee):
+        if not manager.is_manager(store=int(store_id)):
+            return Response(
+                {"Error": "Not authorised to update employee status'."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_associated_with_store(store=int(store_id)):
             return Response(
                 {"Error": "Not authorised to update this employee's status."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1523,6 +1528,28 @@ def modify_account_status(request, id):
             tasks.notify_employee_account_reset_pin.delay(
                 user_id=employee.id, manager_id=manager.id
             )
+
+        elif status_type == "give_manager":
+            link = StoreUserAccess.objects.filter(
+                user_id=employee.id, store_id=store_id
+            ).first()
+
+            if link == None:
+                raise StoreUserAccess.DoesNotExist
+
+            link.is_manager = True
+            link.save()
+
+        elif status_type == "remove_manager":
+            link = StoreUserAccess.objects.filter(
+                user_id=employee.id, store_id=store_id
+            ).first()
+
+            if link == None:
+                raise StoreUserAccess.DoesNotExist
+
+            link.is_manager = False
+            link.save()
 
         elif status_type == "resign":
             if not store_id or not store_id.isdigit():
@@ -1608,6 +1635,11 @@ def modify_account_status(request, id):
         return Response(
             {"Error": f"Employee with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except StoreUserAccess.DoesNotExist:
+        return Response(
+            {"Error": "Failed to find user link to store."},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except ValueError:
         return Response(
