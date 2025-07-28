@@ -4,10 +4,10 @@
 
 {% block content_container_class %}container-fluid py-5{% endblock %}
 {% block content %}
-<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Store Exception Handling</u></h1>
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder">Store Exception Handling</h1>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary dashboard-tile">
     <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
   </button>
 </div>
@@ -30,7 +30,7 @@
   </div>
 
   <div id="excep-page" class="col-md-9" data-type="unapproved">
-    <div class="panel rounded shadow p-4 mb-4">
+    <div class="panel rounded gradient-panel shadow p-4 mb-4">
       <h2 id="list-title" class="fw-bold text-center mb-4">Store Exceptions (0)</h2>
 
       <div id="excep-list" class="list-group">

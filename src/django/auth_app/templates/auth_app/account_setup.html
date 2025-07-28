@@ -4,7 +4,7 @@
 
 {% block content_container_class %}flex-fill d-flex flex-column justify-content-center align-items-center py-5{% endblock %}
 {% block content %}
-<div class="panel rounded shadow p-5">
+<div class="panel rounded gradient-panel shadow p-5">
   <h2 class="fw-bold text-center">Setup Employee Account</h2>
   <form method="POST" action="{% url 'account_setup' %}" class="mt-4">
       {% csrf_token %}

@@ -23,12 +23,12 @@
     <meta name="csrf-token" content="{{ csrf_token }}">
 </head>
 <body class="d-flex flex-column min-vh-100">
-  <nav class="navbar navbar-expand-sm navbar-dark bg-dark py-3 px-2 shadow-sm">
+   <nav class="navbar navbar-expand-sm navbar-dark che-header py-3 px-2 shadow-sm">
     <div class="container-fluid">
       <!-- Logo + Home Link -->
       <a class="navbar-brand d-flex flex-row align-items-center gap-2" href="{% url 'home' %}">
         <img src="{% static 'img/logo.png' %}" alt="Site Logo" style="height: 40px;">
-        <span class="text-white ms-3"><i class="fa-solid fa-house"></i> <u>Home</u></span>
+        <span class="ms-3"><i class="fa-solid fa-house"></i> <u>Home</u></span>
       </a>
 
       <!-- Right-side controls -->
