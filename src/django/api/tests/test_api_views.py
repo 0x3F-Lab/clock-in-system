@@ -621,9 +621,9 @@ def test_list_recent_shifts_success(
 
     data = response.json()
     assert "activities" in data
-    assert now().date().isoformat() in data["activities"]
+    assert localtime(now()).date().isoformat() in data["activities"]
 
-    act = data["activities"][now().date().isoformat()][0]
+    act = data["activities"][localtime(now()).date().isoformat()][0]
     assert "login_time_str" in act
     assert "logout_time_str" in act
     assert "store_id" in act

@@ -48,6 +48,18 @@
         {% endfor %}
       </div>
 
+      {% for error in form.deliveries.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
+      {% for error in form.latitude.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
+      {% for error in form.longitude.errors %}
+      <div class="nonfield-error">{{ error }}</div>
+      {% endfor %}
+
       {% for error in form.non_field_errors %}
       <div class="nonfield-error">{{ error|escapejs }}</div>
       {% endfor %}

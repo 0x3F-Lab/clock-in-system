@@ -3,7 +3,7 @@ import pytest
 from datetime import timedelta
 from django.test import Client
 from django.urls import reverse
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
 from auth_app.models import User, Activity, Store, StoreUserAccess, Notification
 
 # Default scope if functional (i.e. after every single test the database resets)
@@ -109,7 +109,7 @@ def clocked_in_employee(db, store):
 
     StoreUserAccess.objects.create(user=employee, store=store)
 
-    login_time = now() - timedelta(hours=2)
+    login_time = localtime(now()) - timedelta(hours=2)
 
     activity = Activity.objects.create(
         employee=employee,

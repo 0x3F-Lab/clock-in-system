@@ -445,6 +445,9 @@ def update_shift_details(request, id):
                     activity.logout_time = None
                     activity.logout_timestamp = None
 
+                    # Ensure logout is set regardless if its given
+                    logout_timestamp = logout_time = None
+
             except ValueError as e:
                 return Response(
                     {
