@@ -1540,6 +1540,12 @@ def modify_account_status(request, id):
             link.is_manager = True
             link.save()
 
+            tasks.notify_managers_and_user_elevated_permission.delay(
+                store_id=store_id,
+                user_id=employee.id,
+                authorising_manager_id=manager.id,
+            )
+
         elif status_type == "remove_manager":
             link = StoreUserAccess.objects.filter(
                 user_id=employee.id, store_id=store_id
