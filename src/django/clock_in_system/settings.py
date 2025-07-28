@@ -23,7 +23,8 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.2.0.4"  #
+STATIC_CACHE_VER = "v1.2.1"
+
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#

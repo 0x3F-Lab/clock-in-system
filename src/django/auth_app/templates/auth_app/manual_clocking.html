@@ -5,17 +5,17 @@
 {% block content_container_class %}my-5{% endblock %}
 {% block content %}
 <div class="text-center mb-4">
-  <h1 class="fw-bolder"><u>Manual Clock In/Out</u></h1>
+  <h1 class="fw-bolder">Manual Clock In/Out</h1>
 </div>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <button onclick="location.href=`{% url 'home' %}`" class="btn btn-outline-secondary">
+  <button onclick="location.href=`{% url 'home' %}`" class="btn btn-outline-secondary dashboard-tile">
     <i class="fa-solid fa-arrow-left me-2"></i> Back to Home Directory
   </button>
 </div>
 
 <div class="d-flex flex-column align-items-center">
-  <div class="panel rounded shadow p-5">
+  <div class="panel rounded gradient-panel shadow p-5">
     <form id="manualClockingForm" method="POST" action="{% url 'manual_clocking' %}">
       {% csrf_token %}
       {{ form.deliveries }}
@@ -66,8 +66,8 @@
     </form>
   </div>
 
-  <div class="panel rounded shadow p-5 mt-5">
-      <button id="clockingButton" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
+  <div class="panel rounded gradient-panel shadow p-5 mt-5">
+      <button id="clockingButton" type="submit" class="btn btn-success p-3 fs-4 w-100" disabled>Clock In/Out</button>
       <div class="deliveries flex">
           <button id="minusButton" class="btn">-</button>
           <input type="number" id="visibleDeliveries" value="0" min="0" class="form-control w-25">

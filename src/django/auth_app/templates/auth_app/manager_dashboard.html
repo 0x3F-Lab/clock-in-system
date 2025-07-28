@@ -12,7 +12,7 @@
   <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
 
     <div class="col">
-      <a href="{% url 'manage_employee_details' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'manage_employee_details' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-users fa-2x mb-3"></i>
           <h5 class="card-title">Employee Details</h5>
@@ -22,7 +22,7 @@
     </div>
     
     <div class="col">
-      <a href="{% url 'manage_shift_logs' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'manage_shift_logs' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-clock fa-2x mb-3"></i>
           <h5 class="card-title">Shift Logs</h5>
@@ -32,7 +32,7 @@
     </div>
     
     <div class="col">
-      <a href="{% url 'account_summary' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'account_summary' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-file-invoice fa-2x mb-3"></i>
           <h5 class="card-title">Account Summary</h5>
@@ -42,7 +42,7 @@
     </div>
 
     <div class="col">
-      <a href="{% url 'manage_stores' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'manage_stores' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-shop fa-2x mb-3"></i>
           <h5 class="card-title">Manage Stores</h5>
@@ -52,7 +52,7 @@
     </div>
 
     <div class="col">
-      <a href="{% url 'schedule_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'schedule_dashboard' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-clipboard-user fa-2x mb-3"></i>
           <h5 class="card-title">Rostering</h5>
@@ -62,7 +62,7 @@
     </div>
 
     <div class="col">
-      <a href="{% url 'store_exceptions' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white bg-indigo text-decoration-none">
+      <a href="{% url 'store_exceptions' %}" class="card card-link dashboard-tile h-100 border-0 text-center text-white text-decoration-none">
         <div class="card-body">
           <i class="fa-solid fa-calendar-check fa-2x mb-3"></i>
           <h5 class="card-title">Store Exceptions</h5>
@@ -74,7 +74,7 @@
   </div>
 
   <div class="text-center mt-5">
-    <a href="/" class="btn btn-outline-secondary">
+    <a href="/" class="btn btn-outline-secondary dashboard-tile">
       <i class="fa-solid fa-arrow-left me-2"></i>Back to Landing Page
     </a>
   </div>
