@@ -134,6 +134,20 @@ def manager(db, store):
     manager.set_unique_pin()
     manager.save()
 
+    # ENSURE USER IS A MANAGER FOR SOME OTHER STORE (A UNUSED STORE)
+    other_store = Store.objects.create(
+        name="Other Unused Store",
+        code="OTHRSTR1",
+        location_street="123 Main St",
+        location_latitude=1.0,
+        location_longitude=1.0,
+        allowable_clocking_dist_m=500,
+        store_pin="001",
+        is_active=True,
+    )
+
+    StoreUserAccess.objects.create(user=manager, store=other_store, is_manager=True)
+
     return manager
 
 

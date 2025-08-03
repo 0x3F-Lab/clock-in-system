@@ -1557,6 +1557,12 @@ def modify_account_status(request, id):
             link.is_manager = False
             link.save()
 
+            tasks.notify_managers_and_user_removed_permission.delay(
+                store_id=store_id,
+                user_id=employee.id,
+                authorising_manager_id=manager.id,
+            )
+
         elif status_type == "resign":
             if not store_id or not store_id.isdigit():
                 return JsonResponse(
@@ -1644,7 +1650,7 @@ def modify_account_status(request, id):
         )
     except StoreUserAccess.DoesNotExist:
         return Response(
-            {"Error": "Failed to find user link to store."},
+            {"Error": "Failed to find user link to store. Please contact admins."},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except ValueError:
