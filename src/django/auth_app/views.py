@@ -601,7 +601,7 @@ def notification_page(request):
 
         except Exception as e:
             logger.critical(
-                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
+                f"Failed to send notification {user.first_name} {user.last_name} [{form.cleaned_data.get('store', 'N/A')}] -> {form.cleaned_data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
             )
             messages.error(
                 request,

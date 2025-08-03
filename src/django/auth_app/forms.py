@@ -390,7 +390,7 @@ class NotificationForm(forms.Form):
     def clean_notification_type(self):
         notification_type = self.cleaned_data.get("notification_type")
         recipient_group = self.cleaned_data.get("recipient_group")
-        store = self.cleaned_data.get("store", None)
+        store_id = self.cleaned_data.get("store", None)
 
         # Validate that the type is in the allowed list for this user
         if not self.user:
@@ -399,7 +399,7 @@ class NotificationForm(forms.Form):
         elif (
             notification_type
             in [Notification.Type.MANAGER_NOTE, Notification.Type.SCHEDULE_CHANGE]
-        ) and (not self.user.is_manager(store.id)):
+        ) and (not self.user.is_manager(store_id)):
             raise ValidationError("Not authorised to use that notification type.")
 
         elif (
@@ -451,7 +451,7 @@ class NotificationForm(forms.Form):
 
     def clean_recipient_group(self):
         recipient_group = self.cleaned_data.get("recipient_group")
-        store = self.cleaned_data.get("store", None)
+        store_id = self.cleaned_data.get("store", None)
         allowed_choices = {
             Notification.RecipientType.STORE_MANAGERS.value,
             Notification.RecipientType.STORE_EMPLOYEES.value,
@@ -469,7 +469,7 @@ class NotificationForm(forms.Form):
 
         elif (
             recipient_group == Notification.RecipientType.STORE_EMPLOYEES
-            and not self.user.is_manager(store.id)
+            and not self.user.is_manager(store_id)
         ):
             raise ValidationError(
                 "Not authorised to use that recipient group for the selected Store."
