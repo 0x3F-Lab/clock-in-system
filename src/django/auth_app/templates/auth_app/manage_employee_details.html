@@ -4,14 +4,14 @@
 
 {% block content_container_class %}my-5{% endblock %}
 {% block content %}
-<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Employee Details</u></h1>
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder">Employee Details</h1>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary">
+  <button onclick="location.href=`{% url 'manager_dashboard' %}`" class="btn btn-outline-secondary dashboard-tile">
     <i class="fa-solid fa-arrow-left me-2"></i> Back to Dashboard
   </button>
 
-  <button id="addNewEmployeeButton" class="btn btn-primary">
+  <button id="addNewEmployeeButton" class="btn dashboard-tile">
     <i class="fa-solid fa-plus me-2"></i> Add New Employee
   </button>
 </div>
@@ -20,7 +20,7 @@
   {% include "components/store_selection_controller.html" with store_dict=associated_stores_as_manager %}
 </div>
 
-<div class="container panel rounded shadow p-3 my-5">
+<div class="container panel gradient-panel rounded shadow p-3 my-5">
   <button type="button"
           class="w-100 bg-transparent text-light border-0 p-1 d-flex align-items-center"
           data-bs-toggle="collapse"
@@ -61,7 +61,7 @@
       </div>
 
       <div class="text-center">
-        <button type="button" class="btn btn-lg btn-success" id="tableControllerSubmit">
+        <button type="button" class="btn btn-lg btn-gradient" id="tableControllerSubmit">
           <i class="fa-solid fa-floppy-disk me-2"></i> Save Changes
         </button>
       </div>
@@ -70,7 +70,8 @@
 </div>
 
 <div class="table-responsive">
-  <table id="employeeTable" class="table table-hover table-striped table-bordered border-dark text-center align-middle">
+  <table id="employeeTable" class="table table-hover table-striped table-bordered border-dark
+              text-center align-middle gradient-table">
       <thead>
           <tr>
               <th>Name</th>
@@ -87,7 +88,7 @@
   </table>
 </div>
 
-<div class="container panel rounded shadow p-3 mt-1 mb-3 ">
+<div class="container panel gradient-panel rounded shadow p-3 mt-1 mb-3 ">
   <div class="fw-bold fs-4 text-center">
     <i class="fa-solid fa-palette me-2"></i>Colour Key
   </div>
