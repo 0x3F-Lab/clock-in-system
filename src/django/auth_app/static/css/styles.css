@@ -77,7 +77,7 @@ table {
 }
 
 .notification-badge {
-  transform: translate(-70%, -50%);
+  transform: translate(-95%, -90%); 
 }
 
 /* Pagination controller */
@@ -904,3 +904,4 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     position: absolute;
     right: 0;
 }
+
