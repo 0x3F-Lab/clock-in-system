@@ -204,21 +204,24 @@ def test_manual_clocking_inactive_store(
 
 
 @pytest.mark.django_db
-def test_manager_dashboard_access(logged_in_manager):
+def test_manager_dashboard_access(manager, store_associate_manager, logged_in_manager):
     """
-    Test that manager dashboard page is accessible to a logged-in manager.
+    Test that manager dashboard page is accessible to a logged-in manager with store access.
     """
     client = logged_in_manager
     url = reverse("manager_dashboard")
+
     response = client.get(url)
 
-    assert response.status_code == 200
     assert "auth_app/manager_dashboard.html" in [t.name for t in response.templates]
+    assert response.status_code == 200
     assert b"Manager Dashboard" in response.content
 
 
 @pytest.mark.django_db
-def test_manage_employee_details_access(logged_in_manager):
+def test_manage_employee_details_access(
+    manager, store_associate_manager, logged_in_manager
+):
     """
     Test that employee details management page is accessible to a logged-in manager.
     """
@@ -234,7 +237,7 @@ def test_manage_employee_details_access(logged_in_manager):
 
 
 @pytest.mark.django_db
-def test_manage_shift_logs_access(logged_in_manager):
+def test_manage_shift_logs_access(manager, store_associate_manager, logged_in_manager):
     """
     Test that shift logs management page is accessible to a logged-in manager.
     """
@@ -248,7 +251,7 @@ def test_manage_shift_logs_access(logged_in_manager):
 
 
 @pytest.mark.django_db
-def test_manage_stores_access(logged_in_manager, store, store_associate_manager):
+def test_manage_stores_access(manager, store_associate_manager, logged_in_manager):
     """
     Test that store management page is accessible to a logged-in manager.
     """
@@ -273,7 +276,9 @@ def test_manage_stores_access(logged_in_manager, store, store_associate_manager)
 
 
 @pytest.mark.django_db
-def test_manage_account_summary_access(logged_in_manager):
+def test_manage_account_summary_access(
+    manager, store_associate_manager, logged_in_manager
+):
     """
     Test that account summary page is accessible to a logged-in manager.
     """

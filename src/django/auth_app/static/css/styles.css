@@ -77,7 +77,7 @@ table {
 }
 
 .notification-badge {
-  transform: translate(-70%, -50%);
+  transform: translate(-95%, -90%); 
 }
 
 /* Pagination controller */
@@ -87,7 +87,7 @@ table {
   margin: 0 5px;
   border-radius: 50%;
   color: #f4f4f9;
-  background: #1a202c;
+  background: #1a202c49;
   transition: all 0.3s ease;
 }
 
@@ -197,6 +197,10 @@ table {
 /* CUSTOM COLOURS */
 .text-indigo {
   color: #6610f2;
+}
+
+.text-pink {
+  color: #db33f5;
 }
 
 .text-cyan {
@@ -790,6 +794,15 @@ table {
   overflow:hidden;
 }
 
+/* Used to control the color of the border around the cells inside the table */
+.gradient-table,                     
+.gradient-table thead th,             
+.gradient-table tbody td,             
+.gradient-table tbody + tbody {      
+  border: 1.5px solid #3c5874 !important;   
+}
+
+
 .gradient-table thead{
   background:inherit;
 }
@@ -885,4 +898,45 @@ table {
 #storeSelectionController .select-pill-container,
 #storeSelectDropdown{
   box-shadow:none !important;
+}
+
+/* Remove default show password icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    display: none !important;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+}
+
+
+/* ─── Gradient action buttons ─────────────────────────── */
+.btn-clock-in{
+  color:#fff !important;
+  background:linear-gradient(90deg,#01a894 0%, #0d5b9d 100%) !important;
+  border:none;
+}
+.btn-clock-in:hover,
+.btn-clock-in:focus{
+  filter:brightness(1.1);
+}
+
+.btn-clock-out{
+  color:#fff !important;
+  background:linear-gradient(90deg,#ff7a00 0%, #d40000 100%) !important; /* orange → red */
+  border:none;
+}
+.btn-clock-out:hover,
+.btn-clock-out:focus{
+  filter:brightness(1.1);
+}
+
+#clockingButton:disabled{
+  opacity:.65;
+  cursor:not-allowed;
 }

@@ -18,7 +18,7 @@
       integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
       crossorigin="anonymous"
     >
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css" integrity="sha384-nRgPTkuX86pH8yjPJUAFuASXQSSl2/bBUiNV47vSYpKFxHJhbcrGnmlYpYJMeD7a" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.0.0/css/all.min.css" integrity="sha384-tGBVFh2h9Zcme3k9gJLbGqDpD+jRd419j/6N32rharcTZa1X6xgxug6pFMGonjxU" crossorigin="anonymous">
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     <meta name="csrf-token" content="{{ csrf_token }}">
 </head>
@@ -36,7 +36,7 @@
         {% if request.session.user_id %}
           <!-- User Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-lg h-100 btn-light border-0 bg-transparent position-relative d-flex align-items-center p-2" type="button" id="userDropdown"
+            <button class="btn btn-lg h-100 btn-light border-0 bg-transparent position-relative d-flex align-items-center p-1" type="button" id="userDropdown"
               data-bs-toggle="dropdown" aria-expanded="false">
               <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
               {% if notification_count > 0 %}
@@ -56,7 +56,7 @@
                   <i class="fa-solid fa-user-clock me-2"></i> Employee Dash
                 </a>
               </li>
-              {% if request.session.is_manager %}
+              {% if request.session.is_some_store_manager %}
               <li>
                 <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'manager_dashboard' %}">
                   <i class="fa-solid fa-chart-line me-2"></i> Manager Dash

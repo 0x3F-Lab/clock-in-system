@@ -323,7 +323,7 @@ def test_create_new_shift_not_associated_store(
 
     assert response.status_code == 403
     assert (
-        "Not authorised to create a new shift for an unassociated store."
+        "Not authorised to create a new shift for the store."
         in response.json()["Error"]
     )
 
@@ -363,7 +363,9 @@ def test_create_new_shift_unassociated_employee(
 
 
 @pytest.mark.django_db
-def test_list_all_employee_details_unauthorised_user(logged_in_employee, store):
+def test_list_all_employee_details_unauthorised_user(
+    logged_in_employee, store, store_associate_employee
+):
     """
     Test that a non-manager (unauthorised) user cannot retrieve employee details.
     """
@@ -401,7 +403,9 @@ def test_list_all_employee_details_not_associated_store(logged_in_manager, store
 
 
 @pytest.mark.django_db
-def test_list_singular_employee_details_unauthorised_user(logged_in_employee, employee):
+def test_list_singular_employee_details_unauthorised_user(
+    logged_in_employee, employee, store_associate_employee
+):
     """
     Test that a non-manager (unauthorised) user cannot retrieve employee details.
     """
@@ -439,7 +443,9 @@ def test_list_singular_employee_details_not_associated(
 
 
 @pytest.mark.django_db
-def test_create_new_employee_unauthorised(logged_in_employee, store):
+def test_create_new_employee_unauthorised(
+    logged_in_employee, store, store_associate_employee
+):
     """
     Test that a non-manager user cannot create a new employee.
     """
@@ -480,10 +486,7 @@ def test_create_new_employee_not_associated(logged_in_manager, store):
     )
 
     assert response.status_code == 403
-    assert (
-        "Not authorised to update another store's employee list."
-        in response.json()["Error"]
-    )
+    assert "Not authorised to this store's employee list." in response.json()["Error"]
 
 
 @pytest.mark.django_db
@@ -500,7 +503,7 @@ def test_manager_cannot_update_employee_in_other_store(
 
     assert response.status_code == 403
     assert (
-        "Not authorised to update another store's employee account information."
+        "Not authorised to update this employee's account information."
         in response.json()["Error"]
     )
 
@@ -546,10 +549,7 @@ def test_list_account_summaries_manager_not_associated(logged_in_manager, store)
     )
 
     assert response.status_code == 403
-    assert (
-        "Not authorised to get summaries for a unassociated store."
-        in response.json()["Error"]
-    )
+    assert "Not authorised to get summaries for this store." in response.json()["Error"]
 
 
 @pytest.mark.django_db

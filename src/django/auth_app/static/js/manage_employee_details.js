@@ -137,6 +137,21 @@ function openWarningModal(id, actionType, name) {
       <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
     `;
     $('#revertibleBanner').removeClass('d-none');
+  } else if (actionType.toLowerCase() === "give_manager") {
+    info = `
+      <p>You are about to make the Employee a <b>MANAGER</b>.</p>
+      <p>This will give them as much permissions as you do.</p>
+      <p>They can also remove you as a manager.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
+    `;
+    $('#revertibleBanner').removeClass('d-none');
+  } else if (actionType.toLowerCase() === "remove_manager") {
+    info = `
+      <p>You are about to remove the Employee as a <b>MANAGER</b>.</p>
+      <p>They will no longer be able to manage this store.</p>
+      <p><em>A notification will be sent to the respective user and the store's manager(s) informing them of this change.</em></p>
+    `;
+    $('#revertibleBanner').removeClass('d-none');
   }
 
   $('#warningModalText').html(info);
@@ -184,12 +199,8 @@ function updateEmployeeStatus(id, type) {
   $.ajax({
     url: `${window.djangoURLs.modifyAccountStatus}${id}/`,
     type: "PUT",
-    xhrFields: {
-      withCredentials: true
-    },
-    headers: {
-      'X-CSRFToken': getCSRFToken(), // Include CSRF token
-    },
+    xhrFields: { withCredentials: true },
+    headers: { 'X-CSRFToken': getCSRFToken() },
     contentType: 'application/json',
     data: JSON.stringify({
       status_type: type,
@@ -255,7 +266,10 @@ function updateEmployeeDetailsTable() {
           const activationButton = employee.is_active
             ? `<button type="button" class="dropdown-item actionBtn text-warning" data-action="deactivate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-xmark me-2"></i> Deactivate</button>`
             : `<button type="button" class="dropdown-item actionBtn text-success" data-action="activate" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-user-check me-2"></i> Activate</button>`;
-          const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_manager ? 'table-info' : '');
+          const staffButton = employee.is_store_manager
+            ? `<button type="button" class="dropdown-item actionBtn text-primary" data-action="remove_manager" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-person-arrow-down-to-line me-2"></i> Unset Manager</button>`
+            : `<button type="button" class="dropdown-item actionBtn text-pink" data-action="give_manager" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}"><i class="fa-solid fa-person-arrow-up-from-line me-2"></i> Set Manager</button>`;
+          const rowColour = (!employee.is_active) ? 'table-danger' : (employee.is_store_manager ? 'table-info' : '');
 
           const row = `
             <tr class="${rowColour}">
@@ -296,6 +310,9 @@ function updateEmployeeDetailsTable() {
                         <button class="dropdown-item actionBtn text-danger" data-action="resign" data-id="${employee.id}" data-name="${employee.first_name} ${employee.last_name}">
                           <i class="fa-solid fa-user-slash me-2"></i> Resign
                         </button>
+                      </li>
+                      <li>
+                        ${staffButton}
                       </li>
                     </ul>
                   </div>

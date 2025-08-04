@@ -116,8 +116,8 @@ function updateClockButtonState(clockedIn) {
   if (clockedIn) {
     $("#clockingButton")
       .text("Clock Out")
-      .removeClass("btn-success")
-      .addClass("btn-danger")
+      .removeClass("btn-clock-in")
+      .addClass("btn-clock-out")
       .attr('data-clocking-action', 'clockout');
     $("#minusButton").removeClass('disabled');
     $("#plusButton").removeClass('disabled');
@@ -125,8 +125,8 @@ function updateClockButtonState(clockedIn) {
   } else {
     $("#clockingButton")
       .text("Clock In")
-      .removeClass("btn-danger")
-      .addClass("btn-success")
+      .removeClass("btn-clock-out")
+      .addClass("btn-clock-in")
       .attr('data-clocking-action', 'clockin');
     $("#minusButton").addClass('disabled');
     $("#plusButton").addClass('disabled');

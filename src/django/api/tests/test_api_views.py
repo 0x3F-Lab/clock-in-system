@@ -450,7 +450,7 @@ def test_employee_cannot_update_own_dob(
 
     assert response.status_code == 403
     assert (
-        "Not authorised to modify your account date of birth."
+        "Not authorised to modify your own account date of birth."
         in response.json()["Error"]
     )
 
@@ -766,7 +766,7 @@ def test_list_account_summaries_full_hour_breakdown(
     assert emp["deliveries"] == 6
     assert emp["acc_resigned"] is False
     assert emp["acc_active"] is True
-    assert emp["acc_manager"] is False
+    assert emp["acc_store_manager"] is False
 
 
 @pytest.mark.django_db

@@ -87,7 +87,7 @@ function updateSummaryTable() {
 
 function addTableRowInformation(legacyStyle, sum) {
   // Set row colour based on desc priority: resigned from store (red), inactive acc (yellow), manager (blue), then white 
-  const rowColour = sum.acc_resigned ? 'table-danger' : (!sum.acc_active ? 'table-warning' : (sum.acc_manager ? 'table-info' : ''));
+  const rowColour = sum.acc_resigned ? 'table-danger' : (!sum.acc_active ? 'table-warning' : (sum.acc_store_manager ? 'table-info' : ''));
 
   if (legacyStyle) {
     const row = `
