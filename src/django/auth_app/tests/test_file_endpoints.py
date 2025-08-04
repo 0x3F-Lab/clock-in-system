@@ -54,7 +54,7 @@ def test_service_worker_cache_control(client):
     response = client.get(url)
 
     # Check for cache control headers
-    assert response["Cache-Control"] == "no-cache, must-revalidate, no-store"
+    assert response["Cache-Control"] == "public, max-age=3600"
 
 
 @pytest.mark.django_db
@@ -66,4 +66,4 @@ def test_manifest_cache_control(client):
     response = client.get(url)
 
     # Check for cache control headers
-    assert response["Cache-Control"] == "no-cache, must-revalidate, no-store"
+    assert response["Cache-Control"] == "public, max-age=604800"
