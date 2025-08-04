@@ -783,7 +783,7 @@ def offline(request):
 
 
 @require_GET
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+@cache_control(public=True, max_age=3600)  # 1 HOUR
 def service_worker(request):
     context = {
         "STATIC_CACHE_VER": STATIC_CACHE_VER,
@@ -798,7 +798,7 @@ def service_worker(request):
 
 
 @require_GET
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+@cache_control(public=True, max_age=604800)  # 1 WEEK
 def manifest(request):
     context = {
         "BASE_URL": BASE_URL,
