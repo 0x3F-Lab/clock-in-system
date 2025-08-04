@@ -794,6 +794,15 @@ table {
   overflow:hidden;
 }
 
+/* Used to control the color of the border around the cells inside the table */
+.gradient-table,                     
+.gradient-table thead th,             
+.gradient-table tbody td,             
+.gradient-table tbody + tbody {      
+  border: 1.5px solid #3c5874 !important;   
+}
+
+
 .gradient-table thead{
   background:inherit;
 }
