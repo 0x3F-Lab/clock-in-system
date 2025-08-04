@@ -914,3 +914,29 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     right: 0;
 }
 
+
+/* ─── Gradient action buttons ─────────────────────────── */
+.btn-clock-in{
+  color:#fff !important;
+  background:linear-gradient(90deg,#01a894 0%, #0d5b9d 100%) !important;
+  border:none;
+}
+.btn-clock-in:hover,
+.btn-clock-in:focus{
+  filter:brightness(1.1);
+}
+
+.btn-clock-out{
+  color:#fff !important;
+  background:linear-gradient(90deg,#ff7a00 0%, #d40000 100%) !important; /* orange → red */
+  border:none;
+}
+.btn-clock-out:hover,
+.btn-clock-out:focus{
+  filter:brightness(1.1);
+}
+
+#clockingButton:disabled{
+  opacity:.65;
+  cursor:not-allowed;
+}
