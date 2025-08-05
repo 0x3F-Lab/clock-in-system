@@ -216,11 +216,11 @@ class ManualClockingForm(forms.Form):
     )
 
     latitude = forms.DecimalField(
-        required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
+        required=True, max_digits=25, decimal_places=22, widget=forms.HiddenInput()
     )
 
     longitude = forms.DecimalField(
-        required=True, max_digits=10, decimal_places=7, widget=forms.HiddenInput()
+        required=True, max_digits=25, decimal_places=22, widget=forms.HiddenInput()
     )
 
     def clean_store_pin(self):

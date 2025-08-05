@@ -55,6 +55,15 @@ function handleExceptionTypeSwitching() {
 
 
 function handleExceptionApproveBtns() {
+  // Forcefully create a BS collapse item if it doesnt already exist (PREVENTS NICHE BUGGED SITUATIONS)
+  $(document).on('click', '[data-bs-toggle="collapse"]', function (e) {
+    const targetSelector = $(this).attr('data-bs-target');
+    const collapseEl = document.querySelector(targetSelector);
+    if (collapseEl) {
+      bootstrap.Collapse.getOrCreateInstance(collapseEl);
+    }
+  });
+
   // Listen for any collapse being shown
   $(document).on('show.bs.collapse', '.collapse', function () {
     const excepID = $(this).attr('id').split('-').pop();
@@ -213,13 +222,12 @@ function updateExceptions() {
                 </button>` : ''}
             </div>`;
           const row = `
-            <div class="${rowColour} list-group-item list-group-item-action flex-column align-items-start p-3"
+            <div class="${rowColour} list-group-item list-group-item-action flex-column align-items-start p-3 collapsed cursor-pointer"
                 id="excep-${e.id}"
                 data-bs-toggle="collapse"
                 data-bs-target="#excep-info-${e.id}"
                 aria-expanded="false"
-                aria-controls="excep-info-${e.id}"
-                style="cursor: pointer;">
+                aria-controls="excep-info-${e.id}">
       
               <div class="d-flex w-100 justify-content-between align-items-start">
                 <div>
@@ -253,6 +261,7 @@ function updateExceptions() {
             $(`#excep-${e.id} .mark-approved-edit`).data('comment', e.shift_comment);
           }
         });
+
       } else {
         const msg = isExceptionListTypeUnapproved ? "You're all caught up. New exceptions will appear here for all store managers." : "Your store has no past exceptions. Any new exceptions approved will appear here.";
         excepList.append(`
