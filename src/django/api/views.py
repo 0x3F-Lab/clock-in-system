@@ -4151,6 +4151,20 @@ def manage_shift_request(request, req_id):
                     "Could not APPROVE SHIFT REQUEST due to request missing `target_user` field."
                 )
 
+            if util.employee_has_conflicting_shifts(
+                employee_id=req.target_user.id,
+                store_id=req.shift.store.id,
+                date=req.shift.date,
+                login=req.shift.start_time,
+                logout=req.shift.end_time,
+            ):
+                return Response(
+                    {
+                        "Error": f"{req.target_user.first_name} already has a conflicting shift at this time. Cannot approve swap."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
             # DELETE RELAVENT EXCEPTIONS (IF MANAGER DIDNT APPROVE BEFORE SHIFT WAS WORKED)
             # then UPDATE SHIFT
             # then IF IN PAST -> CHECK EXCEPTIONS
@@ -4164,6 +4178,7 @@ def manage_shift_request(request, req_id):
                 req.shift.employee = (
                     req.target_user
                 )  ### THIS IS NIAVE -> Need to check no conflicting shift/exception exists
+                req.shift.save()
                 req.status = ShiftRequest.Status.APPROVED
                 req.save()
 
@@ -4212,7 +4227,7 @@ def manage_shift_request(request, req_id):
 
             req.delete()
 
-        return JsonResponse({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
+        return Response({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
 
     except ValueError:
         return Response(
@@ -4238,6 +4253,99 @@ def manage_shift_request(request, req_id):
         logger.critical(
             f"Error managing Shift Request ID {req_id} [Method: {request.method}]: {str(e)}\n{traceback.format_exc()}"
         )
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_employee_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_shift_requests(request):
+    """
+    Lists shift requests based on the user's role and the requested view type.
+    Accepts a query parameter: ?view=my_requests | incoming | approval | pool | history
+    """
+    try:
+        user = util.api_get_user_object_from_session(request)
+        view_type = request.query_params.get("view", "my_requests")
+
+        # Get all stores the user is associated with
+        user_stores = Store.objects.filter(user_access__user=user)
+
+        qs = ShiftRequest.objects.none()
+
+        if view_type == "my_requests":
+            qs = ShiftRequest.objects.filter(requester=user).exclude(
+                status__in=[
+                    ShiftRequest.Status.APPROVED,
+                    ShiftRequest.Status.REJECTED,
+                    ShiftRequest.Status.CANCELLED,
+                ]
+            )
+
+        elif view_type == "incoming":
+            qs = ShiftRequest.objects.filter(
+                target_user=user, status=ShiftRequest.Status.PENDING
+            )
+
+        elif view_type == "approval" and user.is_manager:
+            qs = ShiftRequest.objects.filter(
+                store__in=user_stores, status=ShiftRequest.Status.ACCEPTED
+            )
+
+        elif view_type == "pool":
+            # Show pending COVER requests from the user's stores, excluding their own requests
+            qs = ShiftRequest.objects.filter(
+                store__in=user_stores,
+                type=ShiftRequest.Type.COVER,
+                status=ShiftRequest.Status.PENDING,
+            ).exclude(requester=user)
+
+        elif view_type == "history":
+            # A simple history of terminal-state requests involving the user
+            qs = ShiftRequest.objects.filter(
+                Q(requester=user) | Q(target_user=user)
+            ).filter(
+                status__in=[
+                    ShiftRequest.Status.APPROVED,
+                    ShiftRequest.Status.REJECTED,
+                    ShiftRequest.Status.CANCELLED,
+                ]
+            )
+
+        # Serialize the data
+        requests_data = []
+        for req in qs.select_related(
+            "requester", "target_user", "shift", "shift__role", "store"
+        ):
+            requests_data.append(
+                {
+                    "id": req.id,
+                    "type": req.type,
+                    "status": req.status,
+                    "requester_name": f"{req.requester.first_name} {req.requester.last_name}",
+                    "target_name": (
+                        f"{req.target_user.first_name} {req.target_user.last_name}"
+                        if req.target_user
+                        else None
+                    ),
+                    "shift_id": req.shift.id,
+                    "shift_date": req.shift.date.isoformat(),
+                    "shift_start_time": req.shift.start_time.strftime("%H:%M"),
+                    "shift_end_time": req.shift.end_time.strftime("%H:%M"),
+                    "shift_role_name": req.shift.role.name if req.shift.role else None,
+                    "store_name": req.store.name if req.store else None,
+                    "is_manager": user.is_manager,  # Pass user's role to the frontend
+                    "current_user_id": user.id,
+                    "requester_id": req.requester_id,
+                }
+            )
+
+        return Response({"requests": requests_data}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        logger.critical(f"Error listing shift requests: {str(e)}")
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

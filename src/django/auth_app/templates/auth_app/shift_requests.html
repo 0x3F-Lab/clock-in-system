@@ -31,16 +31,22 @@
 
         <!-- Sub-Page: User Requests -->
         <div id="my-requests" class="col-md-9">
-            <div class="panel rounded shadow p-4 mb-4">
-                Ding Dong
-            </div>
+            <div class="panel rounded shadow p-4 mb-4"></div>
         </div>
-
+        <div id="incoming-requests" class="col-md-9" style="display: none;"></div>
+        <div id="manager-approval" class="col-md-9" style="display: none;"></div>
+        <div id="shift-pool" class="col-md-9" style="display: none;"></div>
+        <div id="request-history" class="col-md-9" style="display: none;"></div>
     </div>
 
+{% endblock %}
+{% block extra_urls %}
+    listShiftRequests: "{% url 'api:api_list_shift_requests' %}",
+    manageShiftRequest: "{% url 'api:manage_shift_request' 0 %}".slice(0, -2),
 {% endblock %}
 
 {% block customscripts %}
 {% load static %}
 <script src="{% static 'js/shift_requests.js' %}"></script>
 {% endblock %}
+

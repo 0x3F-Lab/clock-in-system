@@ -118,4 +118,13 @@ urlpatterns = [
     path(
         "request-cover/<int:shift_id>/", views.request_shift_cover, name="request_cover"
     ),
+    path("shift-requests/", views.list_shift_requests, name="api_list_shift_requests"),
+    path(
+        "manage_shift_request/", views.manage_shift_request, name="manage_shift_request"
+    ),
+    path(
+        "manage_shift_request/<int:req_id>/",
+        views.manage_shift_request,
+        name="manage_shift_request",
+    ),
 ]

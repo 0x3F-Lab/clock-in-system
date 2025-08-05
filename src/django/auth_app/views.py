@@ -862,7 +862,6 @@ def schedule_dashboard(request):
 
 @require_GET
 @ensure_csrf_cookie
-@manager_required
 def shift_requests(request):
     try:
         context, user = get_default_page_context(request)
