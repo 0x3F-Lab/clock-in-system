@@ -38,7 +38,7 @@ from django.db.models import Q
 logger = logging.getLogger("api")
 
 
-@api_manager_required
+@api_employee_required
 @api_view(["GET"])
 @renderer_classes([JSONRenderer])
 def list_store_employee_names(request):
@@ -3988,7 +3988,10 @@ def request_shift_cover(request, shift_id):
                 {"Error": "Can only interact with your own shifts."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif hasattr(shift, "shift_request"):
+        elif hasattr(shift, "shift_request") and shift.shift_request.status in [
+            ShiftRequest.Status.PENDING,
+            ShiftRequest.Status.ACCEPTED,
+        ]:
             return Response(
                 {"Error": "A cover request already exists for this shift."},
                 status=status.HTTP_409_CONFLICT,
