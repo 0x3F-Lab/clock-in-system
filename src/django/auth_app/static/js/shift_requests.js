@@ -1,18 +1,18 @@
-// =====================================================================
-// == GLOBAL SCOPE: State Variables & Configuration
-// =====================================================================
+$(document).ready(function() {
+    // --- Initialize all event handlers ---
+    setupSidebarNavigation();
+    setupActionButtons();
 
-// NEW - A single source of truth for the new 4-menu layout.
+    // --- INITIAL LOAD ---
+    $('#pending-requests-btn').trigger('click'); 
+});
+
 const viewConfig = {
     'pending-requests-btn': { contentId: 'pending-requests', viewType: 'pending' },
     'active-requests-btn': { contentId: 'active-requests', viewType: 'active' },
     'manager-approval-btn': { contentId: 'manager-approval', viewType: 'approval' },
     'history-btn': { contentId: 'history', viewType: 'history' }
 };
-
-// =====================================================================
-// == CORE APPLICATION FUNCTIONS (Defined Globally)
-// =====================================================================
 
 function fetchAndRenderRequests(viewType, contentId) {
     showSpinner();
@@ -63,7 +63,6 @@ function renderRequestCard(req, currentUserId, isManager) {
         }
     }
     
-    // ... (The rest of the card's HTML structure is the same as before) ...
     const cardHeader = req.type === 'cover_request' ? `Cover Request for ${req.store_name}` : `Swap Request`;
     const targetInfo = req.target_name ? `<p class="card-text mb-1"><small>To: <strong>${req.target_name}</strong></small></p>` : '';
     const statusBadge = `<span class="badge bg-info text-dark">${req.status.replace('_', ' ').toUpperCase()}</span>`;
@@ -143,15 +142,4 @@ function setupActionButtons() {
     });
 }
 
-// =====================================================================
-// == DOCUMENT READY: Event Handlers & Initial Load
-// =====================================================================
-$(document).ready(function() {
-    // --- Initialize all event handlers ---
-    setupSidebarNavigation();
-    setupActionButtons();
 
-    // --- INITIAL LOAD ---
-    // Trigger a click on the default tab to load the initial view
-    $('#pending-requests-btn').trigger('click'); 
-});
