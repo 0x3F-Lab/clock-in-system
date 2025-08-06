@@ -1,29 +1,19 @@
-$(document).ready(function() {
-    // --- Initialize all event handlers ---
-    setupSidebarNavigation();
-    setupActionButtons();
+// =====================================================================
+// == GLOBAL SCOPE: State Variables & Configuration
+// =====================================================================
 
-    // --- INITIAL LOAD ---
-    // Trigger a click on the default tab to load the initial view
-    $('#notification-page-btn').trigger('click'); 
-});
-
-//  map sidebar buttons to their content and API view type.
+// NEW - A single source of truth for the new 4-menu layout.
 const viewConfig = {
-    'notification-page-btn': { contentId: 'my-requests', viewType: 'my_requests' },
-    'read-notification-page-btn': { contentId: 'incoming-requests', viewType: 'incoming' },
-    'sent-notification-page-btn': { contentId: 'manager-approval', viewType: 'approval' },
-    'send-msg-page-btn': { contentId: 'shift-pool', viewType: 'pool' },
-    'settings-page-btn': { contentId: 'request-history', viewType: 'history' }
+    'pending-requests-btn': { contentId: 'pending-requests', viewType: 'pending' },
+    'active-requests-btn': { contentId: 'active-requests', viewType: 'active' },
+    'manager-approval-btn': { contentId: 'manager-approval', viewType: 'approval' },
+    'history-btn': { contentId: 'history', viewType: 'history' }
 };
 
-let currentViewType = 'my_requests'; // Store the API view type
+// =====================================================================
+// == CORE APPLICATION FUNCTIONS (Defined Globally)
+// =====================================================================
 
-/**
- * The master function to fetch and display a list of shift requests.
- * @param {string} viewType - The type of view to render (e.g., 'my_requests').
- * @param {string} contentId - The ID of the div to render the content into.
- */
 function fetchAndRenderRequests(viewType, contentId) {
     showSpinner();
     const listUrl = `${window.djangoURLs.listShiftRequests}?view=${viewType}`;
@@ -39,42 +29,41 @@ function fetchAndRenderRequests(viewType, contentId) {
 
             if (data.requests && data.requests.length > 0) {
                 data.requests.forEach(req => {
-                    container.append(renderRequestCard(req, viewType));
+                    // Pass the whole data object to the renderer
+                    container.append(renderRequestCard(req, req.current_user_id, req.is_manager));
                 });
             } else {
                 container.html('<div class="panel rounded shadow p-4 text-center"><p class="m-0">No requests found.</p></div>');
             }
         },
-        error: function(jqXHR) {
-            handleAjaxError(jqXHR, "Failed to load shift requests");
-        },
-        complete: function() {
-            hideSpinner();
-        }
+        error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to load shift requests"); },
+        complete: function() { hideSpinner(); }
     });
 }
 
-/**
- * Builds the HTML for a single shift request card, showing the correct actions.
- * @param {object} req - The shift request data object from the API.
- * @param {string} viewType - The current view type to determine which actions to show.
- * @returns {string} The HTML string for the card.
- */
-function renderRequestCard(req, viewType) {
-    let actionsHtml = '';
 
+function renderRequestCard(req, currentUserId, isManager) {
+    let actionsHtml = '';
+    const isMyRequest = currentUserId === req.requester_id;
+
+    // Determine which action buttons to show
     if (req.status === 'pending') {
-        if (viewType === 'my_requests' || (req.is_manager && viewType !== 'pool')) {
+        if (isMyRequest) {
             actionsHtml = `<button class="btn btn-sm btn-outline-danger cancel-request-btn action-btn" data-req-id="${req.id}">Cancel</button>`;
-        } else if (viewType === 'incoming' || viewType === 'pool') {
+        } else { // It's an incoming request for me to accept
             actionsHtml = `<button class="btn btn-sm btn-success accept-request-btn action-btn" data-req-id="${req.id}">Accept</button>`;
         }
-    } else if (req.status === 'accepted' && req.is_manager) {
-        actionsHtml = `
-            <button class="btn btn-sm btn-success approve-request-btn action-btn" data-req-id="${req.id}">Approve</button>
-            <button class="btn btn-sm btn-warning reject-request-btn action-btn ms-2" data-req-id="${req.id}">Reject</button>`;
+    } else if (req.status === 'accepted') {
+        if (isManager) {
+            actionsHtml = `
+                <button class="btn btn-sm btn-success approve-request-btn action-btn" data-req-id="${req.id}">Approve</button>
+                <button class="btn btn-sm btn-warning reject-request-btn action-btn ms-2" data-req-id="${req.id}">Reject</button>`;
+        } else {
+             actionsHtml = `<span>Awaiting Manager Approval</span>`;
+        }
     }
     
+    // ... (The rest of the card's HTML structure is the same as before) ...
     const cardHeader = req.type === 'cover_request' ? `Cover Request for ${req.store_name}` : `Swap Request`;
     const targetInfo = req.target_name ? `<p class="card-text mb-1"><small>To: <strong>${req.target_name}</strong></small></p>` : '';
     const statusBadge = `<span class="badge bg-info text-dark">${req.status.replace('_', ' ').toUpperCase()}</span>`;
@@ -119,7 +108,6 @@ function setupSidebarNavigation() {
         $('.col-md-9').hide();
         $(`#${config.contentId}`).show();
         
-        currentViewType = config.viewType;
         fetchAndRenderRequests(config.viewType, config.contentId);
     });
 }
@@ -155,5 +143,15 @@ function setupActionButtons() {
     });
 }
 
+// =====================================================================
+// == DOCUMENT READY: Event Handlers & Initial Load
+// =====================================================================
+$(document).ready(function() {
+    // --- Initialize all event handlers ---
+    setupSidebarNavigation();
+    setupActionButtons();
 
-
+    // --- INITIAL LOAD ---
+    // Trigger a click on the default tab to load the initial view
+    $('#pending-requests-btn').trigger('click'); 
+});

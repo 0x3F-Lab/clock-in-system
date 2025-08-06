@@ -795,13 +795,19 @@ class ShiftRequest(models.Model):
     )
     shift = models.OneToOneField(  # ONLY ALLOW 1 REQ PER SHIFT
         Shift,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="shift_request",
         null=True,
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    shift_details_date = models.DateField(null=True)
+    shift_details_start_time = models.TimeField(null=True)
+    shift_details_end_time = models.TimeField(null=True)
+    shift_details_role_name = models.CharField(max_length=210, null=True, blank=True)
+    shift_details_original_employee_name = models.CharField(max_length=255, null=True)
 
     class Meta:
         ordering = ["-created_at"]

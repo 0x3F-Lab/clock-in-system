@@ -33,7 +33,7 @@ from auth_app.models import (
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
-
+from django.db.models import Q
 
 logger = logging.getLogger("api")
 
@@ -4007,6 +4007,11 @@ def request_shift_cover(request, shift_id):
                 requester=employee,
                 store=shift.store,
                 shift=shift,
+                shift_details_date=shift.date,
+                shift_details_start_time=shift.start_time,
+                shift_details_end_time=shift.end_time,
+                shift_details_role_name=shift.role.name if shift.role else None,
+                shift_details_original_employee_name=f"{shift.employee.first_name} {shift.employee.last_name}",
             )
 
         # PATCH -> REQUEST COVER FROM THE SELECTED EMPLOYEE
@@ -4045,6 +4050,11 @@ def request_shift_cover(request, shift_id):
                 target_user=selected_employee,
                 store=shift.store,
                 shift=shift,
+                shift_details_date=shift.date,
+                shift_details_start_time=shift.start_time,
+                shift_details_end_time=shift.end_time,
+                shift_details_role_name=shift.role.name if shift.role else None,
+                shift_details_original_employee_name=f"{shift.employee.first_name} {shift.employee.last_name}",
             )
 
         logger.info(
@@ -4263,58 +4273,59 @@ def manage_shift_request(request, req_id):
 @renderer_classes([JSONRenderer])
 def list_shift_requests(request):
     """
-    Lists shift requests based on the user's role and the requested view type.
-    Accepts a query parameter: ?view=my_requests | incoming | approval | pool | history
+    Lists shift requests based on the new consolidated view types.
+    ?view=pending | active | approval | history
     """
     try:
         user = util.api_get_user_object_from_session(request)
-        view_type = request.query_params.get("view", "my_requests")
+        view_type = request.query_params.get("view", "pending")
 
-        # Get all stores the user is associated with
         user_stores = Store.objects.filter(user_access__user=user)
-
         qs = ShiftRequest.objects.none()
 
-        if view_type == "my_requests":
-            qs = ShiftRequest.objects.filter(requester=user).exclude(
-                status__in=[
-                    ShiftRequest.Status.APPROVED,
-                    ShiftRequest.Status.REJECTED,
-                    ShiftRequest.Status.CANCELLED,
-                ]
+        if view_type == "pending":
+
+            sent_and_pending = Q(requester=user, status=ShiftRequest.Status.PENDING)
+            involving_and_accepted = Q(status=ShiftRequest.Status.ACCEPTED) & (
+                Q(requester=user) | Q(target_user=user)
             )
 
-        elif view_type == "incoming":
             qs = ShiftRequest.objects.filter(
-                target_user=user, status=ShiftRequest.Status.PENDING
+                sent_and_pending | involving_and_accepted
+            ).distinct()
+
+        elif view_type == "active":
+            # Shows requests the current user can act on: direct requests TO them or open pool requests.
+            direct_requests = Q(target_user=user, status=ShiftRequest.Status.PENDING)
+            pool_requests = Q(
+                store__in=user_stores,
+                type=ShiftRequest.Type.COVER,
+                status=ShiftRequest.Status.PENDING,
+            )
+            qs = ShiftRequest.objects.filter(direct_requests | pool_requests).exclude(
+                requester=user
             )
 
         elif view_type == "approval" and user.is_manager:
+            # Manager-only view for requests that have been accepted and need final approval.
             qs = ShiftRequest.objects.filter(
                 store__in=user_stores, status=ShiftRequest.Status.ACCEPTED
             )
 
-        elif view_type == "pool":
-            # Show pending COVER requests from the user's stores, excluding their own requests
-            qs = ShiftRequest.objects.filter(
-                store__in=user_stores,
-                type=ShiftRequest.Type.COVER,
-                status=ShiftRequest.Status.PENDING,
-            ).exclude(requester=user)
-
         elif view_type == "history":
-            # A simple history of terminal-state requests involving the user
-            qs = ShiftRequest.objects.filter(
-                Q(requester=user) | Q(target_user=user)
-            ).filter(
-                status__in=[
-                    ShiftRequest.Status.APPROVED,
-                    ShiftRequest.Status.REJECTED,
-                    ShiftRequest.Status.CANCELLED,
-                ]
+            qs = (
+                ShiftRequest.objects.filter(Q(requester=user) | Q(target_user=user))
+                .filter(
+                    status__in=[
+                        ShiftRequest.Status.APPROVED,
+                        ShiftRequest.Status.REJECTED,
+                        ShiftRequest.Status.CANCELLED,
+                    ]
+                )
+                .distinct()
             )
 
-        # Serialize the data
+        # Serialize the data (no changes needed here)
         requests_data = []
         for req in qs.select_related(
             "requester", "target_user", "shift", "shift__role", "store"
@@ -4330,15 +4341,28 @@ def list_shift_requests(request):
                         if req.target_user
                         else None
                     ),
-                    "shift_id": req.shift.id,
-                    "shift_date": req.shift.date.isoformat(),
-                    "shift_start_time": req.shift.start_time.strftime("%H:%M"),
-                    "shift_end_time": req.shift.end_time.strftime("%H:%M"),
-                    "shift_role_name": req.shift.role.name if req.shift.role else None,
+                    "shift_id": req.shift.id if req.shift else None,
+                    "shift_date": (
+                        req.shift.date if req.shift else req.shift_details_date
+                    ).isoformat(),
+                    "shift_start_time": (
+                        req.shift.start_time
+                        if req.shift
+                        else req.shift_details_start_time
+                    ).strftime("%H:%M"),
+                    "shift_end_time": (
+                        req.shift.end_time if req.shift else req.shift_details_end_time
+                    ).strftime("%H:%M"),
+                    "shift_role_name": (
+                        req.shift.role.name
+                        if req.shift and req.shift.role
+                        else req.shift_details_role_name
+                    ),
                     "store_name": req.store.name if req.store else None,
-                    "is_manager": user.is_manager,  # Pass user's role to the frontend
+                    "is_manager": user.is_manager,
                     "current_user_id": user.id,
                     "requester_id": req.requester_id,
+                    "target_user_id": req.target_user_id,
                 }
             )
 

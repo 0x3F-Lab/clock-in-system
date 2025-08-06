@@ -8,35 +8,33 @@
     <h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Requests</u></h1>
 
     <div class="row">
-    <!-- Sidebar Navigation -->
+        <!-- New Sidebar Navigation -->
         <div class="col-md-3 mb-4 mb-md-0 d-flex flex-column align-items-center">
             <div class="list-group shadow-sm w-100">
-                <button id="notification-page-btn" class="list-group-item list-group-item-action active">
-                    My Shift Requests
+                <button id="pending-requests-btn" class="list-group-item list-group-item-action active">
+                    Pending Requests
                 </button>
-                <button id="read-notification-page-btn" class="list-group-item list-group-item-action">
-                    Requests Sent to Me
+                <button id="active-requests-btn" class="list-group-item list-group-item-action">
+                    Active Requests
                 </button>
-                <button id="sent-notification-page-btn" class="list-group-item list-group-item-action">
+                
+                <button id="manager-approval-btn" class="list-group-item list-group-item-action">
                     Manager Approval
                 </button>
-                <button id="send-msg-page-btn" class="list-group-item list-group-item-action">
-                    Shift Pool
-                </button>
-                <button id="settings-page-btn" class="list-group-item list-group-item-action">
+
+                <button id="history-btn" class="list-group-item list-group-item-action">
                     Request History
                 </button>
             </div>
         </div>
 
-        <!-- Sub-Page: User Requests -->
-        <div id="my-requests" class="col-md-9">
-            <div class="panel rounded shadow p-4 mb-4"></div>
-        </div>
-        <div id="incoming-requests" class="col-md-9" style="display: none;"></div>
+        <!-- New Content Panes -->
+        <div id="pending-requests" class="col-md-9"></div>
+        <div id="active-requests" class="col-md-9" style="display: none;"></div>
+    
         <div id="manager-approval" class="col-md-9" style="display: none;"></div>
-        <div id="shift-pool" class="col-md-9" style="display: none;"></div>
-        <div id="request-history" class="col-md-9" style="display: none;"></div>
+        
+        <div id="history" class="col-md-9" style="display: none;"></div>
     </div>
 
 {% endblock %}
