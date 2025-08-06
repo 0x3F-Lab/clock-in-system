@@ -4200,7 +4200,7 @@ def manage_shift_request(request, req_id):
                     controllers.link_activity_to_shift(shift=req.shift_id)
 
         # PATCH -> MANAGER/TARGET USER REJECTS REQUEST
-        elif request.method == "PUT":
+        elif request.method == "PATCH":
             if req.status not in [
                 ShiftRequest.Status.PENDING,
                 ShiftRequest.Status.ACCEPTED,
