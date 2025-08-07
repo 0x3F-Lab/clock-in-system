@@ -793,10 +793,10 @@ class ShiftRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="store_shift_requests",
     )
-    shift = models.OneToOneField(  # ONLY ALLOW 1 REQ PER SHIFT
+    shift = models.ForeignKey(
         Shift,
         on_delete=models.SET_NULL,
-        related_name="shift_request",
+        related_name="shift_requests",
         null=True,
         blank=True,
     )

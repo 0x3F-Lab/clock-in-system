@@ -52,7 +52,7 @@ function renderRequestCard(req, currentUserId, isManager) {
             actionsHtml = `<button class="btn btn-sm btn-outline-danger cancel-request-btn action-btn" data-req-id="${req.id}">Cancel</button>`;
         } else { // It's an incoming request for me to accept
             actionsHtml = `<button class="btn btn-sm btn-success accept-request-btn action-btn" data-req-id="${req.id}">Accept</button>`;
-            if (req.target_user_id) {
+            if (req.target_user_id || isManager) {
                 actionsHtml += `<button class="btn btn-sm btn-warning reject-request-btn action-btn ms-2" data-req-id="${req.id}">Reject</button>`;
             }
         }

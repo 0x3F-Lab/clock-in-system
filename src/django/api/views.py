@@ -3988,12 +3988,14 @@ def request_shift_cover(request, shift_id):
                 {"Error": "Can only interact with your own shifts."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif hasattr(shift, "shift_request") and shift.shift_request.status in [
-            ShiftRequest.Status.PENDING,
-            ShiftRequest.Status.ACCEPTED,
-        ]:
+        elif shift.shift_requests.filter(
+            status__in=[
+                ShiftRequest.Status.PENDING,
+                ShiftRequest.Status.ACCEPTED,
+            ]
+        ).exists():
             return Response(
-                {"Error": "A cover request already exists for this shift."},
+                {"Error": "An active cover request already exists for this shift."},
                 status=status.HTTP_409_CONFLICT,
             )
         elif shift.date <= localtime(now()).date():
