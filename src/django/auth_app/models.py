@@ -795,19 +795,13 @@ class ShiftRequest(models.Model):
     )
     shift = models.ForeignKey(
         Shift,
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         related_name="shift_requests",
         null=True,
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    shift_details_date = models.DateField(null=True)
-    shift_details_start_time = models.TimeField(null=True)
-    shift_details_end_time = models.TimeField(null=True)
-    shift_details_role_name = models.CharField(max_length=210, null=True, blank=True)
-    shift_details_original_employee_name = models.CharField(max_length=255, null=True)
 
     class Meta:
         ordering = ["-created_at"]

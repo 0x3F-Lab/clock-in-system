@@ -4012,11 +4012,6 @@ def request_shift_cover(request, shift_id):
                 requester=employee,
                 store=shift.store,
                 shift=shift,
-                shift_details_date=shift.date,
-                shift_details_start_time=shift.start_time,
-                shift_details_end_time=shift.end_time,
-                shift_details_role_name=shift.role.name if shift.role else None,
-                shift_details_original_employee_name=f"{shift.employee.first_name} {shift.employee.last_name}",
             )
 
         # PATCH -> REQUEST COVER FROM THE SELECTED EMPLOYEE
@@ -4055,11 +4050,6 @@ def request_shift_cover(request, shift_id):
                 target_user=selected_employee,
                 store=shift.store,
                 shift=shift,
-                shift_details_date=shift.date,
-                shift_details_start_time=shift.start_time,
-                shift_details_end_time=shift.end_time,
-                shift_details_role_name=shift.role.name if shift.role else None,
-                shift_details_original_employee_name=f"{shift.employee.first_name} {shift.employee.last_name}",
             )
 
         logger.info(
@@ -4318,23 +4308,37 @@ def list_shift_requests(request):
             )
 
         elif view_type == "history":
-            qs = (
-                ShiftRequest.objects.filter(Q(requester=user) | Q(target_user=user))
-                .filter(
+            # If the user is a manager, show all history for their associated stores.
+            if user.is_manager:
+                qs = ShiftRequest.objects.filter(
+                    store__in=user_stores,
                     status__in=[
                         ShiftRequest.Status.APPROVED,
                         ShiftRequest.Status.REJECTED,
                         ShiftRequest.Status.CANCELLED,
-                    ]
+                    ],
+                ).distinct()
+            else:
+                qs = (
+                    ShiftRequest.objects.filter(Q(requester=user) | Q(target_user=user))
+                    .filter(
+                        status__in=[
+                            ShiftRequest.Status.APPROVED,
+                            ShiftRequest.Status.REJECTED,
+                            ShiftRequest.Status.CANCELLED,
+                        ]
+                    )
+                    .distinct()
                 )
-                .distinct()
-            )
 
-        # Serialize the data (no changes needed here)
         requests_data = []
         for req in qs.select_related(
             "requester", "target_user", "shift", "shift__role", "store"
         ):
+
+            if not req.shift:
+                continue
+
             requests_data.append(
                 {
                     "id": req.id,
@@ -4346,23 +4350,11 @@ def list_shift_requests(request):
                         if req.target_user
                         else None
                     ),
-                    "shift_id": req.shift.id if req.shift else None,
-                    "shift_date": (
-                        req.shift.date if req.shift else req.shift_details_date
-                    ).isoformat(),
-                    "shift_start_time": (
-                        req.shift.start_time
-                        if req.shift
-                        else req.shift_details_start_time
-                    ).strftime("%H:%M"),
-                    "shift_end_time": (
-                        req.shift.end_time if req.shift else req.shift_details_end_time
-                    ).strftime("%H:%M"),
-                    "shift_role_name": (
-                        req.shift.role.name
-                        if req.shift and req.shift.role
-                        else req.shift_details_role_name
-                    ),
+                    "shift_id": req.shift.id,
+                    "shift_date": req.shift.date.isoformat(),
+                    "shift_start_time": req.shift.start_time.strftime("%H:%M"),
+                    "shift_end_time": req.shift.end_time.strftime("%H:%M"),
+                    "shift_role_name": req.shift.role.name if req.shift.role else None,
                     "store_name": req.store.name if req.store else None,
                     "is_manager": user.is_manager,
                     "current_user_id": user.id,
