@@ -80,12 +80,13 @@ def list_store_employee_names(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Ensure user is a manager of the store
-        if not user.is_manager(store=int(store_id)):
-            return Response(
-                {"Error": "Not authorised to list employee names for the store."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        # Only allow related store members list the store's employee names
+        if not user.is_associated_with_store(store=int(store_id)):
+            raise err.NotAssociatedWithStoreError
+
+        # Allow non-managers to only request non-hidden users
+        elif not user.is_manager(store=int(store_id)):
+            only_active = True
 
         # Call the controller function
         users_list = controllers.get_store_employee_names(
@@ -105,6 +106,11 @@ def list_store_employee_names(request):
         return Response(
             {"Error": "No users found matching the given criteria."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Not authorised to get employee names for this store."},
+            status=status.HTTP_403_FORBIDDEN,
         )
     except ValueError:
         return Response(
