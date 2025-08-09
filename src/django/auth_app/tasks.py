@@ -758,13 +758,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
             store = Store.objects.get(pk=store_id)
         except Store.DoesNotExist:
             logger_beat.critical(
-                f"[FAILURE] Store with ID {manager_id} not found. Skipping notification task."
-            )
-            return
-
-        if not store.is_active:
-            logger_beat.warning(
-                f"Store ID {store_id} is inactive. Skipping notification task."
+                f"[FAILURE] Store with ID {store_id} not found. Skipping notification task."
             )
             return
 
@@ -797,6 +791,184 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
     except Exception as e:
         logger_beat.critical(
             f"[FAILURE] Failed to complete task `notify_managers_store_information_updated` due to the error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+@shared_task
+def notify_managers_and_user_elevated_permission(
+    store_id: int, user_id: int, authorising_manager_id: int
+):
+    logger_beat.info(
+        f"[AUTOMATED] Running task `notify_managers_and_user_elevated_permission` due to manager ID '{authorising_manager_id}' making employee ID '{user_id}' a manager for store ID '{store_id}'."
+    )
+
+    try:
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Employee with ID {user_id} not found. Skipping notification task."
+            )
+            return
+
+        try:
+            manager = User.objects.get(pk=authorising_manager_id)
+        except User.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Manager with ID {authorising_manager_id} not found. Skipping notification task."
+            )
+            return
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Store with ID {store_id} not found. Skipping notification task."
+            )
+            return
+
+        str_title = util.sanitise_markdown_title_text(
+            f"[`{store.code}`] You have been made a **STORE MANAGER**"
+        )
+        extra_note = (
+            "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
+            if manager.is_hidden
+            else ""
+        )
+        str_msg = util.sanitise_markdown_message_text(
+            f"Your account has been made a **Store Manager** for the store `{store.code}` ({store.name}) by the manager **{manager.first_name} {manager.last_name}**."
+            + "\nIf this is a mistake, please contact the relavent staff."
+            + extra_note
+        )
+        Notification.send_to_users(
+            users=[user],
+            title=str_title,
+            message=str_msg,
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        str_title = util.sanitise_markdown_title_text(
+            f"[`{store.code}`] Employee has been made a **STORE MANAGER**"
+        )
+        extra_note = (
+            "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
+            if manager.is_hidden
+            else ""
+        )
+        str_msg = util.sanitise_markdown_message_text(
+            f"Employee {user.first_name} {user.last_name} ({user.email}) has been made a **Store Manager** for the store `{store.code}` ({store.name}) as authorised by **{manager.first_name} {manager.last_name} _(Email: {manager.email if not manager.is_hidden else 'HIDDEN'})_**."
+            + "\nThis gives them FULL ACCESS to the store."
+            + extra_note
+            + f"\n\nIf this is a mistake, please fix it by lowering their permission."
+        )
+        Notification.send_to_users(
+            users=store.get_store_managers(),
+            title=str_title,
+            message=str_msg,
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.STORE_MANAGERS,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        logger_beat.info(
+            f"Finished running task `notify_managers_and_user_elevated_permission` notified the respective users about the store [{store.code}] permission changes."
+        )
+
+    except Exception as e:
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `notify_managers_and_user_elevated_permission` due to the error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+@shared_task
+def notify_managers_and_user_removed_permission(
+    store_id: int, user_id: int, authorising_manager_id: int
+):
+    logger_beat.info(
+        f"[AUTOMATED] Running task `notify_managers_and_user_removed_permission` due to manager ID '{authorising_manager_id}' removing employee ID '{user_id}' as a manager for store ID '{store_id}'."
+    )
+
+    try:
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Employee with ID {user_id} not found. Skipping notification task."
+            )
+            return
+
+        try:
+            manager = User.objects.get(pk=authorising_manager_id)
+        except User.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Manager with ID {authorising_manager_id} not found. Skipping notification task."
+            )
+            return
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] Store with ID {store_id} not found. Skipping notification task."
+            )
+            return
+
+        str_title = util.sanitise_markdown_title_text(
+            f"[`{store.code}`] You have been removed as a **STORE MANAGER**"
+        )
+        extra_note = (
+            "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
+            if manager.is_hidden
+            else ""
+        )
+        str_msg = util.sanitise_markdown_message_text(
+            f"Your account has been removed as a **Store Manager** for the store `{store.code}` ({store.name}) by the manager **{manager.first_name} {manager.last_name}**."
+            + "\nIf this is a mistake, please contact the relavent staff."
+            + extra_note
+        )
+        Notification.send_to_users(
+            users=[user],
+            title=str_title,
+            message=str_msg,
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        str_title = util.sanitise_markdown_title_text(
+            f"[`{store.code}`] Employee has been mremoved as a **STORE MANAGER**"
+        )
+        extra_note = (
+            "\n\n**The issuing manager is a <u>SITE ADMINISTRATOR</u>, if this is wrong please send a message to the admins.**"
+            if manager.is_hidden
+            else ""
+        )
+        str_msg = util.sanitise_markdown_message_text(
+            f"Employee {user.first_name} {user.last_name} ({user.email}) has been removed as a **Store Manager** for the store `{store.code}` ({store.name}) as authorised by **{manager.first_name} {manager.last_name} _(Email: {manager.email if not manager.is_hidden else 'HIDDEN'})_**."
+            + "\nThis gives them FULL ACCESS to the store."
+            + extra_note
+            + f"\n\nIf this is a mistake, please fix it by elevating their permission."
+        )
+        Notification.send_to_users(
+            users=store.get_store_managers(),
+            title=str_title,
+            message=str_msg,
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.STORE_MANAGERS,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        logger_beat.info(
+            f"Finished running task `notify_managers_and_user_removed_permission` notified the respective users about the store [{store.code}] permission changes."
+        )
+
+    except Exception as e:
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `notify_managers_and_user_removed_permission` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 

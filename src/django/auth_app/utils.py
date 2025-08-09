@@ -24,6 +24,7 @@ def manager_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         user_id = request.session.get("user_id")
+        is_some_manager = request.session.get("is_some_store_manager", False)
         referer = request.META.get("HTTP_REFERER")  # Previous page user was on
 
         # Redirect to login if they havent already
@@ -31,6 +32,14 @@ def manager_required(view_func):
             url = create_redirection_url_for_login_including_return(request)
             messages.error(request, "Please login to access this page.")
             return redirect(url)
+
+        # EFFICIENCY: IF USER ALREADY MARKED AS NOT MANAGER, DONT BOTH RE-CHECKING -> only a problem when changing user to manager, which happens very little
+        elif not is_some_manager:
+            messages.error(request, "You do not have permission to access this page.")
+            if referer:
+                return redirect(referer)
+            else:
+                return redirect("home")
 
         # Get employee data to check state
         try:
@@ -61,7 +70,7 @@ def manager_required(view_func):
             url = create_redirection_url_for_login_including_return(request)
             return redirect(url)
 
-        if not employee.is_manager:
+        if not employee.is_manager():
             messages.error(request, "You do not have permission to access this page.")
 
             # Sent user back to previous page if it was in the header
@@ -84,12 +93,20 @@ def api_manager_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         user_id = request.session.get("user_id")
+        is_some_manager = request.session.get("is_some_store_manager", False)
 
         # Redirect to login if they havent already
         if not user_id:
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # EFFICIENCY: IF USER ALREADY MARKED AS NOT MANAGER, DONT BOTH RE-CHECKING -> only a problem when changing user to manager, which happens very little
+        elif not is_some_manager:
+            return JsonResponse(
+                {"Error": "You do not have permission to access this resource."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Get employee data to check state
@@ -120,7 +137,7 @@ def api_manager_required(view_func):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not employee.is_manager:
+        if not employee.is_manager():
             return JsonResponse(
                 {"Error": "You do not have permission to access this resource."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -272,7 +289,7 @@ def get_user_associated_stores_from_session(request):
         request.session.flush()
         raise e
 
-    stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+    stores = employee.get_associated_stores()
 
     if len(stores) < 1 or not stores:
         messages.error(
@@ -292,7 +309,7 @@ def get_user_associated_stores_full_info(user: User) -> dict:
       user (User): The User object of the user to get the associated stores for.
     """
 
-    stores = user.get_associated_stores(show_inactive=user.is_manager)
+    stores = user.get_associated_stores()
 
     if len(stores) < 1 or not stores:
         return {}
@@ -339,18 +356,23 @@ def get_default_page_context(request, include_notifications: bool = False):
         raise e
 
     # Get associated stores
-    stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+    stores = employee.get_associated_stores()
     if len(stores) < 1 or not stores:
         messages.error(
             request,
             "Your account has no associated stores. Please contact a store manager.",
         )
     store_data = {store.id: store.code for store in stores}
+    store_as_manager_data = {
+        store.id: store.code
+        for store in employee.get_associated_stores(get_only_stores_as_manager=True)
+    }
 
     # Get user's notifications
-    unread_notifs = employee.get_unread_notifications().select_related("sender")
+    unread_notifs = employee.get_unread_notifications()
 
     if include_notifications:
+        unread_notifs = unread_notifs.select_related("sender")
         unread_notifications = []
         for notif in unread_notifs:
             unread_notifications.append(
@@ -416,6 +438,7 @@ def get_default_page_context(request, include_notifications: bool = False):
             "user_id": employee_id,
             "user_name": employee.first_name,
             "associated_stores": store_data,
+            "associated_stores_as_manager": store_as_manager_data,
             "notifications": {
                 "unread": unread_notifications,
                 "read": read_notifications,
@@ -431,6 +454,7 @@ def get_default_page_context(request, include_notifications: bool = False):
         "user_id": employee_id,
         "user_name": employee.first_name,
         "associated_stores": store_data,
+        "associated_stores_as_manager": store_as_manager_data,
         "notification_count": unread_notifs.count(),
     }, employee
 
@@ -441,6 +465,7 @@ def get_notification_sender_name(notif: Notification) -> str:
     certain cases.
     A Notification object must be given.
     """
+    notif.store
     if notif.notification_type == Notification.Type.AUTOMATIC_ALERT:
         return "SYSTEM"
     elif (
@@ -452,7 +477,7 @@ def get_notification_sender_name(notif: Notification) -> str:
         return "ADMIN"
     elif notif.sender.is_hidden:
         return "ADMIN"
-    elif notif.sender.is_manager:
+    elif notif.sender.is_manager(notif.store):
         return f"{notif.sender.first_name} {notif.sender.last_name} [Manager]"
     else:
         return f"{notif.sender.first_name} {notif.sender.last_name}"
@@ -622,7 +647,7 @@ def add_placeholder_text(string: str, user_obj: User) -> str:
     def get_user_role(user: User):
         if user.is_hidden:
             return "Site Admin"
-        elif user.is_manager:
+        elif user.is_manager():
             return "Manager"
         return "Employee"
 

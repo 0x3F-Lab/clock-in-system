@@ -80,10 +80,10 @@ def list_store_employee_names(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Ensure user is associated with the store
-        if not user.is_associated_with_store(store=int(store_id)):
+        # Ensure user is a manager of the store
+        if not user.is_manager(store=int(store_id)):
             return Response(
-                {"Error": "Cannot list employee names for an unassociated store."},
+                {"Error": "Not authorised to list employee names for the store."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -150,8 +150,8 @@ def list_all_shift_details(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        elif not user.is_associated_with_store(store=int(store_id)):
-            raise err.NotAssociatedWithStoreError
+        elif not user.is_manager(store=int(store_id)):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Get pagination values
         offset, limit = util.get_pagination_values_from_request(request)
@@ -248,11 +248,9 @@ def list_all_shift_details(request):
             {"Error": f"Failed to get the store information for ID {store_id}."},
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {
-                "Error": "Not authorised to get shift information for an unassociated store."
-            },
+            {"Error": "Not authorised to get shift information for the store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -280,11 +278,9 @@ def list_singular_shift_details(request, id):
         # Get the account info of the user requesting this shift info
         manager = util.api_get_user_object_from_session(request=request)
 
-        if not manager.is_associated_with_store(store=act.store):
+        if not manager.is_manager(store=act.store_id):
             return Response(
-                {
-                    "Error": "Not authorised to get shift information for an unassociated store."
-                },
+                {"Error": "Not authorised to get shift information for the store."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -339,10 +335,10 @@ def update_shift_details(request, id):
         # Get the account info of the user requesting this shift info
         manager = util.api_get_user_object_from_session(request=request)
 
-        if not manager.is_associated_with_store(store=activity.store):
+        if not manager.is_manager(store=activity.store_id):
             return Response(
                 {
-                    "Error": "Not authorised to update a shift's information for an unassociated store."
+                    "Error": "Not authorised to update a shift's information for the store."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -669,11 +665,9 @@ def create_new_shift(request):
         store = Store.objects.get(pk=store_id)
 
         # Check user is authorised to interact with the store and the user
-        if not manager.is_associated_with_store(store=int(store_id)):
+        if not manager.is_manager(store=int(store_id)):
             return Response(
-                {
-                    "Error": "Not authorised to create a new shift for an unassociated store."
-                },
+                {"Error": "Not authorised to create a new shift for the store."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         elif not store.is_active:
@@ -681,7 +675,7 @@ def create_new_shift(request):
                 {"Error": "Not authorised to interact with an inactive store."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif not manager.is_manager_of(employee=employee):
+        elif not employee.is_associated_with_store(store=int(store_id)):
             return Response(
                 {
                     "Error": "Not authorised to create a new shift with another store's employee."
@@ -891,8 +885,8 @@ def list_all_employee_details(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        elif not manager.is_associated_with_store(store=int(store_id)):
-            raise err.NotAssociatedWithStoreError
+        elif not manager.is_manager(store=int(store_id)):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Get pagination values
         offset, limit = util.get_pagination_values_from_request(request)
@@ -958,7 +952,7 @@ def list_all_employee_details(request):
             {"Error": f"Failed to get the store information for ID {store_id}."},
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
             {"Error": "Not authorised to view employee data for this store."},
             status=status.HTTP_403_FORBIDDEN,
@@ -1050,8 +1044,8 @@ def create_new_employee(request):
         manager = util.api_get_user_object_from_session(request=request)
 
         # Ensure user is a manager of the store
-        if not manager.is_associated_with_store(store=store):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Ensure store is active
         elif not store.is_active:
@@ -1201,7 +1195,6 @@ def create_new_employee(request):
             phone_number=phone_number,
             birth_date=parsed_dob,
             is_active=True,
-            is_manager=False,
             is_hidden=False,
             is_setup=False,
         )
@@ -1228,7 +1221,7 @@ def create_new_employee(request):
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a NEW USER with ID {employee.id} ({employee.first_name} {employee.last_name}) and associated them to the store ID {store.id} [{store.code}]."
         )
         logger.debug(
-            f"[CREATE: USER (ID: {employee.id})] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- Phone: {employee.phone_number} -- DOB: {employee.birth_date} -- PIN: {employee.pin} -- MANAGER: {employee.is_manager} -- ACTIVE: {employee.is_active} -- SETUP: {employee.is_setup} -- HIDDEN: {employee.is_hidden}"
+            f"[CREATE: USER (ID: {employee.id})] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- Phone: {employee.phone_number} -- DOB: {employee.birth_date} -- PIN: {employee.pin} -- ACTIVE: {employee.is_active} -- SETUP: {employee.is_setup} -- HIDDEN: {employee.is_hidden}"
         )
         logger.debug(
             f"[CREATE: STOREUSERACCESS (ID: {new_association.id})] Employee ID {employee.id} ({employee.first_name} {employee.last_name}) ⇔ Store ID {store.id} [{store.code}]"
@@ -1261,9 +1254,9 @@ def create_new_employee(request):
             {"Error": "Internal error."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised to update another store's employee list."},
+            {"Error": "Not authorised to this store's employee list."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -1306,18 +1299,10 @@ def modify_account_information(request, id=None):
             employee = User.objects.get(pk=id)
 
             # Check manager is able to modify employee info
-            if not user.is_manager:
+            if not user.is_manager_of(employee=id):
                 return Response(
                     {
-                        "Error": "Not authorised to update another employee's account information."
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            elif not user.is_manager_of(employee=id):
-                return Response(
-                    {
-                        "Error": "Not authorised to update another store's employee account information."
+                        "Error": "Not authorised to update this employee's account information."
                     },
                     status=status.HTTP_403_FORBIDDEN,
                 )
@@ -1399,9 +1384,12 @@ def modify_account_information(request, id=None):
 
         # Validate and update DOB
         if dob:
-            if not user.is_manager:
+            # If trying to forcefully update DOB without going through manager page
+            if not id:
                 return Response(
-                    {"Error": "Not authorised to modify your account date of birth."},
+                    {
+                        "Error": "Not authorised to modify your own account date of birth."
+                    },
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -1474,9 +1462,9 @@ def modify_account_status(request, id):
         ).lower()
         store_id = util.clean_param_str(request.data.get("store_id"))
 
-        if not status_type:
+        if not status_type or not store_id:
             return JsonResponse(
-                {"Error": "Required status type field missing."},
+                {"Error": "Required status type and store ID fields are missing."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
@@ -1485,11 +1473,14 @@ def modify_account_status(request, id):
         manager = util.api_get_user_object_from_session(request=request)
 
         # Check account can be modified
-        if not manager.is_manager_of(employee=employee):
+        if not manager.is_manager(store=int(store_id)):
             return Response(
-                {
-                    "Error": "Not authorised to update a different store employee's status."
-                },
+                {"Error": "Not authorised to update employee status'."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif not employee.is_associated_with_store(store=int(store_id)):
+            return Response(
+                {"Error": "Not authorised to update this employee's status."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         elif employee.is_hidden:
@@ -1541,6 +1532,40 @@ def modify_account_status(request, id):
             employee.save()
             tasks.notify_employee_account_reset_pin.delay(
                 user_id=employee.id, manager_id=manager.id
+            )
+
+        elif status_type == "give_manager":
+            link = StoreUserAccess.objects.filter(
+                user_id=employee.id, store_id=store_id
+            ).first()
+
+            if link == None:
+                raise StoreUserAccess.DoesNotExist
+
+            link.is_manager = True
+            link.save()
+
+            tasks.notify_managers_and_user_elevated_permission.delay(
+                store_id=store_id,
+                user_id=employee.id,
+                authorising_manager_id=manager.id,
+            )
+
+        elif status_type == "remove_manager":
+            link = StoreUserAccess.objects.filter(
+                user_id=employee.id, store_id=store_id
+            ).first()
+
+            if link == None:
+                raise StoreUserAccess.DoesNotExist
+
+            link.is_manager = False
+            link.save()
+
+            tasks.notify_managers_and_user_removed_permission.delay(
+                store_id=store_id,
+                user_id=employee.id,
+                authorising_manager_id=manager.id,
             )
 
         elif status_type == "resign":
@@ -1627,6 +1652,11 @@ def modify_account_status(request, id):
         return Response(
             {"Error": f"Employee with ID {id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
+        )
+    except StoreUserAccess.DoesNotExist:
+        return Response(
+            {"Error": "Failed to find user link to store. Please contact admins."},
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except ValueError:
         return Response(
@@ -1726,7 +1756,7 @@ def modify_account_password(request):
             f"Employee ID {employee.id} ({employee.first_name} {employee.last_name}) updated their password."
         )
         logger.debug(
-            f"[UPDATE: USER (ID: {employee.id})] [PASSWORD-CHANGE] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- MANAGER: {employee.is_manager} -- HIDDEN: {employee.is_hidden}"
+            f"[UPDATE: USER (ID: {employee.id})] [PASSWORD-CHANGE] Name: {employee.first_name} {employee.last_name} -- Email: {employee.email} -- HIDDEN: {employee.is_hidden}"
         )
         util.flush_user_sessions(
             user_id=employee_id
@@ -2112,8 +2142,8 @@ def update_store_info(request, id):
 
         if not store.is_active:
             raise err.InactiveStoreError
-        elif not manager.is_associated_with_store(store=store.id):
-            raise err.NotAssociatedWithStoreError
+        elif not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Get the request data
         name = util.clean_param_str(request.data.get("name", None))
@@ -2254,9 +2284,9 @@ def update_store_info(request, id):
             {"Error": "Not authorised to update an inactive store."},
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised to update an unassociated store."},
+            {"Error": "Not authorised to update this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except DatabaseError:
@@ -2290,7 +2320,7 @@ def list_associated_stores(request):
         employee = util.api_get_user_object_from_session(request)
 
         # Get the stores and format it for return
-        stores = employee.get_associated_stores(show_inactive=employee.is_manager)
+        stores = employee.get_associated_stores()
         store_data = {store.id: store.code for store in stores}
 
         return JsonResponse(store_data, status=status.HTTP_200_OK)
@@ -2401,8 +2431,8 @@ def list_account_summaries(request):
             )
 
         # Ensure manager is authorised
-        if not manager.is_associated_with_store(store=store_id):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=int(store_id)):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Get pagination values
         offset, limit = util.get_pagination_values_from_request(request)
@@ -2479,9 +2509,9 @@ def list_account_summaries(request):
             {"Error": f"Failed to get the store information for ID {store_id}."},
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised to get summaries for a unassociated store."},
+            {"Error": "Not authorised to get summaries for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -2577,7 +2607,7 @@ def send_employee_notification(request, id):
         manager = util.api_get_user_object_from_session(request=request)
 
         # Check manager can send message to user
-        if not manager.is_manager_of(employee=employee):
+        if not manager.is_manager_of(employee=employee, ignore_inactive_stores=False):
             return Response(
                 {
                     "Error": "Not authorised to send a message to an unassociated employee."
@@ -2688,8 +2718,8 @@ def list_store_roles(request, id):
         store = Store.objects.get(pk=id)
 
         # Ensure manager is authorised
-        if not manager.is_associated_with_store(store=store.id):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         elif not store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
@@ -2717,11 +2747,9 @@ def list_store_roles(request, id):
             },
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {
-                "Error": "Not authorised to get role information for a unassociated store."
-            },
+            {"Error": "Not authorised to get role information for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -2799,8 +2827,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
                 )
 
             store = Store.objects.get(pk=int(store_id))
-            if not manager.is_associated_with_store(store=store):
-                raise err.NotAssociatedWithStoreError
+            if not manager.is_manager(store=store.id):
+                raise err.NotAssociatedWithStoreAsManagerError
             elif not store.is_active:
                 raise err.InactiveStoreError
             elif not store.is_scheduling_enabled:
@@ -2827,8 +2855,8 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
         role = Role.objects.select_related("store").get(pk=role_id)
 
         # Ensure manager is authorised
-        if not manager.is_associated_with_store(store=role.store_id):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=role.store_id):
+            raise err.NotAssociatedWithStoreAsManagerError
         elif not role.store.is_active:
             raise err.InactiveStoreError
 
@@ -2911,11 +2939,9 @@ def manage_store_role(request, role_id=None):  # None when CREATING ROLE
             {"Error": "Store ID must be a valid integer."},
             status=status.HTTP_412_PRECONDITION_FAILED,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {
-                "Error": "Not authorised to update role information for a unassociated store."
-            },
+            {"Error": "Not authorised to update role information for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -2979,7 +3005,7 @@ def get_store_shifts(request, id):
         )
 
         # Only get all shifts IF they're a manager
-        if get_all and user.is_manager:
+        if get_all and user.is_manager(store=store.id):
             # Check the week is passed
             if not week:
                 return Response(
@@ -3107,7 +3133,7 @@ def manage_store_shift(request, id):
         shift = Shift.objects.select_related("store", "employee", "role").get(pk=id)
 
         # Ensure manager is authorised
-        if not manager.is_manager and (
+        if not manager.is_manager(store=shift.store.id) and (
             request.method != "GET"
             or shift.employee_id != manager.id
             or shift.is_deleted
@@ -3116,8 +3142,6 @@ def manage_store_shift(request, id):
                 {"Error": "Not authorised to make this request."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif not manager.is_associated_with_store(store=shift.store.id):
-            raise err.NotAssociatedWithStoreError
         elif not shift.store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
         elif not shift.store.is_scheduling_enabled and request.method != "GET":
@@ -3386,9 +3410,9 @@ def manage_store_shift(request, id):
             {"Error": f"Failed to get the shift for ID {id}."},
             status=status.HTTP_409_CONFLICT,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised to interact with an unassociated store's shift."},
+            {"Error": "Not authorised to interact with this store's shift."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -3480,8 +3504,8 @@ def create_store_shift(request, store_id):
 
         employee = User.objects.get(pk=int(employee_id))
 
-        if not manager.is_associated_with_store(store.id):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
         elif not store.is_active:
             raise err.InactiveStoreError
         elif not store.is_scheduling_enabled:
@@ -3578,9 +3602,9 @@ def create_store_shift(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised create a shift for an unassociated store."},
+            {"Error": "Not authorised create a shift for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -3627,8 +3651,8 @@ def manage_store_exception(request, exception_id):
 
         if not store.is_active:
             raise err.InactiveStoreError
-        elif not manager.is_associated_with_store(store=store):
-            raise err.NotAssociatedWithStoreError
+        elif not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
         elif exception.is_approved:
             raise err.ShiftExceptionAlreadyApprovedError
 
@@ -3779,11 +3803,9 @@ def manage_store_exception(request, exception_id):
             {"Error": f"Exception with ID {exception_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {
-                "Error": "Not authorised interact with exceptions of an unassociated store."
-            },
+            {"Error": "Not authorised interact with exceptions of this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -3816,8 +3838,8 @@ def list_store_exceptions(request, store_id):
         )
 
         # Check user is authorised
-        if not manager.is_associated_with_store(store):
-            raise err.NotAssociatedWithStoreError
+        if not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
 
         elif not store.is_active and not manager.is_hidden:
             raise err.InactiveStoreError
@@ -3843,9 +3865,9 @@ def list_store_exceptions(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised get exceptions for an unassociated store."},
+            {"Error": "Not authorised get exceptions for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:
@@ -3898,8 +3920,6 @@ def copy_week_schedule(request, store_id):
 
         if not store.is_active:
             raise err.InactiveStoreError
-        elif not store.is_scheduling_enabled:
-            raise err.StoreNotSchedulingCapable
         elif not manager.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
         elif target_week <= localtime(now()).date():
@@ -3932,9 +3952,9 @@ def copy_week_schedule(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreError:
+    except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {"Error": "Not authorised modify the schedule for an unassociated store."},
+            {"Error": "Not authorised modify the schedule for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except err.InactiveStoreError:

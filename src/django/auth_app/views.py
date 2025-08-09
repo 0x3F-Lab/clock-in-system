@@ -87,7 +87,7 @@ def login(request):
             elif user.check_password(password):
                 # Log the user in by setting session data
                 request.session["user_id"] = user.id
-                request.session["is_manager"] = user.is_manager
+                request.session["is_some_store_manager"] = user.is_manager()
                 request.session["name"] = user.first_name
 
                 if next_url:
@@ -176,7 +176,7 @@ def setup_account(request):
                     f"Employee ID {user.id} ({user.first_name} {user.last_name}) SETUP their USER account."
                 )
                 logger.debug(
-                    f"[UPDATE: USER (ID: {user.id})] [ACC SETUP] Name: {user.first_name} {user.last_name} -- Email: {user.email} -- Phone: {user.phone_number} -- DOB: {user.birth_date} -- PIN: {user.pin} -- MANAGER: {user.is_manager}"
+                    f"[UPDATE: USER (ID: {user.id})] [ACC SETUP] Name: {user.first_name} {user.last_name} -- Email: {user.email} -- Phone: {user.phone_number} -- DOB: {user.birth_date} -- PIN: {user.pin}"
                 )
 
             except User.DoesNotExist:
@@ -215,7 +215,7 @@ def setup_account(request):
 
             # Log the user in by setting session data
             request.session["user_id"] = user.id
-            request.session["is_manager"] = user.is_manager
+            request.session["is_some_store_manager"] = user.is_manager()
             request.session["name"] = user.first_name
 
             next_url = request.POST.get("next", None) or request.GET.get("next", None)
@@ -460,7 +460,7 @@ def employee_account(request):
         "user_first_name": user.first_name,
         "user_last_name": user.last_name,
         "user_is_hidden": user.is_hidden,
-        "user_is_manager": user.is_manager,
+        "user_is_manager": user.is_manager(),
         "user_associated_store_count": len(user.get_associated_stores()),
         "user_pin": user.pin,
         "user_email": user.email,
@@ -518,7 +518,7 @@ def notification_page(request):
 
                 elif (
                     recipient_group == Notification.RecipientType.STORE_EMPLOYEES
-                    and user.is_manager
+                    and user.is_manager(store.id)
                 ):
                     notif = Notification.send_to_store_users(
                         store=store,
@@ -529,9 +529,8 @@ def notification_page(request):
                     )
 
                 elif recipient_group == Notification.RecipientType.STORE_MANAGERS:
-                    managers = store.get_store_managers()
                     notif = Notification.send_to_users(
-                        users=managers,
+                        users=store.get_store_managers(),
                         title=title,
                         message=message,
                         notification_type=notification_type,
@@ -558,7 +557,7 @@ def notification_page(request):
                     and user.is_hidden
                 ):
                     managers = User.objects.filter(
-                        is_active=True, is_manager=True
+                        is_active=True, store_access__is_manager=True
                     ).distinct()
                     notif = Notification.send_to_users(
                         users=managers,
@@ -602,7 +601,7 @@ def notification_page(request):
 
         except Exception as e:
             logger.critical(
-                f"Failed to send notification {user} -> {data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
+                f"Failed to send notification {user.first_name} {user.last_name} [{form.cleaned_data.get('store', 'N/A')}] -> {form.cleaned_data.get('recipient_group', None) or 'ERR'}, producing the error: {str(e)}\n{traceback.format_exc()}"
             )
             messages.error(
                 request,
@@ -784,7 +783,7 @@ def offline(request):
 
 
 @require_GET
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+@cache_control(public=True, max_age=3600)  # 1 HOUR
 def service_worker(request):
     context = {
         "STATIC_CACHE_VER": STATIC_CACHE_VER,
@@ -799,7 +798,7 @@ def service_worker(request):
 
 
 @require_GET
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+@cache_control(public=True, max_age=604800)  # 1 WEEK
 def manifest(request):
     context = {
         "BASE_URL": BASE_URL,

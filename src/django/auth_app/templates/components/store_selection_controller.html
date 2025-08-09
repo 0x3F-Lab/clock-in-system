@@ -1,5 +1,5 @@
 <div id="storeSelectionController"
-     class="panel rounded py-5 px-4 bg-transparent {% if associated_stores|length == 1 %}d-none{% endif %}">
+     class="panel rounded py-5 px-4 bg-transparent {% if store_dict|length == 1 %}d-none{% endif %}">
 
   <label for="storeSelectDropdown"
          class="d-block text-center fw-semibold mb-2 fs-6 small">
@@ -17,8 +17,8 @@
     <!-- selector -->
     <select id="storeSelectDropdown"
             class="form-select rounded-pill ps-5 pe-5">
-      {% if associated_stores %}
-        {% for store_id, store_code in associated_stores.items %}
+      {% if store_dict %}
+        {% for store_id, store_code in store_dict.items %}
           <option value="{{ store_id }}" {% if forloop.first %}selected{% endif %}>
             {{ store_code }}
           </option>

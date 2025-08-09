@@ -21,8 +21,17 @@ from django.db.models import (
     F,
     ExpressionWrapper,
     DurationField,
+    Exists,
 )
-from auth_app.models import User, Activity, Store, Role, Shift, ShiftException
+from auth_app.models import (
+    User,
+    Activity,
+    Store,
+    Role,
+    Shift,
+    ShiftException,
+    StoreUserAccess,
+)
 
 
 logger = logging.getLogger("api")
@@ -67,7 +76,7 @@ def get_store_employee_names(
     if only_active:
         users = users.filter(is_active=True)
     if ignore_managers:
-        users = users.filter(is_manager=False)
+        users = users.filter(store_access__is_manager=False)
 
     # Filter out clocked-in users manually
     if ignore_clocked_in:
@@ -288,8 +297,12 @@ def get_employee_clocked_info(employee_id: int, store_id: int) -> dict:
             raise err.InactiveUserError
 
         # Check store is not inactive
-        if not store.is_active:
+        elif not store.is_active:
             raise err.InactiveStoreError
+
+        # Check user is associated with the store
+        elif not employee.is_associated_with_store(store=store):
+            raise err.NotAssociatedWithStoreError
 
         # Form the basic info
         clocked_in = employee.is_clocked_in(store=store)
@@ -478,6 +491,15 @@ def get_all_employee_details(
     if hide_deactivated:
         qs = qs.filter(is_active=True)
 
+    # Annotate manager status in bulk -> OPTIMISATION
+    qs = qs.annotate(
+        is_store_manager=Exists(
+            StoreUserAccess.objects.filter(
+                user=OuterRef("pk"), store_id=store.id, is_manager=True
+            )
+        )
+    )
+
     # Name filtering
     if filter_names:
         # Annotate full_name
@@ -515,7 +537,7 @@ def get_all_employee_details(
                 "dob": emp.birth_date.strftime("%d/%m/%Y") if emp.birth_date else None,
                 "pin": emp.pin,
                 "is_active": emp.is_active,
-                "is_manager": emp.is_manager,
+                "is_store_manager": emp.is_store_manager,
             }
         )
 
@@ -595,6 +617,15 @@ def get_all_shifts(
     if hide_resigned:
         qs = qs.filter(employee__store_access__store_id=store_id)
 
+    # Annotate whether the employee is currently associated with the store
+    qs = qs.annotate(
+        is_store_associated=Exists(
+            StoreUserAccess.objects.filter(
+                user=OuterRef("employee__id"), store_id=store_id
+            )
+        )
+    )
+
     # Sorting
     sort_map = {
         "time": ("-login_timestamp", "employee__first_name", "employee__last_name"),
@@ -629,9 +660,7 @@ def get_all_shifts(
                 "emp_first_name": act.employee.first_name,
                 "emp_last_name": act.employee.last_name,
                 "emp_active": act.employee.is_active,
-                "emp_resigned": not act.employee.is_associated_with_store(
-                    store=store_id
-                ),
+                "emp_resigned": not act.is_store_associated,
                 "login_time": (
                     localtime(act.login_time).strftime("%H:%M")
                     if act.login_time
@@ -757,6 +786,14 @@ def get_account_summaries(
                 Value(0),
                 output_field=IntegerField(),
             ),
+            is_store_manager=Exists(
+                StoreUserAccess.objects.filter(
+                    user=OuterRef("pk"), store_id=store.id, is_manager=True
+                )
+            ),
+            is_store_associated=Exists(
+                StoreUserAccess.objects.filter(user=OuterRef("pk"), store_id=store.id)
+            ),
         )
 
         # Ignore users with 0 mins if flag is set
@@ -837,9 +874,9 @@ def get_account_summaries(
                     "hours_public_holiday": round(mins_public_holiday / 60, 2),
                     "deliveries": employee.deliveries,
                     "age": age,  # Integer age or None
-                    "acc_resigned": not employee.is_associated_with_store(store=store),
+                    "acc_resigned": not employee.is_store_associated,
                     "acc_active": employee.is_active,
-                    "acc_manager": employee.is_manager,
+                    "acc_store_manager": employee.is_store_manager,
                 }
             )
 

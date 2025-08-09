@@ -23,7 +23,7 @@
     </div>
     {% endif %}
 
-    {% if request.session.is_manager %}
+    {% if request.session.is_some_store_manager %}
     <div class="col">
       <a href="{% url 'manager_dashboard' %}" class="card card-link h-100 shadow-sm border-0 text-center text-white text-decoration-none dashboard-tile">
         <div class="card-body">

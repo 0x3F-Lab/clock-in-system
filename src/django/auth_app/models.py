@@ -1,6 +1,7 @@
 import random
 from datetime import timedelta
 from django.db import models
+from django.db.models import Q
 from django.utils.timezone import now, localtime
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
@@ -35,7 +36,6 @@ class User(models.Model):
     )  # Allow nullable for non-setup accounts
     birth_date = models.DateField(blank=True, default=None, null=True)
     is_active = models.BooleanField(default=False, null=False)
-    is_manager = models.BooleanField(default=False, null=False)
     is_hidden = models.BooleanField(
         default=False, null=False
     )  # Used for admin accounts (completely hidden from manager menus)
@@ -48,13 +48,28 @@ class User(models.Model):
     def __str__(self):
         role = ""
         if self.is_hidden:
-            if self.is_manager:
-                role = " - MANAGER/HIDDEN"
             role = " - HIDDEN"
-        elif self.is_manager:
-            role = " - MANAGER"
 
         return f"[{self.id}] {self.first_name} {self.last_name} ({self.email}){role}"
+
+    def is_manager(self, store=None) -> bool:
+        """
+        Checks if user is a manager of a certain store OR if they are a manager for ANY STORE if none specified.
+        """
+        if store is None:
+            return StoreUserAccess.objects.filter(user=self, is_manager=True).exists()
+
+        if isinstance(store, Store):  # Check if store is an object
+            return StoreUserAccess.objects.filter(
+                user=self, store_id=store.id, is_manager=True
+            ).exists()
+
+        elif isinstance(store, int) or (
+            isinstance(store, str) and store.isdigit()
+        ):  # If store is an ID
+            return StoreUserAccess.objects.filter(
+                user=self, store_id=int(store), is_manager=True
+            ).exists()
 
     # Password management
     def set_password(self, raw_password: str) -> None:
@@ -155,24 +170,41 @@ class User(models.Model):
             ).exists()
         return False
 
-    def get_associated_stores(self, show_inactive: bool = False):
+    def get_associated_stores(
+        self,
+        show_inactive_for_managers: bool = True,
+        get_only_stores_as_manager: bool = False,
+    ):
         """
-        Returns a queryset of all ACTIVE stores this user is associated with.
-        - show_inactive: If True, includes inactive stores as well.
+        Returns a queryset of stores this user is associated with.
+
+        - If get_only_stores_as_manager is True, returns only stores where the user is a manager.
+        - Otherwise:
+            - Always includes active stores.
+            - If show_inactive_for_managers is True, also includes inactive stores
+              where the user is a manager.
         """
-        qs = Store.objects.filter(user_access__user=self)
-        if not show_inactive:
-            qs = qs.filter(is_active=True)
+        base_qs = Store.objects.filter(user_access__user=self)
+
+        if get_only_stores_as_manager:
+            qs = base_qs.filter(user_access__is_manager=True)
+        elif show_inactive_for_managers:
+            qs = base_qs.filter(
+                Q(is_active=True) | Q(is_active=False, user_access__is_manager=True)
+            )
+        else:
+            qs = base_qs.filter(is_active=True)
+
         return qs.distinct()
 
     def is_manager_of(self, employee, ignore_inactive_stores: bool = True) -> bool:
         """
-        Returns True if the current user is a manager and shares at least one store with the given employee.
+        Returns True if the current user is a manager in any store that the given employee also has access to.
         Accepts a User object or ID for the employee.
 
         - ignore_inactive_stores: If True, only considers active shared stores. Default True.
         """
-        if not self.is_manager or not self.is_active:
+        if not self.is_active:
             return False
 
         # Resolve employee object if ID is provided
@@ -186,19 +218,16 @@ class User(models.Model):
         elif not isinstance(employee, User):
             return False
 
-        # Get store IDs associated with this manager
-        shared_store_ids = StoreUserAccess.objects.filter(user=self).values_list(
-            "store_id", flat=True
-        )
-
-        # Further filter the IDs based on the store's active state
+        # Get store IDs where the current user is a manager
+        manager_store_qs = StoreUserAccess.objects.filter(user=self, is_manager=True)
         if ignore_inactive_stores:
-            shared_store_ids = Store.objects.filter(
-                id__in=shared_store_ids, is_active=True
-            ).values_list("id", flat=True)
+            manager_store_qs = manager_store_qs.filter(store__is_active=True)
 
+        manager_store_ids = manager_store_qs.values_list("store_id", flat=True)
+
+        # Check if the employee shares any of those stores
         return StoreUserAccess.objects.filter(
-            user=employee, store_id__in=shared_store_ids
+            user=employee, store_id__in=manager_store_ids
         ).exists()
 
     def get_unread_notifications(self):
@@ -332,7 +361,7 @@ class Store(models.Model):
         """
         qs = User.objects.filter(
             store_access__store=self,
-            is_manager=True,
+            store_access__is_manager=True,
             is_active=True,  # Only include active users
         )
         if not include_hidden:
@@ -388,6 +417,7 @@ class StoreUserAccess(models.Model):
     store = models.ForeignKey(
         Store, on_delete=models.CASCADE, related_name="user_access"
     )
+    is_manager = models.BooleanField(default=False, null=False)
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -400,10 +430,10 @@ class StoreUserAccess(models.Model):
         role = "EMPLOYEE"
         if self.user.is_hidden:
             role = "HIDDEN"
-            if self.user.is_manager:
+            if self.is_manager:
                 role = "MANAGER/HIDDEN"
             role = "HIDDEN"
-        elif self.user.is_manager:
+        elif self.is_manager:
             role = "MANAGER"
 
         return f"{self.user.first_name} {self.user.last_name} [{self.user.id}] → {self.store.code} ({role})"

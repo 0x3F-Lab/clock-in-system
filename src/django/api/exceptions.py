@@ -143,6 +143,18 @@ class NotAssociatedWithStoreError(Exception):
         super().__init__(self.message)
 
 
+class NotAssociatedWithStoreAsManagerError(Exception):
+    """
+    Raised when an attempt is made to interact with a store the user is not a manager for with.
+    """
+
+    def __init__(
+        self, message="Can not interact with a store you aren't a manager for."
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
 class InactiveStoreError(Exception):
     """
     Raised when an attempt is made to interact with a store that is inactive.

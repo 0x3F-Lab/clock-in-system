@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("auth_app", "0048_shiftrequest"),
+        ("auth_app", "0049_shiftrequest"),
     ]
 
     operations = [

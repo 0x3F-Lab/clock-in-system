@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("auth_app", "0047_store_is_scheduling_enabled"),
+        ("auth_app", "0048_remove_user_is_manager_storeuseraccess_is_manager"),
     ]
 
     operations = [
