@@ -30,34 +30,33 @@ function fetchAndRenderRequests(viewType, contentId) {
             if (data.requests && data.requests.length > 0) {
                 data.requests.forEach(req => {
                     // Pass the whole data object to the renderer
-                    container.append(renderRequestCard(req, req.current_user_id, req.is_manager));
+                    container.append(renderRequestCard(req));
                 });
             } else {
                 container.html('<div class="panel rounded shadow p-4 text-center"><p class="m-0">No requests found.</p></div>');
             }
+            hideSpinner();
         },
         error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to load shift requests"); },
-        complete: function() { hideSpinner(); }
     });
 }
 
 
-function renderRequestCard(req, currentUserId, isManager) {
+function renderRequestCard(req) {
     let actionsHtml = '';
-    const isMyRequest = currentUserId === req.requester_id;
 
     // Determine which action buttons to show
     if (req.status === 'pending') {
-        if (isMyRequest) {
+        if (req.is_request_owner) {
             actionsHtml = `<button class="btn btn-sm btn-outline-danger cancel-request-btn action-btn" data-req-id="${req.id}">Cancel</button>`;
         } else { // It's an incoming request for me to accept
             actionsHtml = `<button class="btn btn-sm btn-success accept-request-btn action-btn" data-req-id="${req.id}">Accept</button>`;
-            if (req.target_user_id || isManager) {
+            if (req.target_user_id || req.is_store_manager) {
                 actionsHtml += `<button class="btn btn-sm btn-warning reject-request-btn action-btn ms-2" data-req-id="${req.id}">Reject</button>`;
             }
         }
     } else if (req.status === 'accepted') {
-        if (isManager) {
+        if (req.is_store_manager) {
             actionsHtml = `
                 <button class="btn btn-sm btn-success approve-request-btn action-btn" data-req-id="${req.id}">Approve</button>
                 <button class="btn btn-sm btn-warning reject-request-btn action-btn ms-2" data-req-id="${req.id}">Reject</button>`;

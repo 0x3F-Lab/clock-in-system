@@ -2149,8 +2149,15 @@ def get_shift_requests(
     Returns a list of dictionaries ready for API response.
     """
     view_type = view_type.lower()
-
     emp_stores = employee.get_associated_stores(show_inactive_for_managers=False)
+    emp_manager_stores = employee.get_associated_stores(
+        show_inactive_for_managers=False, get_only_stores_as_manager=True
+    )
+
+    # Convert to IDs for faster lookup and more efficient passing
+    emp_store_ids = set(store.id for store in emp_stores)
+    emp_manager_store_ids = set(store.id for store in emp_manager_stores)
+
     qs = ShiftRequest.objects.none()
 
     if view_type == "pending":
@@ -2171,7 +2178,7 @@ def get_shift_requests(
         )  # SWAPS
         pool_requests = Q(
             status=ShiftRequest.Status.PENDING,
-            store__in=emp_stores,
+            store_id__in=emp_store_ids,
             type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
         )  # EITHER COVER OR BIDS
 
@@ -2180,11 +2187,8 @@ def get_shift_requests(
         )
 
     elif view_type == "approval":
-        emp_manager_stores = employee.get_associated_stores(
-            show_inactive_for_managers=False, get_only_stores_as_manager=True
-        )
         qs = ShiftRequest.objects.filter(
-            status=ShiftRequest.Status.ACCEPTED, store__in=emp_manager_stores
+            status=ShiftRequest.Status.ACCEPTED, store_id__in=emp_manager_store_ids
         )
         # qs will be empty if user IS NOT MANAGER
 
@@ -2195,7 +2199,7 @@ def get_shift_requests(
             ShiftRequest.Status.CANCELLED,
         ]
         qs = ShiftRequest.objects.filter(
-            status__in=history_statuses, store__in=emp_stores
+            status__in=history_statuses, store_id__in=emp_store_ids
         )
 
     # Apply pagination
@@ -2209,6 +2213,13 @@ def get_shift_requests(
     # Shape the data
     requests_data = []
     for req in data:
+        is_store_manager = req.store_id in emp_manager_store_ids
+
+        # Given employee owns request if they made it OR its a shift bid for a store and they're a manager for the store
+        is_request_owner = (employee.id == req.requester_id) or (
+            req.type == ShiftRequest.Type.BID and is_store_manager
+        )
+
         info = {
             "id": req.id,
             "type": req.type,
@@ -2223,6 +2234,8 @@ def get_shift_requests(
             "store_code": req.store.code if req.store else None,
             "requester_id": req.requester_id,
             "target_user_id": req.target_user_id,
+            "is_store_manager": is_store_manager,
+            "is_request_owner": is_request_owner,
         }
 
         if req.shift:

@@ -4257,7 +4257,7 @@ def manage_shift_request(request, req_id):
             req.status = ShiftRequest.Status.REJECTED
             req.save()
 
-        # DELETE -> MANAGER/REQUESTING USER DELETES IT IN `PENDING` STATE
+        # DELETE -> MANAGER/REQUESTING USER DELETES/CANCELS IT IN `PENDING` STATE
         elif request.method == "DELETE":
             # Ensure user is MANAGER or AUTHORING user
             if not (
