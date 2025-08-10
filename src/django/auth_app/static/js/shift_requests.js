@@ -1,22 +1,21 @@
 $(document).ready(function() {
     // --- Initialize all event handlers ---
-    setupSidebarNavigation();
+    handleViewTypeSwitching();
     setupActionButtons();
 
+    // Activate the pagination system (set the update function)
+    handlePagination({updateFunc: updateRequestsList});
+
     // --- INITIAL LOAD ---
-    $('#pending-requests-btn').trigger('click'); 
+    updateRequestsList();
 });
 
-const viewConfig = {
-    'pending-requests-btn': { contentId: 'pending-requests', viewType: 'pending' },
-    'active-requests-btn': { contentId: 'active-requests', viewType: 'active' },
-    'manager-approval-btn': { contentId: 'manager-approval', viewType: 'approval' },
-    'history-btn': { contentId: 'history', viewType: 'history' }
-};
 
-function fetchAndRenderRequests(viewType, contentId) {
+function updateRequestsList() {
     showSpinner();
-    const listUrl = `${window.djangoURLs.listShiftRequests}?view=${viewType}`;
+
+    const container = $(`#requests-list`);
+    const listUrl = `${window.djangoURLs.listShiftRequests}?type=${container.attr('data-type')}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`;
 
     $.ajax({
         url: listUrl,
@@ -24,8 +23,8 @@ function fetchAndRenderRequests(viewType, contentId) {
         xhrFields: { withCredentials: true },
         headers: { 'X-CSRFToken': getCSRFToken() },
         success: function(data) {
-            const container = $(`#${contentId}`);
             container.empty();
+            $('#requests-list-count').text(data.total);
 
             if (data.requests && data.requests.length > 0) {
                 data.requests.forEach(req => {
@@ -35,6 +34,9 @@ function fetchAndRenderRequests(viewType, contentId) {
             } else {
                 container.html('<div class="panel rounded shadow p-4 text-center"><p class="m-0">No requests found.</p></div>');
             }
+
+            // Set pagination values
+            setPaginationValues(data.offset, data.total);
             hideSpinner();
         },
         error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to load shift requests"); },
@@ -94,24 +96,38 @@ function renderRequestCard(req) {
 
 // --- EVENT HANDLER SETUP FUNCTIONS ---
 
-function setupSidebarNavigation() {
-    $('.list-group-item').on('click', function() {
-        const $this = $(this);
-        if ($this.hasClass('active')) return;
 
-        const buttonId = $this.attr('id');
-        const config = viewConfig[buttonId];
-        if (!config) return;
+function handleViewTypeSwitching() {
+    $(document).on('click', '.view-type-switch', function () {
+        // Ignore clicking on already active button
+        if ($(this).hasClass('active')) { return; }
 
-        $('.list-group-item').removeClass('active');
-        $this.addClass('active');
+        $(".view-type-switch").removeClass("active");
+        $(this).addClass("active");
 
-        $('.col-md-9').hide();
-        $(`#${config.contentId}`).show();
-        
-        fetchAndRenderRequests(config.viewType, config.contentId);
-    });
+        type = $(this).attr('data-type');
+        $('#requests-list').attr('data-type', type);
+
+        switch (type) {
+          case 'active':
+            $('#requests-list-type').text('Active');
+            break;
+          case 'pending':
+            $('#requests-list-type').text('Pending');
+            break;
+          case 'approval':
+            $('#requests-list-type').text('Awaiting Approval');
+            break;
+          case 'history':
+            $('#requests-list-type').text('Past');
+            break;
+        }
+
+        resetPaginationValues();
+        updateRequestsList();
+    })
 }
+
 
 function setupActionButtons() {
     $(document).on('click', '.action-btn', function() {
@@ -138,7 +154,6 @@ function setupActionButtons() {
             },
             error: function(jqXHR) {
                 handleAjaxError(jqXHR, "Failed to update request");
-                hideSpinner();
             }
         });
     });
