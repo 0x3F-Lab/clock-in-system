@@ -74,8 +74,7 @@ class Migration(migrations.Migration):
                 (
                     "store",
                     models.ForeignKey(
-                        blank=True,
-                        null=True,
+                        null=False,
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="store_shift_requests",
                         to="auth_app.store",

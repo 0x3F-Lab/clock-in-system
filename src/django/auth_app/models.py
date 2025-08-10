@@ -818,8 +818,7 @@ class ShiftRequest(models.Model):
     )
     store = models.ForeignKey(
         Store,
-        null=True,
-        blank=True,
+        null=False,
         on_delete=models.CASCADE,
         related_name="store_shift_requests",
     )
@@ -827,7 +826,7 @@ class ShiftRequest(models.Model):
         Shift,
         on_delete=models.CASCADE,
         related_name="shift_requests",
-        null=True,
+        null=True,  # SHOULD ONLY BE NULL IN SHIFT BID
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -835,6 +834,11 @@ class ShiftRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "requester_id"]),
+            models.Index(fields=["status", "target_user_id"]),
+            models.Index(fields=["status", "store_id"]),
+        ]
 
     def __str__(self):
         return f"[{self.pk}] {self.type.upper()}: {self.requester.first_name} {self.requester.last_name} -> {f'{self.target_user.first_name} {self.target_user.last_name}' if self.target_user else (f'[{self.store.code}]' if self.store else 'ERROR')}"

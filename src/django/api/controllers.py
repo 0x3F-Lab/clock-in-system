@@ -31,6 +31,7 @@ from auth_app.models import (
     Shift,
     ShiftException,
     StoreUserAccess,
+    ShiftRequest,
 )
 
 
@@ -1682,7 +1683,11 @@ def link_activity_to_shift(
             raise Activity.DoesNotExist
     elif shift and not isinstance(shift, Shift):
         try:
-            shift = Shift.objects.select_related("store").get(pk=int(shift))
+            shift = (
+                Shift.objects.select_related("store")
+                .defer("comment")
+                .get(pk=int(shift))
+            )
         except (ValueError, Shift.DoesNotExist):
             raise Shift.DoesNotExist
 
@@ -1698,12 +1703,16 @@ def link_activity_to_shift(
             existing_exception = getattr(activity, "activity_shiftexception", None)
 
             # Get shifts for same user/store/day (DONT FILTER DB LEVEL, as realistically at most 2 shifts per user per day per store -> more work to filter on DB level)
-            shifts = Shift.objects.filter(
-                store_id=activity.store_id,
-                employee_id=activity.employee_id,
-                date=activity.login_time.date(),
-                is_deleted=False,
-            ).prefetch_related("shift_shiftexception")
+            shifts = (
+                Shift.objects.filter(
+                    store_id=activity.store_id,
+                    employee_id=activity.employee_id,
+                    date=activity.login_time.date(),
+                    is_deleted=False,
+                )
+                .defer("comment")
+                .prefetch_related("shift_shiftexception")
+            )
 
             # Preload other activities ONCE -> Used to check if shift is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
             other_activities = (
@@ -1832,6 +1841,7 @@ def link_activity_to_shift(
                     is_deleted=False,
                 )
                 .exclude(pk=shift.id)
+                .defer("comment")
                 .prefetch_related("shift_shiftexception")
             )
 
@@ -2046,7 +2056,9 @@ def copy_week_schedule(
     )
 
     # Prefetch all target week shifts, grouped by (employee_id, date) -> Faster collision checking instead of DB queries
-    target_shifts = Shift.objects.filter(store_id=store.id, date__range=target_range)
+    target_shifts = Shift.objects.filter(
+        store_id=store.id, date__range=target_range
+    ).defer("comment")
 
     shift_map = defaultdict(list)
     for s in target_shifts:
@@ -2124,3 +2136,106 @@ def copy_week_schedule(
         "skipped": count_skipped,
         "total": count_created + count_updated + count_skipped,
     }
+
+
+def get_shift_requests(
+    employee: User,
+    offset: int = 0,
+    limit: int = 25,
+    view_type: str = "active",
+) -> Tuple[dict[str, Any], int]:
+    """
+    Retrieves shift requests for a given user and view type.
+    Returns a list of dictionaries ready for API response.
+    """
+    view_type = view_type.lower()
+
+    emp_stores = employee.get_associated_stores(show_inactive_for_managers=False)
+    qs = ShiftRequest.objects.none()
+
+    if view_type == "pending":
+        sent_and_pending = Q(
+            status=ShiftRequest.Status.PENDING, requester_id=employee.id
+        )
+        involving_and_accepted = Q(status=ShiftRequest.Status.ACCEPTED) & (
+            Q(requester_id=employee.id) | Q(target_user_id=employee.id)
+        )
+
+        qs = ShiftRequest.objects.filter(sent_and_pending | involving_and_accepted)
+
+    elif view_type == "active":
+        direct_requests = Q(
+            status=ShiftRequest.Status.PENDING,
+            type=ShiftRequest.Type.SWAP,
+            target_user_id=employee.id,
+        )  # SWAPS
+        pool_requests = Q(
+            status=ShiftRequest.Status.PENDING,
+            store__in=emp_stores,
+            type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
+        )  # EITHER COVER OR BIDS
+
+        qs = ShiftRequest.objects.filter(direct_requests | pool_requests).exclude(
+            requester_id=employee.id
+        )
+
+    elif view_type == "approval":
+        emp_manager_stores = employee.get_associated_stores(
+            show_inactive_for_managers=False, get_only_stores_as_manager=True
+        )
+        qs = ShiftRequest.objects.filter(
+            status=ShiftRequest.Status.ACCEPTED, store__in=emp_manager_stores
+        )
+        # qs will be empty if user IS NOT MANAGER
+
+    elif view_type == "history":
+        history_statuses = [
+            ShiftRequest.Status.APPROVED,
+            ShiftRequest.Status.REJECTED,
+            ShiftRequest.Status.CANCELLED,
+        ]
+        qs = ShiftRequest.objects.filter(
+            status__in=history_statuses, store__in=emp_stores
+        )
+
+    # Apply pagination
+    data = (
+        qs.distinct()
+        .select_related("requester", "target_user", "shift", "shift__role", "store")
+        .defer("shift__comment")[offset : offset + limit]
+    )
+    total = qs.count()
+
+    # Shape the data
+    requests_data = []
+    for req in data:
+        info = {
+            "id": req.id,
+            "type": req.type,
+            "status": req.status,
+            "requester_name": f"{req.requester.first_name} {req.requester.last_name}",
+            "target_name": (
+                f"{req.target_user.first_name} {req.target_user.last_name}"
+                if req.target_user
+                else None
+            ),
+            "shift_id": None,
+            "store_code": req.store.code if req.store else None,
+            "requester_id": req.requester_id,
+            "target_user_id": req.target_user_id,
+        }
+
+        if req.shift:
+            info.update(
+                {
+                    "shift_id": req.shift_id,
+                    "shift_date": req.shift.date.isoformat(),
+                    "shift_start_time": req.shift.start_time.strftime("%H:%M"),
+                    "shift_end_time": req.shift.end_time.strftime("%H:%M"),
+                    "shift_role_name": req.shift.role.name if req.shift.role else None,
+                }
+            )
+
+        requests_data.append(info)
+
+    return requests_data, total
