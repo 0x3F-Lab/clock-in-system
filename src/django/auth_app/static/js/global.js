@@ -154,13 +154,14 @@ function ensureSafeInt(val, min, max) {
   val = parseInt(val, 10);
 
   // Ensure the int is within range
-  if (min != null) {
+  if (isNonEmpty(min)) {
     min = parseInt(min, 10);
     val = Math.max(val, min)
   }
   
-  if (max != null) {
+  if (isNonEmpty(max)) {
     max = parseInt(max, 10);
+    if (min != null && min > max) { return min }
     val = Math.min(val, max)
   }
 
@@ -173,13 +174,14 @@ function ensureSafeFloat(val, min, max) {
   val = parseFloat(val);
 
   // Ensure the number is within range
-  if (min != null) {
+  if (isNonEmpty(min)) {
     min = parseFloat(min);
     val = Math.max(val, min)
   }
   
-  if (max != null) {
+  if (isNonEmpty(max)) {
     max = parseFloat(max);
+    if (min != null && min > max) { return min }
     val = Math.min(val, max)
   }
 
