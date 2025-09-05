@@ -1,13 +1,13 @@
 $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
-    initEveryoneSwitchForSelectedStore(); // <--- ADDED
+    initEveryoneSwitchForSelectedStore();
     updateClockedState();
     updateStoreInformation();
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
   });
 
-  // NEW: When "Everyone" switch toggles, reload roster for the current week
+  // When "Everyone" switch toggles, reload roster for the current week
   $('#viewEveryoneSwitch').on('change', function () {
     const weekNow = $('#schedule-week-title').data('week-start-date')
       ? new Date($('#schedule-week-title').data('week-start-date')).toLocaleDateString('sv-SE')
@@ -30,7 +30,7 @@ $(document).ready(function() {
   });
 
   // Initial state & history set
-  initEveryoneSwitchForSelectedStore(); // <--- ADDED
+  initEveryoneSwitchForSelectedStore();
   updateClockedState();
   updateStoreInformation();
   updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
@@ -517,8 +517,6 @@ function updateStoreInformation() {
     });
 }
 
-
-// --- Everyone toggle helpers (ADD THIS) --------------------------------------
 // Read server-rendered {store_id: boolean} from <script id="store-perms">
 const STORE_PERMS = (() => {
   try { return JSON.parse(document.getElementById('store-perms')?.textContent || '{}'); }

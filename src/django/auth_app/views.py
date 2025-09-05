@@ -435,7 +435,7 @@ def employee_dashboard(request):
         )
         return redirect("home")
 
-    # --- NEW: build a simple {store_id: boolean} map for 'everyone' permission ---
+    # --- build{store_id: boolean} map for 'everyone' permission ---
     store_id_list = list((context.get("associated_stores") or {}).keys())
     from auth_app.models import Store
 
@@ -444,7 +444,7 @@ def employee_dashboard(request):
         for s in Store.objects.filter(pk__in=store_id_list):
             perms_map[s.id] = bool(s.allows_storewide_for(user))
     context["store_view_everyone_map"] = perms_map
-    context["store_view_everyone_map_json"] = json.dumps(perms_map)  # <-- add this
+    context["store_view_everyone_map_json"] = json.dumps(perms_map)
     # ------------------------------------------------------------------------------
 
     return render(request, "auth_app/employee_dashboard.html", context)
