@@ -1,4 +1,5 @@
 {% extends "auth_app/base.html" %}
+{% load static %}
 {% block title %}Pizza Clock-in || Employee Dashboard{% endblock %}
 
 
@@ -17,6 +18,7 @@
 
 <div class="d-flex flex-column align-items-center">
   {% include "components/store_selection_controller.html" with store_dict=associated_stores %}
+  <script id="store-perms" type="application/json">{{ store_view_everyone_map_json|safe }}</script>
 
   <div id="clockingContainer" class="panel rounded gradient-panel shadow p-5 mt-5">
     <div id="clockedInInfoDiv" class="mb-3"></div>
@@ -38,9 +40,16 @@
   <div class="text-center my-3">
     <h3 class="mb-0 fw-semibold" id="schedule-week-title">Week of .......</h3>
   </div>
-  <a class="btn btn-outline-light" href="#" id="next-week-btn">
-    <i class="fas fa-arrow-right"></i> Next 
-  </a>
+  <div class="d-flex align-items-center gap-2">
+    <div class="form-check form-switch text-white" title="View entire roster">
+      <input class="form-check-input" type="checkbox" id="viewEveryoneSwitch" disabled>
+      <label class="form-check-label" for="viewEveryoneSwitch">Everyone</label>
+    </div>
+    <a class="btn btn-outline-light" href="#" id="next-week-btn">
+      <i class="fas fa-arrow-right"></i> Next 
+    </a>
+  </div>
+
 </div>
 
 <div class="scroll-container">

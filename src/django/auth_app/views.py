@@ -31,6 +31,7 @@ from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
 from django.utils import timezone
 from datetime import timedelta, date
 from .models import Shift
+import json
 
 
 logger = logging.getLogger("auth_app")
@@ -434,18 +435,18 @@ def employee_dashboard(request):
         )
         return redirect("home")
 
-    # --- enrich associated_stores with the per-user flag ---
-    enriched_stores = []
-    for s in context.get("associated_stores", []):
-        try:
-            store_obj = Store.objects.get(pk=s["id"])
-            s["can_view_everyone"] = store_obj.allows_storewide_for(user)
-        except Store.DoesNotExist:
-            s["can_view_everyone"] = False
-        enriched_stores.append(s)
+    # --- NEW: build a simple {store_id: boolean} map for 'everyone' permission ---
+    store_id_list = list((context.get("associated_stores") or {}).keys())
+    from auth_app.models import Store
 
-    context["associated_stores"] = enriched_stores
-    # -------------------------------------------------------------
+    perms_map = {}
+    if store_id_list:
+        for s in Store.objects.filter(pk__in=store_id_list):
+            perms_map[s.id] = bool(s.allows_storewide_for(user))
+    context["store_view_everyone_map"] = perms_map
+    context["store_view_everyone_map_json"] = json.dumps(perms_map)  # <-- add this
+    # ------------------------------------------------------------------------------
+
     return render(request, "auth_app/employee_dashboard.html", context)
 
 

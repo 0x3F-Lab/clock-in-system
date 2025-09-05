@@ -1,9 +1,18 @@
 $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
+    initEveryoneSwitchForSelectedStore(); // <--- ADDED
     updateClockedState();
     updateStoreInformation();
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
+  });
+
+  // NEW: When "Everyone" switch toggles, reload roster for the current week
+  $('#viewEveryoneSwitch').on('change', function () {
+    const weekNow = $('#schedule-week-title').data('week-start-date')
+      ? new Date($('#schedule-week-title').data('week-start-date')).toLocaleDateString('sv-SE')
+      : new Date().toLocaleDateString('sv-SE');
+    updateShiftRosterAndHistory(weekNow);
   });
 
   // Handle deliveries adjustment
@@ -21,6 +30,7 @@ $(document).ready(function() {
   });
 
   // Initial state & history set
+  initEveryoneSwitchForSelectedStore(); // <--- ADDED
   updateClockedState();
   updateStoreInformation();
   updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
@@ -28,6 +38,7 @@ $(document).ready(function() {
   // Add page reloader to force reload after period of inactivity
   setupVisibilityReload(30); // 30 minutes
 });
+
 
 
 function handleDeliveryAdjustment() {
@@ -300,9 +311,16 @@ function updateShiftRosterAndHistory(week) {
     }
   });
 
+  // --- Build query params (add get_all when "Everyone" is checked)
+const everyone = $('#viewEveryoneSwitch').is(':checked');
+const params = new URLSearchParams({ week });
+if (everyone) {
+  params.set('get_all', 'true');
+  params.set('legacy', 'true'); 
+}
   // LOAD ROSTERED SHIFTS
   $.ajax({
-    url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?&week=${week}`,
+    url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?${params.toString()}`,
     method: 'GET',
     xhrFields: {withCredentials: true},
     headers: {'X-CSRFToken': getCSRFToken()},
@@ -499,6 +517,25 @@ function updateStoreInformation() {
     });
 }
 
+
+// --- Everyone toggle helpers (ADD THIS) --------------------------------------
+// Read server-rendered {store_id: boolean} from <script id="store-perms">
+const STORE_PERMS = (() => {
+  try { return JSON.parse(document.getElementById('store-perms')?.textContent || '{}'); }
+  catch { return {}; }
+})();
+
+// Enable/disable the "Everyone" switch for the currently selected store
+function initEveryoneSwitchForSelectedStore() {
+  const id = getSelectedStoreID();
+  const key = id != null ? String(id) : null; // keys from json_script are strings
+  const allowed = key && Object.prototype.hasOwnProperty.call(STORE_PERMS, key) ? !!STORE_PERMS[key] : false;
+
+  const $sw = $('#viewEveryoneSwitch');
+  $sw.prop('checked', false);        // reset when store changes
+  $sw.prop('disabled', !allowed);    // enable only if allowed
+}
+// -----------------------------------------------------------------------------
 
 //////////////////////////// HELPER FUNCTIONS ///////////////////////////////////////
 
