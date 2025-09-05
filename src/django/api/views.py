@@ -3011,8 +3011,18 @@ def get_store_shifts(request, id):
             request, default_limit=100
         )
 
-        # Only get all shifts IF they're a manager
-        if get_all and user.is_manager(store=store.id):
+        # Store-wide roster (Everyone view) OR user's own shifts
+        if get_all:
+            # Authorisation: manager OR store toggle allows it for this user
+            if not (
+                user.is_manager(store=store.id) or store.allows_storewide_for(user)
+            ):
+                return Response(
+                    {
+                        "Error": "Not authorised to view store-wide roster for this store."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             # Check the week is passed
             if not week:
                 return Response(
