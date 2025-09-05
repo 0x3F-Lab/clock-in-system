@@ -434,6 +434,18 @@ def employee_dashboard(request):
         )
         return redirect("home")
 
+    # --- enrich associated_stores with the per-user flag ---
+    enriched_stores = []
+    for s in context.get("associated_stores", []):
+        try:
+            store_obj = Store.objects.get(pk=s["id"])
+            s["can_view_everyone"] = store_obj.allows_storewide_for(user)
+        except Store.DoesNotExist:
+            s["can_view_everyone"] = False
+        enriched_stores.append(s)
+
+    context["associated_stores"] = enriched_stores
+    # -------------------------------------------------------------
     return render(request, "auth_app/employee_dashboard.html", context)
 
 
