@@ -334,14 +334,21 @@ if (everyone) {
 
             // Build the HTML with the new color logic.
             shiftsHtml += `
-              <div class="shift-item shift-item-action position-relative cursor-pointer" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
-                ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
-                <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
-                <div class="shift-item-details">
-                  <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                  <span>⌛ ${duration}</span>
-                </div>
-              </div>`;
+            <div class="shift-item shift-item-action position-relative cursor-pointer"
+                 style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;"
+                 data-shift-id="${shift.id}">
+              ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+              <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
+              <div class="shift-item-details">
+                ${everyone && shift.employee_name ? `
+                  <span class="d-inline-flex align-items-center text-muted small">
+                    <i class="fa-solid fa-user me-1"></i>${shift.employee_name}
+                  </span>
+                ` : ''}
+                <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                <span>⌛ ${duration}</span>
+              </div>
+            </div>`;
           });
         }
         const $roster = $(`#roster-${dayDate}`);
