@@ -12,7 +12,7 @@ from django.template.response import TemplateResponse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_http_methods
-from auth_app.models import User, Store, Notification
+from auth_app.models import User, Store, Notification, notification_default_expires_on
 from auth_app.utils import (
     manager_required,
     employee_required,
@@ -28,9 +28,6 @@ from auth_app.forms import (
 from api.utils import get_distance_from_lat_lon_in_m
 from api.controllers import handle_clock_in, handle_clock_out
 from clock_in_system.settings import STATIC_URL, BASE_URL, STATIC_CACHE_VER
-from django.utils import timezone
-from datetime import timedelta, date
-from .models import Shift
 
 
 logger = logging.getLogger("auth_app")
@@ -550,6 +547,7 @@ def notification_page(request):
                         notification_type=notification_type,
                         recipient_group=Notification.RecipientType.SITE_ADMINS,
                         sender=user,
+                        expires_on=notification_default_expires_on(90),
                     )
 
                 elif (

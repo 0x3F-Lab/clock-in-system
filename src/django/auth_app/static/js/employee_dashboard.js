@@ -472,7 +472,7 @@ function updateStoreInformation() {
 
     // Fetch employees names
     $.ajax({
-        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true&ignore_self=true`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},

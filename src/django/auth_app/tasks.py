@@ -980,5 +980,5 @@ def notify_admins_error_generated(title: str, message: str):
         message=util.sanitise_markdown_message_text(message),
         notification_type=Notification.Type.AUTOMATIC_ALERT,
         recipient_group=Notification.RecipientType.SITE_ADMINS,
-        expires_on=notification_default_expires_on(7),
+        expires_on=notification_default_expires_on(90),
     )

@@ -122,7 +122,7 @@ def is_public_holiday(
     return False
 
 
-def api_get_user_object_from_session(request):
+def api_get_user_object_from_session(request) -> User:
     # Get user's id
     employee_id = request.session.get("user_id", None)
 

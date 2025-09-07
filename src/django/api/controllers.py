@@ -45,6 +45,7 @@ def get_store_employee_names(
     order: bool = True,
     order_by_first_name: bool = True,
     ignore_clocked_in: bool = False,
+    ignore_id: Union[int, None] = None,
 ) -> List[dict]:
     """
     Fetches a list of users with their IDs and full names.
@@ -53,7 +54,8 @@ def get_store_employee_names(
         store_id (int OR string OR Store object): The ID of the store to list all employees for. MUST BE PROVIDED.
         only_active (bool): Include only active users if True.
         ignore_managers (bool): Exclude managers if True.
-        ignore_clocked_in (bool): Wether to ignore users who are clocked in.
+        ignore_clocked_in (bool): Whether to ignore users who are clocked in.
+        ignore_id (int): User ID to ignore if given.
         order (bool): Whether to order by the user's names, otherwise order by their id.
         order_by_first_name (bool): Order by first name if True, otherwise by last name.
 
@@ -78,6 +80,8 @@ def get_store_employee_names(
         users = users.filter(is_active=True)
     if ignore_managers:
         users = users.filter(store_access__is_manager=False)
+    if ignore_id is not None and isinstance(ignore_id, int):
+        users = users.exclude(pk=ignore_id)
 
     # Filter out clocked-in users manually
     if ignore_clocked_in:

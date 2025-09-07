@@ -60,6 +60,7 @@ def list_store_employee_names(request):
         ignore_clocked_in = util.str_to_bool(
             request.query_params.get("ignore_clocked_in", "false")
         )
+        ignore_self = util.str_to_bool(request.query_params.get("ignore_self", "false"))
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
 
         if store_id is None:
@@ -69,16 +70,7 @@ def list_store_employee_names(request):
             )
 
         # Get the user information of the manager requesting this info from their session
-        try:
-            user_id = request.session.get("user_id")
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {
-                    "Error": "Failed to get your account's information for authorisation. Please login again."
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        user = util.api_get_user_object_from_session(request)
 
         # Only allow related store members list the store's employee names
         if not user.is_associated_with_store(store=int(store_id)):
@@ -96,6 +88,7 @@ def list_store_employee_names(request):
             order=order,
             order_by_first_name=order_by_first_name,
             ignore_clocked_in=ignore_clocked_in,
+            ignore_id=user.id if ignore_self else None,
         )
 
         # Return the list of users in the response
@@ -2722,7 +2715,7 @@ def send_employee_notification(request, id):
 def list_store_roles(request, id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(pk=id)
+        store = Store.objects.prefetch_related("roles").get(pk=id)
 
         # Ensure manager is authorised
         if not manager.is_manager(store=store.id):
