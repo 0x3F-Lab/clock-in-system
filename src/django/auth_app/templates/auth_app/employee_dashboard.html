@@ -31,7 +31,7 @@
   </div>
 </div>
 
-<div id="schedule-header" class="d-flex justify-content-between gradient-panel align-items-center mb-4 py-0 px-2 px-md-4 rounded mt-5" style="background-color: #2d3748;">
+<div id="schedule-header" class="d-flex justify-content-between gradient-panel align-items-center mb-2 py-0 px-2 px-md-4 rounded mt-5" style="background-color: #2d3748;">
   <div>
     <a class="btn btn-outline-light" href="#" id="previous-week-btn">
       <i class="fas fa-arrow-left"></i> Back
@@ -40,16 +40,28 @@
   <div class="text-center my-3">
     <h3 class="mb-0 fw-semibold" id="schedule-week-title">Week of .......</h3>
   </div>
-  <div class="d-flex align-items-center gap-2">
-    <div class="form-check form-switch text-white" title="View entire roster">
-      <input class="form-check-input" type="checkbox" id="viewEveryoneSwitch" disabled>
-      <label class="form-check-label" for="viewEveryoneSwitch">Everyone</label>
-    </div>
+  <div>
     <a class="btn btn-outline-light" href="#" id="next-week-btn">
       <i class="fas fa-arrow-right"></i> Next 
     </a>
   </div>
+</div>
 
+<!-- OPTIONS dropdown below header -->
+<div class="d-flex justify-content-center mb-4 px-2 px-md-4">
+  <div class="dropdown" id="rosterDropdown">
+    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="More Options">
+      OPTIONS
+    </button>
+    <ul class="dropdown-menu">
+      <li>
+        <button class="dropdown-item d-flex align-items-center" type="button" id="toggleEveryoneItem" title="Toggle viewing the entire store roster">
+          <i class="fa-regular fa-square me-2" id="everyoneIcon"></i>
+          <span>View entire roster</span>
+        </button>
+      </li>
+    </ul>
+  </div>
 </div>
 
 <div class="scroll-container">

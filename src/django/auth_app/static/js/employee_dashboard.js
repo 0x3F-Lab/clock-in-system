@@ -1,14 +1,24 @@
 $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
-    initEveryoneSwitchForSelectedStore();
+    initEveryoneOptionForSelectedStore();   // <-- changed
     updateClockedState();
     updateStoreInformation();
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
   });
 
-  // When "Everyone" switch toggles, reload roster for the current week
-  $('#viewEveryoneSwitch').on('change', function () {
+  // Handle click on "View entire roster" inside the OPTIONS dropdown
+  $('#toggleEveryoneItem').on('click', function () {
+    if ($(this).hasClass('disabled')) return;
+
+    // toggle UI state (store it on the button)
+    const on = !!$(this).data('on');
+    $(this).data('on', !on);
+
+    // toggle the icon
+    $('#everyoneIcon').toggleClass('fa-square fa-square-check');
+
+    // reload for the current week
     const weekNow = $('#schedule-week-title').data('week-start-date')
       ? new Date($('#schedule-week-title').data('week-start-date')).toLocaleDateString('sv-SE')
       : new Date().toLocaleDateString('sv-SE');
@@ -30,7 +40,7 @@ $(document).ready(function() {
   });
 
   // Initial state & history set
-  initEveryoneSwitchForSelectedStore();
+  initEveryoneOptionForSelectedStore(); 
   updateClockedState();
   updateStoreInformation();
   updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
@@ -312,7 +322,7 @@ function updateShiftRosterAndHistory(week) {
   });
 
   // --- Build query params (add get_all when "Everyone" is checked)
-const everyone = $('#viewEveryoneSwitch').is(':checked');
+const everyone = !!$('#toggleEveryoneItem').data('on');
 const params = new URLSearchParams({ week });
 if (everyone) {
   params.set('get_all', 'true');
@@ -530,15 +540,24 @@ const STORE_PERMS = (() => {
   catch { return {}; }
 })();
 
-// Enable/disable the "Everyone" switch for the currently selected store
-function initEveryoneSwitchForSelectedStore() {
+// Enable/disable the "Everyone" option for the currently selected store
+function initEveryoneOptionForSelectedStore() {
   const id = getSelectedStoreID();
   const key = id != null ? String(id) : null; // keys from json_script are strings
   const allowed = key && Object.prototype.hasOwnProperty.call(STORE_PERMS, key) ? !!STORE_PERMS[key] : false;
 
-  const $sw = $('#viewEveryoneSwitch');
-  $sw.prop('checked', false);        // reset when store changes
-  $sw.prop('disabled', !allowed);    // enable only if allowed
+  const $item = $('#toggleEveryoneItem');
+  const $icon = $('#everyoneIcon');
+
+  // reset state OFF whenever store changes
+  $item.data('on', false);
+  $icon.removeClass('fa-square-check').addClass('fa-square');
+
+  if (allowed) {
+    $item.removeClass('disabled').attr('aria-disabled', 'false');
+  } else {
+    $item.addClass('disabled').attr('aria-disabled', 'true');
+  }
 }
 // -----------------------------------------------------------------------------
 
