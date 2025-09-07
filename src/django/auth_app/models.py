@@ -184,16 +184,28 @@ class User(models.Model):
             - If show_inactive_for_managers is True, also includes inactive stores
               where the user is a manager.
         """
-        base_qs = Store.objects.filter(user_access__user=self)
+        qs = Store.objects.all()
 
         if get_only_stores_as_manager:
-            qs = base_qs.filter(user_access__is_manager=True)
-        elif show_inactive_for_managers:
-            qs = base_qs.filter(
-                Q(is_active=True) | Q(is_active=False, user_access__is_manager=True)
-            )
+            # Only stores where this user is a manager
+            qs = qs.filter(user_access__user=self, user_access__is_manager=True)
+            if not show_inactive_for_managers:
+                qs = qs.filter(is_active=True)
+
         else:
-            qs = base_qs.filter(is_active=True)
+            # Stores this user belongs to
+            qs = qs.filter(user_access__user=self)
+            if show_inactive_for_managers:
+                qs = qs.filter(
+                    Q(is_active=True)
+                    | Q(
+                        is_active=False,
+                        user_access__user=self,
+                        user_access__is_manager=True,
+                    )
+                )
+            else:
+                qs = qs.filter(is_active=True)
 
         return qs.distinct()
 
@@ -566,8 +578,8 @@ class Notification(models.Model):
     def send_to_users(
         cls,
         users,
-        title,
-        message,
+        title: str,
+        message: str,
         recipient_group,
         notification_type=Type.GENERAL,
         sender=None,
@@ -615,9 +627,9 @@ class Notification(models.Model):
     @classmethod
     def send_to_store_users(
         cls,
-        store,
-        title,
-        message,
+        store: Store,
+        title: str,
+        message: str,
         notification_type=Type.MANAGER_NOTE,
         sender=None,
         expires_on=None,

@@ -387,7 +387,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=True
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }
@@ -408,7 +408,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=True
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }
@@ -428,7 +428,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=False
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }

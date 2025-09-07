@@ -79,7 +79,9 @@ def get_store_employee_names(
     if only_active:
         users = users.filter(is_active=True)
     if ignore_managers:
-        users = users.filter(store_access__is_manager=False)
+        users = users.filter(
+            store_access__store_id=store.id, store_access__is_manager=False
+        )
     if ignore_id is not None and isinstance(ignore_id, int):
         users = users.exclude(pk=ignore_id)
 
@@ -594,6 +596,15 @@ def get_all_shifts(
         store_id=store_id, employee__is_hidden=False
     )
 
+    # Annotate whether the employee is currently associated with the store
+    qs = qs.annotate(
+        is_store_associated=Exists(
+            StoreUserAccess.objects.filter(
+                user=OuterRef("employee__id"), store_id=store_id
+            )
+        )
+    )
+
     # Filter dates
     if start_date:
         qs = qs.filter(login_time__date__gte=start_date)
@@ -620,16 +631,7 @@ def get_all_shifts(
     if hide_deactivated:
         qs = qs.filter(employee__is_active=True)
     if hide_resigned:
-        qs = qs.filter(employee__store_access__store_id=store_id)
-
-    # Annotate whether the employee is currently associated with the store
-    qs = qs.annotate(
-        is_store_associated=Exists(
-            StoreUserAccess.objects.filter(
-                user=OuterRef("employee__id"), store_id=store_id
-            )
-        )
-    )
+        qs = qs.filter(is_store_associated=True)
 
     # Sorting
     sort_map = {
@@ -2238,18 +2240,25 @@ def get_shift_requests(
             "store_code": req.store.code if req.store else None,
             "requester_id": req.requester_id,
             "target_user_id": req.target_user_id,
+            "created_at": localtime(req.created_at),
+            "updated_at": localtime(req.updated_at),
             "is_store_manager": is_store_manager,
             "is_request_owner": is_request_owner,
         }
 
         if req.shift:
+            start_dt = datetime.combine(req.shift.date, req.shift.start_time)
+            end_dt = datetime.combine(req.shift.date, req.shift.end_time)
+            shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 2)
             info.update(
                 {
                     "shift_id": req.shift_id,
                     "shift_date": req.shift.date.isoformat(),
                     "shift_start_time": req.shift.start_time.strftime("%H:%M"),
                     "shift_end_time": req.shift.end_time.strftime("%H:%M"),
+                    "shift_length_hr": shift_length_hr,
                     "shift_role_name": req.shift.role.name if req.shift.role else None,
+                    "shift_comment": req.shift.comment,
                 }
             )
 

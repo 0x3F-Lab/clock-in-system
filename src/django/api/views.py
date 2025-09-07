@@ -3173,6 +3173,7 @@ def manage_store_shift(request, id):
                 "role_desc": shift.role.description if shift.role else None,
                 "role_colour": shift.role.colour_hex if shift.role else None,
                 "comment": shift.comment if shift.comment else "",
+                "in_future": False if shift.date <= localtime(now()).date() else True,
             }
 
             # IF REGULAR EMPLOYEE -> REMOVE SOME CONTENT
@@ -4237,6 +4238,12 @@ def manage_shift_request(request, req_id):
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
+            elif req.type in [ShiftRequest.Type.COVER, ShiftRequest.Type.BID]:
+                return Response(
+                    {"Error": "Cannot reject this type of request."},
+                    status=status.HTTP_424_FAILED_DEPENDENCY,
+                )
+
             # Only target user OR manager can reject request
             elif not (
                 employee.id == req.target_user_id
@@ -4258,13 +4265,13 @@ def manage_shift_request(request, req_id):
                 or employee.is_manager(store=req.store_id)
             ):
                 return Response(
-                    {"Error": "Not authorised to delete a shift request."},
+                    {"Error": "Not authorised to cancel this request."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
             if req.status != ShiftRequest.Status.PENDING:
                 return Response(
-                    {"Error": "Can only delete PENDING requests."},
+                    {"Error": "Can only cancel PENDING requests."},
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 

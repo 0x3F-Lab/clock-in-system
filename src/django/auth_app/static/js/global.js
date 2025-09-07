@@ -149,7 +149,7 @@ function getCSRFToken() {
 }
 
 
-function ensureSafeInt(val, min, max) {
+function ensureSafeInt(val, min = null, max = null) {
   // Parse the int to ensure its an int
   val = parseInt(val, 10);
 
@@ -204,12 +204,28 @@ function formatToDatetimeLocal(dateStr) {
 
 // Format to YYYY-MM-DD for input[type="date"]
 function formatDateForInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+function formatDateTimeFull(isoString, includeTime = true) {
+  const date = new Date(isoString);
+  const options = {
+    year: "numeric",
+    month: "short", // e.g., "Jun"
+    day: "numeric",
   };
 
+  if (includeTime) {
+    options.hour = "numeric";
+    options.minute = "2-digit";
+    options.hour12 = true; // AM/PM format
+  }
+
+  return date.toLocaleString("en-US", options);
+}
 
 function getFullDayName(dateString) {
   if (!dateString) return "";

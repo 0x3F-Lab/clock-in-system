@@ -159,7 +159,7 @@
           <p id="displayComment">No comment</p>
         </div>
 
-        <div id="editModalEmployeeListContainer" class="mb-4">
+        <div id="editModalEmployeeListContainer" class="mb-4 d-none">
           <div class="mb-3">
             <label for="editModalEmployeeSearchBar" class="form-label fw-bolder">Select Employee for cover</label>
             <input
@@ -182,12 +182,14 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-danger cover-btn" id="storeCoverBtn" data-type="store">
-          <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from entire store
-        </button>
-        <button type="button" class="btn btn-warning cover-btn" id="employeeCoverBtn" data-type="employee">
-          <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from selected employee
-        </button>
+        <div id="editModalCoverButtons" class="d-none d-flex flex-column gap-2 align-items-center w-100">
+          <button type="button" class="btn btn-danger cover-btn" id="storeCoverBtn" data-type="store">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from entire store
+          </button>
+          <button type="button" class="btn btn-warning cover-btn" id="employeeCoverBtn" data-type="employee">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from selected employee
+          </button>
+        </div>
       </div>
     </div>
   </div>
