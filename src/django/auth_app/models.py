@@ -242,6 +242,29 @@ class User(models.Model):
             user=employee, store_id__in=manager_store_ids
         ).exists()
 
+    def get_active_shift_requests(self):
+        """
+        Returns active shift requests visible to this user:
+          - All BID and COVER requests in stores they're associated with
+          - All SWAP requests where this user is the target_user
+        """
+        active_statuses = [
+            ShiftRequest.Status.PENDING,
+            ShiftRequest.Status.ACCEPTED,
+        ]
+
+        associated_store_ids = self.store_access.values_list("store_id", flat=True)
+
+        visible_requests = ShiftRequest.objects.filter(
+            Q(
+                type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
+                store_id__in=associated_store_ids,
+            )
+            | Q(type=ShiftRequest.Type.SWAP, target_user=self)
+        ).filter(status__in=active_statuses)
+
+        return visible_requests.distinct()
+
     def get_unread_notifications(self):
         """
         Returns a queryset of unread Notifications for this user,
@@ -793,6 +816,14 @@ class Shift(models.Model):
 
     def __str__(self):
         return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
+
+    def get_active_shift_requests(self):
+        """Return active shift requests (pending or accepted)."""
+        active_statuses = [
+            ShiftRequest.Status.PENDING,
+            ShiftRequest.Status.ACCEPTED,
+        ]
+        return self.shift_requests.filter(status__in=active_statuses)
 
 
 class ShiftRequest(models.Model):

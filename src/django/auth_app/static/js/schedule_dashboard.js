@@ -132,6 +132,7 @@ function handleShiftModification() {
         $('#editShiftRole').val('');
         $('#editStartTime').val('');
         $('#editEndTime').val('');
+        $('#editComment').val('');
         $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
         
         const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -177,6 +178,7 @@ function handleShiftModification() {
       $('#editShiftRole').val('');
       $('#editStartTime').val('');
       $('#editEndTime').val('');
+      $('#editComment').val('');
       $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
       
       const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));

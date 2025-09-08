@@ -169,19 +169,43 @@ DATABASES = {
 }
 
 # Django cache to store the more temporary info (i.e. public holiday checks)
-if DEBUG:  # Use memory for development (saves the file permission errors)
+if DEBUG and str_to_bool(os.getenv("DJANGO_USE_MEMORY_CACHE", "false")):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "django_cache",
-        }
+            "LOCATION": "default_django_cache",
+        },
+        "holiday_checks": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "holiday_checks_cache",
+        },
+        "user_stats": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "user_stats_cache",
+        },
     }
 else:
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-            "LOCATION": "/app/django_cache",
-        }
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_DEFAULT_DJANGO_CACHE_URL", "redis://:securepassword@redis:6379/2"
+            ),
+        },
+        "holiday_checks": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_HOLIDAY_CHECKS_DJANGO_CACHE_URL",
+                "redis://:securepassword@redis:6379/3",
+            ),
+        },
+        "user_stats": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_USER_STATS_DJANGO_CACHE_URL",
+                "redis://:securepassword@redis:6379/4",
+            ),
+        },
     }
 
 
@@ -289,6 +313,13 @@ COUNTRY_CODE = "AU"
 COUNTRY_SUBDIV_CODE = "WA"
 UTC_OFFSET = "8"  # For UTC+8
 
+
+USER_STATS_USE_CACHE = (
+    True  # Whether to cache user stats (i.e. active notifications or shift requests)
+)
+USER_STATS_CACHE_MAX_TTL_SEC = (
+    150  # Max TTL age of cached user stats (after max, info is refetched)
+)
 
 # Default notification expiration date
 NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21

@@ -75,7 +75,7 @@ function renderRequestCard(req) {
                 <button class="btn btn-sm btn-outline-success approve-request-btn action-btn d-none" data-req-id="${req.id}">Approve</button>
                 <button class="btn btn-sm btn-outline-warning reject-request-btn action-btn d-none" data-req-id="${req.id}">Reject</button>`;
         } else {
-             actionsHtml = `<span class="border border-warning p-3 text-warning d-none">Awaiting Manager Approval</span>`;
+             actionsHtml = `<div class="btn btn-sm btn-outline-warning disabled">Awaiting Manager Approval</div>`;
         }
     }
     

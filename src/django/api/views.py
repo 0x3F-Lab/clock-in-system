@@ -4009,12 +4009,7 @@ def request_shift_cover(request, shift_id):
                 {"Error": "Can only interact with your own shifts."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif shift.shift_requests.filter(
-            status__in=[
-                ShiftRequest.Status.PENDING,
-                ShiftRequest.Status.ACCEPTED,
-            ]
-        ).exists():
+        elif shift.get_active_shift_requests().exists():
             return Response(
                 {"Error": "An active cover request already exists for this shift."},
                 status=status.HTTP_409_CONFLICT,
@@ -4191,6 +4186,12 @@ def manage_shift_request(request, req_id):
                     "Could not APPROVE SHIFT REQUEST due to request missing `target_user` field."
                 )
 
+            elif req.shift.date <= localtime(now()).date():
+                return Response(
+                    {"Error": "Can only approve future shifts."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
             elif util.employee_has_conflicting_shifts(
                 employee_id=req.target_user.id,
                 store_id=req.shift.store_id,
@@ -4275,7 +4276,8 @@ def manage_shift_request(request, req_id):
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
-            req.delete()
+            req.status = ShiftRequest.Status.CANCELLED
+            req.save()
 
         return Response({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
 
