@@ -496,11 +496,8 @@ def test_password_change_success(logged_in_employee, employee):
     Ensure an employee can successfully change their password when all inputs are valid.
     """
     api_client = logged_in_employee
-    old_pass = "TestPass123"
+    old_pass = "testpassword"
     new_pass = "NewPass456"
-
-    employee.set_password(old_pass)
-    employee.save()
 
     response = api_client.put(
         reverse("api:modify_account_password"),
@@ -512,6 +509,7 @@ def test_password_change_success(logged_in_employee, employee):
     assert "message" in response.json()
     employee.refresh_from_db()
     assert employee.check_password(new_pass)
+    assert not employee.check_password(old_pass)
 
 
 @pytest.mark.django_db

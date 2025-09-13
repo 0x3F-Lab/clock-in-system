@@ -3953,7 +3953,7 @@ def copy_week_schedule(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreAsManagerError:
+    except err.NotAssociatedWithStoreError:
         return Response(
             {"Error": "Not authorised modify the schedule for this store."},
             status=status.HTTP_403_FORBIDDEN,
