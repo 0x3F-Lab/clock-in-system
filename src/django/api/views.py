@@ -4239,7 +4239,10 @@ def manage_shift_request(request, req_id):
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
-            elif req.type in [ShiftRequest.Type.COVER, ShiftRequest.Type.BID]:
+            elif req.status != ShiftRequest.Status.ACCEPTED and req.type in [
+                ShiftRequest.Type.COVER,
+                ShiftRequest.Type.BID,
+            ]:
                 return Response(
                     {"Error": "Cannot reject this type of request."},
                     status=status.HTTP_424_FAILED_DEPENDENCY,
@@ -4278,6 +4281,10 @@ def manage_shift_request(request, req_id):
 
             req.status = ShiftRequest.Status.CANCELLED
             req.save()
+
+        tasks.notify_shift_request_status_change.delay(
+            request_id=req.id, acting_user_id=employee.id
+        )
 
         return Response({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
 

@@ -491,6 +491,7 @@ def get_default_page_context(request, include_notifications: bool = False):
             },
             "notification_count": unread_notifs_count,
             "shift_request_count": active_shift_req_count,
+            "total_alert_count": unread_notifs_count + active_shift_req_count,
         }, employee
 
     # Else, dont include notifications (SAVES WORK)
@@ -501,6 +502,7 @@ def get_default_page_context(request, include_notifications: bool = False):
         "associated_stores_as_manager": store_as_manager_data,
         "notification_count": unread_notifs_count,
         "shift_request_count": active_shift_req_count,
+        "total_alert_count": unread_notifs_count + active_shift_req_count,
     }, employee
 
 

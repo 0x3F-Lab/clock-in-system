@@ -247,23 +247,39 @@ class User(models.Model):
         Returns active shift requests visible to this user:
           - All BID and COVER requests in stores they're associated with
           - All SWAP requests where this user is the target_user
-        """
-        active_statuses = [
-            ShiftRequest.Status.PENDING,
-            ShiftRequest.Status.ACCEPTED,
-        ]
 
+        ACTIVE SHIFTS:
+          - Pending always
+          - Accepted only if the user is a manager for the store of the request
+        """
         associated_store_ids = self.store_access.values_list("store_id", flat=True)
 
-        visible_requests = ShiftRequest.objects.filter(
-            Q(
-                type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
-                store_id__in=associated_store_ids,
-            )
-            | Q(type=ShiftRequest.Type.SWAP, target_user=self)
-        ).filter(status__in=active_statuses)
+        bid_cover_q = Q(
+            status=ShiftRequest.Status.PENDING,
+            store_id__in=associated_store_ids,
+            type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
+        )
 
-        return visible_requests.distinct()
+        swap_q = Q(
+            status__in=[ShiftRequest.Status.PENDING],
+            target_user=self,
+            type=ShiftRequest.Type.SWAP,
+        )
+
+        # ACCEPTED requests only for stores where user is manager
+        manager_store_ids = StoreUserAccess.objects.filter(
+            user=self, is_manager=True
+        ).values_list("store_id", flat=True)
+        accepted_q = Q(
+            status=ShiftRequest.Status.ACCEPTED,
+            store_id__in=manager_store_ids,
+        )
+
+        visible_requests = ShiftRequest.objects.filter(
+            bid_cover_q | swap_q | accepted_q
+        ).distinct()
+
+        return visible_requests
 
     def get_unread_notifications(self):
         """

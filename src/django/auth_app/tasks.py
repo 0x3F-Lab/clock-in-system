@@ -15,6 +15,7 @@ from auth_app.models import (
     StoreUserAccess,
     Activity,
     Shift,
+    ShiftRequest,
     notification_default_expires_on,
 )
 
@@ -276,6 +277,75 @@ def check_shifts_for_exceptions(
         )
         logger_beat.critical(
             f"[FAILURE] Failed to complete task `check_shifts_for_exceptions` due to the error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+@shared_task
+def cancel_expired_shift_requests():
+    logger_beat.info(f"[AUTOMATED] Running task `cancel_old_shift_requests`.")
+
+    try:
+        today = localtime(now()).date()
+        expired_requests = ShiftRequest.objects.select_related("shift").filter(
+            status__in=[ShiftRequest.Status.PENDING, ShiftRequest.Status.ACCEPTED],
+            shift__date__lte=today,
+        )
+        total_count = expired_requests.count()
+
+        if total_count > 0:
+            updated_count = expired_requests.update(
+                status=ShiftRequest.Status.CANCELLED
+            )
+            logger_beat.info(
+                f"Successfully cancelled {updated_count} expired shift requests."
+            )
+
+            for req in expired_requests:
+                notify_shift_request_status_change.delay(
+                    request_id=req.id, acting_user_id=None
+                )
+
+        logger_beat.info(
+            f"Finished running task `cancel_old_shift_requests` and cancelled {total_count} expired shift requests."
+        )
+
+    except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `cancel_old_shift_requests`",
+            f"Failed to cancel expired shift requests, generating the error:\n\n{str(e)}",
+        )
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task cancel_old_shift_requests` due to the error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+@shared_task
+def delete_old_shift_requests():
+    logger_beat.info(f"[AUTOMATED] Running task `delete_old_shift_requests`.")
+
+    try:
+        today = localtime(now()).date()
+        max_age_date = today - timedelta(
+            days=settings.SHIFT_REQUEST_MAX_HISTORY_AGE_DAYS
+        )
+        old_requests = ShiftRequest.objects.filter(shift__date__lte=max_age_date)
+        total_count = old_requests.count()
+
+        old_requests.delete()
+
+        logger_beat.info(
+            f"Finished running task `delete_old_shift_requests` and deleted {total_count} old shift requests."
+        )
+
+    except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `delete_old_shift_requests`",
+            f"Failed to delete old shift requests, generating the error:\n\n{str(e)}",
+        )
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task delete_old_shift_requests` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -971,6 +1041,70 @@ def notify_managers_and_user_removed_permission(
             f"[FAILURE] Failed to complete task `notify_managers_and_user_removed_permission` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
+
+
+@shared_task
+def notify_shift_request_status_change(request_id: int, acting_user_id: int = None):
+    logger_beat.info(
+        f"[AUTOMATED] Running task `notify_shift_request_status_change` for ShiftRequest ID '{request_id}'."
+    )
+
+    try:
+        try:
+            shift_request = ShiftRequest.objects.select_related(
+                "requester", "target_user", "shift", "shift__store", "shift__role"
+            ).get(id=request_id)
+        except ShiftRequest.DoesNotExist:
+            logger_beat.critical(
+                f"[FAILURE] ShiftRequest ID {request_id} not found. Skipping notification task."
+            )
+            return
+
+        # Determine acting user
+        if acting_user_id:
+            try:
+                acting_user = User.objects.get(id=acting_user_id)
+                acting_name = f"*{'manager' if acting_user.is_manager(store=shift_request.store_id) else 'user'}* ++{acting_user.first_name} {acting_user.last_name}++"
+            except User.DoesNotExist:
+                logger_beat.critical(
+                    f"[FAILURE] Acting user ID {acting_user_id} not found."
+                )
+                return
+        else:
+            acting_name = "++System++ (AUTOMATED)"
+
+        message_text = f"One of your associated shift requests have been **{shift_request.status.upper()}** by the {acting_name}."
+        message_text += f"\n\n**Shift Information:**\n<ul><li><b>Store:</b> {shift_request.shift.store.code}</li>\n<li><b>Date:</b> {shift_request.shift.date}</li>\n<li><b>Time:</b> {shift_request.shift.start_time.strftime('%H:%M')} - {shift_request.shift.end_time.strftime('%H:%M')}</li>\n<li><b>Role:</b> {shift_request.shift.role.name}</li></ul>"
+
+        str_title = util.sanitise_markdown_title_text(f"Shift Request Status Update")
+
+        # Collect recipients
+        recipients = [shift_request.requester]
+        if shift_request.target_user:
+            recipients.append(shift_request.target_user)
+
+        # Send notification
+        Notification.send_to_users(
+            users=recipients,
+            title=str_title,
+            message=util.sanitise_markdown_message_text(message_text),
+            notification_type=Notification.Type.AUTOMATIC_ALERT,
+            recipient_group=Notification.RecipientType.INDIVIDUAL,
+            expires_on=notification_default_expires_on(7),
+        )
+
+        logger_beat.info(
+            f"Finished running task `notify_shift_request_status_change`. Notified {[u.id for u in recipients]} about ShiftRequest ID {shift_request.id} status change to {shift_request.status.upper()}."
+        )
+
+    except Exception as e:
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `notify_shift_request_status_change` due to error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+############################################ HELPER TASKS ########################################################################
 
 
 def notify_admins_error_generated(title: str, message: str):

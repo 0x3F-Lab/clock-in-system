@@ -254,7 +254,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
-        "schedule": crontab(hour=23, minute=40),
+        "schedule": crontab(hour=23, minute=55),
     },
     "delete_old_notifications": {
         "task": "auth_app.tasks.delete_old_notifications",
@@ -264,15 +264,23 @@ CELERY_BEAT_SCHEDULE = {
         "task": "auth_app.tasks.delete_old_unused_shifts",
         "schedule": crontab(hour=2, minute=30, day_of_week=2),  # Tues
     },
+    "delete_old_shift_requests": {
+        "task": "auth_app.tasks.delete_old_shift_requests",
+        "schedule": crontab(hour=2, minute=30, day_of_week=3),  # Wed
+    },
     "deactivate_unassigned_users": {
         "task": "auth_app.tasks.deactivate_unassigned_users",
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
+    },
+    "cancel_expired_shift_requests": {
+        "task": "auth_app.tasks.cancel_expired_shift_requests",
+        "schedule": crontab(hour=0, minute=5),  # DONT CHANGE TIME
     },
     "check_shifts_for_exceptions": {
         "task": "auth_app.tasks.check_shifts_for_exceptions",
         "schedule": crontab(
             hour=0, minute=5
-        ),  # DO NOT CHANGE FROM 12:05AM - UNLESS CONSULTED TASK FUNCTION
+        ),  # DO NOT CHANGE FROM 12:05AM - UNLESS YOU'VE CONSULTED TASK FUNCTION
     },
 }
 
@@ -324,6 +332,9 @@ USER_STATS_CACHE_MAX_TTL_SEC = (
 # Default notification expiration date
 NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21
 NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 90
+
+# Default shift request history TTL
+SHIFT_REQUEST_MAX_HISTORY_AGE_DAYS = 120
 
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min
