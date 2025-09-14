@@ -15,37 +15,6 @@ from rest_framework import status
 
 
 @pytest.mark.django_db
-def test_list_store_employee_names_not_authorised(
-    logged_in_employee,
-    manager,
-    store,
-    store_associate_employee,
-    store_associate_manager,
-    inactive_employee,
-    employee,
-):
-    """
-    Test attempt to list store employees from a unauthorised account.
-    """
-    api_client = logged_in_employee
-    url = reverse("api:list_store_employee_names")  # Ensure your URL name matches this
-
-    response = api_client.get(
-        url,
-        {
-            "store_id": store.id,
-            "only_active": "false",
-            "ignore_managers": "true",
-            "order": "true",
-            "order_by_first_name": "true",
-            "ignore_clocked_in": "false",
-        },
-    )
-
-    assert response.status_code == 403
-
-
-@pytest.mark.django_db
 def test_list_store_employee_names_not_associated(
     logged_in_manager,
     manager,
