@@ -4327,7 +4327,7 @@ def list_shift_requests(request):
     """
     try:
         employee = util.api_get_user_object_from_session(request)
-        view_type = util.clean_param_str(request.query_params.get("type", "pending"))
+        view_type = util.clean_param_str(request.query_params.get("view", "pending"))
         offset, limit = util.get_pagination_values_from_request(request)
 
         data, total = controllers.get_shift_requests(

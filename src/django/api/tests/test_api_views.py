@@ -5,6 +5,7 @@ from datetime import date, timedelta, time
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
 from rest_framework import status
+from rest_framework.test import APIClient
 from auth_app.models import (
     Shift,
     Role,
@@ -13,6 +14,7 @@ from auth_app.models import (
     ShiftException,
     Activity,
     StoreUserAccess,
+    ShiftRequest,
 )
 
 
@@ -1154,3 +1156,199 @@ class TestScheduleAndRoleAPIs:
         results = response.json()["results"]
         assert results["created"] == 1, "Should have created the non-conflicting shift."
         assert results["skipped"] == 1, "Should have skipped the conflicting shift."
+
+
+@pytest.mark.django_db
+class TestShiftRequestAPI:
+    """
+    Test suite for the entire shift request lifecycle,
+    including creation, acceptance, approval, and listing.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_method(
+        self,
+        db,
+        store,
+        employee,
+        employee_b,
+        manager,
+        store_associate_employee,
+        store_associate_manager,
+    ):
+        """Create common objects for this test class."""
+        self.store = store
+        self.requester = employee  # John Doe
+        self.target_user = employee_b  # Bailey Smith
+        self.manager = manager
+
+        # A shift in the future for the requester to use
+        self.future_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.requester,
+            date=now().date() + timedelta(days=10),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+
+    # ===============================================
+    # == Tests for request_shift_cover
+    # ===============================================
+
+    def test_request_cover_for_whole_store_success(
+        self, logged_in_employee, api_client
+    ):
+        """
+        GIVEN a logged-in employee with a future shift
+        WHEN they make a POST request to cover the shift
+        THEN a new 'COVER' ShiftRequest should be created.
+        """
+        shift_request_count = ShiftRequest.objects.count()
+        url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
+
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert ShiftRequest.objects.count() == shift_request_count + 1
+        new_request = ShiftRequest.objects.latest("id")
+        assert new_request.type == ShiftRequest.Type.COVER
+        assert new_request.requester == self.requester
+
+    def test_request_swap_with_specific_employee_success(
+        self, logged_in_employee, api_client
+    ):
+        """
+        GIVEN a logged-in employee with a future shift
+        WHEN they make a PATCH request to swap with a specific employee
+        THEN a new 'SWAP' ShiftRequest should be created.
+        """
+        shift_request_count = ShiftRequest.objects.count()
+        url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
+        data = {"selected_employee_id": self.target_user.id}
+
+        response = api_client.patch(url, data, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert ShiftRequest.objects.count() == shift_request_count + 1
+        new_request = ShiftRequest.objects.latest("id")
+        assert new_request.type == ShiftRequest.Type.SWAP
+        assert new_request.target_user == self.target_user
+
+    def test_request_cover_for_past_shift_fails(self, logged_in_employee, api_client):
+        """
+        GIVEN a logged-in employee with a past shift
+        WHEN they try to request cover
+        THEN the request should be denied.
+        """
+        past_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.requester,
+            date=now().date() - timedelta(days=1),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        url = reverse("api:request_cover", kwargs={"shift_id": past_shift.id})
+
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+
+    # ===============================================
+    # == Tests for the full manage_shift_request lifecycle
+    # ===============================================
+
+    def test_full_swap_request_lifecycle_success(self, api_client, logged_in_employee):
+        """
+        Tests the full workflow:
+        1. Requester creates a SWAP request for Target.
+        2. Target logs in and ACCEPTS.
+        3. Manager logs in and APPROVES.
+        """
+        # --- Step 1: Requester (John) creates the request ---
+        requester_client = logged_in_employee  # Logged in as John Doe
+        create_url = reverse(
+            "api:request_cover", kwargs={"shift_id": self.future_shift.id}
+        )
+        create_data = {"selected_employee_id": self.target_user.id}
+        response = requester_client.patch(create_url, create_data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        request_id = response.json()["request_id"]
+
+        # --- Step 2: Target User (Bailey) ACCEPTS the request ---
+        target_client = APIClient()
+        login_url = reverse("login")
+        login_data = {"email": self.target_user.email, "password": "testpassword"}
+        target_client.post(login_url, login_data)
+
+        manage_url = reverse("api:manage_shift_request", kwargs={"req_id": request_id})
+        response = target_client.post(manage_url, {}, format="json")
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+        shift_request = ShiftRequest.objects.get(id=request_id)
+        assert shift_request.status == ShiftRequest.Status.ACCEPTED
+
+        # --- Step 3: Manager APPROVES the request ---
+        manager_client = APIClient()
+        login_data = {"email": self.manager.email, "password": "testpassword"}
+        manager_client.post(login_url, login_data)
+
+        response = manager_client.put(manage_url, {}, format="json")
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+        shift_request.refresh_from_db()
+        self.future_shift.refresh_from_db()
+        assert shift_request.status == ShiftRequest.Status.APPROVED
+        assert (
+            self.future_shift.employee == self.target_user
+        )  # Verify the shift was reassigned
+
+    # ===============================================
+    # == Tests for list_shift_requests
+    # ===============================================
+
+    def test_list_shift_requests_views(self, logged_in_employee, api_client):
+        """
+        GIVEN a user with various requests
+        WHEN they view each tab
+        THEN they should see the correct requests.
+        """
+        client = logged_in_employee  # Logged in as John Doe
+
+        # Create a request sent BY this user
+        my_pending_request = ShiftRequest.objects.create(
+            requester=self.requester,
+            shift=self.future_shift,
+            type=ShiftRequest.Type.COVER,
+            store=self.store,
+        )
+
+        # Create a request sent TO this user
+        other_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.target_user,
+            date=now().date() + timedelta(days=11),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        incoming_request = ShiftRequest.objects.create(
+            requester=self.target_user,
+            target_user=self.requester,
+            shift=other_shift,
+            type=ShiftRequest.Type.SWAP,
+            store=self.store,
+        )
+
+        # 1. Test "pending" view (should show "my_requests")
+        url = reverse("api:api_list_shift_requests") + "?view=pending"
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.json()["requests"]) == 1
+        assert response.json()["requests"][0]["id"] == my_pending_request.id
+
+        # 2. Test "active" view (should show "incoming")
+        url = reverse("api:api_list_shift_requests") + "?view=active"
+        response = client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        requests = response.json()["requests"]
+        assert len(requests) == 1
+        assert requests[0]["requester_id"] == self.target_user.id
