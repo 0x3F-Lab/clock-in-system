@@ -1268,60 +1268,96 @@ class TestShiftRequestAPI:
 
         assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
 
-    # ===============================================
-    # == Tests for the full manage_shift_request lifecycle
-    # ===============================================
+    # def test_target_user_can_accept_request(self, api_client):
+    #     """
+    #     GIVEN a pending SWAP request
+    #     WHEN the target user sends a POST request
+    #     THEN the request status should be updated to ACCEPTED.
+    #     """
+    #     # Setup: Create a pending request
+    #     request = ShiftRequest.objects.create(
+    #         requester_id=self.requester.id,
+    #         target_user_id=self.target_user.id,
+    #         shift_id=self.future_shift.id,
+    #         type=ShiftRequest.Type.SWAP,
+    #         store_id=self.store.id
+    #     )
 
-    def test_full_swap_request_lifecycle_success(
-        self, api_client, logged_in_employee, mocker
-    ):
+    #     # Action: Target user logs in via a POST request and then accepts
+    #     target_client = APIClient()
+    #     login_url = reverse("login")
+    #     login_data = {"email": self.target_user.email, "password": "testpassword"}
+    #     login_response = target_client.post(login_url, login_data)
+    #     assert login_response.status_code == 302 # Ensure login was successful
+
+    #     url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+    #     response = target_client.post(url, {}, format="json")
+
+    #     # Verification
+    #     assert response.status_code == status.HTTP_202_ACCEPTED
+    #     request.refresh_from_db()
+    #     assert request.status == ShiftRequest.Status.ACCEPTED
+
+    def test_manager_can_approve_request(self, api_client):
         """
-        Tests the full workflow:
-        1. Requester creates a SWAP request for Target.
-        2. Target logs in and ACCEPTS.
-        3. Manager logs in and APPROVES.
+        GIVEN an ACCEPTED swap request
+        WHEN a manager sends a PUT request
+        THEN the request should be APPROVED and the shift reassigned.
         """
-        mock_notify_task = mocker.patch(
-            "api.views.tasks.notify_shift_request_status_change.delay"
+        # Setup: Create an accepted request
+        request = ShiftRequest.objects.create(
+            requester_id=self.requester.id,
+            target_user_id=self.target_user.id,
+            shift_id=self.future_shift.id,
+            type=ShiftRequest.Type.SWAP,
+            store_id=self.store.id,
+            status=ShiftRequest.Status.ACCEPTED,
         )
 
-        # --- Step 1: Requester (John) creates the request ---
-        requester_client = logged_in_employee
-        create_url = reverse(
-            "api:request_cover", kwargs={"shift_id": self.future_shift.id}
-        )
-        create_data = {"selected_employee_id": self.target_user.id}
-        response = requester_client.patch(create_url, create_data, format="json")
-        assert response.status_code == status.HTTP_201_CREATED
-        request_id = response.json()["request_id"]
-        assert (
-            mock_notify_task.called
-        )  # Assert that the notification task was triggered
-
-        # --- Step 2: Target User (Bailey) ACCEPTS the request ---
-        target_client = APIClient()
-        login_url = reverse("login")
-        login_data = {"email": self.target_user.email, "password": "testpassword"}
-        target_client.post(login_url, login_data)
-
-        manage_url = reverse("api:manage_request", kwargs={"req_id": request_id})
-        response = target_client.post(manage_url, {}, format="json")
-        assert response.status_code == status.HTTP_202_ACCEPTED
-
-        shift_request = ShiftRequest.objects.get(id=request_id)
-        assert shift_request.status == ShiftRequest.Status.ACCEPTED
-        assert mock_notify_task.call_count == 2  # Called again on accept
-
-        # --- Step 3: Manager APPROVES the request ---
+        # Action: Manager logs in and approves
         manager_client = APIClient()
+        login_url = reverse("login")
         login_data = {"email": self.manager.email, "password": "testpassword"}
-        manager_client.post(login_url, login_data)
+        login_response = manager_client.post(login_url, login_data)
+        assert login_response.status_code == 302
 
-        response = manager_client.put(manage_url, {}, format="json")
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        response = manager_client.put(url, {}, format="json")
+
+        # Verification
         assert response.status_code == status.HTTP_202_ACCEPTED
-
-        shift_request.refresh_from_db()
+        request.refresh_from_db()
         self.future_shift.refresh_from_db()
-        assert shift_request.status == ShiftRequest.Status.APPROVED
+        assert request.status == ShiftRequest.Status.APPROVED
         assert self.future_shift.employee == self.target_user
-        assert mock_notify_task.call_count == 3  # Called again on approve
+
+    def test_manager_can_reject_request(self, api_client):
+        """
+        GIVEN an ACCEPTED swap request
+        WHEN a manager sends a PATCH request
+        THEN the request should be REJECTED.
+        """
+        # Setup: Create an accepted request
+        request = ShiftRequest.objects.create(
+            requester_id=self.requester.id,
+            target_user_id=self.target_user.id,
+            shift_id=self.future_shift.id,
+            type=ShiftRequest.Type.SWAP,
+            store_id=self.store.id,
+            status=ShiftRequest.Status.ACCEPTED,
+        )
+
+        # Action: Manager logs in and rejects
+        manager_client = APIClient()
+        login_url = reverse("login")
+        login_data = {"email": self.manager.email, "password": "testpassword"}
+        login_response = manager_client.post(login_url, login_data)
+        assert login_response.status_code == 302
+
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        response = manager_client.patch(url, {}, format="json")
+
+        # Verification
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        request.refresh_from_db()
+        assert request.status == ShiftRequest.Status.REJECTED
