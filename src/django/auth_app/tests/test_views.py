@@ -1,6 +1,5 @@
 import pytest
 from django.urls import reverse
-from auth_app.models import User, Activity, Store, StoreUserAccess, Notification
 
 
 @pytest.mark.django_db
