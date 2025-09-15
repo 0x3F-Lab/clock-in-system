@@ -64,7 +64,9 @@ def test_account_details_success(logged_in_employee, employee):
 
 
 @pytest.mark.django_db
-def test_notification_page_success(logged_in_employee, employee, notification_all):
+def test_notification_page_success(
+    slogged_in_employee, employee, notification_all, store_associate_employee
+):
     """
     Test that an authenticated employee can successfully access the notification page.
     """

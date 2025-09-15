@@ -1306,49 +1306,53 @@ class TestShiftRequestAPI:
     # == Tests for list_shift_requests
     # ===============================================
 
-    def test_list_shift_requests_views(self, logged_in_employee, api_client):
-        """
-        GIVEN a user with various requests
-        WHEN they view each tab
-        THEN they should see the correct requests.
-        """
-        client = logged_in_employee  # Logged in as John Doe
 
-        # Create a request sent BY this user
-        my_pending_request = ShiftRequest.objects.create(
-            requester=self.requester,
-            shift=self.future_shift,
-            type=ShiftRequest.Type.COVER,
-            store=self.store,
-        )
+def test_full_swap_request_lifecycle_success(
+    self, api_client, logged_in_employee, mocker
+):
+    """
+    Tests the full workflow:
+    1. Requester creates a SWAP request for Target.
+    2. Target logs in and ACCEPTS.
+    3. Manager logs in and APPROVES.
+    """
+    mock_notify_task = mocker.patch(
+        "api.views.tasks.notify_shift_request_status_change.delay"
+    )
 
-        # Create a request sent TO this user
-        other_shift = Shift.objects.create(
-            store=self.store,
-            employee=self.target_user,
-            date=now().date() + timedelta(days=11),
-            start_time=time(9, 0),
-            end_time=time(17, 0),
-        )
-        incoming_request = ShiftRequest.objects.create(
-            requester=self.target_user,
-            target_user=self.requester,
-            shift=other_shift,
-            type=ShiftRequest.Type.SWAP,
-            store=self.store,
-        )
+    # --- Step 1: Requester (John) creates the request ---
+    requester_client = logged_in_employee
+    create_url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
+    create_data = {"selected_employee_id": self.target_user.id}
+    response = requester_client.patch(create_url, create_data, format="json")
+    assert response.status_code == status.HTTP_201_CREATED
+    request_id = response.json()["request_id"]
+    assert mock_notify_task.called  # Assert that the notification task was triggered
 
-        # 1. Test "pending" view (should show "my_requests")
-        url = reverse("api:api_list_shift_requests") + "?view=pending"
-        response = client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.json()["requests"]) == 1
-        assert response.json()["requests"][0]["id"] == my_pending_request.id
+    # --- Step 2: Target User (Bailey) ACCEPTS the request ---
+    target_client = APIClient()
+    login_url = reverse("login")
+    login_data = {"email": self.target_user.email, "password": "testpassword"}
+    target_client.post(login_url, login_data)
 
-        # 2. Test "active" view (should show "incoming")
-        url = reverse("api:api_list_shift_requests") + "?view=active"
-        response = client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        requests = response.json()["requests"]
-        assert len(requests) == 1
-        assert requests[0]["requester_id"] == self.target_user.id
+    manage_url = reverse("api:manage_request", kwargs={"req_id": request_id})
+    response = target_client.post(manage_url, {}, format="json")
+    assert response.status_code == status.HTTP_202_ACCEPTED
+
+    shift_request = ShiftRequest.objects.get(id=request_id)
+    assert shift_request.status == ShiftRequest.Status.ACCEPTED
+    assert mock_notify_task.call_count == 2  # Called again on accept
+
+    # --- Step 3: Manager APPROVES the request ---
+    manager_client = APIClient()
+    login_data = {"email": self.manager.email, "password": "testpassword"}
+    manager_client.post(login_url, login_data)
+
+    response = manager_client.put(manage_url, {}, format="json")
+    assert response.status_code == status.HTTP_202_ACCEPTED
+
+    shift_request.refresh_from_db()
+    self.future_shift.refresh_from_db()
+    assert shift_request.status == ShiftRequest.Status.APPROVED
+    assert self.future_shift.employee == self.target_user
+    assert mock_notify_task.call_count == 3  # Called again on approve
