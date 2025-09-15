@@ -66,16 +66,16 @@ function renderRequestCard(req) {
             actionsHtml = `<button class="btn btn-sm btn-outline-danger cancel-request-btn action-btn d-none" data-req-id="${req.id}">Cancel</button>`;
         } else { // It's an incoming request for me to accept
             actionsHtml = `<button class="btn btn-sm btn-outline-success accept-request-btn action-btn d-none" data-req-id="${req.id}">Accept</button>`;
-            if (req.type === "swap_request") { actionsHtml += `<button class="btn btn-sm btn-outline-warning reject-request-btn action-btn d-none" data-req-id="${req.id}">Reject</button>`; }
+            if (req.type === "swap_request") { actionsHtml += `<button class="btn btn-sm btn-outline-danger reject-request-btn action-btn d-none" data-req-id="${req.id}">Reject</button>`; }
             if (req.is_store_manager) { actionsHtml += `<button class="btn btn-sm btn-outline-danger cancel-request-btn action-btn d-none" data-req-id="${req.id}">Cancel</button>`; }
         }
     } else if (req.status === 'accepted') {
         if (req.is_store_manager) {
             actionsHtml = `
                 <button class="btn btn-sm btn-outline-success approve-request-btn action-btn d-none" data-req-id="${req.id}">Approve</button>
-                <button class="btn btn-sm btn-outline-warning reject-request-btn action-btn d-none" data-req-id="${req.id}">Reject</button>`;
+                <button class="btn btn-sm btn-outline-danger reject-request-btn action-btn d-none" data-req-id="${req.id}">Reject</button>`;
         } else {
-             actionsHtml = `<div class="btn btn-sm btn-outline-warning disabled">Awaiting Manager Approval</div>`;
+             actionsHtml = `<div class="btn btn-sm btn-outline-danger disabled">Awaiting Manager Approval</div>`;
         }
     }
     
