@@ -1298,19 +1298,22 @@ class TestShiftRequestAPI:
     #     request.refresh_from_db()
     #     assert request.status == ShiftRequest.Status.ACCEPTED
 
-    def test_manager_can_approve_request(self, api_client):
+    def test_manager_can_approve_request(self, mocker):
         """
         GIVEN an ACCEPTED swap request
-        WHEN a manager sends a PUT request
+        WHEN a manager sends a PUT request to approve it
         THEN the request should be APPROVED and the shift reassigned.
         """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
         # Setup: Create an accepted request
         request = ShiftRequest.objects.create(
-            requester_id=self.requester.id,
-            target_user_id=self.target_user.id,
-            shift_id=self.future_shift.id,
+            requester=self.requester,
+            target_user=self.target_user,
+            shift=self.future_shift,
             type=ShiftRequest.Type.SWAP,
-            store_id=self.store.id,
+            store=self.store,
             status=ShiftRequest.Status.ACCEPTED,
         )
 
@@ -1321,7 +1324,7 @@ class TestShiftRequestAPI:
         login_response = manager_client.post(login_url, login_data)
         assert login_response.status_code == 302
 
-        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        url = reverse("api:manage_request", kwargs={"req_id": request.id})
         response = manager_client.put(url, {}, format="json")
 
         # Verification
@@ -1330,20 +1333,24 @@ class TestShiftRequestAPI:
         self.future_shift.refresh_from_db()
         assert request.status == ShiftRequest.Status.APPROVED
         assert self.future_shift.employee == self.target_user
+        assert mock_notify_task.called
 
-    def test_manager_can_reject_request(self, api_client):
+    def test_manager_can_reject_request(self, mocker):
         """
         GIVEN an ACCEPTED swap request
-        WHEN a manager sends a PATCH request
+        WHEN a manager sends a PATCH request to reject it
         THEN the request should be REJECTED.
         """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
         # Setup: Create an accepted request
         request = ShiftRequest.objects.create(
-            requester_id=self.requester.id,
-            target_user_id=self.target_user.id,
-            shift_id=self.future_shift.id,
+            requester=self.requester,
+            target_user=self.target_user,
+            shift=self.future_shift,
             type=ShiftRequest.Type.SWAP,
-            store_id=self.store.id,
+            store=self.store,
             status=ShiftRequest.Status.ACCEPTED,
         )
 
@@ -1354,10 +1361,11 @@ class TestShiftRequestAPI:
         login_response = manager_client.post(login_url, login_data)
         assert login_response.status_code == 302
 
-        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        url = reverse("api:manage_request", kwargs={"req_id": request.id})
         response = manager_client.patch(url, {}, format="json")
 
         # Verification
         assert response.status_code == status.HTTP_202_ACCEPTED
         request.refresh_from_db()
         assert request.status == ShiftRequest.Status.REJECTED
+        assert mock_notify_task.called
