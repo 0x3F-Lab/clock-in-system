@@ -1324,7 +1324,7 @@ class TestShiftRequestAPI:
         login_response = manager_client.post(login_url, login_data)
         assert login_response.status_code == 302
 
-        url = reverse("api:manage_request", kwargs={"req_id": request.id})
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
         response = manager_client.put(url, {}, format="json")
 
         # Verification
@@ -1361,7 +1361,7 @@ class TestShiftRequestAPI:
         login_response = manager_client.post(login_url, login_data)
         assert login_response.status_code == 302
 
-        url = reverse("api:manage_request", kwargs={"req_id": request.id})
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
         response = manager_client.patch(url, {}, format="json")
 
         # Verification
