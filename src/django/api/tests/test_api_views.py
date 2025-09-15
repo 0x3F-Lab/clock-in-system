@@ -1158,6 +1158,21 @@ class TestScheduleAndRoleAPIs:
         assert results["skipped"] == 1, "Should have skipped the conflicting shift."
 
 
+@pytest.fixture
+def employee_b(db, store):
+    """Creates a second employee in the same store."""
+    emp = User.objects.create(
+        first_name="Bailey",
+        last_name="Smith",
+        email="bailey.smith@example.com",
+        is_active=True,
+    )
+    emp.set_password("testpassword")
+    emp.save()
+    StoreUserAccess.objects.create(user=emp, store=store)
+    return emp
+
+
 @pytest.mark.django_db
 class TestShiftRequestAPI:
     """
@@ -1257,15 +1272,21 @@ class TestShiftRequestAPI:
     # == Tests for the full manage_shift_request lifecycle
     # ===============================================
 
-    def test_full_swap_request_lifecycle_success(self, api_client, logged_in_employee):
+    def test_full_swap_request_lifecycle_success(
+        self, api_client, logged_in_employee, mocker
+    ):
         """
         Tests the full workflow:
         1. Requester creates a SWAP request for Target.
         2. Target logs in and ACCEPTS.
         3. Manager logs in and APPROVES.
         """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
+
         # --- Step 1: Requester (John) creates the request ---
-        requester_client = logged_in_employee  # Logged in as John Doe
+        requester_client = logged_in_employee
         create_url = reverse(
             "api:request_cover", kwargs={"shift_id": self.future_shift.id}
         )
@@ -1273,6 +1294,9 @@ class TestShiftRequestAPI:
         response = requester_client.patch(create_url, create_data, format="json")
         assert response.status_code == status.HTTP_201_CREATED
         request_id = response.json()["request_id"]
+        assert (
+            mock_notify_task.called
+        )  # Assert that the notification task was triggered
 
         # --- Step 2: Target User (Bailey) ACCEPTS the request ---
         target_client = APIClient()
@@ -1280,12 +1304,13 @@ class TestShiftRequestAPI:
         login_data = {"email": self.target_user.email, "password": "testpassword"}
         target_client.post(login_url, login_data)
 
-        manage_url = reverse("api:manage_shift_request", kwargs={"req_id": request_id})
+        manage_url = reverse("api:manage_request", kwargs={"req_id": request_id})
         response = target_client.post(manage_url, {}, format="json")
         assert response.status_code == status.HTTP_202_ACCEPTED
 
         shift_request = ShiftRequest.objects.get(id=request_id)
         assert shift_request.status == ShiftRequest.Status.ACCEPTED
+        assert mock_notify_task.call_count == 2  # Called again on accept
 
         # --- Step 3: Manager APPROVES the request ---
         manager_client = APIClient()
@@ -1298,61 +1323,5 @@ class TestShiftRequestAPI:
         shift_request.refresh_from_db()
         self.future_shift.refresh_from_db()
         assert shift_request.status == ShiftRequest.Status.APPROVED
-        assert (
-            self.future_shift.employee == self.target_user
-        )  # Verify the shift was reassigned
-
-    # ===============================================
-    # == Tests for list_shift_requests
-    # ===============================================
-
-
-def test_full_swap_request_lifecycle_success(
-    self, api_client, logged_in_employee, mocker
-):
-    """
-    Tests the full workflow:
-    1. Requester creates a SWAP request for Target.
-    2. Target logs in and ACCEPTS.
-    3. Manager logs in and APPROVES.
-    """
-    mock_notify_task = mocker.patch(
-        "api.views.tasks.notify_shift_request_status_change.delay"
-    )
-
-    # --- Step 1: Requester (John) creates the request ---
-    requester_client = logged_in_employee
-    create_url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
-    create_data = {"selected_employee_id": self.target_user.id}
-    response = requester_client.patch(create_url, create_data, format="json")
-    assert response.status_code == status.HTTP_201_CREATED
-    request_id = response.json()["request_id"]
-    assert mock_notify_task.called  # Assert that the notification task was triggered
-
-    # --- Step 2: Target User (Bailey) ACCEPTS the request ---
-    target_client = APIClient()
-    login_url = reverse("login")
-    login_data = {"email": self.target_user.email, "password": "testpassword"}
-    target_client.post(login_url, login_data)
-
-    manage_url = reverse("api:manage_request", kwargs={"req_id": request_id})
-    response = target_client.post(manage_url, {}, format="json")
-    assert response.status_code == status.HTTP_202_ACCEPTED
-
-    shift_request = ShiftRequest.objects.get(id=request_id)
-    assert shift_request.status == ShiftRequest.Status.ACCEPTED
-    assert mock_notify_task.call_count == 2  # Called again on accept
-
-    # --- Step 3: Manager APPROVES the request ---
-    manager_client = APIClient()
-    login_data = {"email": self.manager.email, "password": "testpassword"}
-    manager_client.post(login_url, login_data)
-
-    response = manager_client.put(manage_url, {}, format="json")
-    assert response.status_code == status.HTTP_202_ACCEPTED
-
-    shift_request.refresh_from_db()
-    self.future_shift.refresh_from_db()
-    assert shift_request.status == ShiftRequest.Status.APPROVED
-    assert self.future_shift.employee == self.target_user
-    assert mock_notify_task.call_count == 3  # Called again on approve
+        assert self.future_shift.employee == self.target_user
+        assert mock_notify_task.call_count == 3  # Called again on approve
