@@ -3004,24 +3004,24 @@ def get_store_shifts(request, id):
             request, default_limit=100
         )
 
+        # Check the week is passed
+        if not week:
+            return Response(
+                {"Error": "Missing starting week date from request params."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check the date is correct
+        try:
+            datetime.strptime(week, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
         # Only get all shifts IF they're a manager
         if get_all and user.is_manager(store=store.id):
-            # Check the week is passed
-            if not week:
-                return Response(
-                    {"Error": "Missing starting week date from request params."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Check the date is correct
-            try:
-                datetime.strptime(week, "%Y-%m-%d")
-            except ValueError:
-                return Response(
-                    {"Error": "Invalid date format. Use YYYY-MM-DD."},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
-                )
-
             VALID_SORT_FIELDS = (
                 {"time", "name", "role_name", "length"}
                 if legacy

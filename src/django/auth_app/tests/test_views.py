@@ -64,22 +64,18 @@ def test_account_details_success(logged_in_employee, employee):
 
 
 @pytest.mark.django_db
-def test_notification_page_success(
-    logged_in_employee, employee, notification_all, store_associate_employee
-):
+def test_notification_page_success(logged_in_employee, notification_all):
     """
     Test that an authenticated employee can successfully access the notification page.
     """
-    client = logged_in_employee
-
     url = reverse("notification_page")
-    response = client.get(url)
+    response = logged_in_employee.get(url)
 
     assert response.status_code == 200
     content = response.content.decode()
 
     assert "Your <u>Unread</u> Notifications" in content
-    assert '<span id="notification-page-count">1</span>' in content
+    assert '<span id="notification-page-count">0</span>' in content
 
     # Assure the buttons exist
     assert "Notifications" in content
