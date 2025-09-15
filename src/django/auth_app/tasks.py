@@ -1074,7 +1074,7 @@ def notify_shift_request_status_change(request_id: int, acting_user_id: int = No
             acting_name = "++System++ (AUTOMATED)"
 
         message_text = f"One of your associated shift requests have been **{shift_request.status.upper()}** by the {acting_name}."
-        message_text += f"\n\n**Shift Information:**\n<ul><li><b>Store:</b> {shift_request.shift.store.code}</li>\n<li><b>Date:</b> {shift_request.shift.date}</li>\n<li><b>Time:</b> {shift_request.shift.start_time.strftime('%H:%M')} - {shift_request.shift.end_time.strftime('%H:%M')}</li>\n<li><b>Role:</b> {shift_request.shift.role.name}</li></ul>"
+        message_text += f"\n\n**Shift Information:**\n<ul><li><b>Store:</b> {shift_request.shift.store.code}</li>\n<li><b>Date:</b> {shift_request.shift.date}</li>\n<li><b>Time:</b> {shift_request.shift.start_time.strftime('%H:%M')} - {shift_request.shift.end_time.strftime('%H:%M')}</li>\n<li><b>Role:</b> {shift_request.shift.role.name if shift_request.shift.role else 'N/A'}</li></ul>"
 
         str_title = util.sanitise_markdown_title_text(f"Shift Request Status Update")
 
