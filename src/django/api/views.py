@@ -4069,10 +4069,10 @@ def request_shift_cover(request, shift_id):
             )
 
         logger.info(
-            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) requested COVER for shift ID {shift.id} from {f'[{shift.store.code}]' if request.method == 'POST' else f'Employee ID {selected_employee_id}'}."
+            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) requested COVER for shift ID {shift.id} from {f'[{shift.store.code}]' if req.type != ShiftRequest.Type.SWAP else f'Employee ID {selected_employee_id}'}."
         )
         logger.debug(
-            f"[CREATE: SHIFTREQUEST (ID: {req.id})] Shift ID: {shift.id} -- Type: {req.type.upper()} -- Store Code: {shift.store.code} -- Target User ID: {selected_employee_id}"
+            f"[CREATE: SHIFTREQUEST (ID: {req.id})] Shift ID: {shift.id} -- Type: {req.type.upper()} -- Store Code: {shift.store.code} -- Target User ID: {selected_employee_id if req.type == ShiftRequest.Type.SWAP else 'N/A'}"
         )
         return JsonResponse(
             {"shift_id": shift_id, "request_id": req.id}, status=status.HTTP_201_CREATED
@@ -4123,6 +4123,10 @@ def manage_shift_request(request, req_id):
             raise err.InactiveStoreError
         if not req.shift.store.is_associated_with_user(employee):
             raise err.NotAssociatedWithStoreError
+
+        original = {
+            "status": req.status.upper(),
+        }
 
         # POST -> REQUESTING EMPLOYEE ACCEPTS THE COVER
         if request.method == "POST":
@@ -4284,6 +4288,13 @@ def manage_shift_request(request, req_id):
 
         tasks.notify_shift_request_status_change.delay(
             request_id=req.id, acting_user_id=employee.id
+        )
+
+        logger.info(
+            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) updated status of Shift Request ID {req.id} to {req.type.upper()}."
+        )
+        logger.debug(
+            f"[UPDATE: SHIFTREQUEST (ID: {req.id})] Status: {original['status']} → {req.status.upper()} -- Type: {req.type.upper()} -- Shift ID: {req.shift_id} -- Store Code: {req.shift.store.code} -- Target User ID: {req.target_user_id if (req.target_user is not None) else 'N/A'}"
         )
 
         return Response({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
