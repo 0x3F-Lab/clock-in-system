@@ -11,6 +11,7 @@ from auth_app.models import (
     Role,
     Shift,
     ShiftException,
+    ShiftRequest,
 )
 
 
@@ -420,3 +421,55 @@ class ShiftExceptionAdmin(admin.ModelAdmin):
             return obj.get_date()
         except Exception:
             return "N/A"
+
+
+@admin.register(ShiftRequest)
+class ShiftRequestAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "type",
+        "status",
+        "requester_name",
+        "target_user_name",
+        "store_code",
+        "shift_id",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = (
+        "type",
+        "status",
+        "store__code",
+        "store__is_active",
+        "requester__is_active",
+        "requester__is_hidden",
+        "created_at",
+    )
+    search_fields = (
+        "requester__first_name",
+        "requester__last_name",
+        "target_user__first_name",
+        "target_user__last_name",
+        "store__code",
+        "store__name",
+        "shift__id",
+    )
+    ordering = ("-created_at",)
+
+    @admin.display(description="Requester")
+    def requester_name(self, obj):
+        return f"{obj.requester.first_name} {obj.requester.last_name}"
+
+    @admin.display(description="Target User")
+    def target_user_name(self, obj):
+        if obj.target_user:
+            return f"{obj.target_user.first_name} {obj.target_user.last_name}"
+        return "—"
+
+    @admin.display(description="Store Code")
+    def store_code(self, obj):
+        return obj.store.code if obj.store else "—"
+
+    @admin.display(description="Shift ID")
+    def shift_id(self, obj):
+        return obj.shift.id if obj.shift else "—"

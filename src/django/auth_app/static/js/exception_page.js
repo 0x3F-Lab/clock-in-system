@@ -174,20 +174,6 @@ function updateExceptions() {
   showSpinner();
   const isExceptionListTypeUnapproved = $('#excep-page').attr('data-type') === "unapproved";
 
-  function formatDateTime(isoString) {
-    const date = new Date(isoString);
-    const options = {
-      year: "numeric",
-      month: "short", // e.g., "Jun"
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true, // for AM/PM format
-    };
-
-    return date.toLocaleString("en-US", options);
-  }
-
   $.ajax({
     url: `${window.djangoURLs.listStoreExceptions}${getSelectedStoreID()}/?get_unapproved=${isExceptionListTypeUnapproved}&offset=${getPaginationOffset()}&limit=${getPaginationLimit()}`,
     method: "GET",
@@ -239,7 +225,7 @@ function updateExceptions() {
                 </div>
 
                 <div class="text-end d-flex flex-column align-items-end">
-                  <small class="text-muted">Created: ${formatDateTime(e.created_at)}</small>
+                  <small class="text-muted">Created: ${formatDateTimeFull(e.created_at)}</small>
                   ${btn}
                 </div>
               </div>
@@ -250,7 +236,7 @@ function updateExceptions() {
                   <br>
                   ${generateExceptionMessage(e)}
                   <hr>
-                  Exception was last updated at: ${formatDateTime(e.updated_at)}
+                  Exception was last updated at: ${formatDateTimeFull(e.updated_at)}
                 </div>
               </div>
             </div>
@@ -341,8 +327,6 @@ function updateStoreRoles() {
                 // Build options for the <select> dropdowns
                 $editRoleSelect.append(`<option value="${role.id}">${role.name}</option>`);
             });
-        } else {
-            showNotification("There are NO ROLES associated to the selected store.", "info");
         }
       },
 

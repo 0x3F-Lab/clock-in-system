@@ -4,7 +4,14 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils.timezone import now, localtime
 from rest_framework.test import APIClient
-from auth_app.models import User, Activity, Store, StoreUserAccess, Notification
+from auth_app.models import (
+    User,
+    Activity,
+    Store,
+    StoreUserAccess,
+    Notification,
+    ShiftRequest,
+)
 
 # Default scope if functional (i.e. after every single test the database resets)
 
@@ -23,6 +30,7 @@ def store(db):
         allowable_clocking_dist_m=500,
         store_pin="000",
         is_active=True,
+        is_scheduling_enabled=True,
     )
 
 
@@ -44,6 +52,24 @@ def employee(db, store):
     employee.save()
 
     return employee
+
+
+@pytest.fixture
+def employee_b(db, store):
+    """Creates a second employee in the same store."""
+    emp = User.objects.create(
+        first_name="Bailey",
+        last_name="Smith",
+        email="bailey.smith@example.com",
+        is_active=True,
+        is_setup=True,
+    )
+    emp.set_password("testpassword")
+    # FIX: Use the correct variable 'emp' instead of 'employee'
+    emp.set_unique_pin()
+    emp.save()
+    StoreUserAccess.objects.create(user=emp, store=store)
+    return emp
 
 
 @pytest.fixture

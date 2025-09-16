@@ -112,7 +112,88 @@
   </div>
 </div>
 
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
 
+      <div class="modal-header text-white">
+        <h5 class="modal-title w-100 text-center fw-bolder" id="editModalLabel">Shift Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="displayShiftId">
+
+        <div class="mb-3">
+          <label class="form-label d-flex flex-row align-items-center">
+            <span class="me-2 flex-grow-0 text-nowrap fw-bolder">Date:</span>
+            <span id="displayShiftDate">--</span>
+          </label>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col">
+            <label class="form-label d-flex flex-row align-items-center">
+              <span class="me-2 flex-grow-0 text-nowrap fw-bolder">Start Time:</span>
+              <span id="displayStartTime">--</span>
+            </label>
+          </div>
+          <div class="col">
+            <label class="form-label d-flex flex-row align-items-center ">
+              <span class="me-2 flex-grow-0 text-nowrap fw-bolder">End Time:</span>
+              <span id="displayEndTime">--</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label d-flex flex-row align-items-center mb-0">
+            <span class="me-2 flex-grow-0 text-nowrap fw-bolder">Role:</span>
+            <span id="displayShiftRole">--</span>
+          </label>
+          <p class="fst-italic" id="displayShiftRoleDesc"></p>
+        </div>
+      
+        <div class="mb-3">
+          <label class="form-label fw-bolder mb-0">Comment:</label>
+          <p id="displayComment">No comment</p>
+        </div>
+
+        <div id="editModalEmployeeListContainer" class="mb-4 d-none">
+          <div class="mb-3">
+            <label for="editModalEmployeeSearchBar" class="form-label fw-bolder">Select Employee for cover</label>
+            <input
+              type="text"
+              class="form-control"
+              id="editModalEmployeeSearchBar"
+              placeholder="Type to filter employees..."
+            >
+          </div>
+          <ul
+            id="editModalEmployeeList"
+            class="list-group mb-3 scrollable-list"
+          ></ul>
+          <input
+            type="hidden"
+            id="editModalSelectedEmployeeID"
+            name="employeeID"
+            value=""
+          >
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div id="editModalCoverButtons" class="d-none d-flex flex-column gap-2 align-items-center w-100">
+          <button type="button" class="btn btn-danger cover-btn" id="storeCoverBtn" data-type="store">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from entire store
+          </button>
+          <button type="button" class="btn btn-warning cover-btn" id="employeeCoverBtn" data-type="employee">
+            <i class="fa-solid fa-floppy-disk me-1"></i> Request cover from selected employee
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 
@@ -124,6 +205,9 @@
     modifyAccountPass: "{% url 'api:modify_account_password' %}",
     listUserActivities: "{% url 'api:list_user_activities' %}",
     listStoreShifts: "{% url 'api:list_store_shifts' 0 %}".slice(0, -2),
+    manageShift: "{% url 'api:manage_shift' 0 %}".slice(0, -2),
+    listStoreEmployeeNames: "{% url 'api:list_store_employee_names' %}",
+    requestCover: "{% url 'api:request_cover' 0 %}".slice(0, -2),
 {% endblock %}
 
 

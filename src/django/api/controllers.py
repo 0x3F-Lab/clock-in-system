@@ -31,6 +31,7 @@ from auth_app.models import (
     Shift,
     ShiftException,
     StoreUserAccess,
+    ShiftRequest,
 )
 
 
@@ -44,6 +45,7 @@ def get_store_employee_names(
     order: bool = True,
     order_by_first_name: bool = True,
     ignore_clocked_in: bool = False,
+    ignore_id: Union[int, None] = None,
 ) -> List[dict]:
     """
     Fetches a list of users with their IDs and full names.
@@ -52,7 +54,8 @@ def get_store_employee_names(
         store_id (int OR string OR Store object): The ID of the store to list all employees for. MUST BE PROVIDED.
         only_active (bool): Include only active users if True.
         ignore_managers (bool): Exclude managers if True.
-        ignore_clocked_in (bool): Wether to ignore users who are clocked in.
+        ignore_clocked_in (bool): Whether to ignore users who are clocked in.
+        ignore_id (int): User ID to ignore if given.
         order (bool): Whether to order by the user's names, otherwise order by their id.
         order_by_first_name (bool): Order by first name if True, otherwise by last name.
 
@@ -76,7 +79,11 @@ def get_store_employee_names(
     if only_active:
         users = users.filter(is_active=True)
     if ignore_managers:
-        users = users.filter(store_access__is_manager=False)
+        users = users.filter(
+            store_access__store_id=store.id, store_access__is_manager=False
+        )
+    if ignore_id is not None and isinstance(ignore_id, int):
+        users = users.exclude(pk=ignore_id)
 
     # Filter out clocked-in users manually
     if ignore_clocked_in:
@@ -230,8 +237,10 @@ def handle_clock_out(
             elif check_clocking_out_too_soon(employee=employee, store=store):
                 raise err.ClockingOutTooSoonError
 
-            # Fetch the last active clock-in record
-            activity = employee.get_last_active_activity_for_store(store=store)
+            # Fetch the last active clock-in record -> PRE-SELECT STORE INFO FOR USE IN EXCEPTIONS
+            activity = employee.get_last_active_activity_for_store(
+                store=store, preselect_store_info=True
+            )
 
             time = localtime(now())
             activity.logout_timestamp = time
@@ -587,6 +596,15 @@ def get_all_shifts(
         store_id=store_id, employee__is_hidden=False
     )
 
+    # Annotate whether the employee is currently associated with the store
+    qs = qs.annotate(
+        is_store_associated=Exists(
+            StoreUserAccess.objects.filter(
+                user=OuterRef("employee__id"), store_id=store_id
+            )
+        )
+    )
+
     # Filter dates
     if start_date:
         qs = qs.filter(login_time__date__gte=start_date)
@@ -613,16 +631,7 @@ def get_all_shifts(
     if hide_deactivated:
         qs = qs.filter(employee__is_active=True)
     if hide_resigned:
-        qs = qs.filter(employee__store_access__store_id=store_id)
-
-    # Annotate whether the employee is currently associated with the store
-    qs = qs.annotate(
-        is_store_associated=Exists(
-            StoreUserAccess.objects.filter(
-                user=OuterRef("employee__id"), store_id=store_id
-            )
-        )
-    )
+        qs = qs.filter(is_store_associated=True)
 
     # Sorting
     sort_map = {
@@ -1288,7 +1297,7 @@ def get_all_store_schedules(
                     "role_name": shift.role.name if shift.role else None,
                     "role_colour": shift.role.colour_hex if shift.role else None,
                     "is_unscheduled": shift.is_unscheduled,
-                    "comment": shift.comment,
+                    "has_comment": True if shift.comment else False,
                     "has_exception": hasattr(shift, "shift_shiftexception"),
                 }
             )
@@ -1360,9 +1369,10 @@ def get_user_store_schedules(
                 "id": shift.id,
                 "start_time": shift.start_time.strftime("%H:%M"),
                 "end_time": shift.end_time.strftime("%H:%M"),
+                "role_id": shift.role_id if shift.role else None,
                 "role_name": shift.role.name if shift.role else None,
                 "role_colour": shift.role.colour_hex if shift.role else None,
-                "is_unscheduled": shift.is_unscheduled,
+                "has_comment": True if shift.comment else False,
             }
         )
         if include_deleted and shift.is_deleted:
@@ -1453,8 +1463,8 @@ def get_store_exceptions(
             shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 2)
             info.update(
                 {
-                    "shift_start": obj.shift.start_time,
-                    "shift_end": obj.shift.end_time,
+                    "shift_start": obj.shift.start_time.strftime("%H:%M"),
+                    "shift_end": obj.shift.end_time.strftime("%H:%M"),
                     "shift_length_hr": shift_length_hr,
                     "shift_role_name": obj.shift.role.name if obj.shift.role else None,
                     "shift_role_id": obj.shift.role.id if obj.shift.role else None,
@@ -1656,6 +1666,7 @@ def link_activity_to_shift(
     """
     Check for a perfect link between an activity (actual shift) and a shift (the roster for the shift).
     If no perfect link exists (i.e. either doesnt exist, or slightly wrong) then create a ShiftException. Either option MUST be provided.
+    WARNING: If store has is_scheduling_enabled=False, this function is skipped.
 
     Args:
         activity (Activity, int, str): The activity object or ID to start the link from.
@@ -1673,31 +1684,41 @@ def link_activity_to_shift(
     # Resolve activity and shift if ID or str is provided
     if activity and not isinstance(activity, Activity):
         try:
-            activity = Activity.objects.get(pk=int(activity))
+            activity = Activity.objects.select_related("store").get(pk=int(activity))
         except (ValueError, Activity.DoesNotExist):
             raise Activity.DoesNotExist
     elif shift and not isinstance(shift, Shift):
         try:
-            shift = Shift.objects.get(pk=int(shift))
+            shift = (
+                Shift.objects.select_related("store")
+                .defer("comment")
+                .get(pk=int(shift))
+            )
         except (ValueError, Shift.DoesNotExist):
             raise Shift.DoesNotExist
 
     # Require a transaction due to multiple concurrent saves in certain cases
     with transaction.atomic():
         if activity:
-            if not activity.logout_time:
+            if not activity.store.is_scheduling_enabled:
+                return None, False  # Silently skip
+            elif not activity.logout_time:
                 raise err.IncompleteActivityError
 
             # Check for existing exception (use getattr as it throws errors if it doesnt exist)
             existing_exception = getattr(activity, "activity_shiftexception", None)
 
             # Get shifts for same user/store/day (DONT FILTER DB LEVEL, as realistically at most 2 shifts per user per day per store -> more work to filter on DB level)
-            shifts = Shift.objects.filter(
-                store_id=activity.store_id,
-                employee_id=activity.employee_id,
-                date=activity.login_time.date(),
-                is_deleted=False,
-            ).prefetch_related("shift_shiftexception")
+            shifts = (
+                Shift.objects.filter(
+                    store_id=activity.store_id,
+                    employee_id=activity.employee_id,
+                    date=activity.login_time.date(),
+                    is_deleted=False,
+                )
+                .defer("comment")
+                .prefetch_related("shift_shiftexception")
+            )
 
             # Preload other activities ONCE -> Used to check if shift is valid (doesnt already have a perfect match) -> AS PERFECT MATCHES ARENT ALWAYS LINKED TO AN EXCEPTION
             other_activities = (
@@ -1804,6 +1825,9 @@ def link_activity_to_shift(
             return None, False
 
         elif shift:
+            if not shift.store.is_scheduling_enabled:
+                return None, False  # Silently skip
+
             # Check for existing exception (use getattr as it throws errors if it doesnt exist)
             existing_exception = getattr(shift, "shift_shiftexception", None)
 
@@ -1823,6 +1847,7 @@ def link_activity_to_shift(
                     is_deleted=False,
                 )
                 .exclude(pk=shift.id)
+                .defer("comment")
                 .prefetch_related("shift_shiftexception")
             )
 
@@ -1952,7 +1977,7 @@ def create_shiftexception_link(
     # Check an exception doesnt already exist
     if activity:
         try:
-            excep = ShiftException.objects.get(activity=activity)
+            excep = activity.activity_shiftexception  # Reverse FK access
             excep.is_approved = False
             excep.reason = reason
 
@@ -1968,7 +1993,7 @@ def create_shiftexception_link(
     # Check BOTH if BOTH given (prevents violation of DB unique contraints)
     if shift:
         try:
-            excep = ShiftException.objects.get(shift=shift)
+            excep = shift.shift_shiftexception
             excep.is_approved = False
             excep.reason = reason
 
@@ -2037,7 +2062,9 @@ def copy_week_schedule(
     )
 
     # Prefetch all target week shifts, grouped by (employee_id, date) -> Faster collision checking instead of DB queries
-    target_shifts = Shift.objects.filter(store_id=store.id, date__range=target_range)
+    target_shifts = Shift.objects.filter(
+        store_id=store.id, date__range=target_range
+    ).defer("comment")
 
     shift_map = defaultdict(list)
     for s in target_shifts:
@@ -2115,3 +2142,126 @@ def copy_week_schedule(
         "skipped": count_skipped,
         "total": count_created + count_updated + count_skipped,
     }
+
+
+def get_shift_requests(
+    employee: User,
+    offset: int = 0,
+    limit: int = 25,
+    view_type: str = "active",
+) -> Tuple[dict[str, Any], int]:
+    """
+    Retrieves shift requests for a given user and view type.
+    Returns a list of dictionaries ready for API response.
+    """
+    view_type = view_type.lower()
+    emp_stores = employee.get_associated_stores(show_inactive_for_managers=False)
+    emp_manager_stores = employee.get_associated_stores(
+        show_inactive_for_managers=False, get_only_stores_as_manager=True
+    )
+
+    # Convert to IDs for faster lookup and more efficient passing
+    emp_store_ids = set(store.id for store in emp_stores)
+    emp_manager_store_ids = set(store.id for store in emp_manager_stores)
+
+    qs = ShiftRequest.objects.none()
+
+    if view_type == "pending":
+        sent_and_pending = Q(
+            status=ShiftRequest.Status.PENDING, requester_id=employee.id
+        )
+        involving_and_accepted = Q(status=ShiftRequest.Status.ACCEPTED) & (
+            Q(requester_id=employee.id) | Q(target_user_id=employee.id)
+        )
+
+        qs = ShiftRequest.objects.filter(sent_and_pending | involving_and_accepted)
+
+    elif view_type == "active":
+        direct_requests = Q(
+            status=ShiftRequest.Status.PENDING,
+            type=ShiftRequest.Type.SWAP,
+            target_user_id=employee.id,
+        )  # SWAPS
+        pool_requests = Q(
+            status=ShiftRequest.Status.PENDING,
+            store_id__in=emp_store_ids,
+            type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
+        )  # EITHER COVER OR BIDS
+
+        qs = ShiftRequest.objects.filter(direct_requests | pool_requests).exclude(
+            requester_id=employee.id
+        )
+
+    elif view_type == "approval":
+        qs = ShiftRequest.objects.filter(
+            status=ShiftRequest.Status.ACCEPTED, store_id__in=emp_manager_store_ids
+        )
+        # qs will be empty if user IS NOT MANAGER
+
+    elif view_type == "history":
+        history_statuses = [
+            ShiftRequest.Status.APPROVED,
+            ShiftRequest.Status.REJECTED,
+            ShiftRequest.Status.CANCELLED,
+        ]
+        qs = ShiftRequest.objects.filter(
+            status__in=history_statuses, store_id__in=emp_store_ids
+        )
+
+    # Apply pagination
+    data = (
+        qs.distinct()
+        .select_related("requester", "target_user", "shift", "shift__role", "store")
+        .defer("shift__comment")[offset : offset + limit]
+    )
+    total = qs.count()
+
+    # Shape the data
+    requests_data = []
+    for req in data:
+        is_store_manager = req.store_id in emp_manager_store_ids
+
+        # Given employee owns request if they made it OR its a shift bid for a store and they're a manager for the store
+        is_request_owner = (employee.id == req.requester_id) or (
+            req.type == ShiftRequest.Type.BID and is_store_manager
+        )
+
+        info = {
+            "id": req.id,
+            "type": req.type,
+            "status": req.status,
+            "requester_name": f"{req.requester.first_name} {req.requester.last_name}",
+            "target_name": (
+                f"{req.target_user.first_name} {req.target_user.last_name}"
+                if req.target_user
+                else None
+            ),
+            "shift_id": None,
+            "store_code": req.store.code if req.store else None,
+            "requester_id": req.requester_id,
+            "target_user_id": req.target_user_id,
+            "created_at": localtime(req.created_at),
+            "updated_at": localtime(req.updated_at),
+            "is_store_manager": is_store_manager,
+            "is_request_owner": is_request_owner,
+        }
+
+        if req.shift:
+            start_dt = datetime.combine(req.shift.date, req.shift.start_time)
+            end_dt = datetime.combine(req.shift.date, req.shift.end_time)
+            shift_length_hr = round(abs((end_dt - start_dt).total_seconds()) / 3600, 2)
+            info.update(
+                {
+                    "shift_id": req.shift_id,
+                    "shift_date": req.shift.date.isoformat(),
+                    "shift_start_time": req.shift.start_time.strftime("%H:%M"),
+                    "shift_end_time": req.shift.end_time.strftime("%H:%M"),
+                    "shift_length_hr": shift_length_hr,
+                    "shift_role_name": req.shift.role.name if req.shift.role else None,
+                    "shift_comment": req.shift.comment,
+                }
+            )
+
+        requests_data.append(info)
+
+    return requests_data, total

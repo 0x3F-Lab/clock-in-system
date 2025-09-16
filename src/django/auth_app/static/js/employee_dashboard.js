@@ -2,6 +2,7 @@ $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
     updateClockedState();
+    updateStoreInformation();
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
   });
 
@@ -11,6 +12,9 @@ $(document).ready(function() {
   // Handle week switching on the roster dash
   handleWeekSwitching();
 
+  // Handle shift modal (further info + cover requests)
+  handleShiftModal();
+
   // Attach event to clock in/out submission to actually request the API
   $('#clockingButton').on('click', () => {
     clockInOutUser();
@@ -18,6 +22,7 @@ $(document).ready(function() {
 
   // Initial state & history set
   updateClockedState();
+  updateStoreInformation();
   updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
 
   // Add page reloader to force reload after period of inactivity
@@ -219,7 +224,6 @@ function handleWeekSwitching() {
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
         const previousWeek = $(this).data('week');
-        console.log(previousWeek);
         if (isNonEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
     });
 
@@ -268,7 +272,6 @@ function updateShiftRosterAndHistory(week) {
           const background = !activity.logout_time_str ? 'bg-success-subtle' : (activity.is_modified ? 'bg-danger-subtle' : (activity.is_public_holiday ? 'bg-info-subtle' : 'bg-light'));
           const card = `
             <div class="shift-item position-relative text-dark ${background}">
-              <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is the actual shift worked. Not the roster.">?</span>
               <div><strong>${activity.store_code}</strong></div>
               <div class="shift-item-details">
                 <span>🕒 ${activity.login_time_str} – ${activity.logout_time_str ? activity.logout_time_str : 'N/A'}</span>
@@ -313,8 +316,8 @@ function updateShiftRosterAndHistory(week) {
 
             // Build the HTML with the new color logic.
             shiftsHtml += `
-              <div class="shift-item position-relative" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;">
-                <span class="info-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This is a ROSTERED shift. Not the actual worked shift.">?</span>
+              <div class="shift-item shift-item-action position-relative cursor-pointer" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
+                ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
                 <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
                 <div class="shift-item-details">
                   <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
@@ -368,7 +371,7 @@ function scheduleAddBaseDayDiv(week) {
           <div class="day-date">${getShortDate(dayDate)}</div>
         </div>
         <div id="roster-${isoDate}" class="shifts-list">
-          <div class="default-no-schedule text-center text-white p-3"><small>No shifts scheduled</small></div>
+          <div class="default-no-schedule text-center text-white p-3"><small>No shifts</small></div>
         </div>
       </div>`;
     scheduleContainer.append(dayCardHtml);
@@ -378,6 +381,133 @@ function scheduleAddBaseDayDiv(week) {
     .text(`Week of ${formatWeekTitle(monday)}`)
     .data('week-start-date', monday.toISOString());
 }
+
+
+function handleShiftModal() {
+  // CLICK ON SHIFT -> POPULATE MODAL DETAILS AND OPEN IT
+  $('#schedule-container').on('click', '.shift-item-action', function() {
+    showSpinner();
+    const shiftId = $(this).data('shift-id');
+
+    // Get shift info -> ENSURE ITS ALWAYS UP TO DATE
+    $.ajax({
+      url: `${window.djangoURLs.manageShift}${shiftId}/`,
+      method: 'GET',
+      headers: { 'X-CSRFToken': getCSRFToken() },
+      xhrFields: { withCredentials: true },
+      success: function(shiftData) {
+        $('#displayShiftId').val(shiftData.id);
+        $('#displayShiftDate').text(shiftData.date); 
+        $('#displayShiftRole').text(shiftData.role_name || "N/A");
+        $('#displayStartTime').text(shiftData.start_time);
+        $('#displayEndTime').text(shiftData.end_time);
+        $('#displayComment').text(shiftData.comment || "No Comment");
+
+        // Clear selected user (if one was selected before)
+        $('#editModalSelectedEmployeeID').val('');
+        $("#editModalEmployeeList li").removeClass("active");
+
+        // If role has description, add it
+        $('#displayShiftRoleDesc').text('');
+        if (shiftData.role_desc) { $('#displayShiftRoleDesc').text(shiftData.role_desc) }
+
+        // If shift is in future, allow user to request cover, otherwise hide
+        if (shiftData.in_future) {
+          $('#editModalEmployeeListContainer').removeClass('d-none');
+          $('#editModalCoverButtons').removeClass('d-none');
+        } else {
+          $('#editModalEmployeeListContainer').addClass('d-none');
+          $('#editModalCoverButtons').addClass('d-none');
+        }
+        
+        hideSpinner();
+        const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        editModal.show();
+      },
+      error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to get shift information"); }
+    });
+  });
+
+  // HANDLE EMPLOYEE LIST INPUT/SELECTION
+  // Filter list on input
+  $("#editModalEmployeeSearchBar").on("input", function() {
+      const term = $(this).val().toLowerCase();
+      $("#editModalEmployeeList").children("li").each(function() {
+          $(this).toggle($(this).text().toLowerCase().includes(term));
+      });
+  });
+
+  // Click on an employee name to select
+  $("#editModalEmployeeList").on("click", "li", function() {
+      $("#editModalEmployeeList li").removeClass("active");
+      $(this).addClass("active");
+      const userId = $(this).data("id");
+      $("#editModalSelectedEmployeeID").val(userId);
+  });
+
+  // CLICK ON COVER SUBMISSION BUTTON -> SEND TO API
+  $('#editModal').on("click", ".cover-btn", function() {
+    const method = $(this).data("type").toLowerCase() === "store" ? "POST" : "PATCH";  // 'POST'=store or 'PATCH'=employee
+    const shiftId = $('#displayShiftId').val();
+    const selectedEmployee = $("#editModalSelectedEmployeeID").val();
+
+    if (method === "PATCH" && !isNonEmpty(selectedEmployee)) {
+      showNotification("Please select an employee.", "danger");
+      return;
+    }
+    
+    showSpinner();
+    $.ajax({
+      url: `${window.djangoURLs.requestCover}${shiftId}/`,
+      method: method,
+      headers: { 'X-CSRFToken': getCSRFToken() },
+      xhrFields: { withCredentials: true },
+      contentType: 'application/json',
+      data: JSON.stringify({ selected_employee_id: $("#editModalSelectedEmployeeID").val() }),
+      success: function(resp) {
+        hideSpinner();
+        bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+        showNotification("Successfully requested cover for the shift.", "success");
+      },
+      error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to request cover"); }
+    });
+  });
+}
+
+
+function updateStoreInformation() {
+    const $employeeSelect = $("#editModalEmployeeList");
+    $employeeSelect.empty();
+
+    // Fetch employees names
+    $.ajax({
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true&ignore_self=true`,
+        type: 'GET',
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
+
+        success: function(response) {
+            const employeeList = response.names;
+
+            if (Array.isArray(employeeList) && employeeList.length > 0) {
+                employeeList.forEach(employee => {
+                    $employeeSelect.append(
+                        `<li class="list-group-item cursor-pointer" data-id="${employee.id}">${employee.name}</li>`
+                    );
+                });
+            } else {
+                $employeeSelect.append('<option value="">No Employees available</option>');
+                showNotification("There are no employees associated to the selected store.", "danger");
+            }
+        },
+
+        error: function(jqXHR, textStatus, errorThrown) {
+            handleAjaxError(jqXHR, "Failed to load employee names", false);
+            $employeeSelect.append('<option value="">Error getting employees</option>');
+        }
+    });
+}
+
 
 //////////////////////////// HELPER FUNCTIONS ///////////////////////////////////////
 

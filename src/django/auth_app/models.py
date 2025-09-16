@@ -124,19 +124,34 @@ class User(models.Model):
 
         return active_activities.exists()
 
-    def get_last_active_activity_for_store(self, store):
+    def get_last_active_activity_for_store(
+        self, store, preselect_store_info: bool = False
+    ):
         """
-        Returns the current active (ongoing) Activity for this user limited to the provided store.
-        Provide 'store' as the Store object or its ID.
-        Returns None if no active activity exists.
+        Returns the latest active (ongoing) Activity for this user in the given store.
+
+        Args:
+            store (Store | int | str): Store object or its ID.
+            preselect_store_info (bool): If True, uses select_related("store") to avoid additional DB hits.
+
+        Returns:
+            Activity | None: The most recent active activity (logout_time is NULL), or None if none found.
         """
         activities = Activity.objects.filter(employee=self, logout_time__isnull=True)
 
         # Filter by store
-        if isinstance(store, int) or (isinstance(store, str) and store.isdigit()):
-            activities = activities.filter(store_id=int(store))
-        elif isinstance(store, Store):
+        if isinstance(store, Store):
             activities = activities.filter(store=store)
+        elif isinstance(store, (int, str)) and str(store).isdigit():
+            activities = activities.filter(store_id=int(store))
+        else:
+            raise ValueError(
+                "Invalid store value passed to get_last_active_activity_for_store"
+            )
+
+        # Optionally eager-load store relation
+        if preselect_store_info:
+            activities = activities.select_related("store")
 
         return activities.order_by("-login_time").first()  # Returns None if no match
 
@@ -169,16 +184,28 @@ class User(models.Model):
             - If show_inactive_for_managers is True, also includes inactive stores
               where the user is a manager.
         """
-        base_qs = Store.objects.filter(user_access__user=self)
+        qs = Store.objects.all()
 
         if get_only_stores_as_manager:
-            qs = base_qs.filter(user_access__is_manager=True)
-        elif show_inactive_for_managers:
-            qs = base_qs.filter(
-                Q(is_active=True) | Q(is_active=False, user_access__is_manager=True)
-            )
+            # Only stores where this user is a manager
+            qs = qs.filter(user_access__user=self, user_access__is_manager=True)
+            if not show_inactive_for_managers:
+                qs = qs.filter(is_active=True)
+
         else:
-            qs = base_qs.filter(is_active=True)
+            # Stores this user belongs to
+            qs = qs.filter(user_access__user=self)
+            if show_inactive_for_managers:
+                qs = qs.filter(
+                    Q(is_active=True)
+                    | Q(
+                        is_active=False,
+                        user_access__user=self,
+                        user_access__is_manager=True,
+                    )
+                )
+            else:
+                qs = qs.filter(is_active=True)
 
         return qs.distinct()
 
@@ -214,6 +241,45 @@ class User(models.Model):
         return StoreUserAccess.objects.filter(
             user=employee, store_id__in=manager_store_ids
         ).exists()
+
+    def get_active_shift_requests(self):
+        """
+        Returns active shift requests visible to this user:
+          - All BID and COVER requests in stores they're associated with
+          - All SWAP requests where this user is the target_user
+
+        ACTIVE SHIFTS:
+          - Pending always
+          - Accepted only if the user is a manager for the store of the request
+        """
+        associated_store_ids = self.store_access.values_list("store_id", flat=True)
+
+        bid_cover_q = Q(
+            status=ShiftRequest.Status.PENDING,
+            store_id__in=associated_store_ids,
+            type__in=[ShiftRequest.Type.BID, ShiftRequest.Type.COVER],
+        )
+
+        swap_q = Q(
+            status__in=[ShiftRequest.Status.PENDING],
+            target_user=self,
+            type=ShiftRequest.Type.SWAP,
+        )
+
+        # ACCEPTED requests only for stores where user is manager
+        manager_store_ids = StoreUserAccess.objects.filter(
+            user=self, is_manager=True
+        ).values_list("store_id", flat=True)
+        accepted_q = Q(
+            status=ShiftRequest.Status.ACCEPTED,
+            store_id__in=manager_store_ids,
+        )
+
+        visible_requests = ShiftRequest.objects.filter(
+            bid_cover_q | swap_q | accepted_q
+        ).distinct()
+
+        return visible_requests
 
     def get_unread_notifications(self):
         """
@@ -307,6 +373,7 @@ class Store(models.Model):
     )
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
+    is_scheduling_enabled = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):
@@ -536,22 +603,36 @@ class Notification(models.Model):
     def __str__(self):
         return f"[{self.id}] [{self.recipient_group.upper()}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
 
-    def mark_notification_as_read(self, user):
+    def mark_notification_as_read(self, user: User) -> bool:
+        """
+        Marks the notification as read for a given user.
+
+        Returns:
+            - True if the notification was updated to 'read'
+            - False if it was already marked as read
+        Raises:
+            - NotificationReceipt.DoesNotExist if no receipt exists for this user
+        """
         receipt = NotificationReceipt.objects.filter(
             user=user, notification=self
         ).first()
-        if receipt and receipt.read_at is None:
+
+        if not receipt:
+            raise NotificationReceipt.DoesNotExist
+
+        if receipt.read_at is None:
             receipt.read_at = localtime(now())
             receipt.save(update_fields=["read_at"])
-        elif receipt is None:
-            raise NotificationReceipt.DoesNotExist
+            return True
+
+        return False
 
     @classmethod
     def send_to_users(
         cls,
         users,
-        title,
-        message,
+        title: str,
+        message: str,
         recipient_group,
         notification_type=Type.GENERAL,
         sender=None,
@@ -599,9 +680,9 @@ class Notification(models.Model):
     @classmethod
     def send_to_store_users(
         cls,
-        store,
-        title,
-        message,
+        store: Store,
+        title: str,
+        message: str,
         notification_type=Type.MANAGER_NOTE,
         sender=None,
         expires_on=None,
@@ -765,6 +846,83 @@ class Shift(models.Model):
 
     def __str__(self):
         return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
+
+    def get_active_shift_requests(self):
+        """Return active shift requests (pending or accepted)."""
+        active_statuses = [
+            ShiftRequest.Status.PENDING,
+            ShiftRequest.Status.ACCEPTED,
+        ]
+        return self.shift_requests.filter(status__in=active_statuses)
+
+
+class ShiftRequest(models.Model):
+    class Type(models.TextChoices):
+        SWAP = "swap_request", "Swap Shift Request"  # SWAP BETWEEN CERTAIN PEOPLE
+        COVER = "cover_request", "Cover Shift Request"  # SWAP SHIFT OPEN TO WHOLE STORE
+        BID = "bid_request", "New Shift Bid"  # SHIFT BID FOR WHOLE STORE
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        REJECTED = "rejected", "Rejected"
+        APPROVED = "approved", "Approved"  # MANAGER APROVAL
+        CANCELLED = "cancelled", "Cancelled"
+
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        default=Type.BID,
+        null=False,
+        help_text="The type of Shift Request",
+    )
+    status = models.CharField(
+        max_length=15, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    requester = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="sent_shift_requests"
+    )
+    target_user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="received_shift_requests",
+    )
+    store = models.ForeignKey(
+        Store,
+        null=False,
+        on_delete=models.CASCADE,
+        related_name="store_shift_requests",
+    )
+    shift = models.ForeignKey(
+        Shift,
+        on_delete=models.CASCADE,
+        related_name="shift_requests",
+        null=True,  # SHOULD ONLY BE NULL IN SHIFT BID
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "requester_id"]),
+            models.Index(fields=["status", "target_user_id"]),
+            models.Index(fields=["status", "store_id"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.pk}] {self.type.upper()}: {self.requester.first_name} {self.requester.last_name} -> {f'{self.target_user.first_name} {self.target_user.last_name}' if self.target_user else (f'[{self.store.code}]' if self.store else 'ERROR')}"
+
+    def clean(self):
+        if self.type == self.Type.SWAP and not self.target_user:
+            raise ValidationError("SWAP requests must have a target user.")
+        if self.type in [self.Type.COVER, self.Type.BID] and not self.store:
+            raise ValidationError(
+                f"{self.type.upper()} requests must be tied to a store."
+            )
 
 
 class ShiftException(models.Model):

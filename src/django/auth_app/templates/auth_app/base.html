@@ -39,12 +39,12 @@
             <button class="btn btn-lg h-100 btn-light border-0 bg-transparent position-relative d-flex align-items-center p-1" type="button" id="userDropdown"
               data-bs-toggle="dropdown" aria-expanded="false">
               <i class="text-light fa-solid fa-circle-user fa-lg fs-1"></i>
-              {% if notification_count > 0 %}
+              {% if total_alert_count > 0 %}
                 <span class="notification-badge position-absolute top-0 start-100 badge bg-danger text-light fs-7">
-                  {% if notification_count > 9 %}
+                  {% if total_alert_countt > 9 %}
                     9+
                   {% else %}
-                    {{ notification_count }}
+                    {{ total_alert_count }}
                   {% endif %}
                 </span>
               {% endif %}
@@ -65,14 +65,32 @@
               {% endif %}
 
               <li>
-                <a class="dropdown-item d-flex align-items-center justify-content-between gap-3 w-100 fs-5" href="{% url 'notification_page' %}">
-                  <span><i class="fa-solid fa-bell me-2"></i> Notifications</span>
+                <a class="dropdown-item d-flex align-items-center w-100 fs-5" href="{% url 'notification_page' %}">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-bell"></i> Notifications
+                  </div>
                   {% if notification_count > 0 %}
-                    <span class="badge bg-danger text-light">
+                    <span class="badge bg-danger text-light ms-auto">
                       {% if notification_count > 9 %}
                         9+
                       {% else %}
                         {{ notification_count }}
+                      {% endif %}
+                    </span>
+                  {% endif %}
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item d-flex align-items-center w-100 fs-5 justify-content-between" href="{% url 'shift_requests' %}">
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-comment-dots"></i> Shift Requests
+                  </div>
+                  {% if shift_request_count > 0 %}
+                    <span class="badge bg-danger text-light ms-3">
+                      {% if shift_request_count > 9 %}
+                        9+
+                      {% else %}
+                        {{ shift_request_count }}
                       {% endif %}
                     </span>
                   {% endif %}

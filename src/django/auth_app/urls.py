@@ -42,4 +42,5 @@ urlpatterns = [
     path("schedule_dashboard", views.schedule_dashboard, name="schedule_dashboard"),
     path("store_exceptions", views.store_exceptions, name="store_exceptions"),
     path("employee_account", views.employee_account, name="employee_account"),
+    path("shift_requests", views.shift_requests, name="shift_requests"),
 ]

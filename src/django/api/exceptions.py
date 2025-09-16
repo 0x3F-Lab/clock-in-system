@@ -213,3 +213,13 @@ class ShiftExceptionExistsError(Exception):
     def __init__(self, message="The ShiftException must be handled first."):
         self.message = message
         super().__init__(self.message)
+
+
+class StoreNotSchedulingCapable(Exception):
+    """
+    Raised when trying to interact with a store via scheduling who has the capabilities disabled.
+    """
+
+    def __init__(self, message="The Store is not scheduling capable."):
+        self.message = message
+        super().__init__(self.message)

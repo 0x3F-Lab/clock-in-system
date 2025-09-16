@@ -132,6 +132,7 @@ function handleShiftModification() {
         $('#editShiftRole').val('');
         $('#editStartTime').val('');
         $('#editEndTime').val('');
+        $('#editComment').val('');
         $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
         
         const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -177,6 +178,7 @@ function handleShiftModification() {
       $('#editShiftRole').val('');
       $('#editStartTime').val('');
       $('#editEndTime').val('');
+      $('#editComment').val('');
       $('#deleteShiftBtn').addClass('d-none'); // Hide 'Delete' button
       
       const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -470,7 +472,7 @@ function renderLegacyCardView(data) {
 
                 shiftsHtml += `
                     <div class="shift-item position-relative cursor-pointer" style="border-left: 8px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
-                        ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
+                        ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}  
                         <div class="shift-item-employee">${shift.employee_name}</div>
                         <div class="shift-item-details">
                         <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
@@ -561,7 +563,7 @@ function renderModernTableView(data) {
                     tableHtml += `
                         <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 8px solid ${borderColor}; background-color: ${backgroundColor};" data-shift-id="${shift.id}">
                             <div class="shift-item-details">
-                                ${shift.comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+                                ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
                                 <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
                                 <span>⌛ ${duration}</span>
                                 ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
@@ -666,7 +668,6 @@ function updateStoreInformation() {
                 $('[data-bs-toggle="tooltip"]').tooltip();
             });
         } else {
-            showNotification("There are no ROLES associated to the selected store.", "info");
             $existingRolesList.append('<li class="list-group-item">No roles found</li>');
         }
 

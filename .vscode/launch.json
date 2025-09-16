@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to Django in Docker",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "localhost",
+        "port": 5678
+      },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/src/django", // Path of django project locally
+          "remoteRoot": "/app"                          // Path of manage.py inside docker
+        }
+      ],
+      "justMyCode": false
+    }
+  ]
+}

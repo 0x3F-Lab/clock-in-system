@@ -1,0 +1,44 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Shift Requests{% endblock %}
+
+
+{% block content_container_class %}my-5{% endblock %}
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder"><u>Shift Requests</u></h1>
+
+<div class="row">
+    <!-- New Sidebar Navigation -->
+    <div class="col-md-3 mb-4 mb-md-0 d-flex flex-column align-items-center">
+        <div class="list-group shadow-sm w-100">
+            <button id="active-requests-btn" data-type="active" class="list-group-item list-group-item-action view-type-switch active">Active Requests</button>
+            <button id="pending-requests-btn" data-type="pending" class="list-group-item list-group-item-action view-type-switch">Pending Requests</button>
+            <button id="manager-approval-btn" data-type="approval" class="list-group-item list-group-item-action view-type-switch {% if not request.session.is_some_store_manager %}d-none{% endif %}">Manager Approval</button>
+            <button id="history-btn" data-type="history" class="list-group-item list-group-item-action view-type-switch">Request History</button>
+        </div>
+    </div>
+
+    <!-- New Content Panes -->
+    <div class="col-md-9">
+        <div class="panel rounded shadow gradient-panel p-4 mb-4">
+          <h2 class="fw-bold text-center mb-4"><u id="requests-list-type">Active</u> Shift Requests (<span id="requests-list-count">{{ notification_count }}</span>)</h2>
+
+          <div id="requests-list" data-type="active" class="list-group">
+          </div>
+        </div>
+        {% include "components/pagination_controller.html" %}
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_urls %}
+    listShiftRequests: "{% url 'api:api_list_shift_requests' %}",
+    manageShiftRequest: "{% url 'api:manage_shift_request' 0 %}".slice(0, -2),
+{% endblock %}
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/shift_requests.js' %}"></script>
+{% endblock %}
+
