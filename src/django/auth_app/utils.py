@@ -373,6 +373,47 @@ def get_user_stats(user: User) -> Tuple[int, int]:
     return (unread_count, active_shift_requests_count)
 
 
+def update_user_stats_cache(
+    user_id: int, increase_notif_count: int = 0, increase_shift_req_count: int = 0
+) -> None:
+    """
+    Manually update user stats cache if its in user
+
+    Args:
+      - user_id (int): The user's id to update stats for.
+      - increase_notif_count (int): The amount to increase/decrease the unread notifications stat by manually.
+      - increase_shift_req_count (int): The amount to increase/decrease the active shift requests stat by manually.
+    """
+    if not settings.USER_STATS_USE_CACHE or (
+        increase_notif_count == 0 and increase_shift_req_count == 0
+    ):
+        return
+
+    cache = caches["user_stats"]
+    cache_key = f"user_stats:{user_id}"
+    cached_data = cache.get(cache_key)
+
+    if cached_data:
+        try:
+            ttl = cache.ttl(cache_key)
+            if ttl is None or ttl < 0:
+                ttl = settings.USER_STATS_CACHE_MAX_TTL_SEC
+        except AttributeError:
+            ttl = (
+                settings.USER_STATS_CACHE_MAX_TTL_SEC
+            )  # Fallback if cache backend doesnt support ttl()
+
+        new_data = {
+            "unread_notif_count": max(
+                0, cached_data["unread_notif_count"] + increase_notif_count
+            ),
+            "active_shift_req_count": max(
+                0, cached_data["active_shift_req_count"] + increase_shift_req_count
+            ),
+        }
+        cache.set(cache_key, new_data, timeout=ttl)
+
+
 def get_default_page_context(request, include_notifications: bool = False):
     """
     Get the user's context and User object from their user_id stored in their session information.

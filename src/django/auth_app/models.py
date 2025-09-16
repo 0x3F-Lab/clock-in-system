@@ -603,15 +603,29 @@ class Notification(models.Model):
     def __str__(self):
         return f"[{self.id}] [{self.recipient_group.upper()}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
 
-    def mark_notification_as_read(self, user):
+    def mark_notification_as_read(self, user: User) -> bool:
+        """
+        Marks the notification as read for a given user.
+
+        Returns:
+            - True if the notification was updated to 'read'
+            - False if it was already marked as read
+        Raises:
+            - NotificationReceipt.DoesNotExist if no receipt exists for this user
+        """
         receipt = NotificationReceipt.objects.filter(
             user=user, notification=self
         ).first()
-        if receipt and receipt.read_at is None:
+
+        if not receipt:
+            raise NotificationReceipt.DoesNotExist
+
+        if receipt.read_at is None:
             receipt.read_at = localtime(now())
             receipt.save(update_fields=["read_at"])
-        elif receipt is None:
-            raise NotificationReceipt.DoesNotExist
+            return True
+
+        return False
 
     @classmethod
     def send_to_users(

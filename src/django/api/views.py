@@ -18,7 +18,11 @@ from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
+from auth_app.utils import (
+    sanitise_markdown_title_text,
+    sanitise_markdown_message_text,
+    update_user_stats_cache,
+)
 from auth_app.models import (
     User,
     Activity,
@@ -2548,7 +2552,10 @@ def mark_notification_read(request, id):
         notif = Notification.objects.get(pk=id)
 
         # Mark the notification as read
-        notif.mark_notification_as_read(user=user_id)
+        marked = notif.mark_notification_as_read(user=user_id)
+
+        if marked:
+            update_user_stats_cache(user_id=user_id, increase_notif_count=-1)
 
         # Logging
         logger.debug(
@@ -4170,6 +4177,9 @@ def manage_shift_request(request, req_id):
             req.status = ShiftRequest.Status.ACCEPTED
             req.save()
 
+            # Manually update user's cache
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
+
         # PUT -> MANAGER APPROVES THE COVER -> UPDATE SHIFT
         elif request.method == "PUT":
             # Ensure user is manager
@@ -4232,18 +4242,11 @@ def manage_shift_request(request, req_id):
                 if shift_end_dt < localtime(now()):
                     controllers.link_activity_to_shift(shift=req.shift_id)
 
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
+
         # PATCH -> MANAGER/TARGET USER REJECTS REQUEST
         elif request.method == "PATCH":
-            if req.status not in [
-                ShiftRequest.Status.PENDING,
-                ShiftRequest.Status.ACCEPTED,
-            ]:
-                return Response(
-                    {"Error": "Can only reject PENDING or ACCEPTED requests."},
-                    status=status.HTTP_424_FAILED_DEPENDENCY,
-                )
-
-            elif req.status != ShiftRequest.Status.ACCEPTED and req.type in [
+            if req.status != ShiftRequest.Status.ACCEPTED and req.type in [
                 ShiftRequest.Type.COVER,
                 ShiftRequest.Type.BID,
             ]:
@@ -4254,8 +4257,14 @@ def manage_shift_request(request, req_id):
 
             # Only target user OR manager can reject request
             elif not (
-                employee.id == req.target_user_id
-                or employee.is_manager(store=req.store_id)
+                (
+                    employee.id == req.target_user_id
+                    and req.status == ShiftRequest.Status.PENDING
+                )
+                or (
+                    employee.is_manager(store=req.store_id)
+                    and req.status == ShiftRequest.Status.ACCEPTED
+                )
             ):
                 return Response(
                     {"Error": "Not authorised to reject the request."},
@@ -4264,6 +4273,9 @@ def manage_shift_request(request, req_id):
 
             req.status = ShiftRequest.Status.REJECTED
             req.save()
+
+            # Manually update user's cache
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
 
         # DELETE -> MANAGER/REQUESTING USER DELETES/CANCELS IT IN `PENDING` STATE
         elif request.method == "DELETE":
@@ -4285,6 +4297,12 @@ def manage_shift_request(request, req_id):
 
             req.status = ShiftRequest.Status.CANCELLED
             req.save()
+
+            # Manually update user's cache -- manager doesnt get an active notification for it, so ignore them
+            if employee.id == req.requester_id:
+                update_user_stats_cache(
+                    user_id=employee.id, increase_shift_req_count=-1
+                )
 
         tasks.notify_shift_request_status_change.delay(
             request_id=req.id, acting_user_id=employee.id

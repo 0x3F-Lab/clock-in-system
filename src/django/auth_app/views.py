@@ -247,7 +247,7 @@ def setup_account(request):
 @require_http_methods(["GET", "POST"])
 def manual_clocking(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -418,7 +418,7 @@ def manual_clocking(request):
 @require_GET
 def employee_dashboard(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -626,7 +626,7 @@ def notification_page(request):
 @require_GET
 def home_directory(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -647,7 +647,7 @@ def home_directory(request):
 @require_GET
 def manager_dashboard(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -692,7 +692,7 @@ def manage_employee_details(request):
 @require_GET
 def manage_shift_logs(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -713,7 +713,7 @@ def manage_shift_logs(request):
 @require_GET
 def manage_account_summary(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -759,7 +759,7 @@ def manage_stores(request):
 @require_GET
 def store_exceptions(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -841,7 +841,7 @@ class StaticViewSitemap(Sitemap):
 @manager_required
 def schedule_dashboard(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
@@ -861,7 +861,7 @@ def schedule_dashboard(request):
 @ensure_csrf_cookie
 def shift_requests(request):
     try:
-        context, user = get_default_page_context(request)
+        context, _ = get_default_page_context(request)
     except User.DoesNotExist:
         logger.error(
             "Failed to load user ID {}'s associated stores. Flushed their session.".format(
