@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from django.db.models import Q
 from django.conf import settings
 from django.utils import timezone
-from django.core.cache import cache
+from django.core.cache import caches
 from django.contrib.sessions.models import Session
 from django.utils.timezone import make_aware, is_naive, localtime
 from auth_app.models import User, Store, Activity, Shift, ShiftException
@@ -51,6 +51,7 @@ def is_public_holiday(
         time
     )  # Ensure time is in the local timezone of django settings
     date = time.date()
+    cache = caches["holiday_checks"]
 
     # Check cache if public holiday status has already been checked (saves computing)
     cache_key = f"public_holiday_{date.isoformat()}"
@@ -122,7 +123,7 @@ def is_public_holiday(
     return False
 
 
-def api_get_user_object_from_session(request):
+def api_get_user_object_from_session(request) -> User:
     # Get user's id
     employee_id = request.session.get("user_id", None)
 

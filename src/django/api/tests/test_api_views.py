@@ -5,6 +5,7 @@ from datetime import date, timedelta, time
 from django.urls import reverse
 from django.utils.timezone import timedelta, now, localtime
 from rest_framework import status
+from rest_framework.test import APIClient
 from auth_app.models import (
     Shift,
     Role,
@@ -13,6 +14,7 @@ from auth_app.models import (
     ShiftException,
     Activity,
     StoreUserAccess,
+    ShiftRequest,
 )
 
 
@@ -496,11 +498,8 @@ def test_password_change_success(logged_in_employee, employee):
     Ensure an employee can successfully change their password when all inputs are valid.
     """
     api_client = logged_in_employee
-    old_pass = "TestPass123"
+    old_pass = "testpassword"
     new_pass = "NewPass456"
-
-    employee.set_password(old_pass)
-    employee.save()
 
     response = api_client.put(
         reverse("api:modify_account_password"),
@@ -512,6 +511,7 @@ def test_password_change_success(logged_in_employee, employee):
     assert "message" in response.json()
     employee.refresh_from_db()
     assert employee.check_password(new_pass)
+    assert not employee.check_password(old_pass)
 
 
 @pytest.mark.django_db
@@ -829,7 +829,6 @@ class TestScheduleAndRoleAPIs:
         employee,
         clocked_in_employee,
         store_associate_manager,
-        store_associate_employee,
     ):
         """
         Creates a common setup for all tests in this class, including roles, shifts, and exceptions.
@@ -871,7 +870,9 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for list_store_shifts
     # ===============================================
-    def test_list_store_shifts_legacy_success(self, logged_in_manager, api_client):
+    def test_list_store_shifts_legacy_success(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager
         WHEN they request shifts for a specific week
@@ -888,21 +889,26 @@ class TestScheduleAndRoleAPIs:
         assert "schedule" in data
         assert str(self.week_start) in data["schedule"]
 
-    def test_list_store_shifts_unauthorized(self, api_client):
+    def test_list_store_shifts_unauthorized(self, logged_in_employee, api_client):
         """
         GIVEN an unauthenticated user
         WHEN they request shifts
         THEN they should receive a 401 Unauthorized error.
         """
 
-        url = reverse("api:list_store_shifts", kwargs={"id": self.store.id})
+        url = (
+            reverse("api:list_store_shifts", kwargs={"id": self.store.id})
+            + f"?week={self.week_start.isoformat()}"
+        )
         response = api_client.get(url)
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     # ===============================================
     # == Tests for create_store_shift
     # ===============================================
-    def test_create_shift_success(self, logged_in_manager, api_client):
+    def test_create_shift_success(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager
         WHEN they send valid data for a new shift
@@ -924,7 +930,9 @@ class TestScheduleAndRoleAPIs:
         assert response.status_code == status.HTTP_201_CREATED
         assert Shift.objects.count() == shift_count_before + 1
 
-    def test_create_shift_in_past_fails(self, logged_in_manager, api_client):
+    def test_create_shift_in_past_fails(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager
         WHEN they attempt to create a shift in the past
@@ -943,7 +951,9 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for manage_store_shift (Update/Delete)
     # ===============================================
-    def test_update_shift_role(self, logged_in_manager, api_client):
+    def test_update_shift_role(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager and an existing shift
         WHEN they change the role of the shift
@@ -974,7 +984,9 @@ class TestScheduleAndRoleAPIs:
         assert future_shift.role == self.cashier_role
         assert future_shift.start_time == time(9, 30)
 
-    def test_delete_future_shift_success(self, logged_in_manager, api_client):
+    def test_delete_future_shift_success(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager and a future shift
         WHEN they send a DELETE request
@@ -983,7 +995,7 @@ class TestScheduleAndRoleAPIs:
         future_shift = Shift.objects.create(
             store=self.store,
             employee=self.employee,
-            date=now().date() + timedelta(days=30),
+            date=(now() + timedelta(days=30)).date(),
             start_time=time(9, 0),
             end_time=time(17, 0),
         )
@@ -995,7 +1007,9 @@ class TestScheduleAndRoleAPIs:
         )  # Your view returns 200 OK on delete
         assert Shift.objects.count() == shift_count_before - 1
 
-    def test_delete_past_shift_fails(self, logged_in_manager, api_client):
+    def test_delete_past_shift_fails(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager and a past shift
         WHEN they send a DELETE request
@@ -1010,7 +1024,9 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for list_store_roles
     # ===============================================
-    def test_list_store_roles_success(self, logged_in_manager, api_client):
+    def test_list_store_roles_success(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager
         WHEN they request the list of roles for their store
@@ -1027,7 +1043,9 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for manage_store_role
     # ===============================================
-    def test_role_crud_lifecycle(self, logged_in_manager, api_client):
+    def test_role_crud_lifecycle(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         Tests the full Create, Update (PATCH), and Delete lifecycle for roles.
         """
@@ -1064,7 +1082,9 @@ class TestScheduleAndRoleAPIs:
     # ===============================================
     # == Tests for manage_store_exception
     # ===============================================
-    def test_approve_exception_success(self, logged_in_manager, api_client):
+    def test_approve_exception_success(
+        self, logged_in_manager, api_client, store_associate_employee
+    ):
         """
         GIVEN a logged-in manager and an unapproved exception
         WHEN they send a POST request to approve it
@@ -1100,7 +1120,7 @@ class TestScheduleAndRoleAPIs:
     # == Tests for copy_week_schedule
     # ===============================================
     def test_copy_week_schedule_non_override(
-        self, logged_in_manager, api_client, store
+        self, logged_in_manager, api_client, store, store_associate_employee
     ):
         """
         GIVEN a manager
@@ -1156,3 +1176,203 @@ class TestScheduleAndRoleAPIs:
         results = response.json()["results"]
         assert results["created"] == 1, "Should have created the non-conflicting shift."
         assert results["skipped"] == 1, "Should have skipped the conflicting shift."
+
+
+@pytest.mark.django_db
+class TestShiftRequestAPI:
+    """
+    Test suite for the entire shift request lifecycle,
+    including creation, acceptance, approval, and listing.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_method(
+        self,
+        db,
+        store,
+        employee,
+        employee_b,
+        clocked_in_employee,
+        manager,
+        store_associate_employee,
+        store_associate_manager,
+    ):
+        """Create common objects for this test class."""
+        self.store = store
+        self.requester = employee  # John Doe
+        self.target_user = employee_b  # Bailey Smith
+        self.clocked_in_employee = clocked_in_employee
+        self.manager = manager
+
+        # A shift in the future for the requester to use
+        self.future_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.requester,
+            date=(now() + timedelta(days=10)).date(),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+
+    # ===============================================
+    # == Tests for request_shift_cover
+    # ===============================================
+
+    def test_request_cover_for_whole_store_success(
+        self, logged_in_employee, api_client
+    ):
+        """
+        GIVEN a logged-in employee with a future shift
+        WHEN they make a POST request to cover the shift
+        THEN a new 'COVER' ShiftRequest should be created.
+        """
+        shift_request_count = ShiftRequest.objects.count()
+        url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
+
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert ShiftRequest.objects.count() == shift_request_count + 1
+        new_request = ShiftRequest.objects.latest("id")
+        assert new_request.type == ShiftRequest.Type.COVER
+        assert new_request.requester == self.requester
+
+    def test_request_swap_with_specific_employee_success(
+        self, logged_in_employee, api_client
+    ):
+        """
+        GIVEN a logged-in employee with a future shift
+        WHEN they make a PATCH request to swap with a specific employee
+        THEN a new 'SWAP' ShiftRequest should be created.
+        """
+        shift_request_count = ShiftRequest.objects.count()
+        url = reverse("api:request_cover", kwargs={"shift_id": self.future_shift.id})
+        data = {"selected_employee_id": self.target_user.id}
+
+        response = api_client.patch(url, data, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert ShiftRequest.objects.count() == shift_request_count + 1
+        new_request = ShiftRequest.objects.latest("id")
+        assert new_request.type == ShiftRequest.Type.SWAP
+        assert new_request.target_user == self.target_user
+
+    def test_request_cover_for_past_shift_fails(self, logged_in_employee, api_client):
+        """
+        GIVEN a logged-in employee with a past shift
+        WHEN they try to request cover
+        THEN the request should be denied.
+        """
+        past_shift = Shift.objects.create(
+            store=self.store,
+            employee=self.requester,
+            date=now().date() - timedelta(days=1),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+        )
+        url = reverse("api:request_cover", kwargs={"shift_id": past_shift.id})
+
+        response = api_client.post(url, {}, format="json")
+
+        assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+
+    def test_target_user_can_accept_request(
+        self, logged_in_clocked_in_employee, api_client, mocker
+    ):
+        """
+        GIVEN a pending SWAP request
+        WHEN the target user sends a POST request
+        THEN the request status should be updated to ACCEPTED.
+        """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
+
+        # Setup: Create a pending request
+        request = ShiftRequest.objects.create(
+            requester_id=self.requester.id,
+            target_user_id=self.clocked_in_employee.id,
+            shift_id=self.future_shift.id,
+            type=ShiftRequest.Type.SWAP,
+            store_id=self.store.id,
+        )
+
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        response = api_client.post(url, {}, format="json")
+
+        # Verification
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        request.refresh_from_db()
+        assert request.status == ShiftRequest.Status.ACCEPTED
+        assert mock_notify_task.called
+
+    def test_manager_can_approve_request(self, mocker):
+        """
+        GIVEN an ACCEPTED swap request
+        WHEN a manager sends a PUT request to approve it
+        THEN the request should be APPROVED and the shift reassigned.
+        """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
+        # Setup: Create an accepted request
+        request = ShiftRequest.objects.create(
+            requester=self.requester,
+            target_user=self.target_user,
+            shift=self.future_shift,
+            type=ShiftRequest.Type.SWAP,
+            store=self.store,
+            status=ShiftRequest.Status.ACCEPTED,
+        )
+
+        # Action: Manager logs in and approves
+        manager_client = APIClient()
+        login_url = reverse("login")
+        login_data = {"email": self.manager.email, "password": "testpassword"}
+        login_response = manager_client.post(login_url, login_data)
+        assert login_response.status_code == 302
+
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        response = manager_client.put(url, {}, format="json")
+
+        # Verification
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        request.refresh_from_db()
+        self.future_shift.refresh_from_db()
+        assert request.status == ShiftRequest.Status.APPROVED
+        assert self.future_shift.employee == self.target_user
+        assert mock_notify_task.called
+
+    def test_manager_can_reject_request(self, mocker):
+        """
+        GIVEN an ACCEPTED swap request
+        WHEN a manager sends a PATCH request to reject it
+        THEN the request should be REJECTED.
+        """
+        mock_notify_task = mocker.patch(
+            "api.views.tasks.notify_shift_request_status_change.delay"
+        )
+        # Setup: Create an accepted request
+        request = ShiftRequest.objects.create(
+            requester=self.requester,
+            target_user=self.target_user,
+            shift=self.future_shift,
+            type=ShiftRequest.Type.SWAP,
+            store=self.store,
+            status=ShiftRequest.Status.ACCEPTED,
+        )
+
+        # Action: Manager logs in and rejects
+        manager_client = APIClient()
+        login_url = reverse("login")
+        login_data = {"email": self.manager.email, "password": "testpassword"}
+        login_response = manager_client.post(login_url, login_data)
+        assert login_response.status_code == 302
+
+        url = reverse("api:manage_shift_request", kwargs={"req_id": request.id})
+        response = manager_client.patch(url, {}, format="json")
+
+        # Verification
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        request.refresh_from_db()
+        assert request.status == ShiftRequest.Status.REJECTED
+        assert mock_notify_task.called

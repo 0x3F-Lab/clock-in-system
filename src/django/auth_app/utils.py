@@ -2,6 +2,7 @@ import re
 import markdown
 import api.exceptions as err
 
+from typing import Tuple
 from bleach import clean
 from functools import wraps
 from rest_framework import status
@@ -9,11 +10,12 @@ from datetime import date, datetime
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.urls import reverse
+from django.conf import settings
 from django.contrib import messages
+from django.core.cache import caches
 from django.utils.http import urlencode
 from django.utils.timezone import now, localtime, is_aware
 from auth_app.models import User, Notification
-from clock_in_system.settings import BASE_URL
 
 
 def manager_required(view_func):
@@ -273,7 +275,7 @@ def get_absolute_reverse_url(name):
     """
     path = reverse(name)
     return (
-        BASE_URL.rstrip("/") + "/" + path.lstrip("/")
+        settings.BASE_URL.rstrip("/") + "/" + path.lstrip("/")
     )  # Ensure correct '/' between URL and path
 
 
@@ -331,6 +333,87 @@ def get_user_associated_stores_full_info(user: User) -> dict:
     return store_data
 
 
+def get_user_stats(user: User) -> Tuple[int, int]:
+    """
+    Get the user's stats including unread notifications and active shift requests.
+
+    Args:
+      - user (User): The user to fetch stats for.
+
+    Returns:
+      - tuple:
+        - int: The count of unread notifications.
+        - int: The count of active shift requests.
+    """
+    cache_key = f"user_stats:{user.id}"
+    cache = caches["user_stats"]
+
+    if settings.USER_STATS_USE_CACHE:
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return (
+                cached_data["unread_notif_count"],
+                cached_data["active_shift_req_count"],
+            )
+
+    unread_notifications_qs = user.get_unread_notifications()
+    unread_count = unread_notifications_qs.count()
+    active_shift_requests_count = user.get_active_shift_requests().count()
+
+    if settings.USER_STATS_USE_CACHE:
+        cache.set(
+            cache_key,
+            {
+                "unread_notif_count": unread_count,
+                "active_shift_req_count": active_shift_requests_count,
+            },
+            timeout=settings.USER_STATS_CACHE_MAX_TTL_SEC,
+        )
+
+    return (unread_count, active_shift_requests_count)
+
+
+def update_user_stats_cache(
+    user_id: int, increase_notif_count: int = 0, increase_shift_req_count: int = 0
+) -> None:
+    """
+    Manually update user stats cache if its in user
+
+    Args:
+      - user_id (int): The user's id to update stats for.
+      - increase_notif_count (int): The amount to increase/decrease the unread notifications stat by manually.
+      - increase_shift_req_count (int): The amount to increase/decrease the active shift requests stat by manually.
+    """
+    if not settings.USER_STATS_USE_CACHE or (
+        increase_notif_count == 0 and increase_shift_req_count == 0
+    ):
+        return
+
+    cache = caches["user_stats"]
+    cache_key = f"user_stats:{user_id}"
+    cached_data = cache.get(cache_key)
+
+    if cached_data:
+        try:
+            ttl = cache.ttl(cache_key)
+            if ttl is None or ttl < 0:
+                ttl = settings.USER_STATS_CACHE_MAX_TTL_SEC
+        except AttributeError:
+            ttl = (
+                settings.USER_STATS_CACHE_MAX_TTL_SEC
+            )  # Fallback if cache backend doesnt support ttl()
+
+        new_data = {
+            "unread_notif_count": max(
+                0, cached_data["unread_notif_count"] + increase_notif_count
+            ),
+            "active_shift_req_count": max(
+                0, cached_data["active_shift_req_count"] + increase_shift_req_count
+            ),
+        }
+        cache.set(cache_key, new_data, timeout=ttl)
+
+
 def get_default_page_context(request, include_notifications: bool = False):
     """
     Get the user's context and User object from their user_id stored in their session information.
@@ -368,11 +451,12 @@ def get_default_page_context(request, include_notifications: bool = False):
         for store in employee.get_associated_stores(get_only_stores_as_manager=True)
     }
 
-    # Get user's notifications
-    unread_notifs = employee.get_unread_notifications()
+    # Get user stats
+    unread_notifs_count, active_shift_req_count = get_user_stats(user=employee)
 
+    # Get user's notifications
     if include_notifications:
-        unread_notifs = unread_notifs.select_related("sender")
+        unread_notifs = employee.get_unread_notifications().select_related("sender")
         unread_notifications = []
         for notif in unread_notifs:
             unread_notifications.append(
@@ -387,7 +471,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=True
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }
@@ -408,7 +492,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=True
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }
@@ -428,7 +512,7 @@ def get_default_page_context(request, include_notifications: bool = False):
                     "receiver": get_notification_receiver_name(
                         notif=notif, is_received=False
                     ),
-                    "created_at": notif.created_at,
+                    "created_at": localtime(notif.created_at),
                     "expires_on": notif.expires_on,
                     "store": notif.store.code if notif.store else None,
                 }
@@ -446,7 +530,9 @@ def get_default_page_context(request, include_notifications: bool = False):
                 "sent": sent_notifications,
                 "sent_count": sent_notifs.count(),
             },
-            "notification_count": unread_notifs.count(),
+            "notification_count": unread_notifs_count,
+            "shift_request_count": active_shift_req_count,
+            "total_alert_count": unread_notifs_count + active_shift_req_count,
         }, employee
 
     # Else, dont include notifications (SAVES WORK)
@@ -455,7 +541,9 @@ def get_default_page_context(request, include_notifications: bool = False):
         "user_name": employee.first_name,
         "associated_stores": store_data,
         "associated_stores_as_manager": store_as_manager_data,
-        "notification_count": unread_notifs.count(),
+        "notification_count": unread_notifs_count,
+        "shift_request_count": active_shift_req_count,
+        "total_alert_count": unread_notifs_count + active_shift_req_count,
     }, employee
 
 

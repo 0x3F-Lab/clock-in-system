@@ -445,6 +445,15 @@ function handleShiftModal() {
         // If role has description, add it
         $('#displayShiftRoleDesc').text('');
         if (shiftData.role_desc) { $('#displayShiftRoleDesc').text(shiftData.role_desc) }
+
+        // If shift is in future, allow user to request cover, otherwise hide
+        if (shiftData.in_future) {
+          $('#editModalEmployeeListContainer').removeClass('d-none');
+          $('#editModalCoverButtons').removeClass('d-none');
+        } else {
+          $('#editModalEmployeeListContainer').addClass('d-none');
+          $('#editModalCoverButtons').addClass('d-none');
+        }
         
         hideSpinner();
         const editModal = new bootstrap.Modal(document.getElementById('editModal'));
@@ -507,7 +516,7 @@ function updateStoreInformation() {
 
     // Fetch employees names
     $.ajax({
-        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true`,
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=true&ignore_self=true`,
         type: 'GET',
         xhrFields: {withCredentials: true},
         headers: {'X-CSRFToken': getCSRFToken()},

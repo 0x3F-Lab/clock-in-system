@@ -18,7 +18,11 @@ from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now, localtime, make_aware
-from auth_app.utils import sanitise_markdown_title_text, sanitise_markdown_message_text
+from auth_app.utils import (
+    sanitise_markdown_title_text,
+    sanitise_markdown_message_text,
+    update_user_stats_cache,
+)
 from auth_app.models import (
     User,
     Activity,
@@ -60,6 +64,7 @@ def list_store_employee_names(request):
         ignore_clocked_in = util.str_to_bool(
             request.query_params.get("ignore_clocked_in", "false")
         )
+        ignore_self = util.str_to_bool(request.query_params.get("ignore_self", "false"))
         store_id = util.clean_param_str(request.query_params.get("store_id", None))
 
         if store_id is None:
@@ -69,16 +74,7 @@ def list_store_employee_names(request):
             )
 
         # Get the user information of the manager requesting this info from their session
-        try:
-            user_id = request.session.get("user_id")
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {
-                    "Error": "Failed to get your account's information for authorisation. Please login again."
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        user = util.api_get_user_object_from_session(request)
 
         # Only allow related store members list the store's employee names
         if not user.is_associated_with_store(store=int(store_id)):
@@ -96,6 +92,7 @@ def list_store_employee_names(request):
             order=order,
             order_by_first_name=order_by_first_name,
             ignore_clocked_in=ignore_clocked_in,
+            ignore_id=user.id if ignore_self else None,
         )
 
         # Return the list of users in the response
@@ -2555,7 +2552,10 @@ def mark_notification_read(request, id):
         notif = Notification.objects.get(pk=id)
 
         # Mark the notification as read
-        notif.mark_notification_as_read(user=user_id)
+        marked = notif.mark_notification_as_read(user=user_id)
+
+        if marked:
+            update_user_stats_cache(user_id=user_id, increase_notif_count=-1)
 
         # Logging
         logger.debug(
@@ -2722,7 +2722,7 @@ def send_employee_notification(request, id):
 def list_store_roles(request, id):
     try:
         manager = util.api_get_user_object_from_session(request)
-        store = Store.objects.get(pk=id)
+        store = Store.objects.prefetch_related("roles").get(pk=id)
 
         # Ensure manager is authorised
         if not manager.is_manager(store=store.id):
@@ -3011,9 +3011,23 @@ def get_store_shifts(request, id):
             request, default_limit=100
         )
 
-        # Store-wide roster (Everyone view) OR user's own shifts
+        # Check the week is passed
+        if not week:
+            return Response(
+                {"Error": "Missing starting week date from request params."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check the date is correct
+        try:
+            datetime.strptime(week, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
         if get_all:
-            # Authorisation: manager OR store toggle allows it for this user
             if not (
                 user.is_manager(store=store.id) or store.allows_storewide_for(user)
             ):
@@ -3022,21 +3036,6 @@ def get_store_shifts(request, id):
                         "Error": "Not authorised to view store-wide roster for this store."
                     },
                     status=status.HTTP_403_FORBIDDEN,
-                )
-            # Check the week is passed
-            if not week:
-                return Response(
-                    {"Error": "Missing starting week date from request params."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Check the date is correct
-            try:
-                datetime.strptime(week, "%Y-%m-%d")
-            except ValueError:
-                return Response(
-                    {"Error": "Invalid date format. Use YYYY-MM-DD."},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
             VALID_SORT_FIELDS = (
@@ -3190,6 +3189,7 @@ def manage_store_shift(request, id):
                 "role_desc": shift.role.description if shift.role else None,
                 "role_colour": shift.role.colour_hex if shift.role else None,
                 "comment": shift.comment if shift.comment else "",
+                "in_future": False if shift.date <= localtime(now()).date() else True,
             }
 
             # IF REGULAR EMPLOYEE -> REMOVE SOME CONTENT
@@ -3969,7 +3969,7 @@ def copy_week_schedule(request, store_id):
             {"Error": f"Store with ID {store_id} does not exist."},
             status=status.HTTP_404_NOT_FOUND,
         )
-    except err.NotAssociatedWithStoreAsManagerError:
+    except err.NotAssociatedWithStoreError:
         return Response(
             {"Error": "Not authorised modify the schedule for this store."},
             status=status.HTTP_403_FORBIDDEN,
@@ -4025,12 +4025,7 @@ def request_shift_cover(request, shift_id):
                 {"Error": "Can only interact with your own shifts."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        elif shift.shift_requests.filter(
-            status__in=[
-                ShiftRequest.Status.PENDING,
-                ShiftRequest.Status.ACCEPTED,
-            ]
-        ).exists():
+        elif shift.get_active_shift_requests().exists():
             return Response(
                 {"Error": "An active cover request already exists for this shift."},
                 status=status.HTTP_409_CONFLICT,
@@ -4090,10 +4085,10 @@ def request_shift_cover(request, shift_id):
             )
 
         logger.info(
-            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) requested COVER for shift ID {shift.id} from {f'[{shift.store.code}]' if request.method == 'POST' else f'Employee ID {selected_employee_id}'}."
+            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) requested COVER for shift ID {shift.id} from {f'[{shift.store.code}]' if req.type != ShiftRequest.Type.SWAP else f'Employee ID {selected_employee_id}'}."
         )
         logger.debug(
-            f"[CREATE: SHIFTREQUEST (ID: {req.id})] Shift ID: {shift.id} -- Type: {req.type.upper()} -- Store Code: {shift.store.code} -- Target User ID: {selected_employee_id}"
+            f"[CREATE: SHIFTREQUEST (ID: {req.id})] Shift ID: {shift.id} -- Type: {req.type.upper()} -- Store Code: {shift.store.code} -- Target User ID: {selected_employee_id if req.type == ShiftRequest.Type.SWAP else 'N/A'}"
         )
         return JsonResponse(
             {"shift_id": shift_id, "request_id": req.id}, status=status.HTTP_201_CREATED
@@ -4145,6 +4140,10 @@ def manage_shift_request(request, req_id):
         if not req.shift.store.is_associated_with_user(employee):
             raise err.NotAssociatedWithStoreError
 
+        original = {
+            "status": req.status.upper(),
+        }
+
         # POST -> REQUESTING EMPLOYEE ACCEPTS THE COVER
         if request.method == "POST":
             # Ensure request can be covered
@@ -4187,6 +4186,9 @@ def manage_shift_request(request, req_id):
             req.status = ShiftRequest.Status.ACCEPTED
             req.save()
 
+            # Manually update user's cache
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
+
         # PUT -> MANAGER APPROVES THE COVER -> UPDATE SHIFT
         elif request.method == "PUT":
             # Ensure user is manager
@@ -4205,6 +4207,12 @@ def manage_shift_request(request, req_id):
             elif not req.target_user:
                 raise Exception(
                     "Could not APPROVE SHIFT REQUEST due to request missing `target_user` field."
+                )
+
+            elif req.shift.date <= localtime(now()).date():
+                return Response(
+                    {"Error": "Can only approve future shifts."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
             elif util.employee_has_conflicting_shifts(
@@ -4243,21 +4251,29 @@ def manage_shift_request(request, req_id):
                 if shift_end_dt < localtime(now()):
                     controllers.link_activity_to_shift(shift=req.shift_id)
 
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
+
         # PATCH -> MANAGER/TARGET USER REJECTS REQUEST
         elif request.method == "PATCH":
-            if req.status not in [
-                ShiftRequest.Status.PENDING,
-                ShiftRequest.Status.ACCEPTED,
+            if req.status != ShiftRequest.Status.ACCEPTED and req.type in [
+                ShiftRequest.Type.COVER,
+                ShiftRequest.Type.BID,
             ]:
                 return Response(
-                    {"Error": "Can only reject PENDING or ACCEPTED requests."},
+                    {"Error": "Cannot reject this type of request."},
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
             # Only target user OR manager can reject request
             elif not (
-                employee.id == req.target_user_id
-                or employee.is_manager(store=req.store_id)
+                (
+                    employee.id == req.target_user_id
+                    and req.status == ShiftRequest.Status.PENDING
+                )
+                or (
+                    employee.is_manager(store=req.store_id)
+                    and req.status == ShiftRequest.Status.ACCEPTED
+                )
             ):
                 return Response(
                     {"Error": "Not authorised to reject the request."},
@@ -4267,6 +4283,9 @@ def manage_shift_request(request, req_id):
             req.status = ShiftRequest.Status.REJECTED
             req.save()
 
+            # Manually update user's cache
+            update_user_stats_cache(user_id=employee.id, increase_shift_req_count=-1)
+
         # DELETE -> MANAGER/REQUESTING USER DELETES/CANCELS IT IN `PENDING` STATE
         elif request.method == "DELETE":
             # Ensure user is MANAGER or AUTHORING user
@@ -4275,17 +4294,35 @@ def manage_shift_request(request, req_id):
                 or employee.is_manager(store=req.store_id)
             ):
                 return Response(
-                    {"Error": "Not authorised to delete a shift request."},
+                    {"Error": "Not authorised to cancel this request."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
             if req.status != ShiftRequest.Status.PENDING:
                 return Response(
-                    {"Error": "Can only delete PENDING requests."},
+                    {"Error": "Can only cancel PENDING requests."},
                     status=status.HTTP_424_FAILED_DEPENDENCY,
                 )
 
-            req.delete()
+            req.status = ShiftRequest.Status.CANCELLED
+            req.save()
+
+            # Manually update user's cache -- manager doesnt get an active notification for it, so ignore them
+            if employee.id == req.requester_id:
+                update_user_stats_cache(
+                    user_id=employee.id, increase_shift_req_count=-1
+                )
+
+        tasks.notify_shift_request_status_change.delay(
+            request_id=req.id, acting_user_id=employee.id
+        )
+
+        logger.info(
+            f"User ID {employee.id} ({employee.first_name} {employee.last_name}) updated status of Shift Request ID {req.id} to {req.type.upper()}."
+        )
+        logger.debug(
+            f"[UPDATE: SHIFTREQUEST (ID: {req.id})] Status: {original['status']} → {req.status.upper()} -- Type: {req.type.upper()} -- Shift ID: {req.shift_id} -- Store Code: {req.shift.store.code} -- Target User ID: {req.target_user_id if (req.target_user is not None) else 'N/A'}"
+        )
 
         return Response({"request_id": req.id}, status=status.HTTP_202_ACCEPTED)
 

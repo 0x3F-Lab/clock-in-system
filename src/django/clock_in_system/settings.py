@@ -23,7 +23,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.2.2"  #
+STATIC_CACHE_VER = "v1.3.0"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -169,19 +169,43 @@ DATABASES = {
 }
 
 # Django cache to store the more temporary info (i.e. public holiday checks)
-if DEBUG:  # Use memory for development (saves the file permission errors)
+if DEBUG and str_to_bool(os.getenv("DJANGO_USE_MEMORY_CACHE", "false")):
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "django_cache",
-        }
+            "LOCATION": "default_django_cache",
+        },
+        "holiday_checks": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "holiday_checks_cache",
+        },
+        "user_stats": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "user_stats_cache",
+        },
     }
 else:
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-            "LOCATION": "/app/django_cache",
-        }
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_DEFAULT_DJANGO_CACHE_URL", "redis://:securepassword@redis:6379/2"
+            ),
+        },
+        "holiday_checks": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_HOLIDAY_CHECKS_DJANGO_CACHE_URL",
+                "redis://:securepassword@redis:6379/3",
+            ),
+        },
+        "user_stats": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_USER_STATS_DJANGO_CACHE_URL",
+                "redis://:securepassword@redis:6379/4",
+            ),
+        },
     }
 
 
@@ -230,7 +254,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check_clocked_in_users": {
         "task": "auth_app.tasks.check_clocked_in_users",
-        "schedule": crontab(hour=23, minute=40),
+        "schedule": crontab(hour=23, minute=55),
     },
     "delete_old_notifications": {
         "task": "auth_app.tasks.delete_old_notifications",
@@ -240,15 +264,23 @@ CELERY_BEAT_SCHEDULE = {
         "task": "auth_app.tasks.delete_old_unused_shifts",
         "schedule": crontab(hour=2, minute=30, day_of_week=2),  # Tues
     },
+    "delete_old_shift_requests": {
+        "task": "auth_app.tasks.delete_old_shift_requests",
+        "schedule": crontab(hour=2, minute=30, day_of_week=3),  # Wed
+    },
     "deactivate_unassigned_users": {
         "task": "auth_app.tasks.deactivate_unassigned_users",
         "schedule": crontab(hour=2, minute=0, day_of_week=1),  # Mon
+    },
+    "cancel_expired_shift_requests": {
+        "task": "auth_app.tasks.cancel_expired_shift_requests",
+        "schedule": crontab(hour=0, minute=5),  # DONT CHANGE TIME
     },
     "check_shifts_for_exceptions": {
         "task": "auth_app.tasks.check_shifts_for_exceptions",
         "schedule": crontab(
             hour=0, minute=5
-        ),  # DO NOT CHANGE FROM 12:05AM - UNLESS CONSULTED TASK FUNCTION
+        ),  # DO NOT CHANGE FROM 12:05AM - UNLESS YOU'VE CONSULTED TASK FUNCTION
     },
 }
 
@@ -290,9 +322,17 @@ COUNTRY_SUBDIV_CODE = "WA"
 UTC_OFFSET = "8"  # For UTC+8
 
 
+# Whether to cache user stats (i.e. active notifications or shift requests)
+USER_STATS_USE_CACHE = True
+# Max TTL age of cached user stats (after max, info is refetched) -- this is a smart cache that gets updated on notification reads etc.
+USER_STATS_CACHE_MAX_TTL_SEC = 180
+
 # Default notification expiration date
 NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS = 21
-NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 30
+NOTIFICATION_MAX_EXPIRY_LENGTH_DAYS = 90
+
+# Default shift request history TTL
+SHIFT_REQUEST_MAX_HISTORY_AGE_DAYS = 120
 
 # Rounding amount for calculating true shift length
 SHIFT_ROUNDING_MINS = 15  # Default is 15min

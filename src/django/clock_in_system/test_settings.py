@@ -22,11 +22,18 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 # Override the Cache setting for testing
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",  # For local dev
-        "LOCATION": "django_cache",
-    }
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "default_django_cache",
+    },
+    "holiday_checks": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "holiday_checks_cache",
+    },
+    "user_stats": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "user_stats_cache",
+    },
 }
-
 
 # Override logging settings
 LOGGING = {

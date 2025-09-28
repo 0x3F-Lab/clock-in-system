@@ -15,7 +15,8 @@ services:
     volumes:
       - ./django:/app:rw  # Sync Django project files
     ports:
-      - "8000:8000"  # Expose Django development server
+      - "8000:8000"   # Expose Django development server
+      - "5678:5678"   # VSCode Debugger
     env_file:
       - .env 
     depends_on:
