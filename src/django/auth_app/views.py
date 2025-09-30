@@ -18,7 +18,7 @@ from auth_app.utils import (
     manager_required,
     employee_required,
     get_default_page_context,
-    get_user_associated_stores_full_info,
+    get_manager_associated_stores_full_info,
 )
 from auth_app.forms import (
     LoginForm,
@@ -432,18 +432,6 @@ def employee_dashboard(request):
         )
         return redirect("home")
 
-    # --- build{store_id: boolean} map for 'everyone' permission ---
-    store_id_list = list((context.get("associated_stores") or {}).keys())
-    from auth_app.models import Store
-
-    perms_map = {}
-    if store_id_list:
-        for s in Store.objects.filter(pk__in=store_id_list):
-            perms_map[s.id] = bool(s.allows_storewide_for(user))
-    context["store_view_everyone_map"] = perms_map
-    context["store_view_everyone_map_json"] = json.dumps(perms_map)
-    # ------------------------------------------------------------------------------
-
     return render(request, "auth_app/employee_dashboard.html", context)
 
 
@@ -760,7 +748,7 @@ def manage_stores(request):
         )
         return redirect("home")
 
-    store_info = get_user_associated_stores_full_info(user)
+    store_info = get_manager_associated_stores_full_info(user)
 
     return render(
         request, "auth_app/manage_stores.html", {**context, "store_info": store_info}

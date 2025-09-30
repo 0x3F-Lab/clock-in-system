@@ -374,9 +374,10 @@ class Store(models.Model):
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
     is_scheduling_enabled = models.BooleanField(default=False, null=False)
-    employees_can_view_storewide_roster = models.BooleanField(
+    is_global_shift_view_enabled = models.BooleanField(
         default=False,
-        help_text="If enabled, associated non-hidden, active users can view the full weekly roster.",
+        null=False,
+        help_text="If enabled, all employees can see everyones shift.",
     )
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
@@ -463,21 +464,6 @@ class Store(models.Model):
         elif isinstance(role, int) or (isinstance(role, str) and role.isdigit()):
             return self.roles.filter(id=int(role)).exists()
         return False
-
-    def allows_storewide_for(self, user):
-        """
-        Managers always allowed; otherwise only if the toggle is on AND
-        the user is associated, active, and not hidden.
-        """
-        if hasattr(user, "is_manager") and user.is_manager(store=self.id):
-            return True
-
-        return (
-            self.employees_can_view_storewide_roster
-            and self.is_associated_with_user(user)
-            and getattr(user, "is_active", True)
-            and not getattr(user, "is_hidden", False)
-        )
 
 
 class StoreUserAccess(models.Model):
@@ -927,9 +913,15 @@ class ShiftRequest(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["status", "requester_id"]),
-            models.Index(fields=["status", "target_user_id"]),
-            models.Index(fields=["status", "store_id"]),
+            models.Index(
+                fields=["status", "requester_id"], name="shiftreq_status_requester_idx"
+            ),
+            models.Index(
+                fields=["status", "target_user_id"], name="shiftreq_status_target_idx"
+            ),
+            models.Index(
+                fields=["status", "store_id"], name="shiftreq_status_store_idx"
+            ),
         ]
 
     def __str__(self):

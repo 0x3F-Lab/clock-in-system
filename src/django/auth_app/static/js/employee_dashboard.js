@@ -1,24 +1,13 @@
 $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
-    initEveryoneOptionForSelectedStore();   // <-- changed
     updateClockedState();
-    updateStoreInformation();
+    updateStoreInformation(); // STORE CAPABILITIES ARE HANDLED IN HERE!
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
   });
 
   // Handle click on "View entire roster" inside the OPTIONS dropdown
-  $('#toggleEveryoneItem').on('click', function () {
-    if ($(this).hasClass('disabled')) return;
-
-    // toggle UI state (store it on the button)
-    const on = !!$(this).data('on');
-    $(this).data('on', !on);
-
-    // toggle the icon
-    $('#everyoneIcon').toggleClass('fa-square fa-square-check');
-
-    // reload for the current week
+  $('#toggleGlobalView').on('change', function () {
     const weekNow = $('#schedule-week-title').data('week-start-date')
       ? new Date($('#schedule-week-title').data('week-start-date')).toLocaleDateString('sv-SE')
       : new Date().toLocaleDateString('sv-SE');
@@ -40,7 +29,6 @@ $(document).ready(function() {
   });
 
   // Initial state & history set
-  initEveryoneOptionForSelectedStore(); 
   updateClockedState();
   updateStoreInformation();
   updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
@@ -48,7 +36,6 @@ $(document).ready(function() {
   // Add page reloader to force reload after period of inactivity
   setupVisibilityReload(30); // 30 minutes
 });
-
 
 
 function handleDeliveryAdjustment() {
@@ -245,14 +232,14 @@ function handleWeekSwitching() {
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
         const previousWeek = $(this).data('week');
-        if (isNonEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
+        if (!isEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
     });
 
     // --- Shift Next Week ---
     $('#next-week-btn').on('click', function(e) {
         e.preventDefault();
         const nextWeek = $(this).data('week');
-        if (isNonEmpty(nextWeek)) { updateShiftRosterAndHistory(nextWeek); }
+        if (!isEmpty(nextWeek)) { updateShiftRosterAndHistory(nextWeek); }
     });
 }
 
@@ -321,13 +308,13 @@ function updateShiftRosterAndHistory(week) {
     }
   });
 
-  // --- Build query params (add get_all when "Everyone" is checked)
-const everyone = !!$('#toggleEveryoneItem').data('on');
-const params = new URLSearchParams({ week });
-if (everyone) {
-  params.set('get_all', 'true');
-  params.set('legacy', 'true'); 
-}
+  const isGlobalView = $('#toggleGlobalView').prop('checked');
+  const params = new URLSearchParams({ week });
+  if (isGlobalView) {
+    params.set('get_all', 'true');
+    params.set('legacy', 'true'); 
+  }
+
   // LOAD ROSTERED SHIFTS
   $.ajax({
     url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?${params.toString()}`,
@@ -341,17 +328,18 @@ if (everyone) {
           dayShifts.forEach(shift => {
             const borderColor = shift.role_colour || '#adb5bd'; 
             const duration = calculateDuration(shift.start_time, shift.end_time);
+            const isShiftOwner = isEmpty(shift.is_owner) ? true : toBool(shift.is_owner);
 
             // Build the HTML with the new color logic.
             shiftsHtml += `
-            <div class="shift-item shift-item-action position-relative cursor-pointer"
+            <div class="shift-item position-relative ${isShiftOwner ? 'shift-item-action cursor-pointer' : ''}"
                  style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;"
                  data-shift-id="${shift.id}">
-              ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+              ${toBool(shift.has_comment) ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
               <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
               <div class="shift-item-details">
-                ${everyone && shift.employee_name ? `
-                  <span class="d-inline-flex align-items-center text-muted small">
+                ${isGlobalView ? `
+                  <span class="d-inline-flex align-items-center">
                     <i class="fa-solid fa-user me-1"></i>${shift.employee_name}
                   </span>
                 ` : ''}
@@ -486,7 +474,7 @@ function handleShiftModal() {
     const shiftId = $('#displayShiftId').val();
     const selectedEmployee = $("#editModalSelectedEmployeeID").val();
 
-    if (method === "PATCH" && !isNonEmpty(selectedEmployee)) {
+    if (method === "PATCH" && isEmpty(selectedEmployee)) {
       showNotification("Please select an employee.", "danger");
       return;
     }
@@ -541,34 +529,16 @@ function updateStoreInformation() {
             $employeeSelect.append('<option value="">Error getting employees</option>');
         }
     });
+
+    // Enable/disable global view button based on store capabilities
+    if (toBool(getSelectedStoreInformation().cap_global_shift_view ?? false)) {
+        $('#rosterOptionsDropdown').removeClass('d-none');
+    } else {
+        $('#rosterOptionsDropdown').addClass('d-none'); // Hide entire dropdown due to there only being one option
+        $('#toggleGlobalView').prop('checked', false); // Ensure view is reset
+    }
 }
 
-// Read server-rendered {store_id: boolean} from <script id="store-perms">
-const STORE_PERMS = (() => {
-  try { return JSON.parse(document.getElementById('store-perms')?.textContent || '{}'); }
-  catch { return {}; }
-})();
-
-// Enable/disable the "Everyone" option for the currently selected store
-function initEveryoneOptionForSelectedStore() {
-  const id = getSelectedStoreID();
-  const key = id != null ? String(id) : null; // keys from json_script are strings
-  const allowed = key && Object.prototype.hasOwnProperty.call(STORE_PERMS, key) ? !!STORE_PERMS[key] : false;
-
-  const $item = $('#toggleEveryoneItem');
-  const $icon = $('#everyoneIcon');
-
-  // reset state OFF whenever store changes
-  $item.data('on', false);
-  $icon.removeClass('fa-square-check').addClass('fa-square');
-
-  if (allowed) {
-    $item.removeClass('disabled').attr('aria-disabled', 'false');
-  } else {
-    $item.addClass('disabled').attr('aria-disabled', 'true');
-  }
-}
-// -----------------------------------------------------------------------------
 
 //////////////////////////// HELPER FUNCTIONS ///////////////////////////////////////
 
