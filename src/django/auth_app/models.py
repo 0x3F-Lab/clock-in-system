@@ -913,15 +913,9 @@ class ShiftRequest(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(
-                fields=["status", "requester_id"], name="shiftreq_status_requester_idx"
-            ),
-            models.Index(
-                fields=["status", "target_user_id"], name="shiftreq_status_target_idx"
-            ),
-            models.Index(
-                fields=["status", "store_id"], name="shiftreq_status_store_idx"
-            ),
+            models.Index(fields=["status", "requester_id"]),
+            models.Index(fields=["status", "target_user_id"]),
+            models.Index(fields=["status", "store_id"]),
         ]
 
     def __str__(self):

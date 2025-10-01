@@ -10,21 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="shiftrequest",
-            new_name="shiftreq_status_requester_idx",
-            old_name="auth_app_shiftreq_status_requester_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="shiftrequest",
-            new_name="shiftreq_status_target_idx",
-            old_name="auth_app_shiftreq_status_target_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="shiftrequest",
-            new_name="shiftreq_status_store_idx",
-            old_name="auth_app_shiftreq_status_store_idx",
-        ),
         migrations.AddField(
             model_name="store",
             name="is_global_shift_view_enabled",

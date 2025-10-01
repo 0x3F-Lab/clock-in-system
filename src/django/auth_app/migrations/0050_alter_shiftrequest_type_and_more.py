@@ -27,20 +27,20 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="shiftrequest",
             index=models.Index(
-                fields=["status", "requester_id"], name="auth_app_shiftreq_status_requester_idx"
+                fields=["status", "requester_id"], name="auth_app_sh_status_de66a9_idx"
             ),
         ),
         migrations.AddIndex(
             model_name="shiftrequest",
             index=models.Index(
                 fields=["status", "target_user_id"],
-                name="auth_app_shiftreq_status_target_idx",
+                name="auth_app_sh_status_16c4e3_idx",
             ),
         ),
         migrations.AddIndex(
             model_name="shiftrequest",
             index=models.Index(
-                fields=["status", "store_id"], name="auth_app_shiftreq_status_store_idx"
+                fields=["status", "store_id"], name="auth_app_sh_status_8b171d_idx"
             ),
         ),
     ]
