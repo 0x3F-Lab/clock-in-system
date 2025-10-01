@@ -207,8 +207,8 @@ function handleShiftModification() {
         // EITHER CREATE OR UPDATE EXISTING SHIFT DEPENDING IF shiftID SET
         showSpinner();
         $.ajax({
-            url: isNonEmpty(shiftId) ? `${window.djangoURLs.manageShift}${shiftId}/` : `${window.djangoURLs.createShift}${getSelectedStoreID()}/`,
-            method: isNonEmpty(shiftId) ? 'POST' :'PUT',
+            url: !isEmpty(shiftId) ? `${window.djangoURLs.manageShift}${shiftId}/` : `${window.djangoURLs.createShift}${getSelectedStoreID()}/`,
+            method: !isEmpty(shiftId) ? 'POST' :'PUT',
             contentType: 'application/json',
             data: JSON.stringify(formData),
             headers: { 'X-CSRFToken': getCSRFToken() },
@@ -218,10 +218,10 @@ function handleShiftModification() {
                 bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
                 form[0].reset();
                 loadSchedule(response.date);
-                showNotification(isNonEmpty(shiftId) ? "Successfully updated a shift." : "Successfully created a shift.", "success");
+                showNotification(!isEmpty(shiftId) ? "Successfully updated a shift." : "Successfully created a shift.", "success");
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                handleAjaxError(jqXHR, isNonEmpty(shiftId) ? "Failed to update the shift" : "Failed to create the shift");
+                handleAjaxError(jqXHR, !isEmpty(shiftId) ? "Failed to update the shift" : "Failed to create the shift");
             }
         });
     });

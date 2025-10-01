@@ -2,7 +2,7 @@ import re
 import markdown
 import api.exceptions as err
 
-from typing import Tuple
+from typing import Tuple, Any
 from bleach import clean
 from functools import wraps
 from rest_framework import status
@@ -15,7 +15,7 @@ from django.contrib import messages
 from django.core.cache import caches
 from django.utils.http import urlencode
 from django.utils.timezone import now, localtime, is_aware
-from auth_app.models import User, Notification
+from auth_app.models import User, Notification, Store
 
 
 def manager_required(view_func):
@@ -303,15 +303,15 @@ def get_user_associated_stores_from_session(request):
     return store_data
 
 
-def get_user_associated_stores_full_info(user: User) -> dict:
+def get_manager_associated_stores_full_info(user: User) -> dict:
     """
-    Get the user's associated stores and return all possible info about the store.
+    Get the user's associated stores AS A MANAGER and return all possible info about the store.
     SHOULD ONLY BE USED IN MANAGER PAGES.
     Args:
       user (User): The User object of the user to get the associated stores for.
     """
 
-    stores = user.get_associated_stores()
+    stores = user.get_associated_stores(get_only_stores_as_manager=True)
 
     if len(stores) < 1 or not stores:
         return {}
@@ -328,6 +328,7 @@ def get_user_associated_stores_full_info(user: User) -> dict:
             "pin": store.store_pin,
             "is_active": store.is_active,
             "is_scheduling_enabled": store.is_scheduling_enabled,
+            "is_global_shift_view_enabled": store.is_global_shift_view_enabled,
         }
 
     return store_data
@@ -445,9 +446,9 @@ def get_default_page_context(request, include_notifications: bool = False):
             request,
             "Your account has no associated stores. Please contact a store manager.",
         )
-    store_data = {store.id: store.code for store in stores}
+    store_data = {store.id: get_context_store_info_object(store) for store in stores}
     store_as_manager_data = {
-        store.id: store.code
+        store.id: get_context_store_info_object(store)
         for store in employee.get_associated_stores(get_only_stores_as_manager=True)
     }
 
@@ -545,6 +546,19 @@ def get_default_page_context(request, include_notifications: bool = False):
         "shift_request_count": active_shift_req_count,
         "total_alert_count": unread_notifs_count + active_shift_req_count,
     }, employee
+
+
+def get_context_store_info_object(store: Store) -> dict[str:Any]:
+    """
+    Get the information object that is used in the context for associated stores
+    Information:
+      - code: string
+      - cap_global_shift_view: bool
+    """
+    return {
+        "code": store.code,
+        "cap_global_shift_view": store.is_global_shift_view_enabled,
+    }
 
 
 def get_notification_sender_name(notif: Notification) -> str:

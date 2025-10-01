@@ -1023,6 +1023,7 @@ def is_active_account(employee_id: int) -> bool:
 def get_all_store_schedules_legacy(
     store: Store,
     week: str,
+    requesting_user_id: int,
     include_deleted: bool = False,
     hide_deactivated: bool = False,
     hide_resigned: bool = False,
@@ -1036,6 +1037,7 @@ def get_all_store_schedules_legacy(
     Args:
         store (Store obj): The store for which the schedule will be fetched
         week (str): The date of the start of the week for which the schedule will be obtained (YYYY-MM-DD). The start of the week is Monday.
+        requesting_user_id (int): ID of the user requesting the view. Used to set ownership flag.
         include_deleted (bool): If True, include Shifts with is_deleted=True
         hide_deactivated (bool): Exclude deactivated employees. Default False.
         hide_resigned (bool): Exclude resigned employees. Default False.
@@ -1125,6 +1127,9 @@ def get_all_store_schedules_legacy(
     grouped_shifts = defaultdict(list)
 
     for shift in shifts:
+        # Check if user is owner of the shift before giving private information (for global roster view)
+        is_owner = shift.employee_id == requesting_user_id
+
         grouped_shifts[shift.date].append(
             {
                 "id": shift.id,
@@ -1133,9 +1138,12 @@ def get_all_store_schedules_legacy(
                 "end_time": shift.end_time.strftime("%H:%M"),
                 "role_name": shift.role.name if shift.role else None,
                 "role_colour": shift.role.colour_hex if shift.role else None,
-                "is_unscheduled": shift.is_unscheduled,
-                "comment": shift.comment,
-                "has_exception": hasattr(shift, "shift_shiftexception"),
+                "is_unscheduled": shift.is_unscheduled if is_owner else False,
+                "comment": shift.comment if is_owner else None,
+                "is_owner": is_owner,
+                "has_exception": (
+                    hasattr(shift, "shift_shiftexception") if is_owner else False
+                ),
             }
         )
         if shift.is_deleted:

@@ -2985,7 +2985,7 @@ def get_store_shifts(request, id):
         if not user.is_associated_with_store(store=store.id):
             raise err.NotAssociatedWithStoreError
 
-        elif not store.is_active and not user.is_hidden:
+        elif not store.is_active and not user.is_manager(store=store):
             raise err.InactiveStoreError
 
         # Get other request data
@@ -3027,8 +3027,21 @@ def get_store_shifts(request, id):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
-        # Only get all shifts IF they're a manager
-        if get_all and user.is_manager(store=store.id):
+        if get_all:
+            if not user.is_manager(store=store):
+                if not store.is_global_shift_view_enabled:
+                    return Response(
+                        {
+                            "Error": "Not authorised to view store-wide roster for this store."
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+                # Reset certain filter options - prevent regular employees modifying them
+                hide_deactivated = hide_resigned = legacy = (
+                    True  # Non-legacy is not needed as view only uses legacy
+                )
+
             VALID_SORT_FIELDS = (
                 {"time", "name", "role_name", "length"}
                 if legacy
@@ -3067,6 +3080,7 @@ def get_store_shifts(request, id):
                     sort_field=sort_field,
                     filter_names=filter_names_list,
                     filter_roles=filter_roles_list,
+                    requesting_user_id=user.id,
                 )
 
             # Use new function to get data if not requesting legacy view

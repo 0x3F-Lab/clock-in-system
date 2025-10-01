@@ -154,12 +154,12 @@ function ensureSafeInt(val, min = null, max = null) {
   val = parseInt(val, 10);
 
   // Ensure the int is within range
-  if (isNonEmpty(min)) {
+  if (!isEmpty(min)) {
     min = parseInt(min, 10);
     val = Math.max(val, min)
   }
   
-  if (isNonEmpty(max)) {
+  if (!isEmpty(max)) {
     max = parseInt(max, 10);
     if (min != null && min > max) { return min }
     val = Math.min(val, max)
@@ -174,12 +174,12 @@ function ensureSafeFloat(val, min, max) {
   val = parseFloat(val);
 
   // Ensure the number is within range
-  if (isNonEmpty(min)) {
+  if (!isEmpty(min)) {
     min = parseFloat(min);
     val = Math.max(val, min)
   }
   
-  if (isNonEmpty(max)) {
+  if (!isEmpty(max)) {
     max = parseFloat(max);
     if (min != null && min > max) { return min }
     val = Math.min(val, max)
@@ -189,8 +189,16 @@ function ensureSafeFloat(val, min, max) {
 }
 
 
-function isNonEmpty(val) {
-  return val !== null && val !== undefined && val !== "";
+function isEmpty(val) {
+  return val === null || val === undefined || val === "";
+}
+
+
+function toBool(str) {
+  if (typeof str === "string") {
+    return str.toLowerCase() === "true";
+  }
+  return Boolean(str);
 }
 
 
@@ -478,6 +486,24 @@ function getSelectedStoreID() {
 
   // Return as an int for easy use
   return parseInt(storeID.trim(), 10);
+}
+
+function getSelectedStoreInformation() {
+  const $selected = $('#storeSelectDropdown option:selected');
+  if (isEmpty($selected) || $selected.length === 0) { return null; }
+
+  const info = {
+    id: parseInt($selected.val().trim(), 10),
+    code: $selected.text().trim()
+  };
+
+  // Grab all data-* attributes
+  const dataset = $selected.data();
+  for (const key in dataset) {
+    info[key] = dataset[key];
+  }
+
+  return info;
 }
 
 

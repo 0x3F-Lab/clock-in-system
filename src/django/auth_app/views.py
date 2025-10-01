@@ -1,3 +1,4 @@
+import json
 import logging
 import traceback
 import api.exceptions as err
@@ -17,7 +18,7 @@ from auth_app.utils import (
     manager_required,
     employee_required,
     get_default_page_context,
-    get_user_associated_stores_full_info,
+    get_manager_associated_stores_full_info,
 )
 from auth_app.forms import (
     LoginForm,
@@ -747,7 +748,7 @@ def manage_stores(request):
         )
         return redirect("home")
 
-    store_info = get_user_associated_stores_full_info(user)
+    store_info = get_manager_associated_stores_full_info(user)
 
     return render(
         request, "auth_app/manage_stores.html", {**context, "store_info": store_info}

@@ -374,6 +374,11 @@ class Store(models.Model):
     store_pin = models.CharField(max_length=255, unique=True, null=False)
     is_active = models.BooleanField(default=False, null=False)
     is_scheduling_enabled = models.BooleanField(default=False, null=False)
+    is_global_shift_view_enabled = models.BooleanField(
+        default=False,
+        null=False,
+        help_text="If enabled, all employees can see everyones shift.",
+    )
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def __str__(self):
@@ -908,9 +913,15 @@ class ShiftRequest(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["status", "requester_id"]),
-            models.Index(fields=["status", "target_user_id"]),
-            models.Index(fields=["status", "store_id"]),
+            models.Index(
+                fields=["status", "requester_id"], name="shiftreq_status_requester_idx"
+            ),
+            models.Index(
+                fields=["status", "target_user_id"], name="shiftreq_status_target_idx"
+            ),
+            models.Index(
+                fields=["status", "store_id"], name="shiftreq_status_store_idx"
+            ),
         ]
 
     def __str__(self):

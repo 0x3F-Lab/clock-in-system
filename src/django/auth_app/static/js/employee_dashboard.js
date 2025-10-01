@@ -2,8 +2,16 @@ $(document).ready(function() {
   // Attach event to update clocked state & shift history whenever selected store changes
   $('#storeSelectDropdown').on('change', function() {
     updateClockedState();
-    updateStoreInformation();
+    updateStoreInformation(); // STORE CAPABILITIES ARE HANDLED IN HERE!
     updateShiftRosterAndHistory(new Date().toLocaleDateString('sv-SE'));
+  });
+
+  // Handle click on "View entire roster" inside the OPTIONS dropdown
+  $('#toggleGlobalView').on('change', function () {
+    const weekNow = $('#schedule-week-title').data('week-start-date')
+      ? new Date($('#schedule-week-title').data('week-start-date')).toLocaleDateString('sv-SE')
+      : new Date().toLocaleDateString('sv-SE');
+    updateShiftRosterAndHistory(weekNow);
   });
 
   // Handle deliveries adjustment
@@ -224,14 +232,14 @@ function handleWeekSwitching() {
     $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
         const previousWeek = $(this).data('week');
-        if (isNonEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
+        if (!isEmpty(previousWeek)) { updateShiftRosterAndHistory(previousWeek); }
     });
 
     // --- Shift Next Week ---
     $('#next-week-btn').on('click', function(e) {
         e.preventDefault();
         const nextWeek = $(this).data('week');
-        if (isNonEmpty(nextWeek)) { updateShiftRosterAndHistory(nextWeek); }
+        if (!isEmpty(nextWeek)) { updateShiftRosterAndHistory(nextWeek); }
     });
 }
 
@@ -300,9 +308,16 @@ function updateShiftRosterAndHistory(week) {
     }
   });
 
+  const isGlobalView = $('#toggleGlobalView').prop('checked');
+  const params = new URLSearchParams({ week });
+  if (isGlobalView) {
+    params.set('get_all', 'true');
+    params.set('legacy', 'true'); 
+  }
+
   // LOAD ROSTERED SHIFTS
   $.ajax({
-    url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?&week=${week}`,
+    url: `${window.djangoURLs.listStoreShifts}${getSelectedStoreID()}/?${params.toString()}`,
     method: 'GET',
     xhrFields: {withCredentials: true},
     headers: {'X-CSRFToken': getCSRFToken()},
@@ -313,17 +328,25 @@ function updateShiftRosterAndHistory(week) {
           dayShifts.forEach(shift => {
             const borderColor = shift.role_colour || '#adb5bd'; 
             const duration = calculateDuration(shift.start_time, shift.end_time);
+            const isShiftOwner = isEmpty(shift.is_owner) ? true : toBool(shift.is_owner);
 
             // Build the HTML with the new color logic.
             shiftsHtml += `
-              <div class="shift-item shift-item-action position-relative cursor-pointer" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
-                ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
-                <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
-                <div class="shift-item-details">
-                  <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                  <span>⌛ ${duration}</span>
-                </div>
-              </div>`;
+            <div class="shift-item position-relative ${isShiftOwner ? 'shift-item-action cursor-pointer' : ''}"
+                 style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;"
+                 data-shift-id="${shift.id}">
+              ${toBool(shift.has_comment) ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+              <div class="shift-item-employee">${shift.role_name ? shift.role_name : 'No Role'}</div>
+              <div class="shift-item-details">
+                ${isGlobalView ? `
+                  <span class="d-inline-flex align-items-center">
+                    <i class="fa-solid fa-user me-1"></i>${shift.employee_name}
+                  </span>
+                ` : ''}
+                <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                <span>⌛ ${duration}</span>
+              </div>
+            </div>`;
           });
         }
         const $roster = $(`#roster-${dayDate}`);
@@ -451,7 +474,7 @@ function handleShiftModal() {
     const shiftId = $('#displayShiftId').val();
     const selectedEmployee = $("#editModalSelectedEmployeeID").val();
 
-    if (method === "PATCH" && !isNonEmpty(selectedEmployee)) {
+    if (method === "PATCH" && isEmpty(selectedEmployee)) {
       showNotification("Please select an employee.", "danger");
       return;
     }
@@ -506,6 +529,14 @@ function updateStoreInformation() {
             $employeeSelect.append('<option value="">Error getting employees</option>');
         }
     });
+
+    // Enable/disable global view button based on store capabilities
+    if (toBool(getSelectedStoreInformation().cap_global_shift_view ?? false)) {
+        $('#rosterOptionsDropdown').removeClass('d-none');
+    } else {
+        $('#rosterOptionsDropdown').addClass('d-none'); // Hide entire dropdown due to there only being one option
+        $('#toggleGlobalView').prop('checked', false); // Ensure view is reset
+    }
 }
 
 

@@ -1,26 +1,22 @@
-<div id="storeSelectionController"
-     class="panel rounded py-5 px-4 bg-transparent {% if store_dict|length == 1 %}d-none{% endif %}">
-
-  <label for="storeSelectDropdown"
-         class="d-block text-center fw-semibold mb-2 fs-6 small">
+<div id="storeSelectionController" class="panel rounded py-5 px-4 bg-transparent {% if store_dict|length == 1 %}d-none{% endif %}">
+  <label for="storeSelectDropdown" class="d-block text-center fw-semibold mb-2 fs-6 small">
     Select a store:
   </label>
 
-  
   <div class="select-pill-container position-relative w-100 mx-auto" style="max-width:320px;">
-
-    <!-- left icon -->
     <span class="select-icon position-absolute top-50 start-0 translate-middle-y ps-3">
       <i class="fa-solid fa-shop"></i>
     </span>
 
-    <!-- selector -->
-    <select id="storeSelectDropdown"
-            class="form-select rounded-pill ps-5 pe-5">
+    <select id="storeSelectDropdown" class="form-select rounded-pill ps-5 pe-5">
       {% if store_dict %}
-        {% for store_id, store_code in store_dict.items %}
-          <option value="{{ store_id }}" {% if forloop.first %}selected{% endif %}>
-            {{ store_code }}
+        {% for store_id, store_info in store_dict.items %}
+          <option value="{{ store_id }}"
+                  {% for key, val in store_info.items %}
+                    data-{{ key|slugify }}="{{ val }}"
+                  {% endfor %}
+                  {% if forloop.first %}selected{% endif %}>
+            {{ store_info.code }}
           </option>
         {% endfor %}
       {% else %}
@@ -28,7 +24,6 @@
       {% endif %}
     </select>
 
-    <!-- right chevron  -->
     <span class="select-icon position-absolute top-50 end-0 translate-middle-y pe-3">
       <i class="fa-solid fa-chevron-right"></i>
     </span>
