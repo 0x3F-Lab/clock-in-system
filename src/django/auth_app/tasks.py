@@ -576,7 +576,7 @@ def notify_managers_and_employee_account_resigned(
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.INDIVIDUAL,
-            expires_on=notification_default_expires_on(7),
+            expires_on=notification_default_expires_on(14),
         )
 
         logger_beat.info(
@@ -841,7 +841,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
             else ""
         )
         str_msg = util.sanitise_markdown_message_text(
-            f"Store information for store '`{store.code}` ({store.name})' has been updated by the manager **{manager.first_name} {manager.last_name} _(Email: {manager.email if not manager.is_hidden else 'HIDDEN'})_**"
+            f"Store information for store `{store.code}` ({store.name}) has been updated by the manager **{manager.first_name} {manager.last_name} _(Email: {manager.email if not manager.is_hidden else 'HIDDEN'})_**"
             + extra_note
             + f"\n\nIf this is a mistake, please fix it by using the store management page."
         )
@@ -851,7 +851,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
             message=str_msg,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
-            expires_on=notification_default_expires_on(7),
+            expires_on=notification_default_expires_on(14),
         )
 
         logger_beat.info(

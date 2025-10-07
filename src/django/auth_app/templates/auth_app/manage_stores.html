@@ -27,16 +27,28 @@
      data-lat="{{ info.loc_lat }}"
      data-lng="{{ info.loc_long }}"
      data-radius="{{ info.clocking_dist }}">
-    <p><span class="fw-semibold">Name:</span> {{ info.name|escape }}</p>
-    <p><span class="fw-semibold">Code:</span> <code>{{ info.code|escape }}</code></p>
-    <p><span class="fw-semibold">Store PIN:</span> {{ info.pin|escape }}</p>
-    <p><span class="fw-semibold">Street Location:</span> {{ info.loc_street|escape }}</p>
-    <p><span class="fw-semibold">Allowable Clocking Distance:</span> {{ info.clocking_dist|escape }} meters</p>
-    <p><span class="fw-semibold">Store Latitude:</span> {{ info.loc_lat|escape }}</p>
-    <p><span class="fw-semibold">Store Longitude:</span> {{ info.loc_long|escape }}</p>
-    <p><span class="fw-semibold">Is Store Active:</span> {% if info.is_active %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
-    <p><span class="fw-semibold">Has Scheduling Capabilities:</span> {% if info.is_scheduling_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
-    <p><span class="fw-semibold">Has Global Shift View Enabled:</span> {% if info.is_global_shift_view_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}</p>
+    <p><span class="fw-semibold">Name:</span> <span class="store-name">{{ info.name|escape }}</span></p>
+    <p><span class="fw-semibold">Code:</span> <code class="store-code">{{ info.code|escape }}</code></p>
+    <p><span class="fw-semibold">Store PIN:</span> <span class="store-pin">{{ info.pin|escape }}</span></p>
+    <p><span class="fw-semibold">Street Location:</span> <span class="store-street">{{ info.loc_street|escape }}</span></p>
+    <p><span class="fw-semibold">Allowable Clocking Distance:</span> <span class="store-distance">{{ info.clocking_dist|escape }}</span> meters</p>
+    <p><span class="fw-semibold">Store Latitude:</span> <span class="store-lat">{{ info.loc_lat|escape }}</span></p>
+    <p><span class="fw-semibold">Store Longitude:</span> <span class="store-long">{{ info.loc_long|escape }}</span></p>
+    <p><span class="fw-semibold">Is Store Active:</span> 
+      <span class="store-active" data-value="{{ info.is_active }}">
+        {% if info.is_active %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}
+      </span>
+    </p>
+    <p><span class="fw-semibold">Has Scheduling Capabilities:</span> 
+      <span class="store-sched" data-value="{{ info.is_scheduling_enabled }}">
+        {% if info.is_scheduling_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}
+      </span>
+    </p>
+    <p><span class="fw-semibold">Has Global Shift View Enabled:</span> 
+      <span class="store-global" data-value="{{ info.is_global_shift_view_enabled }}">
+        {% if info.is_global_shift_view_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}
+      </span>
+    </p>
   </div>
   {% endfor %}
   <button type="button" class="btn btn-lg w-100 btn-gradient" id="openEditModal">
@@ -70,6 +82,14 @@
             <label for="editDist" class="form-label fw-semibold">Store Allowable Clocking Distance (Meters):</label>
             <input type="number" class="form-control w-100" id="editDist" min="1" max="2500" step="1" required>
           </div>
+          <div class="form-check form-switch my-3">
+            <input type="checkbox" id="editSchedulingCapEnabled" class="form-check-input p-2" />
+            <label for="editSchedulingCapEnabled" class="form-check-label">Enable store scheduling capabilities.</label>
+          </div>
+          <div class="form-check form-switch my-3">
+            <input type="checkbox" id="editGlobalShiftViewCapEnabled" class="form-check-input p-2" />
+            <label for="editGlobalShiftViewCapEnabled" class="form-check-label">Enable global shift viewing for ALL employees.</label>
+          </div>
         </form>
       </div>
 
@@ -77,7 +97,6 @@
         <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-info text-white text-center rounded p-2 w-100 mb-2">
           <div><i class="fas fa-circle-info"></i></div>
           <div>
-            <p class="m-0">Can only edit clocking distance and street location.</p>
             <p class="m-0">Please contact a site admin to change anything else.</p>
           </div>
         </div>

@@ -2156,6 +2156,14 @@ def update_store_info(request, id):
         clocking_dist = (
             util.clean_param_str(request.data.get("clocking_dist", None)) or 0
         )
+        cap_scheduling = util.str_to_bool(
+            request.data.get("cap_scheduling", store.is_scheduling_enabled)
+        )
+        cap_global_shift_view = util.str_to_bool(
+            request.data.get(
+                "cap_global_shift_view", store.is_global_shift_view_enabled
+            )
+        )
 
         try:
             clocking_dist = int(clocking_dist)
@@ -2221,6 +2229,8 @@ def update_store_info(request, id):
             "code": store.code,
             "loc_street": store.location_street,
             "clocking_dist": store.allowable_clocking_dist_m,
+            "cap_scheduling": store.is_scheduling_enabled,
+            "cap_global_shift_view": store.is_global_shift_view_enabled,
         }
 
         # Ensure only update DB if something has changed
@@ -2248,6 +2258,14 @@ def update_store_info(request, id):
             store.location_street = street
             update = True
 
+        if store.is_scheduling_enabled != cap_scheduling:
+            store.is_scheduling_enabled = cap_scheduling
+            update = True
+
+        if store.is_global_shift_view_enabled != cap_global_shift_view:
+            store.is_global_shift_view_enabled = cap_global_shift_view
+            update = True
+
         if not update:
             return JsonResponse(
                 {"Error": "No changes detected."},
@@ -2261,10 +2279,10 @@ def update_store_info(request, id):
         )
 
         logger.info(
-            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE information Store ID {store.id} ({original['code']})."
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE INFORMATION for Store ID {store.id} ({original['code']})."
         )
         logger.debug(
-            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street}"
+            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street} -- CAP Scheduling: {original['cap_scheduling']} → {store.is_scheduling_enabled} -- CAP Global Shift View: {original['cap_global_shift_view']} → {store.is_global_shift_view_enabled}"
         )
         return JsonResponse(
             {"id": store.id, "code": store.code}, status=status.HTTP_202_ACCEPTED
