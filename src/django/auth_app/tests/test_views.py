@@ -285,17 +285,9 @@ def test_manage_stores_access(manager, store_associate_manager, logged_in_manage
     assert response.status_code == 200
     assert "auth_app/manage_stores.html" in [t.name for t in response.templates]
     assert b"Store Information" in response.content
-    assert (
-        b'<p><span class="fw-semibold">Name:</span> Test Store</p>' in response.content
-    )
-    assert (
-        b'<p><span class="fw-semibold">Allowable Clocking Distance:</span> 500 meters</p>'
-        in response.content
-    )
-    assert (
-        b'<p><span class="fw-semibold">Store Latitude:</span> 1.0</p>'
-        in response.content
-    )
+    assert b'<span class="store-name">Test Store</span>' in response.content
+    assert b'<span class="store-distance">500</span>' in response.content
+    assert b'<span class="store-lat">1.0</span>' in response.content
 
 
 @pytest.mark.django_db

@@ -83,12 +83,16 @@ function openEditModal() {
   }
 
   // Extract values from the displayed info
-  const street = infoDiv.find('p:contains("Street Location:")').text().replace('Street Location:', '').trim();
-  const dist = infoDiv.find('p:contains("Allowable Clocking Distance:")').text().replace('Allowable Clocking Distance:', '').replace('meters', '').trim();
+  const street = infoDiv.find('.store-street').text().trim();
+  const dist = infoDiv.find('.store-distance').text().trim();
+  const schedEnabled = toBool(infoDiv.find('.store-sched').data('value'));
+  const globalEnabled = toBool(infoDiv.find('.store-global').data('value'));
 
   // Update modal inputs
   $('#editStreet').val(street);
   $('#editDist').val(dist);
+  $('#editSchedulingCapEnabled').prop('checked', schedEnabled);
+  $('#editGlobalShiftViewCapEnabled').prop('checked', globalEnabled);
 
   const editModal = new bootstrap.Modal(document.getElementById("editModal"));
   editModal.show();
@@ -111,6 +115,8 @@ function updateStoreInfo() {
         data: JSON.stringify({
           loc_street: $('#editStreet').val(),
           clocking_dist: $('#editDist').val(),
+          cap_scheduling: $('#editSchedulingCapEnabled').prop('checked'),
+          cap_global_shift_view: $('#editGlobalShiftViewCapEnabled').prop('checked'),
         }),
     
         success: function(resp) {
