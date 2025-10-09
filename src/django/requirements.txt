@@ -15,7 +15,7 @@ click-repl==0.3.0
 cron_descriptor==2.0.6
 debugpy==1.8.16
 distlib==0.4.0
-Django==5.2.6
+Django==5.2.7
 django-celery-beat==2.8.1
 django-cors-headers==4.7.0
 django-redis==6.0.0
