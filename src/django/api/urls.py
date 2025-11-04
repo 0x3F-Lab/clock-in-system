@@ -127,4 +127,5 @@ urlpatterns = [
         views.manage_shift_request,
         name="manage_shift_request",
     ),
+    path("generate_empty_pdf/", views.generate_empty_pdf, name="generate_empty_pdf"),
 ]

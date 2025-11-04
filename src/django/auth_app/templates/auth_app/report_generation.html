@@ -5,6 +5,22 @@
 
 {% block content %}
 
-Hello
+<div class="text-center">
+  <h1 class="fw-bold mb-4">Reports</h1>
+  <button id="generatePDFBtn" class="btn btn-outline-info">
+    <i class="fa-solid fa-file-pdf me-2"></i> Generate Empty PDF
+  </button>
+</div>
 
+{% endblock %}
+
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/report_gen.js' %}"></script>
+{% endblock %}
+
+{% block extra_urls %}
+    generateEmptyPDF: "{% url 'api:generate_empty_pdf' %}",
 {% endblock %}

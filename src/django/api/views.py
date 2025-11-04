@@ -39,6 +39,7 @@ from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from django.db.models import Q
 
+
 logger = logging.getLogger("api")
 
 
@@ -4407,3 +4408,28 @@ def list_shift_requests(request):
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+from django.http import HttpResponse
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+
+
+def generate_empty_pdf(request):
+    buffer = BytesIO()
+
+    p = canvas.Canvas(buffer, pagesize=A4)
+
+    p.setFont("Helvetica-Bold", 18)
+    p.drawCentredString(300, 800, "Pizza Clock-In Report Generator")
+    p.setFont("Helvetica", 12)
+    p.drawCentredString(300, 780, "This is an empty PDF render example.")
+
+    p.showPage()
+    p.save()
+
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = 'inline; filename="empty_report.pdf"'
+    return response
