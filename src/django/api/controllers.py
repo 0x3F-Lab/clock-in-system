@@ -2515,6 +2515,7 @@ def get_all_store_repeating_shifts(
 
                     emp_weeks[week_key][weekday].append(
                         {
+                            "id": shift.id,
                             "start_time": shift.start_time.strftime("%H:%M"),
                             "end_time": shift.end_time.strftime("%H:%M"),
                             "role_id": shift.role.id if shift.role else None,
