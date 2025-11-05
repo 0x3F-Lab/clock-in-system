@@ -5,6 +5,8 @@ from django.db.models import Q
 from django.utils.timezone import now, localtime
 from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.hashers import make_password, check_password
 from clock_in_system.settings import (
     NOTIFICATION_DEFAULT_EXPIRY_LENGTH_DAYS,
@@ -44,6 +46,10 @@ class User(models.Model):
     )  # Used to determine if an account needs to be setup (set/reset their password)
     created_at = models.DateTimeField(auto_now_add=True, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         role = ""
@@ -381,6 +387,10 @@ class Store(models.Model):
     )
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"[{self.id}] {self.code} - {self.name}"
 
@@ -482,6 +492,10 @@ class StoreUserAccess(models.Model):
             models.UniqueConstraint(fields=["user", "store"], name="unique_user_store")
         ]
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         role = "EMPLOYEE"
         if self.user.is_hidden:
@@ -515,6 +529,10 @@ class Activity(models.Model):
     last_updated_at = models.DateTimeField(
         auto_now=True, null=False
     )  # Track modifications outside clocking
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.id}] [{self.login_time.date()}] {self.employee.first_name} {self.employee.last_name} ({self.employee_id}) → {self.store.code}"
@@ -604,6 +622,10 @@ class Notification(models.Model):
         default=notification_default_expires_on,
         help_text="Optional expiration date after which the notification is considered inactive",
     )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.id}] [{self.recipient_group.upper()}] [{self.notification_type.upper()}] To {self.targeted_users.count()} users - **{self.title}**: {self.message[:30]}"
@@ -784,6 +806,10 @@ class NotificationReceipt(models.Model):
             "notification",
         )  # Ensure one receipt per user-notification
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def mark_as_read(self):
         if not self.read_at:
             self.read_at = localtime(now())
@@ -807,6 +833,10 @@ class Role(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["store", "name"], name="unique_store_role")
         ]
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"[{self.store.code}] {self.name}"
@@ -849,6 +879,10 @@ class Shift(models.Model):
             models.Index(fields=["store", "date", "start_time"]),  # For store listing
         ]
 
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"[{self.pk}] [{self.store.code}] {self.date} - {self.employee.first_name} {self.employee.last_name}: {self.role if self.role else 'NO ROLE'}"
 
@@ -861,11 +895,86 @@ class Shift(models.Model):
         return self.shift_requests.filter(status__in=active_statuses)
 
 
+class RepeatingShift(models.Model):
+    class CycleWeek(models.IntegerChoices):
+        WEEK_1 = 1, "Week 1"
+        WEEK_2 = 2, "Week 2"
+        WEEK_3 = 3, "Week 3"
+        WEEK_4 = 4, "Week 4"
+
+    employee = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="repeating_shifts"
+    )
+    store = models.ForeignKey(
+        Store, on_delete=models.CASCADE, related_name="repeating_shifts"
+    )
+    start_weekday = models.PositiveSmallIntegerField(null=False)  # 0=Mon, 6=Sun
+    start_time = models.TimeField(null=False)
+    end_weekday = models.PositiveSmallIntegerField(
+        null=False
+    )  # For overnight shifts (future)
+    end_time = models.TimeField(null=False)
+    active_weeks = ArrayField(
+        base_field=models.IntegerField(choices=CycleWeek.choices),
+        null=False,
+        size=4,
+        help_text="Which weeks in the 4-week cycle this shift is active",
+    )
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="repeating_shifts",
+    )
+    comment = models.TextField(max_length=1500, blank=True, null=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["store", "start_weekday", "start_time"]
+        indexes = [
+            GinIndex(fields=["active_weeks"], name="active_weeks_gin_idx"),
+            models.Index(
+                fields=["store", "start_weekday", "start_time"],
+                name="store_day_time_idx",
+            ),
+            models.Index(fields=["employee"], name="employee_idx"),
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.active_weeks:
+            self.active_weeks = sorted(set(self.active_weeks))
+        if not self.active_weeks or len(self.active_weeks) == 0:
+            raise ValidationError(
+                {"active_weeks": "Active weeks must contain at least one week."}
+            )
+
+        for week in self.active_weeks:
+            if week not in [w.value for w in self.CycleWeek]:
+                raise ValidationError({"active_weeks": f"Invalid week number: {week}"})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if not self.active_weeks or len(self.active_weeks) == 0:
+            raise ValidationError("Active weeks must contain at least one week.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        weeks = ", ".join(self.CycleWeek(w).label for w in self.active_weeks)
+        return f"[{self.pk}] [{self.store.code}] {self.employee.first_name} {self.employee.last_name} ({self.start_weekday} - {self.start_time}) ({weeks})"
+
+
 class ShiftRequest(models.Model):
     class Type(models.TextChoices):
         SWAP = "swap_request", "Swap Shift Request"  # SWAP BETWEEN CERTAIN PEOPLE
         COVER = "cover_request", "Cover Shift Request"  # SWAP SHIFT OPEN TO WHOLE STORE
-        BID = "bid_request", "New Shift Bid"  # SHIFT BID FOR WHOLE STORE
+        BID = (
+            "bid_request",
+            "New Shift Bid",
+        )  # SHIFT BID FOR WHOLE STORE - NOT CURRENTLY SUPPORTED (DEPRECATED)
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -922,12 +1031,31 @@ class ShiftRequest(models.Model):
         return f"[{self.pk}] {self.type.upper()}: {self.requester.first_name} {self.requester.last_name} -> {f'{self.target_user.first_name} {self.target_user.last_name}' if self.target_user else (f'[{self.store.code}]' if self.store else 'ERROR')}"
 
     def clean(self):
+        super().clean()
+        if self.type == self.Type.SWAP and not self.target_user:
+            raise ValidationError(
+                {"target_user": "SWAP requests must have a target user."}
+            )
+        if self.type in [self.Type.COVER, self.Type.BID] and not self.store:
+            raise ValidationError(
+                {"store": f"{self.type.upper()} must be tied to a store."}
+            )
+        if self.type in [self.Type.SWAP, self.Type.COVER] and not self.shift:
+            raise ValidationError(
+                {"shift": f"{self.type.upper()} must reference an existing shift."}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
         if self.type == self.Type.SWAP and not self.target_user:
             raise ValidationError("SWAP requests must have a target user.")
         if self.type in [self.Type.COVER, self.Type.BID] and not self.store:
+            raise ValidationError(f"{self.get_type_display()} must be tied to a store.")
+        if self.type in [self.Type.SWAP, self.Type.COVER] and not self.shift:
             raise ValidationError(
-                f"{self.type.upper()} requests must be tied to a store."
+                f"{self.get_type_display()} must reference an existing shift."
             )
+        super().save(*args, **kwargs)
 
 
 class ShiftException(models.Model):
@@ -971,6 +1099,21 @@ class ShiftException(models.Model):
         if self.shift is None and self.activity is None:
             raise ValidationError(
                 "ShiftException must be linked to a shift or activity."
+            )
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        super().clean()
+        if not self.shift and not self.activity:
+            raise ValidationError(
+                "At least one of 'shift' or 'activity' must be linked."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        if not self.shift and not self.activity:
+            raise ValidationError(
+                "ShiftException must be linked to either a shift or an activity."
             )
         super().save(*args, **kwargs)
 

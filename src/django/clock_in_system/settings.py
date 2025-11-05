@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import datetime
+from django.utils import timezone
 from celery.schedules import crontab
 
 
@@ -343,11 +345,15 @@ START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 60  # Default is 60m
 # How long a user must wait between starting a shift and finishing it
 FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 
-# How long should a shift be (minimum)
+# How long should a shift be (min/max)
 MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 30  # Default is 30m
+MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 1080  # 18 hours
 
 # What is the maximum period a manager (non-admin) can modify a shift/activity (exceptions are handled up to this+1 days)
 MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
+
+# When should the repeating cycle start? I.e. if its a 4 week cycle, when does the very first system's cycle 1 start? (to align them all)
+REPEATING_SHIFTS_CYCLE_START = timezone.make_aware(datetime(2025, 7, 1))
 
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150

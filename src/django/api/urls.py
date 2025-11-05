@@ -127,4 +127,19 @@ urlpatterns = [
         views.manage_shift_request,
         name="manage_shift_request",
     ),
+    path(
+        "create-repeating-shift/<int:store_id>",
+        views.create_repeating_shift,
+        name="create_repeating_shift",
+    ),
+    path(
+        "manage-repeating-shift/<int:shift_id>",
+        views.manage_repeating_shift,
+        name="manage_repeating_shift",
+    ),
+    path(
+        "list-repeating-shfits/<int:store_id>",
+        views.list_repeating_shifts,
+        name="list_repeating_shifts",
+    ),
 ]

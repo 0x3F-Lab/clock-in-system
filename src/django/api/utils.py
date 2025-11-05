@@ -490,19 +490,24 @@ def is_shift_duration_valid(
     start_time: time,
     end_time: time,
     min_duration_mins: int = settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    max_duration_mins: int = settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
 ) -> bool:
     """
-    Check if the time duration between start_time and end_time is greater than or equal
-    to a minimum required duration. Assumes both times are on the same day and end_time is after start_time.
+    Check if the time duration between start_time and end_time is between max and min duration.
+    Assumes both times are on the same day and end_time is after start_time.
 
     Args:
         start_time (time): Shift start time.
         end_time (time): Shift end time.
-        minimum_duration_minutes (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        min_duration_mins (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        max_duration_mins (int): Maximum duration in minutes the shift must span. Defaults to settings value.
 
     Returns:
         bool: True if the duration is valid, False otherwise.
     """
+    if start_time is None or end_time is None:
+        return False
+
     # Assume both times are on the same (arbitrary) day
     dt_start = datetime.combine(datetime.min, start_time)
     dt_end = datetime.combine(datetime.min, end_time)
@@ -512,7 +517,57 @@ def is_shift_duration_valid(
         return False
 
     duration = dt_end - dt_start
-    return duration >= timedelta(minutes=min_duration_mins)
+    return (
+        timedelta(minutes=min_duration_mins)
+        <= duration
+        <= timedelta(minutes=max_duration_mins)
+    )
+
+
+def is_repeating_shift_duration_valid(
+    start_time: time,
+    end_time: time,
+    start_weekday: int,
+    end_weekday: int,
+    min_duration_mins: int = settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    max_duration_mins: int = settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+) -> bool:
+    """
+    Check if the time duration between start_time and end_time is between max and min duration.
+    Uses weekday integer value to support shift spanning two days.
+
+    Args:
+        start_time (time): Shift start time.
+        end_time (time): Shift end time.
+        start_weekday (int): Day of week the shift starts. 0=Mon, 6=Sun.
+        end_weekday (int): Day of week the shift ends. 0=Mon, 6=Sun.
+        min_duration_mins (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        max_duration_mins (int): Maximum duration in minutes the shift must span. Defaults to settings value.
+
+    Returns:
+        bool: True if the duration is valid, False otherwise.
+    """
+    if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
+        return False
+    if start_time is None or end_time is None:
+        return False
+
+    ref_date = datetime(2024, 1, 1)  # arbitrary Monday
+    dt_start = datetime.combine(ref_date + timedelta(days=start_weekday), start_time)
+    dt_end = datetime.combine(ref_date + timedelta(days=end_weekday), end_time)
+
+    # Handle overnight or next-week shifts
+    if dt_end <= dt_start:
+        dt_end += (
+            timedelta(days=7) if end_weekday < start_weekday else timedelta(days=1)
+        )
+
+    duration = dt_end - dt_start
+    return (
+        timedelta(minutes=min_duration_mins)
+        <= duration
+        <= timedelta(minutes=max_duration_mins)
+    )
 
 
 def check_store_exceptions_in_period(
