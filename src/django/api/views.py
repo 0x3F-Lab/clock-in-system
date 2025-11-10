@@ -2199,7 +2199,12 @@ def update_store_info(request, id):
                 {"Error": "Length of Store code cannot be shorter than 4 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif clocking_dist and clocking_dist > 2500:
+        elif (
+            clocking_dist
+            and clocking_dist > 2500
+            and store.allowable_clocking_dist_m != clocking_dist
+        ):
+            # Allow existing high values to pass
             return Response(
                 {
                     "Error": "Allowable clocking distance of a Store cannot be greater than 2500m."
