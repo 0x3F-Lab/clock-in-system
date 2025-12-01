@@ -74,3 +74,18 @@
 
 {% include "components/pagination_controller.html" with limit=100 %}
 {% endblock %}
+
+{% block extra_urls %}
+    listStoreEmployeeNames: "{% url 'api:list_store_employee_names' %}",
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
+    manageStoreRole: "{% url 'api:manage_store_role' 0 %}".slice(0, -2),
+    createStoreRole: "{% url 'api:create_store_role' %}",
+
+    createRepeatingShift: "{% url 'api:create_repeating_shift' 0 %}".slice(0, -2),
+    manageRepeatingShift: "{% url 'api:manage_repeating_shift' 0 %}".slice(0, -2),
+    listRepeatingShifts: "{% url 'api:list_repeating_shifts' 0 %}".slice(0, -2),
+{% endblock %}
+
+{% block customscripts %}
+  <script src="{% static 'js/repeating_shifts_dashboard.js' %}"></script>
+{% endblock %}
