@@ -141,6 +141,174 @@
 {% endfor %}
 
 {% include "components/pagination_controller.html" with limit=100 %}
+
+<div class="modal fade" id="repeatingEditModal" tabindex="-1" aria-labelledby="repeatingEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+      <div class="modal-header text-white">
+        <h5 class="modal-title w-100 text-center" id="repeatingEditModalLabel">Add Repeating Shift</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="repeatingShiftForm" class="px-1">
+          <input type="hidden" id="repeatingShiftId" name="repeatingShiftId">
+          <input type="hidden" id="repeatingShiftStoreId" name="storeId">
+
+          <div id="repeatingEmployeeListContainer" class="mb-4">
+            <div class="mb-3">
+              <label for="repeatingEmployeeSearchBar" class="form-label">Select Employee</label>
+              <input
+                type="text"
+                class="form-control"
+                id="repeatingEmployeeSearchBar"
+                placeholder="Type to filter employees..."
+              >
+            </div>
+            <ul
+              id="repeatingEmployeeList"
+              class="list-group mb-3 scrollable-list"
+            ></ul>
+            <input
+              type="hidden"
+              id="repeatingSelectedEmployeeID"
+              name="employeeID"
+              value=""
+            >
+          </div>
+
+          <div class="row mb-3">
+            <div class="col">
+              <label for="repeatingStartWeekday" class="form-label">Start Day:</label>
+              <select class="form-select" id="repeatingStartWeekday">
+                <option value="0">Monday</option>
+                <option value="1">Tuesday</option>
+                <option value="2">Wednesday</option>
+                <option value="3">Thursday</option>
+                <option value="4">Friday</option>
+                <option value="5">Saturday</option>
+                <option value="6">Sunday</option>
+              </select>
+            </div>
+            <div class="col">
+              <label for="repeatingEndWeekday" class="form-label">End Day:</label>
+              <select class="form-select" id="repeatingEndWeekday">
+                <option value="0">Monday</option>
+                <option value="1">Tuesday</option>
+                <option value="2">Wednesday</option>
+                <option value="3">Thursday</option>
+                <option value="4">Friday</option>
+                <option value="5">Saturday</option>
+                <option value="6">Sunday</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col">
+              <label for="repeatingStartTime" class="form-label">Start Time:</label>
+              <input type="time" class="form-control" id="repeatingStartTime" required>
+            </div>
+            <div class="col">
+              <label for="repeatingEndTime" class="form-label">End Time:</label>
+              <input type="time" class="form-control" id="repeatingEndTime" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label d-block">Active Weeks (in 4-week cycle):</label>
+            <div class="btn-group" role="group" aria-label="ActiveWeeks">
+              {% for w in "1234" %}
+              <input type="checkbox" class="btn-check repeating-week-checkbox" id="repeatingWeek{{ forloop.counter }}" value="{{ forloop.counter }}" autocomplete="off">
+              <label class="btn btn-outline-info" for="repeatingWeek{{ forloop.counter }}">Week {{ forloop.counter }}</label>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="repeatingRole" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Role:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <select class="form-select" id="repeatingRole"></select>
+          </div>
+
+          <div class="mb-3">
+            <label for="repeatingComment" class="form-label w-100 d-flex flex-row align-items-center justify-content-between">
+              <span>Comment:</span>
+              <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+            </label>
+            <textarea class="form-control" id="repeatingComment" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="saveRepeatingShiftBtn">
+          <i class="fa-solid fa-floppy-disk me-1"></i> Save Repeating Shift
+        </button>
+        <button type="button" class="btn btn-danger d-none" id="deleteRepeatingShiftBtn">
+          <i class="fa-solid fa-trash me-1"></i> Delete
+        </button>
+        <button type="button" class="btn btn-warning d-none" id="confirmDeleteRepeatingShiftBtn">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i> Confirm Delete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal modal-xl fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
+  <div class="modal-dialog">
+    <div class="modal-content w-75">
+      <div class="modal-header">
+        <h5 class="modal-title w-100 text-center" id="manageRolesModalLabel">Manage Store Roles</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6 mt-1">
+            <div class="d-flex flex-row justify-content-between mb-1">
+              <h6 class="fw-semibold mb-0">Existing Roles</h6>
+              <button class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center" id="addNewRoleBtn" style="width: 30px; height: 30px;">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+            <ul class="list-group scrollable-list" id="existingRolesList">
+              <li class="list-group-item">Loading...</li>
+            </ul>
+          </div>
+          <div class="col-md-6 mt-4 mt-md-1">
+            <h6 class="fw-semibold">Add New Role</h6>
+            <form id="addRoleForm">
+              <div class="mb-3">
+                <label for="newRoleName" class="text-light">Role Name:</label>
+                <input type="text" class="form-control" id="newRoleName" required>
+              </div>
+              <div class="mb-3">
+                <label for="newRoleDescription" class="text-light w-100 d-flex flex-row align-items-center justify-content-between">
+                  <span>Description:</span>
+                  <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
+                </label>
+                <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
+              </div>
+              <div class="mb-3 d-flex flex-column">
+                <label for="newRoleColor" class="text-light">Color:</label>
+                <input type="color" class="form-control form-control-color w-75 align-self-center" id="newRoleColor" value='#adb5bd' title="Choose a color">
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Add Role</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 {% endblock %}
 
 {% block extra_urls %}
