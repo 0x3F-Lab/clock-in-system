@@ -32,6 +32,11 @@ urlpatterns = [
         views.manage_employee_details,
         name="manage_employee_details",
     ),
+    path(
+        "repeating-shifts/",
+        views.repeating_shifts_dashboard,
+        name="repeating_shifts_dashboard",
+    ),
     path("manage_shift_logs", views.manage_shift_logs, name="manage_shift_logs"),
     path("manage_stores", views.manage_stores, name="manage_stores"),
     path("account_summary", views.manage_account_summary, name="account_summary"),

@@ -18,6 +18,7 @@ from django.http import JsonResponse
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_GET
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import (
     sanitise_markdown_title_text,
