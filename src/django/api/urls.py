@@ -127,5 +127,9 @@ urlpatterns = [
         views.manage_shift_request,
         name="manage_shift_request",
     ),
-    path("generate_empty_pdf/", views.generate_empty_pdf, name="generate_empty_pdf"),
+    path(
+        "generate_shift_logs_report/",
+        views.generate_shift_logs_report,
+        name="generate_shift_logs_report",
+    ),
 ]

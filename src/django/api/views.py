@@ -39,6 +39,13 @@ from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
 from django.db.models import Q
 
+from django.http import HttpResponse
+from io import BytesIO
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+
 
 logger = logging.getLogger("api")
 
@@ -4410,26 +4417,145 @@ def list_shift_requests(request):
         )
 
 
-from django.http import HttpResponse
-from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+@api_manager_required
+def generate_shift_logs_report(request):
+    try:
+        user = util.api_get_user_object_from_session(request)
 
+        store_id = util.clean_param_str(request.GET.get("store_id"))
+        start = util.clean_param_str(request.GET.get("start"))
+        end = util.clean_param_str(request.GET.get("end"))
 
-def generate_empty_pdf(request):
-    buffer = BytesIO()
+        # Validate essential fields
+        if not all([store_id, start, end]):
+            return HttpResponse("Missing required parameters.", status=400)
 
-    p = canvas.Canvas(buffer, pagesize=A4)
+        if not user.is_manager(store=int(store_id)):
+            return HttpResponse("Not authorised.", status=403)
 
-    p.setFont("Helvetica-Bold", 18)
-    p.drawCentredString(300, 800, "Pizza Clock-In Report Generator")
-    p.setFont("Helvetica", 12)
-    p.drawCentredString(300, 780, "This is an empty PDF render example.")
+        # Optional filters
+        only_unfinished = util.str_to_bool(request.GET.get("only_unfinished", "false"))
+        only_pub = util.str_to_bool(request.GET.get("only_pub", "false"))
+        filter_names_raw = util.clean_param_str(request.GET.get("filter", ""))
 
-    p.showPage()
-    p.save()
+        try:
+            filter_names_list = util.get_filter_list_from_string(filter_names_raw)
+        except ValueError:
+            return HttpResponse(
+                "Invalid characters in employee filter field.", status=400
+            )
 
-    buffer.seek(0)
-    response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = 'inline; filename="empty_report.pdf"'
-    return response
+        # Fetch shift data
+        results, total = controllers.get_all_shifts(
+            store_id=store_id,
+            offset=0,
+            limit=9999,
+            start_date=start,
+            end_date=end,
+            sort_field="time",
+            filter_names=filter_names_list,
+            only_unfinished=only_unfinished,
+            only_public_hol=only_pub,
+            hide_deactivated=False,
+            hide_resigned=False,
+            allow_inactive_store=True,
+        )
+
+        # Generate PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=36,
+            leftMargin=36,
+            topMargin=54,
+            bottomMargin=36,
+        )
+
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Header
+        elements.append(
+            Paragraph(f"Shift Logs Report — Store #{store_id}", styles["Title"])
+        )
+        elements.append(Paragraph(f"Date Range: {start} to {end}", styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+        # Table data
+        table_data = [
+            [
+                "Staff Name",
+                "Rounded Login",
+                "Rounded Logout",
+                "Public Hol",
+                "Deliveries",
+                "Hours Worked",
+            ]
+        ]
+
+        for r in results:
+            full_name = (
+                f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}".strip()
+                or "-"
+            )
+            try:
+                hours = float(r.get("hours_worked", 0) or 0)
+            except ValueError:
+                hours = 0.0
+
+            table_data.append(
+                [
+                    full_name,
+                    r.get("login_time", "-") or "-",
+                    r.get("logout_time", "-") or "-",
+                    "Yes" if r.get("is_public_holiday") else "No",
+                    str(r.get("deliveries", 0)),
+                    f"{hours:.2f}",
+                ]
+            )
+
+        if len(table_data) == 1:
+            table_data.append(["No shifts found", "", "", "", "", ""])
+
+        # Table formatting
+        table = Table(table_data, repeatRows=1)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                ]
+            )
+        )
+
+        elements.append(table)
+        elements.append(Spacer(1, 12))
+
+        # Timestamp Footer
+        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+        timestamp = f"<font size=8 color='#888888'>Generated: {generated_time}</font>"
+        elements.append(Paragraph(timestamp, styles["Normal"]))
+
+        doc.build(elements)
+
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        # RETURN as normal Django file response
+        response = HttpResponse(pdf, content_type="application/pdf")
+        response["Content-Disposition"] = (
+            f'inline; filename="shift_logs_{store_id}.pdf"'
+        )
+        return response
+
+    except err.NotAssociatedWithStoreAsManagerError:
+        return HttpResponse("Not authorised.", status=403)
+
+    except Exception as e:
+        logger.critical(f"Shift logs report error: {e}\n{traceback.format_exc()}")
+        return HttpResponse("Internal error.", status=500)
