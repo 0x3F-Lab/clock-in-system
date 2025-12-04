@@ -132,4 +132,9 @@ urlpatterns = [
         views.generate_shift_logs_report,
         name="generate_shift_logs_report",
     ),
+    path(
+        "generate_account_summary_report/",
+        views.generate_account_summary_report,
+        name="generate_account_summary_report",
+    ),
 ]

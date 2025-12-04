@@ -20,4 +20,35 @@ $(document).ready(function() {
 
     window.open(`${window.djangoURLs.generateShiftReport}?${params.toString()}`, "_blank");
   });
+
+    // Open modal
+  $("#openAccountSummaryModal").on("click", function() {
+      const modal = new bootstrap.Modal(document.getElementById("accountSummaryModal"));
+      modal.show();
+  });
+
+  // Generate PDF
+  $("#summaryGenerateBtn").on("click", function() {
+
+      // Read values
+      let start = $("#summaryStartDate").val();
+      let end   = $("#summaryEndDate").val();
+      let ignoreNoHours = $("#summaryIgnoreNoHours").is(":checked");
+      let filterNames = $("#summaryFilterNames").val();
+
+      let storeId = getSelectedStoreID(); 
+
+      if (!storeId || !start || !end) {
+          showNotification("Please select store, start date and end date.", "danger");
+          return;
+      }
+
+      // Build request URL
+      let url = `${window.djangoURLs.generateAccountSummaryPDF}?store_id=${storeId}`
+              + `&start=${start}&end=${end}`
+              + `&ignore_no_hours=${ignoreNoHours}`
+              + `&filter=${encodeURIComponent(filterNames)}`;
+
+      window.open(url, "_blank");
+  });
 });
