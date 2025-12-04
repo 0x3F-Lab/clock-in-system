@@ -35,9 +35,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const params = new URLSearchParams();
     params.set("offset", offset);
     params.set("limit", limit);
-    params.set("hide_deactivated", filters.hideDeactivated ? "true" : "false");
-    params.set("hide_resigned", filters.hideResigned ? "true" : "false");
-    params.set("sort_field", filters.sortField);
+
+    params.set("hide_deactive", filters.hideDeactivated ? "true" : "false");
+    params.set("hide_resign", filters.hideResigned ? "true" : "false");
+    params.set("sort", filters.sortField);
 
     if (filters.filterNames) {
       params.set("filter_names", filters.filterNames);
@@ -46,6 +47,18 @@ document.addEventListener("DOMContentLoaded", () => {
       params.set("filter_roles", filters.filterRoles);
     }
     return params.toString();
+  }
+
+  function getCSRFToken() {
+    const name = "csrftoken=";
+    const cookies = document.cookie ? document.cookie.split(";") : [];
+    for (let c of cookies) {
+      c = c.trim();
+      if (c.startsWith(name)) {
+        return decodeURIComponent(c.slice(name.length));
+      }
+    }
+    return "";
   }
 
 
