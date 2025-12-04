@@ -61,6 +61,96 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
+  async function fetchEmployees(storeId) {
+    const url = `${window.listStoreEmployeeNames}?store_id=${storeId}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    employees = await res.json();
+    renderEmployeeList("");
+  }
+
+  async function fetchRoles(storeId) {
+    const url = `${window.listStoreRoles}${storeId}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    roles = await res.json();
+    populateRoleSelect();
+  }
+
+  async function fetchRepeatingSchedule(storeId) {
+    const filters = getFilters();
+    const qs = buildQueryParams(filters);
+    const url = `${window.listRepeatingShifts}${storeId}?${qs}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("Failed to load repeating shifts");
+      return;
+    }
+    const data = await res.json();
+    repeatingSchedule = data.schedule || {};
+    renderAllWeeks();
+  }
+
+  async function fetchRepeatingShiftDetails(shiftId) {
+    const url = `${window.manageRepeatingShift}${shiftId}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.Error || errData.error || "Failed to load repeating shift");
+    }
+    return await res.json();
+  }
+
+  async function createRepeatingShift(payload) {
+    const storeId = currentStoreId;
+    const url = `${window.createRepeatingShift}${storeId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+      body: JSON.stringify({...payload, active_weeks: JSON.stringify(payload.active_weeks),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.Error || err.error || "Failed to create repeating shift");
+    }
+    return await res.json();
+  }
+
+  async function updateRepeatingShift(shiftId, payload) {
+    const url = `${window.manageRepeatingShift}${shiftId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+      body: JSON.stringify({
+        ...payload,
+        active_weeks: JSON.stringify(payload.active_weeks),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.Error || err.error || "Failed to update repeating shift");
+    }
+    return await res.json();
+  }
+
+  async function deleteRepeatingShift(shiftId) {
+    const url = `${window.manageRepeatingShift}${shiftId}`;
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: { "X-CSRFToken": getCSRFToken() },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.Error || err.error || "Failed to delete repeating shift");
+    }
+  }
 
   function updateWeekHeader() {
     if (weekHeaderTitle) {
