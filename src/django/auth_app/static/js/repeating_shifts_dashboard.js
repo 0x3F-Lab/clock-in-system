@@ -256,6 +256,44 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  async function loadRepeatingForCurrentStore() {
+    if (!currentStoreId) return;
+
+    try {
+      await fetchRepeatingSchedule(currentStoreId);
+    } catch (err) {
+      console.error("Error loading repeating shifts:", err);
+    }
+  }
+
+  if (storeSelect) {
+    storeSelect.addEventListener("change", () => {
+      const value = storeSelect.value;
+      currentStoreId = value || null;
+      currentWeek = 1; 
+      updateWeekHeader(); 
+      loadRepeatingForCurrentStore();
+    });
+
+    if (storeSelect.value) {
+      currentStoreId = storeSelect.value;
+      updateWeekHeader();
+      loadRepeatingForCurrentStore();
+    } else {
+      updateWeekHeader();
+    }
+  } else {
+    updateWeekHeader();
+  }
+
+  if (tableControllerSubmit) {
+    tableControllerSubmit.addEventListener("click", e => {
+      e.preventDefault();
+      if (!currentStoreId) return;
+      fetchRepeatingSchedule(currentStoreId);
+    });
+  }
+
 
   function updateWeekHeader() {
     if (weekHeaderTitle) {
