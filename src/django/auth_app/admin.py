@@ -12,6 +12,7 @@ from auth_app.models import (
     Shift,
     ShiftException,
     ShiftRequest,
+    RepeatingShift,
 )
 
 
@@ -473,3 +474,35 @@ class ShiftRequestAdmin(admin.ModelAdmin):
     @admin.display(description="Shift ID")
     def shift_id(self, obj):
         return obj.shift.id if obj.shift else "—"
+
+
+@admin.register(RepeatingShift)
+class RepeatingShiftAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "store",
+        "employee",
+        "start_weekday",
+        "start_time",
+        "end_weekday",
+        "end_time",
+        "active_weeks",
+        "role",
+        "created_at",
+    )
+
+    list_filter = (
+        "store",
+        "employee",
+        "start_weekday",
+        "active_weeks",
+        "role",
+    )
+
+    search_fields = (
+        "employee__first_name",
+        "employee__last_name",
+        "store__code",
+        "store__name",
+        "role__name",
+    )

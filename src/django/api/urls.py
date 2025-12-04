@@ -138,7 +138,7 @@ urlpatterns = [
         name="manage_repeating_shift",
     ),
     path(
-        "list-repeating-shfits/<int:store_id>",
+        "list-repeating-shifts/<int:store_id>/",
         views.list_repeating_shifts,
         name="list_repeating_shifts",
     ),
