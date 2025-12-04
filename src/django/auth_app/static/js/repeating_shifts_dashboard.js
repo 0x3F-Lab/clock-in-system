@@ -11,6 +11,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let employees = [];
   let roles = [];
 
+    function calculateDuration(startTime, endTime) {
+    const start = new Date(`01/01/2000 ${startTime}`);
+    let end = new Date(`01/01/2000 ${endTime}`);
+
+    if (end < start) {
+      end.setDate(end.getDate() + 1);
+    }
+
+    const diffMs = end - start;
+    const hours = Math.floor(diffMs / 3600000);
+    const minutes = Math.floor((diffMs % 3600000) / 60000);
+
+    return `${hours}h ${minutes}m`;
+  }
+
   function getSelectedSortField() {
     const checked = document.querySelector("input[name='sortField']:checked");
     return checked ? checked.value : "name";
@@ -151,6 +166,96 @@ document.addEventListener("DOMContentLoaded", () => {
       throw new Error(err.Error || err.error || "Failed to delete repeating shift");
     }
   }
+
+  // RENDERING THE 4-WEEK CYCLE HERE ---------------------------------------------
+
+    function renderAllWeeks() {
+    for (let week = 1; week <= 4; week++) {
+      renderWeek(week);
+    }
+    updateWeekHeader();
+  }
+
+  function renderWeek(weekNum) {
+    const container = document.getElementById(`week-${weekNum}-schedule-container`);
+    if (!container || !repeatingSchedule) return;
+
+    container.querySelectorAll(".day-column").forEach(dayCol => {
+      const dayIndex = parseInt(dayCol.dataset.day);
+      const shiftsList = dayCol.querySelector(".shifts-list");
+      if (!shiftsList) return;
+
+      shiftsList.innerHTML = "";
+
+      const shiftsForDay = [];
+
+      // repeatingSchedule shape from backend:
+      // {
+      //   "John Doe": {
+      //     "id": 3,
+      //     "week1": { 0: [shift, ...], 1: [...], ... },
+      //     "week2": {...},
+      //     ...
+      //   },
+      //   ...
+      // }
+      for (const empName in repeatingSchedule) {
+        const empData = repeatingSchedule[empName];
+        const weekKey = `week${weekNum}`;
+        if (!empData[weekKey]) continue;
+
+        const dayShifts = empData[weekKey][dayIndex];
+        if (!dayShifts || !Array.isArray(dayShifts)) continue;
+
+        dayShifts.forEach(s => {
+          shiftsForDay.push({
+            employee_name: empName,
+            ...s,
+          });
+        });
+      }
+
+      if (shiftsForDay.length === 0) {
+        shiftsList.innerHTML = '<div class="text-center text-white p-3"><small>No repeating shifts</small></div>';
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+
+      shiftsForDay.forEach(shift => {
+        const card = document.createElement("div");
+        const shiftId = shift.id || shift.shift_id;
+        const borderColor = shift.role_colour || "#adb5bd";
+        const backgroundColor = "#f8f9fa"; 
+        const duration = calculateDuration(shift.start_time, shift.end_time);
+
+        card.className = "shift-item position-relative cursor-pointer";
+        if (shiftId) {
+          card.dataset.shiftId = shiftId;
+        }
+        card.style.borderLeft = `8px solid ${borderColor}`;
+        card.style.backgroundColor = backgroundColor;
+
+        card.innerHTML = `
+          ${shift.has_comment
+            ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This repeating shift has a comment">C</span>'
+            : ""
+          }
+          <div class="shift-item-employee">${shift.employee_name}</div>
+          <div class="shift-item-details">
+            <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+            <span>⌛ ${duration}</span>
+            ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ""}
+          </div>
+        `;
+
+        fragment.appendChild(card);
+      });
+
+      shiftsList.appendChild(fragment);
+    });
+  }
+
 
   function updateWeekHeader() {
     if (weekHeaderTitle) {
