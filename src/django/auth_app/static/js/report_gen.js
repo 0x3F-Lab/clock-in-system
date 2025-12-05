@@ -1,54 +1,78 @@
-$(document).ready(function() {
-  // open modal
-  $("#openShiftLogModal").on("click", () => {
+// DOCUMENT READY
+
+$(document).ready(function () {
+
+    // SHIFT LOG REPORT
+    $("#openShiftLogModal").on("click", openShiftLogModal);
+    $("#shiftLogReportForm").on("submit", generateShiftLogReport);
+
+    // ACCOUNT SUMMARY REPORT
+    $("#openAccountSummaryModal").on("click", openAccountSummaryModal);
+    $("#summaryGenerateBtn").on("click", generateAccountSummaryReport);
+
+});
+
+// SHIFT LOG REPORT HANDLER
+
+function openShiftLogModal() {
     const modal = new bootstrap.Modal(document.getElementById("shiftLogsModal"));
     modal.show();
-  });
+}
 
-  // submit form
-  $("#shiftLogReportForm").on("submit", function(e) {
+function generateShiftLogReport(e) {
     e.preventDefault();
 
+    // Get store from selector
+    let storeId = getSelectedStoreID();
+    let start   = $("#startDate").val();
+    let end     = $("#endDate").val();
+    let filter  = $("#filterNames").val().trim();
+    let onlyUnfinished = $("#onlyUnfinished").is(":checked");
+    let onlyPublicHol  = $("#onlyPublicHol").is(":checked");
+
+    if (!storeId || !start || !end) {
+        showNotification("Please select store, start date and end date.", "danger");
+        return;
+    }
+
     const params = new URLSearchParams({
-      store_id: $("#storeID").val(),
-      start: $("#startDate").val(),
-      end: $("#endDate").val(),
-      only_unfinished: $("#onlyUnfinished").is(":checked"),
-      only_pub: $("#onlyPublicHol").is(":checked"),
-      filter: $("#filterNames").val().trim()
+        store_id: storeId,
+        start: start,
+        end: end,
+        only_unfinished: onlyUnfinished,
+        only_pub: onlyPublicHol,
+        filter: filter
     });
 
     window.open(`${window.djangoURLs.generateShiftReport}?${params.toString()}`, "_blank");
-  });
+}
 
-    // Open modal
-  $("#openAccountSummaryModal").on("click", function() {
-      const modal = new bootstrap.Modal(document.getElementById("accountSummaryModal"));
-      modal.show();
-  });
 
-  // Generate PDF
-  $("#summaryGenerateBtn").on("click", function() {
 
-      // Read values
-      let start = $("#summaryStartDate").val();
-      let end   = $("#summaryEndDate").val();
-      let ignoreNoHours = $("#summaryIgnoreNoHours").is(":checked");
-      let filterNames = $("#summaryFilterNames").val();
+// ACCOUNT SUMMARY REPORT HANDLER
 
-      let storeId = getSelectedStoreID(); 
+function openAccountSummaryModal() {
+    const modal = new bootstrap.Modal(document.getElementById("accountSummaryModal"));
+    modal.show();
+}
 
-      if (!storeId || !start || !end) {
-          showNotification("Please select store, start date and end date.", "danger");
-          return;
-      }
+function generateAccountSummaryReport() {
+    let start       = $("#summaryStartDate").val();
+    let end         = $("#summaryEndDate").val();
+    let ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
+    let filterNames = $("#summaryFilterNames").val();
+    let storeId     = getSelectedStoreID();
 
-      // Build request URL
-      let url = `${window.djangoURLs.generateAccountSummaryPDF}?store_id=${storeId}`
-              + `&start=${start}&end=${end}`
-              + `&ignore_no_hours=${ignoreNoHours}`
-              + `&filter=${encodeURIComponent(filterNames)}`;
+    if (!storeId || !start || !end) {
+        showNotification("Please select store, start date and end date.", "danger");
+        return;
+    }
 
-      window.open(url, "_blank");
-  });
-});
+    let url = `${window.djangoURLs.generateAccountSummaryPDF}?store_id=${storeId}`
+            + `&start=${start}&end=${end}`
+            + `&ignore_no_hours=${ignoreHours}`
+            + `&filter=${encodeURIComponent(filterNames)}`;
+
+    window.open(url, "_blank");
+}
+
