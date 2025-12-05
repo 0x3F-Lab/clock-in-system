@@ -668,3 +668,61 @@ def schedule_copy_do_shifts_collide(
     return not (
         shift1_end + gap_delta <= shift2_start or shift2_end + gap_delta <= shift1_start
     )
+
+
+def build_weekly_roster_matrix(store_id, week):
+    """
+    Converts store schedule API result into a printable roster matrix.
+    """
+
+    store = Store.objects.get(pk=store_id)
+
+    data = controllers.get_all_store_schedules(
+        store=store,
+        week=week,
+        offset=0,
+        limit=200,
+        include_deleted=False,
+        hide_deactivated=False,
+        hide_resigned=False,
+        sort_field="name",
+        filter_names=[],
+        filter_roles=[],
+    )
+
+    schedule_map = data.get("schedule", {})
+    week_start = data.get("week_start")
+
+    # Generate ordered date keys for Mon–Sun
+    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+
+    roster = []
+
+    for full_name, info in schedule_map.items():
+
+        row = {
+            "name": full_name,
+            "Mon": "-",
+            "Tue": "-",
+            "Wed": "-",
+            "Thu": "-",
+            "Fri": "-",
+            "Sat": "-",
+            "Sun": "-",
+        }
+
+        # Extract daily roster
+        emp_roster = info.get("roster", {})
+
+        for d in week_dates:
+            day_str = d.isoformat()
+            shift_list = emp_roster.get(day_str, [])
+
+            if shift_list:
+                row[d.strftime("%a")] = ", ".join(
+                    f"{s['start_time']}–{s['end_time']}" for s in shift_list
+                )
+
+        roster.append(row)
+
+    return roster

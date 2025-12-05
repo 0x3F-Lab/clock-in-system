@@ -137,4 +137,9 @@ urlpatterns = [
         views.generate_account_summary_report,
         name="generate_account_summary_report",
     ),
+    path(
+        "generate_weekly_roster_report/",
+        views.generate_weekly_roster_report,
+        name="generate_weekly_roster_report",
+    ),
 ]

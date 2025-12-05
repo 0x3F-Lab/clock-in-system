@@ -121,6 +121,54 @@
   </div>
 </div>
 
+<button id="openWeeklyRosterModal" class="btn btn-outline-info dashboard-tile">
+    <i class="fa-solid fa-calendar-week me-2"></i> Weekly Roster Report
+</button>
+
+<div class="modal fade" id="weeklyRosterModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content rounded-3 shadow-sm">
+
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Generate Weekly Roster Report</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Week selector -->
+        <label class="fw-semibold">Week Starting (Monday)</label>
+        <input type="date" id="weeklyRosterWeek" class="form-control">
+        <small class="text-muted"><em>Select the Monday week start date</em></small>
+
+        <hr>
+
+        <!-- Optional filter input -->
+        <label class="fw-semibold">Filter specific employees (optional)</label>
+        <input type="text" id="weeklyRosterFilterNames" class="form-control"
+               placeholder="e.g. John, Jane, Doe">
+        <small class="text-muted"><em>Separate multiple names with commas</em></small>
+
+        <hr>
+
+        <div class="form-check mt-2">
+          <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">
+          <label class="form-check-label fw-semibold">Hide resigned employees</label>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button id="weeklyRosterGenerateBtn" class="btn btn-primary">
+          <i class="fa-solid fa-file-pdf me-2"></i>Generate
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 
@@ -133,4 +181,5 @@
 {% block extra_urls %}
     generateShiftReport: "{% url 'api:generate_shift_logs_report' %}",
     generateAccountSummaryPDF: "{% url 'api:generate_account_summary_report' %}",
+    generateWeeklyRosterPDF: "{% url 'api:generate_weekly_roster_report' %}",
 {% endblock %}

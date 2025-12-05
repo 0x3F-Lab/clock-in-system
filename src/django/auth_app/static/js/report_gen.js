@@ -10,6 +10,10 @@ $(document).ready(function () {
     $("#openAccountSummaryModal").on("click", openAccountSummaryModal);
     $("#summaryGenerateBtn").on("click", generateAccountSummaryReport);
 
+    // ROSTER REPORT
+    $("#openWeeklyRosterModal").on("click", openWeeklyRosterModal);
+    $("#weeklyRosterGenerateBtn").on("click", generateWeeklyRosterReport);
+
 });
 
 // SHIFT LOG REPORT HANDLER
@@ -76,3 +80,29 @@ function generateAccountSummaryReport() {
     window.open(url, "_blank");
 }
 
+// ROSTER REPORT HANDLER
+
+function openWeeklyRosterModal() {
+    const modal = new bootstrap.Modal(document.getElementById("weeklyRosterModal"));
+    modal.show();
+}
+
+function generateWeeklyRosterReport() {
+    let storeId     = getSelectedStoreID();
+    let week        = $("#weeklyRosterWeek").val();
+    let filterNames = $("#weeklyRosterFilterNames").val();
+    let hideResigned = $("#weeklyRosterHideResigned").is(":checked");
+
+    if (!storeId || !week) {
+        showNotification("Please select store and week.", "danger");
+        return;
+    }
+
+    let url =
+        `${window.djangoURLs.generateWeeklyRosterPDF}?store_id=${storeId}` +
+        `&week=${encodeURIComponent(week)}` +
+        `&filter=${encodeURIComponent(filterNames)}` +
+        `&hide_resigned=${hideResigned}`;
+
+    window.open(url, "_blank");
+}

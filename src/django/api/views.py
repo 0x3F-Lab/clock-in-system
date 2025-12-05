@@ -42,7 +42,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 from io import BytesIO
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -4705,3 +4705,111 @@ def generate_account_summary_report(request):
     except Exception as e:
         logger.critical(f"Account summary PDF error: {e}\n{traceback.format_exc()}")
         return HttpResponse("Internal error.", status=500)
+
+
+# Roster Report Generation
+@api_manager_required
+@api_view(["GET"])
+def generate_weekly_roster_report(request):
+    try:
+        user = util.api_get_user_object_from_session(request)
+        store_id = util.clean_param_str(request.GET.get("store_id"))
+        week = util.clean_param_str(request.GET.get("week"))
+
+        if not store_id or not week:
+            return Response(
+                {"Error": "Missing store_id or week."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not user.is_manager(store=int(store_id)):
+            return Response(
+                {"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        try:
+            datetime.strptime(week, "%Y-%m-%d")
+        except ValueError:
+            return Response(
+                {"Error": "Invalid week format. Use YYYY-MM-DD"},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        roster = build_weekly_roster_matrix(store_id, week)
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=landscape(A4),
+            rightMargin=20,
+            leftMargin=20,
+            topMargin=20,
+            bottomMargin=20,
+        )
+
+        elements = []
+        styles = getSampleStyleSheet()
+
+        elements.append(
+            Paragraph(f"Weekly Roster — Store #{store_id}", styles["Title"])
+        )
+        elements.append(Paragraph(f"Week Starting: {week}", styles["Normal"]))
+        elements.append(Spacer(1, 12))
+
+        data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
+
+        for emp in roster:
+            data.append(
+                [
+                    emp["name"],
+                    emp["Mon"],
+                    emp["Tue"],
+                    emp["Wed"],
+                    emp["Thu"],
+                    emp["Fri"],
+                    emp["Sat"],
+                    emp["Sun"],
+                ]
+            )
+
+        table = Table(data, repeatRows=1, colWidths=[90] + [75] * 7)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ]
+            )
+        )
+
+        elements.append(table)
+
+        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+        elements.append(Spacer(1, 10))
+        elements.append(
+            Paragraph(
+                f'<font size="8" color="#888888">Generated: {generated_time}</font>',
+                styles["Normal"],
+            )
+        )
+
+        doc.build(elements)
+
+        pdf_data = buffer.getvalue()
+        buffer.close()
+
+        resp = HttpResponse(pdf_data, content_type="application/pdf")
+        resp["Content-Disposition"] = (
+            f'inline; filename="weekly_roster_{store_id}_{week}.pdf"'
+        )
+        return resp
+
+    except Exception as e:
+        logger.critical(f"Roster PDF generation failed: {e}\n{traceback.format_exc()}")
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
