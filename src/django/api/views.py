@@ -4707,6 +4707,73 @@ def generate_account_summary_report(request):
         return HttpResponse("Internal error.", status=500)
 
 
+def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=False):
+    """
+    Converts API roster structure into printable matrix with role info.
+    """
+    store = Store.objects.get(pk=store_id)
+
+    filter_names = filter_names or []
+
+    data = controllers.get_all_store_schedules(
+        store=store,
+        week=week,
+        offset=0,
+        limit=200,
+        include_deleted=False,
+        hide_deactivated=False,
+        hide_resigned=False,
+        sort_field="name",
+        filter_names=filter_names,
+        filter_roles=[],
+    )
+
+    schedule_map = data.get("schedule", {})
+    week_start = data.get("week_start")  # always Monday
+
+    week_dates = [week_start + timedelta(days=i) for i in range(7)]
+
+    roster = []
+
+    for full_name, info in schedule_map.items():
+
+        row = {
+            "name": full_name,
+            "Mon": "-",
+            "Tue": "-",
+            "Wed": "-",
+            "Thu": "-",
+            "Fri": "-",
+            "Sat": "-",
+            "Sun": "-",
+        }
+
+        emp_roster = info.get("roster", {})
+
+        for d in week_dates:
+            day_key = d.isoformat()
+            shift_list = emp_roster.get(day_key, [])
+
+            if shift_list:
+                formatted = []
+                for s in shift_list:
+                    time_part = f"{s['start_time']}–{s['end_time']}"
+
+                    if s.get("role_name"):
+                        formatted.append(f"{time_part}\n<i>{s['role_name']}</i>")
+                    else:
+                        formatted.append(time_part)
+
+                row[d.strftime("%a")] = "\n".join(formatted)
+
+        roster.append(row)
+
+    return roster, week_start, week_start + timedelta(days=6)
+
+
+from reportlab.lib import colors
+
+
 # Roster Report Generation
 @api_manager_required
 @api_view(["GET"])
@@ -4715,6 +4782,13 @@ def generate_weekly_roster_report(request):
         user = util.api_get_user_object_from_session(request)
         store_id = util.clean_param_str(request.GET.get("store_id"))
         week = util.clean_param_str(request.GET.get("week"))
+
+        filter_raw = util.clean_param_str(request.GET.get("filter", ""))
+
+        try:
+            filter_names = util.get_filter_list_from_string(filter_raw)
+        except ValueError:
+            filter_names = []
 
         if not store_id or not week:
             return Response(
@@ -4735,53 +4809,66 @@ def generate_weekly_roster_report(request):
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
-        roster = build_weekly_roster_matrix(store_id, week)
+        roster, week_start, week_end = build_weekly_roster_matrix(
+            store_id, week, filter_names=filter_names
+        )
 
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
             pagesize=landscape(A4),
-            rightMargin=20,
-            leftMargin=20,
-            topMargin=20,
-            bottomMargin=20,
+            rightMargin=18,
+            leftMargin=18,
+            topMargin=25,
+            bottomMargin=25,
         )
 
         elements = []
         styles = getSampleStyleSheet()
 
         elements.append(
-            Paragraph(f"Weekly Roster — Store #{store_id}", styles["Title"])
+            Paragraph(
+                f"<b>Weekly Roster Report — Store {store_id}</b>", styles["Title"]
+            )
         )
-        elements.append(Paragraph(f"Week Starting: {week}", styles["Normal"]))
-        elements.append(Spacer(1, 12))
+        elements.append(
+            Paragraph(
+                f"Week: {week_start.strftime('%d %b %Y')} → {week_end.strftime('%d %b %Y')}",
+                styles["Normal"],
+            )
+        )
+        elements.append(Spacer(1, 15))
 
         data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
 
         for emp in roster:
-            data.append(
-                [
-                    emp["name"],
-                    emp["Mon"],
-                    emp["Tue"],
-                    emp["Wed"],
-                    emp["Thu"],
-                    emp["Fri"],
-                    emp["Sat"],
-                    emp["Sun"],
-                ]
-            )
+            # Build row dynamically
+            row = [Paragraph(emp["name"], styles["Normal"])]
 
-        table = Table(data, repeatRows=1, colWidths=[90] + [75] * 7)
+            for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+
+                cell_value = emp[day].replace("\n", "<br/>")
+                row.append(Paragraph(cell_value, styles["Normal"]))
+
+            data.append(row)
+
+        table = Table(data, repeatRows=1, colWidths=[110] + [90] * 7)
         table.setStyle(
             TableStyle(
                 [
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004aad")),
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 11),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("ALIGN", (1, 1), (-1, -1), "CENTER"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f7f9fc")),
+                    ("BACKGROUND", (0, 2), (-1, -1), colors.whitesmoke),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                 ]
             )
         )
@@ -4789,10 +4876,10 @@ def generate_weekly_roster_report(request):
         elements.append(table)
 
         generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 12))
         elements.append(
             Paragraph(
-                f'<font size="8" color="#888888">Generated: {generated_time}</font>',
+                f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
                 styles["Normal"],
             )
         )
@@ -4804,7 +4891,7 @@ def generate_weekly_roster_report(request):
 
         resp = HttpResponse(pdf_data, content_type="application/pdf")
         resp["Content-Disposition"] = (
-            f'inline; filename="weekly_roster_{store_id}_{week}.pdf"'
+            f'inline; filename="weekly_roster_{store_id}_{week_start}.pdf"'
         )
         return resp
 
