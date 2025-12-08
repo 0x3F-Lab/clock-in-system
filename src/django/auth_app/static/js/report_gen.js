@@ -26,7 +26,6 @@ function openShiftLogModal() {
 function generateShiftLogReport(e) {
     e.preventDefault();
 
-    // Get store from selector
     let storeId = getSelectedStoreID();
     let start   = $("#startDate").val();
     let end     = $("#endDate").val();
@@ -35,20 +34,36 @@ function generateShiftLogReport(e) {
     let onlyPublicHol  = $("#onlyPublicHol").is(":checked");
 
     if (!storeId || !start || !end) {
-        showNotification("Please select store, start date and end date.", "danger");
+        showNotification("Please select store, start and end date.", "danger");
         return;
     }
 
-    const params = new URLSearchParams({
-        store_id: storeId,
-        start: start,
-        end: end,
-        only_unfinished: onlyUnfinished,
-        only_pub: onlyPublicHol,
-        filter: filter
-    });
+    showSpinner();
 
-    window.open(`${window.djangoURLs.generateShiftReport}?${params.toString()}`, "_blank");
+    $.ajax({
+        url: window.djangoURLs.generateShiftReport,
+        method: "GET",
+        xhrFields: { responseType: "blob" }, 
+        data: {
+            store_id: storeId,
+            start: start,
+            end: end,
+            filter: filter,
+            only_unfinished: onlyUnfinished,
+            only_pub: onlyPublicHol
+        },
+        success: function(blob) {
+            hideSpinner();
+
+            // Create downloadable PDF object
+            let fileURL = window.URL.createObjectURL(blob);
+            window.open(fileURL, "_blank");
+        },
+        error: function(xhr) {
+            hideSpinner();
+            handleAjaxError(xhr, "Failed to generate report");
+        }
+    });
 }
 
 

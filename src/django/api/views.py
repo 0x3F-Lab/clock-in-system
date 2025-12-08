@@ -4418,6 +4418,8 @@ def list_shift_requests(request):
 
 
 @api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def generate_shift_logs_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
@@ -4426,12 +4428,24 @@ def generate_shift_logs_report(request):
         start = util.clean_param_str(request.GET.get("start"))
         end = util.clean_param_str(request.GET.get("end"))
 
-        # Validate essential fields
+        # Validate required params
         if not all([store_id, start, end]):
-            return HttpResponse("Missing required parameters.", status=400)
+            return Response(
+                {"Error": "Missing required parameters (store, start, end)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"Error": f"Store with ID {store_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Manager authorisation
         if not user.is_manager(store=int(store_id)):
-            return HttpResponse("Not authorised.", status=403)
+            raise err.NotAssociatedWithStoreAsManagerError
 
         # Optional filters
         only_unfinished = util.str_to_bool(request.GET.get("only_unfinished", "false"))
@@ -4439,13 +4453,14 @@ def generate_shift_logs_report(request):
         filter_names_raw = util.clean_param_str(request.GET.get("filter", ""))
 
         try:
-            filter_names_list = util.get_filter_list_from_string(filter_names_raw)
+            filter_names = util.get_filter_list_from_string(filter_names_raw)
         except ValueError:
-            return HttpResponse(
-                "Invalid characters in employee filter field.", status=400
+            return Response(
+                {"Error": "Invalid characters in employee filter field."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Fetch shift data
+        # Get shift records
         results, total = controllers.get_all_shifts(
             store_id=store_id,
             offset=0,
@@ -4453,7 +4468,7 @@ def generate_shift_logs_report(request):
             start_date=start,
             end_date=end,
             sort_field="time",
-            filter_names=filter_names_list,
+            filter_names=filter_names,
             only_unfinished=only_unfinished,
             only_public_hol=only_pub,
             hide_deactivated=False,
@@ -4461,103 +4476,116 @@ def generate_shift_logs_report(request):
             allow_inactive_store=True,
         )
 
-        # Generate PDF
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=36,
-            leftMargin=36,
-            topMargin=54,
-            bottomMargin=36,
-        )
+        # Build PDF
+        try:
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=36,
+                leftMargin=36,
+                topMargin=54,
+                bottomMargin=36,
+            )
 
-        elements = []
-        styles = getSampleStyleSheet()
+            elements = []
+            styles = getSampleStyleSheet()
 
-        # Header
-        elements.append(
-            Paragraph(f"Shift Logs Report — Store #{store_id}", styles["Title"])
-        )
-        elements.append(Paragraph(f"Date Range: {start} to {end}", styles["Normal"]))
-        elements.append(Spacer(1, 12))
+            # Header
+            elements.append(
+                Paragraph(f"Shift Logs Report — Store #{store_id}", styles["Title"])
+            )
+            elements.append(
+                Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
+            )
+            elements.append(Spacer(1, 20))
 
-        # Table data
-        table_data = [
-            [
-                "Staff Name",
-                "Rounded Login",
-                "Rounded Logout",
-                "Public Hol",
-                "Deliveries",
-                "Hours Worked",
+            # Table data
+            table_data = [
+                [
+                    "Staff Name",
+                    "Rounded Login",
+                    "Rounded Logout",
+                    "Public Hol",
+                    "Deliveries",
+                    "Hours Worked",
+                ]
             ]
-        ]
 
-        for r in results:
-            full_name = (
-                f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}".strip()
-                or "-"
+            for r in results:
+                full_name = (
+                    f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}".strip()
+                    or "-"
+                )
+                try:
+                    hours = float(r.get("hours_worked", 0) or 0)
+                except ValueError:
+                    hours = 0.0
+
+                table_data.append(
+                    [
+                        full_name,
+                        r.get("login_time", "-"),
+                        r.get("logout_time", "-"),
+                        "Yes" if r.get("is_public_holiday") else "No",
+                        str(r.get("deliveries", 0)),
+                        f"{hours:.2f}",
+                    ]
+                )
+
+            if len(table_data) == 1:
+                table_data.append(["No shifts found", "", "", "", "", ""])
+
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                    ]
+                )
             )
-            try:
-                hours = float(r.get("hours_worked", 0) or 0)
-            except ValueError:
-                hours = 0.0
 
-            table_data.append(
-                [
-                    full_name,
-                    r.get("login_time", "-") or "-",
-                    r.get("logout_time", "-") or "-",
-                    "Yes" if r.get("is_public_holiday") else "No",
-                    str(r.get("deliveries", 0)),
-                    f"{hours:.2f}",
-                ]
+            elements.append(table)
+
+            elements.append(Spacer(1, 40))
+
+            # Timestamp footer
+            generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+            timestamp = (
+                f"<font size='8' color='#888888'>Generated: {generated_time}</font>"
             )
+            elements.append(Paragraph(timestamp, styles["Normal"]))
 
-        if len(table_data) == 1:
-            table_data.append(["No shifts found", "", "", "", "", ""])
+            doc.build(elements)
 
-        # Table formatting
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-                ]
+            pdf = buffer.getvalue()
+            buffer.close()
+            return HttpResponse(pdf, content_type="application/pdf")
+
+        except Exception as e:
+            logger.critical(f"PDF Build Failure: {e}\n{traceback.format_exc()}")
+            return Response(
+                {"Error": "Failed to generate PDF."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        )
-
-        elements.append(table)
-        elements.append(Spacer(1, 12))
-
-        # Timestamp Footer
-        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        timestamp = f"<font size=8 color='#888888'>Generated: {generated_time}</font>"
-        elements.append(Paragraph(timestamp, styles["Normal"]))
-
-        doc.build(elements)
-
-        pdf = buffer.getvalue()
-        buffer.close()
-
-        response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'inline; filename="shift_logs_{store_id}.pdf"'
-        )
-        return response
 
     except err.NotAssociatedWithStoreAsManagerError:
-        return HttpResponse("Not authorised.", status=403)
+        return Response(
+            {"Error": "Not authorised to access this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     except Exception as e:
-        logger.critical(f"Shift logs report error: {e}\n{traceback.format_exc()}")
-        return HttpResponse("Internal error.", status=500)
+        logger.critical(f"Shift report critical failure: {e}\n{traceback.format_exc()}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_manager_required
