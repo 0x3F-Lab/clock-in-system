@@ -13,8 +13,8 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import caches
 from django.contrib.sessions.models import Session
-from django.utils.timezone import make_aware, is_naive, localtime
-from auth_app.models import User, Store, Activity, Shift, ShiftException
+from django.utils.timezone import make_aware, is_naive, localtime, now
+from auth_app.models import User, Store, Activity, Shift, ShiftException, RepeatingShift
 
 logger = logging.getLogger("api")
 
@@ -591,11 +591,15 @@ def check_store_exceptions_in_period(
     ).exists()
 
 
-def get_week_start(d: date) -> date:
+def get_week_start(d: Union[datetime, date]) -> date:
     """
-    Ensure date is on the monday of the given week (roll back if need be)
+    Ensure date is on the monday of the given week (roll back if need be).
+    Monday is considered the start of the week.
     """
-    return d - timedelta(days=d.weekday())  # Monday is weekday 0
+    if isinstance(d, datetime):
+        d = d.date()
+
+    return d - timedelta(days=d.weekday())
 
 
 def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:
@@ -723,3 +727,76 @@ def schedule_copy_do_shifts_collide(
     return not (
         shift1_end + gap_delta <= shift2_start or shift2_end + gap_delta <= shift1_start
     )
+
+
+# THESE FOLLOWING TWO FUNCTIONS ARE DUPLICATED IN AUTH_APP.UTILS
+def get_repeating_shift_cycle_week(
+    dt: Union[datetime, date],
+) -> RepeatingShift.CycleWeek:
+    """
+    Determine which 4-week repeating-shift cycle week a given datetime falls into.
+
+    The cycle is defined as:
+    - Week 1 begins at `settings.REPEATING_SHIFTS_CYCLE_START` (timezone-aware).
+    - Each week begins on Monday.
+    - After Week 4, the cycle returns to Week 1.
+
+    :param dt: A date or datetime for which to determine the cycle week.
+                If datetime, it may be naive or timezone-aware.
+    :type dt: datetime | date
+
+
+    :return: The cycle week (1-4) that `dt` falls into.
+    :rtype: RepeatingShift.CycleWeek
+    """
+    if isinstance(dt, datetime):
+        dt = dt.date()
+
+    cycle_start = settings.REPEATING_SHIFTS_CYCLE_START
+    if isinstance(cycle_start, datetime):
+        cycle_start = cycle_start.date()
+
+    # Use dates to ensure week boundaries
+    diff = dt - cycle_start
+    weeks_passed = diff.days // 7
+
+    cycle_week_number = (weeks_passed % 4) + 1
+
+    return RepeatingShift.CycleWeek(cycle_week_number)
+
+
+def get_next_date_for_cycle_week(
+    start_weekday: int,
+    target_cycle_week: RepeatingShift.CycleWeek,
+    today: Union[datetime, date] = None,
+) -> date:
+    """
+    Given a target cycle week (1-4) and a weekday (0=Mon..6=Sun),
+    find the next calendar date this shift occurs after today.
+
+    :param start_weekday: Weekday of shift start (0=Mon..6=Sun)
+    :param target_cycle_week: Desired cycle week (1-4)
+    :param today: Reference date (default: now)
+    :return: The next calendar date of the shift
+    """
+    # Use today or current date
+    if today is None:
+        today = localtime(now()).date()
+    elif isinstance(today, datetime):
+        today = today.date()
+
+    current_cycle_week = get_repeating_shift_cycle_week(today)
+
+    # Wrap around the 4-week cycle
+    weeks_ahead = (target_cycle_week.value - current_cycle_week.value) % 4
+
+    current_week_monday = get_week_start(today)
+    target_week_monday = current_week_monday + timedelta(weeks=weeks_ahead)
+
+    shift_date = target_week_monday + timedelta(days=start_weekday)
+
+    # If shift_date is still in the past relative to today, add 4 weeks
+    if shift_date <= today:
+        shift_date += timedelta(weeks=4)
+
+    return shift_date

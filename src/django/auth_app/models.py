@@ -385,6 +385,7 @@ class Store(models.Model):
         null=False,
         help_text="If enabled, all employees can see everyones shift.",
     )
+    is_repeating_shifts_enabled = models.BooleanField(default=False, null=False)
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def save(self, *args, **kwargs):

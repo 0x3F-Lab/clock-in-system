@@ -4430,7 +4430,9 @@ def create_repeating_shift(request, store_id):
         employee_id = util.clean_param_str(request.data.get("employee_id", None))
         active_weeks = util.clean_param_str(request.data.get("active_weeks", None))
         start_weekday = util.clean_param_str(request.data.get("start_weekday", None))
-        end_weekday = util.clean_param_str(request.data.get("end_weekday", None))
+        end_weekday = util.clean_param_str(
+            request.data.get("start_weekday", None)
+        )  # TODO: Impliment logic to handle overnight shifts
         start_time = util.clean_param_str(request.data.get("start_time", None))
         end_time = util.clean_param_str(request.data.get("end_time", None))
         role_id = util.clean_param_str(request.data.get("role_id", None))
@@ -4628,7 +4630,9 @@ def manage_repeating_shift(request, shift_id):
 
         active_weeks = util.clean_param_str(request.data.get("active_weeks", None))
         start_weekday = util.clean_param_str(request.data.get("start_weekday", None))
-        end_weekday = util.clean_param_str(request.data.get("end_weekday", None))
+        end_weekday = util.clean_param_str(
+            request.data.get("start_weekday", None)
+        )  # TODO: Impliment logic to handle overnight shifts
         start_time = util.clean_param_str(request.data.get("start_time", None))
         end_time = util.clean_param_str(request.data.get("end_time", None))
         role_id = util.clean_param_str(request.data.get("role_id", None))

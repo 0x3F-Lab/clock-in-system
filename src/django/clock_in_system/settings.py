@@ -284,6 +284,10 @@ CELERY_BEAT_SCHEDULE = {
             hour=0, minute=5
         ),  # DO NOT CHANGE FROM 12:05AM - UNLESS YOU'VE CONSULTED TASK FUNCTION
     },
+    "write_out_repeating_shifts_for_week": {
+        "task": "auth_app.tasks.write_out_repeating_shifts_for_week",
+        "schedule": crontab(hour=0, minute=30, day_of_week=1),  # DONT CHANGE THIS
+    },
 }
 
 
@@ -353,7 +357,7 @@ MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 1080  # 18 hours
 MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
 
 # When should the repeating cycle start? I.e. if its a 4 week cycle, when does the very first system's cycle 1 start? (to align them all)
-REPEATING_SHIFTS_CYCLE_START = timezone.make_aware(datetime(2025, 7, 1))
+REPEATING_SHIFTS_CYCLE_START = timezone.make_aware(datetime(2025, 1, 6, 0, 0, 0, 0))
 
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
