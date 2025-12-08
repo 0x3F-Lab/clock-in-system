@@ -4589,30 +4589,46 @@ def generate_shift_logs_report(request):
 
 
 @api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def generate_account_summary_report(request):
     try:
-        # Validate user & params
         user = util.api_get_user_object_from_session(request)
 
         store_id = util.clean_param_str(request.GET.get("store_id"))
         start = util.clean_param_str(request.GET.get("start"))
         end = util.clean_param_str(request.GET.get("end"))
+
+        # Validate required inputs
         if not all([store_id, start, end]):
-            return HttpResponse("Missing required parameters.", status=400)
+            return Response(
+                {"Error": "Missing required parameters (store, start, end)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"Error": f"Store with ID {store_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         if not user.is_manager(store=int(store_id)):
-            return HttpResponse("Not authorised.", status=403)
+            raise err.NotAssociatedWithStoreAsManagerError
 
-        # Optional filters
         ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
 
         try:
             filter_list = util.get_filter_list_from_string(filter_raw)
         except ValueError:
-            return HttpResponse("Invalid name filter.", status=400)
+            return Response(
+                {"Error": "Invalid characters in filter field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Get the account summaries
+        # Fetch summaries
         summaries, total = controllers.get_account_summaries(
             store_id=store_id,
             offset=0,
@@ -4625,114 +4641,131 @@ def generate_account_summary_report(request):
             allow_inactive_store=True,
         )
 
-        # ===  PDF GENERATION STARTS HERE ===
-
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=36,
-            leftMargin=36,
-            topMargin=54,
-            bottomMargin=36,
-        )
-
-        elements = []
-        styles = getSampleStyleSheet()
-
-        # Title
-        elements.append(
-            Paragraph(f"Account Summary Report — Store #{store_id}", styles["Title"])
-        )
-        elements.append(Paragraph(f"Date Range: {start} to {end}", styles["Normal"]))
-
-        if ignore_no_hours:
-            elements.append(
-                Paragraph("Ignored employees with no hours", styles["Normal"])
+        # === Build PDF ===
+        try:
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=36,
+                leftMargin=36,
+                topMargin=54,
+                bottomMargin=36,
             )
 
-        if filter_list:
+            elements = []
+            styles = getSampleStyleSheet()
+
+            # Title & metadata
             elements.append(
                 Paragraph(
-                    f"Filtered Employees: {', '.join(filter_list)}", styles["Normal"]
+                    f"Account Summary Report — Store #{store_id}", styles["Title"]
+                )
+            )
+            elements.append(
+                Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
+            )
+
+            if ignore_no_hours:
+                elements.append(
+                    Paragraph(
+                        "Ignored employees with no hours worked", styles["Normal"]
+                    )
+                )
+
+            if filter_list:
+                elements.append(
+                    Paragraph(
+                        f"Filtered Employees: {', '.join(filter_list)}",
+                        styles["Normal"],
+                    )
+                )
+
+            elements.append(Spacer(1, 12))
+
+            # Table header
+            table_data = [
+                [
+                    "Staff Name",
+                    "Weekday Hrs",
+                    "Weekend Hrs",
+                    "Public Hol Hrs",
+                    "Deliveries",
+                    "Total Hours",
+                    "Age",
+                ]
+            ]
+
+            # Rows
+            for summary in summaries:
+                table_data.append(
+                    [
+                        summary.get("name", "-"),
+                        summary.get("hours_weekday", 0),
+                        summary.get("hours_weekend", 0),
+                        summary.get("hours_public_holiday", 0),
+                        summary.get("deliveries", 0),
+                        summary.get("hours_total", 0),
+                        summary.get("age", "N/A"),
+                    ]
+                )
+
+            if len(table_data) == 1:
+                table_data.append(["No records found", "", "", "", "", "", ""])
+
+            table = Table(table_data, repeatRows=1)
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ]
                 )
             )
 
-        elements.append(Spacer(1, 12))
+            elements.append(table)
+            elements.append(Spacer(1, 12))
 
-        # Table header
-        data = [
-            [
-                "Staff Name",
-                "Weekday Hrs",
-                "Weekend Hrs",
-                "Public Hol Hrs",
-                "Deliveries",
-                "Total Hours",
-                "Age",
-            ]
-        ]
-
-        # Populate rows
-        for summary in summaries:
-
-            data.append(
-                [
-                    summary.get("name", "-"),
-                    summary.get("hours_weekday", 0),
-                    summary.get("hours_weekend", 0),
-                    summary.get("hours_public_holiday", 0),
-                    summary.get("deliveries", 0),
-                    summary.get("hours_total", 0),
-                    summary.get("age", "N/A"),
-                ]
+            # Footer timestamp
+            generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+            elements.append(
+                Paragraph(
+                    f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
+                    styles["Normal"],
+                )
             )
 
-        if len(data) == 1:
-            data.append(["No records found", "", "", "", "", "", ""])
+            doc.build(elements)
 
-        table = Table(data, repeatRows=1)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-                ]
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+
+            # Binary response body
+            return HttpResponse(pdf_bytes, content_type="application/pdf")
+
+        except Exception as e:
+            logger.critical(f"PDF Generation Failed: {e}\n{traceback.format_exc()}")
+            return Response(
+                {"Error": "Failed to generate PDF."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        )
-
-        elements.append(table)
-        elements.append(Spacer(1, 12))
-
-        # Footer timestamp
-        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(
-            Paragraph(
-                f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
-                styles["Normal"],
-            )
-        )
-
-        doc.build(elements)
-
-        pdf = buffer.getvalue()
-        buffer.close()
-
-        response = HttpResponse(pdf, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'inline; filename="account_summary_{store_id}.pdf"'
-        )
-        return response
 
     except err.NotAssociatedWithStoreAsManagerError:
-        return HttpResponse("Not authorised.", status=403)
+        return Response(
+            {"Error": "Not authorised to access this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     except Exception as e:
-        logger.critical(f"Account summary PDF error: {e}\n{traceback.format_exc()}")
-        return HttpResponse("Internal error.", status=500)
+        logger.critical(f"Account report failure: {e}\n{traceback.format_exc()}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=False):

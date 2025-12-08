@@ -52,12 +52,15 @@ function generateShiftLogReport(e) {
             only_unfinished: onlyUnfinished,
             only_pub: onlyPublicHol
         },
-        success: function(blob) {
+        success: function(data) {
             hideSpinner();
 
-            // Create downloadable PDF object
-            let fileURL = window.URL.createObjectURL(blob);
-            window.open(fileURL, "_blank");
+            const file = new Blob([data], { type: "application/pdf" });
+            const url  = URL.createObjectURL(file);
+
+            window.open(url, "_blank");
+
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
         },
         error: function(xhr) {
             hideSpinner();
@@ -75,24 +78,49 @@ function openAccountSummaryModal() {
     modal.show();
 }
 
-function generateAccountSummaryReport() {
+function generateAccountSummaryReport(e) {
+    e.preventDefault();
+
+    let storeId     = getSelectedStoreID();
     let start       = $("#summaryStartDate").val();
     let end         = $("#summaryEndDate").val();
     let ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
     let filterNames = $("#summaryFilterNames").val();
-    let storeId     = getSelectedStoreID();
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start date and end date.", "danger");
         return;
     }
 
-    let url = `${window.djangoURLs.generateAccountSummaryPDF}?store_id=${storeId}`
-            + `&start=${start}&end=${end}`
-            + `&ignore_no_hours=${ignoreHours}`
-            + `&filter=${encodeURIComponent(filterNames)}`;
+    showSpinner();
 
-    window.open(url, "_blank");
+    $.ajax({
+        url: window.djangoURLs.generateAccountSummaryPDF,
+        method: "GET",
+        xhrFields: { responseType: "blob" },
+        data: {
+            store_id: storeId,
+            start: start,
+            end: end,
+            ignore_no_hours: ignoreHours,
+            filter: filterNames
+        },
+        success: function(blob) {
+            hideSpinner();
+
+            const file = new Blob([blob], { type: "application/pdf" });
+            const url  = URL.createObjectURL(file);
+
+            window.open(url, "_blank");
+
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+        },
+        error: function(xhr) {
+            hideSpinner();
+            handleAjaxError(xhr, "Failed to generate account summary report");
+        }
+    });
 }
 
 // ROSTER REPORT HANDLER
