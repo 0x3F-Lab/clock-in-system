@@ -131,8 +131,8 @@ function openWeeklyRosterModal() {
 }
 
 function generateWeeklyRosterReport() {
-    let storeId     = getSelectedStoreID();
-    let week        = $("#weeklyRosterWeek").val();
+    let storeId = getSelectedStoreID();
+    let week = $("#weeklyRosterWeek").val();
     let filterNames = $("#weeklyRosterFilterNames").val();
     let hideResigned = $("#weeklyRosterHideResigned").is(":checked");
 
@@ -141,11 +141,31 @@ function generateWeeklyRosterReport() {
         return;
     }
 
-    let url =
-        `${window.djangoURLs.generateWeeklyRosterPDF}?store_id=${storeId}` +
-        `&week=${encodeURIComponent(week)}` +
-        `&filter=${encodeURIComponent(filterNames)}` +
-        `&hide_resigned=${hideResigned}`;
+    showSpinner();
 
-    window.open(url, "_blank");
+    $.ajax({
+        url: window.djangoURLs.generateWeeklyRosterPDF,
+        method: "GET",
+        xhrFields: { responseType: "blob" },
+        data: {
+            store_id: storeId,
+            week: week,
+            filter: filterNames,
+            hide_resigned: hideResigned
+        },
+        success: function(blob) {
+            hideSpinner();
+
+            const pdf = new Blob([blob], { type: "application/pdf" });
+            const url = URL.createObjectURL(pdf);
+
+            window.open(url, "_blank");
+
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        },
+        error: function(xhr) {
+            hideSpinner();
+            handleAjaxError(xhr, "Failed to generate roster report.");
+        }
+    });
 }

@@ -4838,18 +4838,14 @@ from reportlab.lib import colors
 # Roster Report Generation
 @api_manager_required
 @api_view(["GET"])
+@renderer_classes([JSONRenderer])
 def generate_weekly_roster_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
+
         store_id = util.clean_param_str(request.GET.get("store_id"))
         week = util.clean_param_str(request.GET.get("week"))
-
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
-
-        try:
-            filter_names = util.get_filter_list_from_string(filter_raw)
-        except ValueError:
-            filter_names = []
 
         if not store_id or not week:
             return Response(
@@ -4857,107 +4853,122 @@ def generate_weekly_roster_report(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not user.is_manager(store=int(store_id)):
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
             return Response(
-                {"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN
+                {"Error": f"Store with ID {store_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
             )
+
+        if not user.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
+
+        try:
+            filter_names = util.get_filter_list_from_string(filter_raw)
+        except ValueError:
+            filter_names = []
 
         try:
             datetime.strptime(week, "%Y-%m-%d")
         except ValueError:
             return Response(
-                {"Error": "Invalid week format. Use YYYY-MM-DD"},
+                {"Error": "Invalid week format. Use YYYY-MM-DD."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
+        # Get matrix
         roster, week_start, week_end = build_weekly_roster_matrix(
             store_id, week, filter_names=filter_names
         )
 
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=landscape(A4),
-            rightMargin=18,
-            leftMargin=18,
-            topMargin=25,
-            bottomMargin=25,
-        )
-
-        elements = []
-        styles = getSampleStyleSheet()
-
-        elements.append(
-            Paragraph(
-                f"<b>Weekly Roster Report — Store {store_id}</b>", styles["Title"]
+        # PDF build
+        try:
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=landscape(A4),
+                rightMargin=18,
+                leftMargin=18,
+                topMargin=25,
+                bottomMargin=25,
             )
-        )
-        elements.append(
-            Paragraph(
-                f"Week: {week_start.strftime('%d %b %Y')} → {week_end.strftime('%d %b %Y')}",
-                styles["Normal"],
+
+            elements = []
+            styles = getSampleStyleSheet()
+
+            elements.append(
+                Paragraph(
+                    f"<b>Weekly Roster Report — Store {store_id}</b>", styles["Title"]
+                )
             )
-        )
-        elements.append(Spacer(1, 15))
-
-        data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
-
-        for emp in roster:
-            # Build row dynamically
-            row = [Paragraph(emp["name"], styles["Normal"])]
-
-            for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
-
-                cell_value = emp[day].replace("\n", "<br/>")
-                row.append(Paragraph(cell_value, styles["Normal"]))
-
-            data.append(row)
-
-        table = Table(data, repeatRows=1, colWidths=[110] + [90] * 7)
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004aad")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 11),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                    ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f7f9fc")),
-                    ("BACKGROUND", (0, 2), (-1, -1), colors.whitesmoke),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                    ("TOPPADDING", (0, 0), (-1, -1), 4),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ]
+            elements.append(
+                Paragraph(
+                    f"Week: {week_start.strftime('%d %b %Y')} → {week_end.strftime('%d %b %Y')}",
+                    styles["Normal"],
+                )
             )
-        )
+            elements.append(Spacer(1, 15))
 
-        elements.append(table)
+            data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
 
-        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(Spacer(1, 12))
-        elements.append(
-            Paragraph(
-                f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
-                styles["Normal"],
+            for emp in roster:
+                row = [Paragraph(emp["name"], styles["Normal"])]
+                for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+                    row.append(
+                        Paragraph(emp[day].replace("\n", "<br/>"), styles["Normal"])
+                    )
+                data.append(row)
+
+            table = Table(data, repeatRows=1, colWidths=[110] + [90] * 7)
+
+            table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004aad")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f7f9fc")),
+                    ]
+                )
             )
+
+            elements.append(table)
+
+            generated = datetime.now().strftime("%d %b %Y %H:%M:%S")
+            elements.append(Spacer(1, 12))
+            elements.append(
+                Paragraph(
+                    f"<font size=8 color='#888888'>Generated: {generated}</font>",
+                    styles["Normal"],
+                )
+            )
+
+            doc.build(elements)
+
+            pdf_data = buffer.getvalue()
+            buffer.close()
+
+            return HttpResponse(pdf_data, content_type="application/pdf")
+
+        except Exception as e:
+            logger.critical(f"Roster PDF build failed: {e}\n{traceback.format_exc()}")
+            return Response(
+                {"Error": "PDF generation failed."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
         )
-
-        doc.build(elements)
-
-        pdf_data = buffer.getvalue()
-        buffer.close()
-
-        resp = HttpResponse(pdf_data, content_type="application/pdf")
-        resp["Content-Disposition"] = (
-            f'inline; filename="weekly_roster_{store_id}_{week_start}.pdf"'
-        )
-        return resp
 
     except Exception as e:
-        logger.critical(f"Roster PDF generation failed: {e}\n{traceback.format_exc()}")
+        logger.critical(f"Roster API failure: {e}\n{traceback.format_exc()}")
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
