@@ -4493,7 +4493,7 @@ def generate_shift_logs_report(request):
 
             # Header
             elements.append(
-                Paragraph(f"Shift Logs Report — Store #{store_id}", styles["Title"])
+                Paragraph(f"Shift Logs Report — {store.name}", styles["Title"])
             )
             elements.append(
                 Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
@@ -4504,8 +4504,8 @@ def generate_shift_logs_report(request):
             table_data = [
                 [
                     "Staff Name",
-                    "Rounded Login",
-                    "Rounded Logout",
+                    "Exact Login",
+                    "Exact Logout",
                     "Public Hol",
                     "Deliveries",
                     "Hours Worked",
@@ -4525,8 +4525,8 @@ def generate_shift_logs_report(request):
                 table_data.append(
                     [
                         full_name,
-                        r.get("login_time", "-"),
-                        r.get("logout_time", "-"),
+                        r.get("login_timestamp", "-"),
+                        r.get("logout_timestamp", "-"),
                         "Yes" if r.get("is_public_holiday") else "No",
                         str(r.get("deliveries", 0)),
                         f"{hours:.2f}",
@@ -4658,9 +4658,7 @@ def generate_account_summary_report(request):
 
             # Title & metadata
             elements.append(
-                Paragraph(
-                    f"Account Summary Report — Store #{store_id}", styles["Title"]
-                )
+                Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
             )
             elements.append(
                 Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
@@ -4899,7 +4897,7 @@ def generate_weekly_roster_report(request):
 
             elements.append(
                 Paragraph(
-                    f"<b>Weekly Roster Report — Store {store_id}</b>", styles["Title"]
+                    f"<b>Weekly Roster Report — {store.name}</b>", styles["Title"]
                 )
             )
             elements.append(
