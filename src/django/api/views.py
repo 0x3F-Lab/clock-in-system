@@ -4582,7 +4582,7 @@ def create_repeating_shift(request, store_id):
             end_time=end_time,
             start_weekday=start_weekday,
             end_weekday=end_weekday,
-            role__id=role_id,
+            role_id=role_id,
             active_weeks=active_weeks_list,
             comment=comment,
         )
