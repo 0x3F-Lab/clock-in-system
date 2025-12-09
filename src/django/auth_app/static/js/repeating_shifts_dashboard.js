@@ -67,6 +67,68 @@ document.addEventListener("DOMContentLoaded", () => {
       if (confirmDeleteRepeatingShiftBtn) confirmDeleteRepeatingShiftBtn.classList.add("d-none");
       repeatingModal.show();
     }
+
+    async function openEditRepeatingShiftModal(shiftId) {
+      if (!repeatingModal) return;
+
+      try {
+        const data = await fetchRepeatingShiftDetails(shiftId);
+      
+        repeatingModalTitle.textContent = "Edit Repeating Shift";
+        const primaryId = data.id ?? data.shift_id;
+
+        if (repeatingShiftIdInput) repeatingShiftIdInput.value = String(primaryId);
+        if (repeatingShiftStoreIdInput) repeatingShiftStoreIdInput.value = data.store_id;
+      
+        if (repeatingSelectedEmployeeIDInput) {
+          repeatingSelectedEmployeeIDInput.value = data.employee_id;
+        }
+      
+        if (repeatingStartWeekdaySelect) {
+          repeatingStartWeekdaySelect.value = String(data.start_weekday);
+        }
+        if (repeatingEndWeekdaySelect) {
+          repeatingEndWeekdaySelect.value = String(data.end_weekday);
+        }
+      
+        if (repeatingStartTimeInput && data.start_time) {
+          repeatingStartTimeInput.value = data.start_time.slice(0, 5);
+        }
+        if (repeatingEndTimeInput && data.end_time) {
+          repeatingEndTimeInput.value = data.end_time.slice(0, 5);
+        }
+
+        if (repeatingRoleSelect && data.role_id) {
+          repeatingRoleSelect.value = String(data.role_id);
+        } else if (repeatingRoleSelect) {
+          repeatingRoleSelect.value = "";
+        }
+      
+        if (repeatingCommentTextarea) {
+          repeatingCommentTextarea.value = data.comment || "";
+        }
+      
+        if (repeatingWeekCheckboxes && repeatingWeekCheckboxes.length) {
+          const weeks = Array.isArray(data.active_weeks)
+            ? data.active_weeks.map(Number)
+            : [];
+        
+          repeatingWeekCheckboxes.forEach(cb => {
+            const val = parseInt(cb.value, 10);
+            cb.checked = weeks.includes(val);
+          });
+        }
+    
+        if (saveRepeatingShiftBtn) saveRepeatingShiftBtn.classList.remove("d-none");
+        if (deleteRepeatingShiftBtn) deleteRepeatingShiftBtn.classList.remove("d-none");
+        if (confirmDeleteRepeatingShiftBtn) confirmDeleteRepeatingShiftBtn.classList.add("d-none");
+      
+        repeatingModal.show();
+      } catch (err) {
+        console.error("Failed to load repeating shift details:", err);
+      }
+    }
+
     
     if (saveRepeatingShiftBtn) {
       saveRepeatingShiftBtn.addEventListener("click", async (e) => {
@@ -111,15 +173,46 @@ document.addEventListener("DOMContentLoaded", () => {
           comment,
         };
       
+        const shiftId = repeatingShiftIdInput ? repeatingShiftIdInput.value : "";
+      
         try {
-          await createRepeatingShift(payload);
+          if (shiftId) {
+            await updateRepeatingShift(shiftId, payload);
+          } else {
+            await createRepeatingShift(payload);
+          }
+        
           await fetchRepeatingSchedule(currentStoreId);
           if (repeatingModal) repeatingModal.hide();
         } catch (err) {
           console.error("Error creating repeating shift:", err);
         }
       });
-    }   
+    }
+    
+    if (deleteRepeatingShiftBtn && confirmDeleteRepeatingShiftBtn) {
+      deleteRepeatingShiftBtn.addEventListener("click", () => {
+        deleteRepeatingShiftBtn.classList.add("d-none");
+        confirmDeleteRepeatingShiftBtn.classList.remove("d-none");
+      });
+    
+      confirmDeleteRepeatingShiftBtn.addEventListener("click", async () => {
+        const shiftId = repeatingShiftIdInput ? repeatingShiftIdInput.value : null;
+        if (!shiftId) return;
+      
+        try {
+          await deleteRepeatingShift(shiftId);
+          await fetchRepeatingSchedule(currentStoreId);
+          if (repeatingModal) repeatingModal.hide();
+        } catch (err) {
+          console.error("Failed to delete repeating shift:", err);
+        } finally {
+          deleteRepeatingShiftBtn.classList.remove("d-none");
+          confirmDeleteRepeatingShiftBtn.classList.add("d-none");
+        }
+      });
+    }
+
 
 
     function renderEmployeeList(filterText = "") {
@@ -175,6 +268,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         openCreateRepeatingShiftModal(weekNum, dayIndex);
       });
+    });
+
+    document.addEventListener("click", (e) => {
+      const card = e.target.closest(".shift-item");
+      if (!card || !card.dataset.shiftId) return;
+
+      const shiftId = card.dataset.shiftId;
+      openEditRepeatingShiftModal(shiftId);
     });
 
     function populateRoleSelect() {
@@ -301,7 +402,9 @@ async function fetchRepeatingSchedule(storeId) {
 
 
   async function fetchRepeatingShiftDetails(shiftId) {
-    const url = `${window.manageRepeatingShift}${shiftId}`;
+    const url = `${api.manageRepeatingShift}/${shiftId}`;
+    console.log("Fetching repeating shift details from:", url);
+
     const res = await fetch(url);
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
@@ -309,6 +412,7 @@ async function fetchRepeatingSchedule(storeId) {
     }
     return await res.json();
   }
+
 
 async function createRepeatingShift(payload) {
   const storeId = currentStoreId;
@@ -345,6 +449,7 @@ async function updateRepeatingShift(shiftId, payload) {
       active_weeks: JSON.stringify(payload.active_weeks),
     }),
   });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.Error || err.error || "Failed to update repeating shift");

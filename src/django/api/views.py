@@ -4686,74 +4686,74 @@ def manage_repeating_shift(request, shift_id):
                 "end_time": end_time,
             }
 
-        missing = [key for key, value in required_fields.items() if not value]
-        if missing:
-            return Response(
-                {"Error": f"Missing required fields: {', '.join(missing)}"},
-                status=status.HTTP_428_PRECONDITION_REQUIRED,
-            )
-
-        active_weeks_list = []
-        try:
-            active_weeks_list = (
-                json.loads(active_weeks)
-                if isinstance(active_weeks, str)
-                else active_weeks
-            )
-            if (
-                not isinstance(active_weeks_list, list)
-                or not active_weeks_list
-                or not all(
-                    isinstance(int(w), int) and 1 <= int(w) <= 4
-                    for w in active_weeks_list
+            missing = [key for key, value in required_fields.items() if not value]
+            if missing:
+                return Response(
+                    {"Error": f"Missing required fields: {', '.join(missing)}"},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
                 )
-            ):
-                raise ValueError
-            active_weeks_list = [int(w) for w in active_weeks_list]
-        except (ValueError, TypeError, json.JSONDecodeError):
-            return Response(
-                {
-                    "Error": "active_weeks must be a non-empty list of integers between 1 and 4."
-                },
-                status=status.HTTP_428_PRECONDITION_REQUIRED,
-            )
 
-        try:
-            start_weekday = int(start_weekday)
-            end_weekday = int(end_weekday)
-            if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
-                raise ValueError
-        except ValueError:
-            return Response(
-                {
-                    "Error": "start_weekday and end_weekday must be integers between 0 and 6"
-                },
-                status=status.HTTP_428_PRECONDITION_REQUIRED,
-            )
-
-        try:
-            start_time = datetime.strptime(start_time, "%H:%M").time()
-            end_time = datetime.strptime(end_time, "%H:%M").time()
-        except ValueError:
-            return Response(
-                {"Error": "start_time/end_time must be in HH:MM format"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if comment:
-            comment = comment.strip().replace("\n", "").replace("\t", "")
-            if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+            active_weeks_list = []
+            try:
+                active_weeks_list = (
+                    json.loads(active_weeks)
+                    if isinstance(active_weeks, str)
+                    else active_weeks
+                )
+                if (
+                    not isinstance(active_weeks_list, list)
+                    or not active_weeks_list
+                    or not all(
+                        isinstance(int(w), int) and 1 <= int(w) <= 4
+                        for w in active_weeks_list
+                    )
+                ):
+                    raise ValueError
+                active_weeks_list = [int(w) for w in active_weeks_list]
+            except (ValueError, TypeError, json.JSONDecodeError):
                 return Response(
                     {
-                        "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                        "Error": "active_weeks must be a non-empty list of integers between 1 and 4."
                     },
-                    status=status.HTTP_412_PRECONDITION_FAILED,
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
                 )
-            elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+
+            try:
+                start_weekday = int(start_weekday)
+                end_weekday = int(end_weekday)
+                if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
+                    raise ValueError
+            except ValueError:
                 return Response(
-                    {"Error": "Comment includes invalid characters."},
-                    status=status.HTTP_412_PRECONDITION_FAILED,
+                    {
+                        "Error": "start_weekday and end_weekday must be integers between 0 and 6"
+                    },
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
                 )
+
+            try:
+                start_time = datetime.strptime(start_time, "%H:%M").time()
+                end_time = datetime.strptime(end_time, "%H:%M").time()
+            except ValueError:
+                return Response(
+                    {"Error": "start_time/end_time must be in HH:MM format"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if comment:
+                comment = comment.strip().replace("\n", "").replace("\t", "")
+                if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                    return Response(
+                        {
+                            "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                        },
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+                elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                    return Response(
+                        {"Error": "Comment includes invalid characters."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
 
             if end_weekday < start_weekday:
                 return Response(
@@ -4763,8 +4763,7 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_406_NOT_ACCEPTABLE,
                 )
 
-            # Check all shifts in the cycle are valid (no conflicting shifts)
-            elif not controllers.check_conflicting_repeating_shifts(
+            if not controllers.check_conflicting_repeating_shifts(
                 shift.employee_id,
                 shift.store_id,
                 start_weekday,
@@ -4772,6 +4771,7 @@ def manage_repeating_shift(request, shift_id):
                 start_time,
                 end_time,
                 active_weeks_list,
+                existing_shift_id=shift.id,
             ):
                 return Response(
                     {
@@ -4780,6 +4780,17 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
+            print(
+                "=== DEBUG SAVE ===",
+                start_weekday,
+                end_weekday,
+                start_time,
+                end_time,
+                active_weeks_list,
+                role_id,
+                comment,
+            )
+
             with transaction.atomic():
                 shift.role_id = role_id
                 shift.start_time = start_time
@@ -4787,8 +4798,13 @@ def manage_repeating_shift(request, shift_id):
                 shift.start_weekday = start_weekday
                 shift.end_weekday = end_weekday
                 shift.active_weeks = active_weeks_list
-                shift.comment = comment
+                shift.comment = comment or ""
                 shift.save()
+
+            return Response(
+                {"success": True, "shift_id": shift.id},
+                status=status.HTTP_200_OK,
+            )
 
     except RepeatingShift.DoesNotExist:
         return Response(
