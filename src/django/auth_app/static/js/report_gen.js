@@ -16,6 +16,19 @@ $(document).ready(function () {
 
 });
 
+function openPDFBlob(blob, filename) {
+    const file = new Blob([blob], { type: "application/pdf" });
+    const url  = URL.createObjectURL(file);
+
+    const viewer = window.open(url, "_blank");
+
+    if (viewer) {
+        viewer.document.title = filename;
+    }
+
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 // SHIFT LOG REPORT HANDLER
 
 function openShiftLogModal() {
@@ -43,7 +56,10 @@ function generateShiftLogReport(e) {
     $.ajax({
         url: window.djangoURLs.generateShiftReport,
         method: "GET",
-        xhrFields: { responseType: "blob" }, 
+        xhrFields: { responseType: "blob", withCredentials: true },
+        headers: {
+            'X-CSRFToken': getCSRFToken(), // Include CSRF token
+        }, 
         data: {
             store_id: storeId,
             start: start,
@@ -52,18 +68,12 @@ function generateShiftLogReport(e) {
             only_unfinished: onlyUnfinished,
             only_pub: onlyPublicHol
         },
-        success: function(data) {
+        success: function(blob) {
             hideSpinner();
+            openPDFBlob(blob, "shift_logs_report.pdf");
 
-            const file = new Blob([data], { type: "application/pdf" });
-            const url  = URL.createObjectURL(file);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
         },
         error: function(xhr) {
-            hideSpinner();
             handleAjaxError(xhr, "Failed to generate report");
         }
     });
@@ -97,7 +107,10 @@ function generateAccountSummaryReport(e) {
     $.ajax({
         url: window.djangoURLs.generateAccountSummaryPDF,
         method: "GET",
-        xhrFields: { responseType: "blob" },
+        xhrFields: { responseType: "blob", withCredentials: true },
+        headers: {
+            'X-CSRFToken': getCSRFToken(), // Include CSRF token
+        },
         data: {
             store_id: storeId,
             start: start,
@@ -117,7 +130,6 @@ function generateAccountSummaryReport(e) {
 
         },
         error: function(xhr) {
-            hideSpinner();
             handleAjaxError(xhr, "Failed to generate account summary report");
         }
     });
@@ -146,7 +158,10 @@ function generateWeeklyRosterReport() {
     $.ajax({
         url: window.djangoURLs.generateWeeklyRosterPDF,
         method: "GET",
-        xhrFields: { responseType: "blob" },
+        xhrFields: { responseType: "blob", withCredentials: true },
+        headers: {
+            'X-CSRFToken': getCSRFToken(), // Include CSRF token
+        },
         data: {
             store_id: storeId,
             week: week,
@@ -164,7 +179,6 @@ function generateWeeklyRosterReport() {
             setTimeout(() => URL.revokeObjectURL(url), 2000);
         },
         error: function(xhr) {
-            hideSpinner();
             handleAjaxError(xhr, "Failed to generate roster report.");
         }
     });

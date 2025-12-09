@@ -4498,6 +4498,7 @@ def generate_shift_logs_report(request):
             elements.append(
                 Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
             )
+            elements.append(Paragraph(f"Store Code: {store.code}"))
             elements.append(Spacer(1, 20))
 
             # Table data
@@ -4515,7 +4516,6 @@ def generate_shift_logs_report(request):
             for r in results:
                 full_name = (
                     f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}".strip()
-                    or "-"
                 )
                 try:
                     hours = float(r.get("hours_worked", 0) or 0)
@@ -4536,16 +4536,70 @@ def generate_shift_logs_report(request):
             if len(table_data) == 1:
                 table_data.append(["No shifts found", "", "", "", "", ""])
 
-            table = Table(table_data, repeatRows=1)
+            table = Table(
+                table_data,
+                repeatRows=1,
+                colWidths=[
+                    120,
+                    90,
+                    90,
+                    75,
+                    70,
+                    90,
+                ],  # proportional modern column sizing
+            )
+
             table.setStyle(
                 TableStyle(
                     [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        # --- HEADER STYLING ---
+                        (
+                            "BACKGROUND",
+                            (0, 0),
+                            (-1, 0),
+                            colors.HexColor("#1a73e8"),
+                        ),  # Google blue tone
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+                        ("FONTSIZE", (0, 0), (-1, 0), 11),
+                        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                        ("TOPPADDING", (0, 0), (-1, 0), 6),
+                        # --- ROW STYLING ---
+                        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                        ("FONTSIZE", (0, 1), (-1, -1), 9),
+                        ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#222222")),
+                        ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                        ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
+                        (
+                            "GRID",
+                            (0, 0),
+                            (-1, -1),
+                            0.25,
+                            colors.HexColor("#CCCCCC"),
+                        ),  # softer grid
+                        # --- ZEBRA STRIPING (alternating row shading) ---
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                        (
+                            "BACKGROUND",
+                            (0, 2),
+                            (-1, -1),
+                            colors.HexColor("#f7faff"),
+                        ),  # pale blue tint
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [
+                                colors.white,
+                                colors.HexColor("#f7faff"),  # alternate striping
+                            ],
+                        ),
+                        # --- CELL SPACING + PAD LOOK ---
+                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 4),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                     ]
                 )
             )
@@ -4663,6 +4717,7 @@ def generate_account_summary_report(request):
             elements.append(
                 Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
             )
+            elements.append(Paragraph(f"Store Code: {store.code}"))
 
             if ignore_no_hours:
                 elements.append(
@@ -4830,9 +4885,6 @@ def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=
     return roster, week_start, week_start + timedelta(days=6)
 
 
-from reportlab.lib import colors
-
-
 # Roster Report Generation
 @api_manager_required
 @api_view(["GET"])
@@ -4896,9 +4948,7 @@ def generate_weekly_roster_report(request):
             styles = getSampleStyleSheet()
 
             elements.append(
-                Paragraph(
-                    f"<b>Weekly Roster Report — {store.name}</b>", styles["Title"]
-                )
+                Paragraph(f"Weekly Roster Report — {store.name}", styles["Title"])
             )
             elements.append(
                 Paragraph(
@@ -4906,6 +4956,7 @@ def generate_weekly_roster_report(request):
                     styles["Normal"],
                 )
             )
+            elements.append(Paragraph(f"Store Code: {store.code}"))
             elements.append(Spacer(1, 15))
 
             data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
