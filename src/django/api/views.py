@@ -4476,157 +4476,18 @@ def generate_shift_logs_report(request):
             allow_inactive_store=True,
         )
 
-        # Build PDF
         try:
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=A4,
-                rightMargin=36,
-                leftMargin=36,
-                topMargin=54,
-                bottomMargin=36,
-            )
 
-            elements = []
-            styles = getSampleStyleSheet()
+            pdf = build_shift_logs_pdf(store, start, end, results)
 
-            # Header
-            elements.append(
-                Paragraph(f"Shift Logs Report — {store.name}", styles["Title"])
-            )
-            elements.append(
-                Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
-            )
-            elements.append(Paragraph(f"Store Code: {store.code}"))
-            elements.append(Spacer(1, 20))
+        except ShiftLogReportBuildError as e:
 
-            # Table data
-            table_data = [
-                [
-                    "Staff Name",
-                    "Exact Login",
-                    "Exact Logout",
-                    "Public Hol",
-                    "Deliveries",
-                    "Hours Worked",
-                ]
-            ]
-
-            for r in results:
-                full_name = (
-                    f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}".strip()
-                )
-                try:
-                    hours = float(r.get("hours_worked", 0) or 0)
-                except ValueError:
-                    hours = 0.0
-
-                table_data.append(
-                    [
-                        full_name,
-                        r.get("login_timestamp", "-"),
-                        r.get("logout_timestamp", "-"),
-                        "Yes" if r.get("is_public_holiday") else "No",
-                        str(r.get("deliveries", 0)),
-                        f"{hours:.2f}",
-                    ]
-                )
-
-            if len(table_data) == 1:
-                table_data.append(["No shifts found", "", "", "", "", ""])
-
-            table = Table(
-                table_data,
-                repeatRows=1,
-                colWidths=[
-                    120,
-                    90,
-                    90,
-                    75,
-                    70,
-                    90,
-                ],  # proportional modern column sizing
-            )
-
-            table.setStyle(
-                TableStyle(
-                    [
-                        # --- HEADER STYLING ---
-                        (
-                            "BACKGROUND",
-                            (0, 0),
-                            (-1, 0),
-                            colors.HexColor("#1a73e8"),
-                        ),  # Google blue tone
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("FONTSIZE", (0, 0), (-1, 0), 11),
-                        ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-                        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-                        ("TOPPADDING", (0, 0), (-1, 0), 6),
-                        # --- ROW STYLING ---
-                        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-                        ("FONTSIZE", (0, 1), (-1, -1), 9),
-                        ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#222222")),
-                        ("ALIGN", (0, 1), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
-                        (
-                            "GRID",
-                            (0, 0),
-                            (-1, -1),
-                            0.25,
-                            colors.HexColor("#CCCCCC"),
-                        ),  # softer grid
-                        # --- ZEBRA STRIPING (alternating row shading) ---
-                        ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-                        (
-                            "BACKGROUND",
-                            (0, 2),
-                            (-1, -1),
-                            colors.HexColor("#f7faff"),
-                        ),  # pale blue tint
-                        (
-                            "ROWBACKGROUNDS",
-                            (0, 1),
-                            (-1, -1),
-                            [
-                                colors.white,
-                                colors.HexColor("#f7faff"),  # alternate striping
-                            ],
-                        ),
-                        # --- CELL SPACING + PAD LOOK ---
-                        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                    ]
-                )
-            )
-
-            elements.append(table)
-
-            elements.append(Spacer(1, 40))
-
-            # Timestamp footer
-            generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-            timestamp = (
-                f"<font size='8' color='#888888'>Generated: {generated_time}</font>"
-            )
-            elements.append(Paragraph(timestamp, styles["Normal"]))
-
-            doc.build(elements)
-
-            pdf = buffer.getvalue()
-            buffer.close()
-            return HttpResponse(pdf, content_type="application/pdf")
-
-        except Exception as e:
-            logger.critical(f"PDF Build Failure: {e}\n{traceback.format_exc()}")
             return Response(
                 {"Error": "Failed to generate PDF."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        return HttpResponse(pdf, content_type="application/pdf")
 
     except err.NotAssociatedWithStoreAsManagerError:
         return Response(
@@ -4635,11 +4496,19 @@ def generate_shift_logs_report(request):
         )
 
     except Exception as e:
-        logger.critical(f"Shift report critical failure: {e}\n{traceback.format_exc()}")
+        logger.critical(f"Shift report critical failure: {e}")
         return Response(
             {"Error": "Internal error occurred."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+from api.reports.report_generator import (
+    build_shift_logs_pdf,
+    build_account_summary_pdf,
+    ReportBuildError,
+    build_roster_report_pdf,
+)
 
 
 @api_manager_required
@@ -4695,113 +4564,15 @@ def generate_account_summary_report(request):
             allow_inactive_store=True,
         )
 
-        # === Build PDF ===
         try:
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=A4,
-                rightMargin=36,
-                leftMargin=36,
-                topMargin=54,
-                bottomMargin=36,
+
+            pdf_bytes = build_account_summary_pdf(
+                store, start, end, summaries, ignore_no_hours, filter_list
             )
 
-            elements = []
-            styles = getSampleStyleSheet()
-
-            # Title & metadata
-            elements.append(
-                Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
-            )
-            elements.append(
-                Paragraph(f"Date Range: {start} to {end}", styles["Normal"])
-            )
-            elements.append(Paragraph(f"Store Code: {store.code}"))
-
-            if ignore_no_hours:
-                elements.append(
-                    Paragraph(
-                        "Ignored employees with no hours worked", styles["Normal"]
-                    )
-                )
-
-            if filter_list:
-                elements.append(
-                    Paragraph(
-                        f"Filtered Employees: {', '.join(filter_list)}",
-                        styles["Normal"],
-                    )
-                )
-
-            elements.append(Spacer(1, 12))
-
-            # Table header
-            table_data = [
-                [
-                    "Staff Name",
-                    "Weekday Hrs",
-                    "Weekend Hrs",
-                    "Public Hol Hrs",
-                    "Deliveries",
-                    "Total Hours",
-                    "Age",
-                ]
-            ]
-
-            # Rows
-            for summary in summaries:
-                table_data.append(
-                    [
-                        summary.get("name", "-"),
-                        summary.get("hours_weekday", 0),
-                        summary.get("hours_weekend", 0),
-                        summary.get("hours_public_holiday", 0),
-                        summary.get("deliveries", 0),
-                        summary.get("hours_total", 0),
-                        summary.get("age", "N/A"),
-                    ]
-                )
-
-            if len(table_data) == 1:
-                table_data.append(["No records found", "", "", "", "", "", ""])
-
-            table = Table(table_data, repeatRows=1)
-            table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                    ]
-                )
-            )
-
-            elements.append(table)
-            elements.append(Spacer(1, 12))
-
-            # Footer timestamp
-            generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-            elements.append(
-                Paragraph(
-                    f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
-                    styles["Normal"],
-                )
-            )
-
-            doc.build(elements)
-
-            pdf_bytes = buffer.getvalue()
-            buffer.close()
-
-            # Binary response body
             return HttpResponse(pdf_bytes, content_type="application/pdf")
 
         except Exception as e:
-            logger.critical(f"PDF Generation Failed: {e}\n{traceback.format_exc()}")
             return Response(
                 {"Error": "Failed to generate PDF."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -4814,75 +4585,11 @@ def generate_account_summary_report(request):
         )
 
     except Exception as e:
-        logger.critical(f"Account report failure: {e}\n{traceback.format_exc()}")
+        logger.critical(f"Account report failure: {e}")
         return Response(
             {"Error": "Internal error occurred."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-
-
-def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=False):
-    """
-    Converts API roster structure into printable matrix with role info.
-    """
-    store = Store.objects.get(pk=store_id)
-
-    filter_names = filter_names or []
-
-    data = controllers.get_all_store_schedules(
-        store=store,
-        week=week,
-        offset=0,
-        limit=200,
-        include_deleted=False,
-        hide_deactivated=False,
-        hide_resigned=False,
-        sort_field="name",
-        filter_names=filter_names,
-        filter_roles=[],
-    )
-
-    schedule_map = data.get("schedule", {})
-    week_start = data.get("week_start")  # always Monday
-
-    week_dates = [week_start + timedelta(days=i) for i in range(7)]
-
-    roster = []
-
-    for full_name, info in schedule_map.items():
-
-        row = {
-            "name": full_name,
-            "Mon": "-",
-            "Tue": "-",
-            "Wed": "-",
-            "Thu": "-",
-            "Fri": "-",
-            "Sat": "-",
-            "Sun": "-",
-        }
-
-        emp_roster = info.get("roster", {})
-
-        for d in week_dates:
-            day_key = d.isoformat()
-            shift_list = emp_roster.get(day_key, [])
-
-            if shift_list:
-                formatted = []
-                for s in shift_list:
-                    time_part = f"{s['start_time']}–{s['end_time']}"
-
-                    if s.get("role_name"):
-                        formatted.append(f"{time_part}\n<i>{s['role_name']}</i>")
-                    else:
-                        formatted.append(time_part)
-
-                row[d.strftime("%a")] = "\n".join(formatted)
-
-        roster.append(row)
-
-    return roster, week_start, week_start + timedelta(days=6)
 
 
 # Roster Report Generation
@@ -4927,86 +4634,15 @@ def generate_weekly_roster_report(request):
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
-        # Get matrix
-        roster, week_start, week_end = build_weekly_roster_matrix(
-            store_id, week, filter_names=filter_names
-        )
-
-        # PDF build
         try:
-            buffer = BytesIO()
-            doc = SimpleDocTemplate(
-                buffer,
-                pagesize=landscape(A4),
-                rightMargin=18,
-                leftMargin=18,
-                topMargin=25,
-                bottomMargin=25,
-            )
 
-            elements = []
-            styles = getSampleStyleSheet()
+            pdf_bytes = build_roster_report_pdf(store, week, filter_names)
 
-            elements.append(
-                Paragraph(f"Weekly Roster Report — {store.name}", styles["Title"])
-            )
-            elements.append(
-                Paragraph(
-                    f"Week: {week_start.strftime('%d %b %Y')} → {week_end.strftime('%d %b %Y')}",
-                    styles["Normal"],
-                )
-            )
-            elements.append(Paragraph(f"Store Code: {store.code}"))
-            elements.append(Spacer(1, 15))
-
-            data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
-
-            for emp in roster:
-                row = [Paragraph(emp["name"], styles["Normal"])]
-                for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
-                    row.append(
-                        Paragraph(emp[day].replace("\n", "<br/>"), styles["Normal"])
-                    )
-                data.append(row)
-
-            table = Table(data, repeatRows=1, colWidths=[110] + [90] * 7)
-
-            table.setStyle(
-                TableStyle(
-                    [
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004aad")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
-                        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
-                        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f7f9fc")),
-                    ]
-                )
-            )
-
-            elements.append(table)
-
-            generated = datetime.now().strftime("%d %b %Y %H:%M:%S")
-            elements.append(Spacer(1, 12))
-            elements.append(
-                Paragraph(
-                    f"<font size=8 color='#888888'>Generated: {generated}</font>",
-                    styles["Normal"],
-                )
-            )
-
-            doc.build(elements)
-
-            pdf_data = buffer.getvalue()
-            buffer.close()
-
-            return HttpResponse(pdf_data, content_type="application/pdf")
+            return HttpResponse(pdf_bytes, content_type="application/pdf")
 
         except Exception as e:
-            logger.critical(f"Roster PDF build failed: {e}\n{traceback.format_exc()}")
             return Response(
-                {"Error": "PDF generation failed."},
+                {"Error": "Failed to generate PDF."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -5017,7 +4653,7 @@ def generate_weekly_roster_report(request):
         )
 
     except Exception as e:
-        logger.critical(f"Roster API failure: {e}\n{traceback.format_exc()}")
+        logger.critical(f"Roster API failure: {e}")
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
