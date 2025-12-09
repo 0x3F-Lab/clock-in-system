@@ -81,9 +81,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (repeatingShiftStoreIdInput) repeatingShiftStoreIdInput.value = data.store_id;
       
         if (repeatingSelectedEmployeeIDInput) {
-          repeatingSelectedEmployeeIDInput.value = data.employee_id;
+          // Try all likely fields from the backend
+          const empId = data.employee_id ?? data.employee ?? data.employeeId ?? data.emp_id;
+          repeatingSelectedEmployeeIDInput.value = empId != null ? String(empId) : "";
         }
-      
+
+        renderEmployeeList(
+          repeatingEmployeeSearchBar ? repeatingEmployeeSearchBar.value : ""
+        );
+        
+
         if (repeatingStartWeekdaySelect) {
           repeatingStartWeekdaySelect.value = String(data.start_weekday);
         }
@@ -217,9 +224,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function renderEmployeeList(filterText = "") {
       if (!repeatingEmployeeListEl) return;
-
+    
       const term = filterText.trim().toLowerCase();
-
+    
       const filtered = employees.filter(emp => {
         const name = (emp.name || "").toLowerCase();
         return !term || name.includes(term);
@@ -233,26 +240,37 @@ document.addEventListener("DOMContentLoaded", () => {
     
       repeatingEmployeeListEl.innerHTML = "";
     
+      const selectedId = repeatingSelectedEmployeeIDInput
+        ? String(repeatingSelectedEmployeeIDInput.value || "")
+        : "";
+    
       filtered.forEach(emp => {
         const li = document.createElement("li");
         li.className = "list-group-item list-group-item-action cursor-pointer";
         li.textContent = emp.name;
-        li.dataset.employeeId = emp.id;
+      
+        const thisId = String(emp.id);
+        li.dataset.employeeId = thisId;
+      
+        if (selectedId && thisId === selectedId) {
+          li.classList.add("active");
+        }
       
         li.addEventListener("click", () => {
           if (repeatingSelectedEmployeeIDInput) {
-            repeatingSelectedEmployeeIDInput.value = emp.id;
+            repeatingSelectedEmployeeIDInput.value = thisId;
           }
         
           repeatingEmployeeListEl
             .querySelectorAll(".list-group-item")
-            .forEach(el => el.classList.remove("active"));
-          li.classList.add("active");
+            .forEach(el => el.classList.toggle("active", el === li));
         });
       
         repeatingEmployeeListEl.appendChild(li);
       });
     }
+
+
 
     if (repeatingEmployeeSearchBar) {
       repeatingEmployeeSearchBar.addEventListener("input", (e) => {
@@ -426,6 +444,8 @@ async function createRepeatingShift(payload) {
     body: JSON.stringify({
       ...payload,
       active_weeks: JSON.stringify(payload.active_weeks),
+      employee_id: payload.employee_id,
+
     }),
   });
   if (!res.ok) {
@@ -447,6 +467,8 @@ async function updateRepeatingShift(shiftId, payload) {
     body: JSON.stringify({
       ...payload,
       active_weeks: JSON.stringify(payload.active_weeks),
+      employee_id: payload.employee_id,
+
     }),
   });
 

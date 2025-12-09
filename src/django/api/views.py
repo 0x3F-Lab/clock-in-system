@@ -4659,6 +4659,7 @@ def manage_repeating_shift(request, shift_id):
             return Response(
                 {
                     "shift_id": shift.id,
+                    "employee_id": shift.employee_id,
                     "start_time": shift.start_time,
                     "end_time": shift.end_time,
                     "start_weekday": shift.start_weekday,
@@ -4678,6 +4679,11 @@ def manage_repeating_shift(request, shift_id):
             return Response({"shift_id": shift.id}, status=status.HTTP_200_OK)
 
         elif request.method == "POST":
+            new_employee_id = util.clean_param_str(
+                request.data.get("employee_id", None)
+            )
+            print("EMPLOYEE IN POST:", new_employee_id)
+
             required_fields = {
                 "active_weeks": active_weeks,
                 "start_weekday": start_weekday,
@@ -4792,6 +4798,8 @@ def manage_repeating_shift(request, shift_id):
             )
 
             with transaction.atomic():
+                if new_employee_id:
+                    shift.employee_id = int(new_employee_id)
                 shift.role_id = role_id
                 shift.start_time = start_time
                 shift.end_time = end_time
