@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         $('#deleteRepeatingShiftBtn').addClass('d-none');
         $('#confirmDeleteRepeatingShiftBtn').addClass('d-none');
       
-        new bootstrap.Modal('#repeatingEditModal').show();
+        bootstrap.Modal.getOrCreateInstance('#repeatingEditModal').show();
     }
 
 
@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             await deleteRepeatingShift(shiftId);
             await fetchRepeatingSchedule(currentStoreId);
-            bootstrap.Modal.getInstance(document.getElementById('repeatingEditModal')).hide();
+            bootstrap.Modal.getOrCreateInstance('#repeatingEditModal').hide();
         } catch (err) {
             console.error("Failed to delete repeating shift:", err);
         } finally {
