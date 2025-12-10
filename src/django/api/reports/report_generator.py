@@ -185,9 +185,42 @@ def build_shift_logs_pdf(
 
 
 def build_account_summary_pdf(
-    store, start, end, summaries, ignore_no_hours, filter_list
+    store,
+    start,
+    end,
+    summaries,
+    ignore_no_hours,
+    filter_list,
+    min_hours=None,
+    min_deliveries=None,
+    sort_by="name",
+    sort_desc=False,
 ) -> bytes:
     try:
+
+        if min_hours is not None:
+            summaries = [
+                s for s in summaries if float(s.get("hours_total") or 0) >= min_hours
+            ]
+
+        if min_deliveries is not None:
+            summaries = [
+                s for s in summaries if int(s.get("deliveries") or 0) >= min_deliveries
+            ]
+
+        sort_keys = {
+            "name": lambda s: s.get("name", ""),
+            "weekday": lambda s: float(s.get("hours_weekday") or 0),
+            "weekend": lambda s: float(s.get("hours_weekend") or 0),
+            "public_holiday": lambda s: float(s.get("hours_public_holiday") or 0),
+            "deliveries": lambda s: int(s.get("deliveries") or 0),
+            "total": lambda s: float(s.get("hours_total") or 0),
+            "age": lambda s: int(s.get("age") or 0),
+        }
+
+        if sort_by in sort_keys:
+            summaries.sort(key=sort_keys[sort_by], reverse=sort_desc)
+
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -201,7 +234,6 @@ def build_account_summary_pdf(
         elements = []
         styles = getSampleStyleSheet()
 
-        # Title & metadata
         elements.append(
             Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
         )
@@ -253,16 +285,63 @@ def build_account_summary_pdf(
         if len(table_data) == 1:
             table_data.append(["No records found", "", "", "", "", "", ""])
 
-        table = Table(table_data, repeatRows=1)
+        table = Table(
+            table_data,
+            repeatRows=1,
+            colWidths=[100, 80, 80, 90, 60, 90, 50],  # adjust as needed
+        )
+
         table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
+                    # --- HEADER STYLING ---
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.HexColor("#1a73e8"),
+                    ),  # Google blue tone
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 11),
+                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                    ("TOPPADDING", (0, 0), (-1, 0), 6),
+                    # --- ROW STYLING ---
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#222222")),
+                    ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                    ("VALIGN", (0, 1), (-1, -1), "MIDDLE"),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.25,
+                        colors.HexColor("#CCCCCC"),
+                    ),
+                    # --- ZEBRA STRIPING (alternating row shading) ---
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                    (
+                        "BACKGROUND",
+                        (0, 2),
+                        (-1, -1),
+                        colors.HexColor("#f7faff"),
+                    ),  # pale blue tint
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [
+                            colors.white,
+                            colors.HexColor("#f7faff"),  # alternate striping
+                        ],
+                    ),
+                    # --- CELL SPACING + PAD LOOK ---
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                 ]
             )
         )

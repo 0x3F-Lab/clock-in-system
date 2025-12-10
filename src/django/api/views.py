@@ -4536,10 +4536,9 @@ def generate_account_summary_report(request):
         start = util.clean_param_str(request.GET.get("start"))
         end = util.clean_param_str(request.GET.get("end"))
 
-        # Validate required inputs
         if not all([store_id, start, end]):
             return Response(
-                {"Error": "Missing required parameters (store, start, end)."},
+                {"Error": "Missing required parameters."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -4547,25 +4546,33 @@ def generate_account_summary_report(request):
             store = Store.objects.get(pk=store_id)
         except Store.DoesNotExist:
             return Response(
-                {"Error": f"Store with ID {store_id} does not exist."},
-                status=status.HTTP_404_NOT_FOUND,
+                {"Error": "Store not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if not user.is_manager(store=int(store_id)):
+        if not user.is_manager(store=store.id):
             raise err.NotAssociatedWithStoreAsManagerError
 
+        # --- NEW FILTERS ---
         ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
+
+        min_hours = request.GET.get("min_hours")
+        min_deliveries = request.GET.get("min_deliveries")
+        sort_by = request.GET.get("sort_by", "name")
+        sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
+
+        min_hours = float(min_hours) if min_hours else None
+        min_deliveries = int(min_deliveries) if min_deliveries else None
 
         try:
             filter_list = util.get_filter_list_from_string(filter_raw)
         except ValueError:
             return Response(
-                {"Error": "Invalid characters in filter field."},
+                {"Error": "Invalid characters in filter."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Fetch summaries
+        # --- FETCH DATA ---
         summaries, total = controllers.get_account_summaries(
             store_id=store_id,
             offset=0,
@@ -4573,36 +4580,34 @@ def generate_account_summary_report(request):
             start_date=start,
             end_date=end,
             ignore_no_hours=ignore_no_hours,
-            sort_field="name",
+            sort_field="name",  # base sort only; your logic overrides
             filter_names=filter_list,
             allow_inactive_store=True,
         )
 
-        try:
+        # Build PDF
+        pdf_bytes = build_account_summary_pdf(
+            store,
+            start,
+            end,
+            summaries,
+            ignore_no_hours,
+            filter_list,
+            sort_by=sort_by,
+            min_hours=min_hours,
+            min_deliveries=min_deliveries,
+            sort_desc=sort_desc,
+        )
 
-            pdf_bytes = build_account_summary_pdf(
-                store, start, end, summaries, ignore_no_hours, filter_list
-            )
-
-            return HttpResponse(pdf_bytes, content_type="application/pdf")
-
-        except Exception as e:
-            return Response(
-                {"Error": "Failed to generate PDF."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return HttpResponse(pdf_bytes, content_type="application/pdf")
 
     except err.NotAssociatedWithStoreAsManagerError:
-        return Response(
-            {"Error": "Not authorised to access this store."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        return Response({"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
 
     except Exception as e:
         logger.critical(f"Account report failure: {e}")
         return Response(
-            {"Error": "Internal error occurred."},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 

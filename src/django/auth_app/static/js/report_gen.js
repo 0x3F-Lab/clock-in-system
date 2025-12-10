@@ -8,7 +8,7 @@ $(document).ready(function () {
 
     // ACCOUNT SUMMARY REPORT
     $("#openAccountSummaryModal").on("click", openAccountSummaryModal);
-    $("#summaryGenerateBtn").on("click", generateAccountSummaryReport);
+    $("#accountSummaryForm").on("submit", generateAccountSummaryReport);
 
     // ROSTER REPORT
     $("#openWeeklyRosterModal").on("click", openWeeklyRosterModal);
@@ -50,8 +50,6 @@ function generateShiftLogReport(e) {
 
     let sortBy = $("#sortBy").val();
     let sortDesc = $("#sortDesc").is(":checked") ? "true" : "false";
-
-    console.log(sortDesc);
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start and end date.", "danger");
@@ -104,8 +102,15 @@ function generateAccountSummaryReport(e) {
     let storeId     = getSelectedStoreID();
     let start       = $("#summaryStartDate").val();
     let end         = $("#summaryEndDate").val();
+
     let ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
-    let filterNames = $("#summaryFilterNames").val();
+    let minHours    = $("#summaryMinHours").val() || "";
+    let minDeliveries = $("#summaryMinDeliveries").val() || "";
+
+    let sortBy      = $("#summarySortBy").val();
+    let sortDesc    = $("#summarySortDesc").is(":checked");
+
+    let filterNames = $("#summaryFilterNames").val().trim();
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start date and end date.", "danger");
@@ -118,28 +123,26 @@ function generateAccountSummaryReport(e) {
         url: window.djangoURLs.generateAccountSummaryPDF,
         method: "GET",
         xhrFields: { responseType: "blob", withCredentials: true },
-        headers: {
-            'X-CSRFToken': getCSRFToken(), // Include CSRF token
-        },
+        headers: { "X-CSRFToken": getCSRFToken() },
+
         data: {
             store_id: storeId,
             start: start,
             end: end,
             ignore_no_hours: ignoreHours,
+            min_hours: minHours,
+            min_deliveries: minDeliveries,
+            sort_by: sortBy,
+            sort_desc: sortDesc,
             filter: filterNames
         },
-        success: function(blob) {
+
+        success: function (blob) {
             hideSpinner();
-
-            const file = new Blob([blob], { type: "application/pdf" });
-            const url  = URL.createObjectURL(file);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
-
+            openPDFBlob(blob, "account_summary_report.pdf");
         },
-        error: function(xhr) {
+
+        error: function (xhr) {
             handleAjaxError(xhr, "Failed to generate account summary report");
         }
     });
