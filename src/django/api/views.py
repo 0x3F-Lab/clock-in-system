@@ -4448,9 +4448,15 @@ def generate_shift_logs_report(request):
             raise err.NotAssociatedWithStoreAsManagerError
 
         # Optional filters
-        only_unfinished = util.str_to_bool(request.GET.get("only_unfinished", "false"))
         only_pub = util.str_to_bool(request.GET.get("only_pub", "false"))
         filter_names_raw = util.clean_param_str(request.GET.get("filter", ""))
+        min_hours = request.GET.get("min_hours")
+        min_deliveries = request.GET.get("min_deliveries")
+        sort_by = request.GET.get("sort_by", "time")
+        sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
+
+        min_hours = float(min_hours) if min_hours else None
+        min_deliveries = int(min_deliveries) if min_deliveries else None
 
         try:
             filter_names = util.get_filter_list_from_string(filter_names_raw)
@@ -4469,7 +4475,6 @@ def generate_shift_logs_report(request):
             end_date=end,
             sort_field="time",
             filter_names=filter_names,
-            only_unfinished=only_unfinished,
             only_public_hol=only_pub,
             hide_deactivated=False,
             hide_resigned=False,
@@ -4478,7 +4483,16 @@ def generate_shift_logs_report(request):
 
         try:
 
-            pdf = build_shift_logs_pdf(store, start, end, results)
+            pdf = build_shift_logs_pdf(
+                store=store,
+                start=start,
+                end=end,
+                results=results,
+                sort_by=sort_by,
+                sort_desc=sort_desc,
+                min_hours=min_hours,
+                min_deliveries=min_deliveries,
+            )
 
         except ShiftLogReportBuildError as e:
 

@@ -43,8 +43,15 @@ function generateShiftLogReport(e) {
     let start   = $("#startDate").val();
     let end     = $("#endDate").val();
     let filter  = $("#filterNames").val().trim();
-    let onlyUnfinished = $("#onlyUnfinished").is(":checked");
     let onlyPublicHol  = $("#onlyPublicHol").is(":checked");
+    let minHours = $("#minHours").val() || "";
+    let minDeliveries = $("#minDeliveries").val() || "";
+
+
+    let sortBy = $("#sortBy").val();
+    let sortDesc = $("#sortDesc").is(":checked") ? "true" : "false";
+
+    console.log(sortDesc);
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start and end date.", "danger");
@@ -65,8 +72,11 @@ function generateShiftLogReport(e) {
             start: start,
             end: end,
             filter: filter,
-            only_unfinished: onlyUnfinished,
-            only_pub: onlyPublicHol
+            only_pub: onlyPublicHol,
+            min_hours: minHours,
+            min_deliveries: minDeliveries,
+            sort_by: sortBy,
+            sort_desc: sortDesc
         },
         success: function(blob) {
             hideSpinner();

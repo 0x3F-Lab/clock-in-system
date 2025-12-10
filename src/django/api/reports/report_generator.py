@@ -13,8 +13,32 @@ class ReportBuildError(Exception):
     pass
 
 
-def build_shift_logs_pdf(store, start, end, results) -> bytes:
+def build_shift_logs_pdf(
+    store, start, end, results, sort_by, min_hours, min_deliveries, sort_desc
+) -> bytes:
     try:
+
+        if min_hours is not None:
+            results = [
+                r for r in results if float(r.get("hours_worked") or 0) >= min_hours
+            ]
+
+        if min_deliveries is not None:
+            results = [
+                r for r in results if int(r.get("deliveries") or 0) >= min_deliveries
+            ]
+
+        sort_keys = {
+            "name": lambda r: f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}",
+            "hours": lambda r: float(r.get("hours_worked") or 0),
+            "deliveries": lambda r: int(r.get("deliveries") or 0),
+            "login": lambda r: r.get("login_timestamp") or "",
+            "logout": lambda r: r.get("logout_timestamp") or "",
+        }
+
+        if sort_by in sort_keys:
+            results.sort(key=sort_keys[sort_by], reverse=sort_desc)
+
         buffer = BytesIO()
         doc = SimpleDocTemplate(
             buffer,
@@ -110,7 +134,7 @@ def build_shift_logs_pdf(store, start, end, results) -> bytes:
                         (-1, -1),
                         0.25,
                         colors.HexColor("#CCCCCC"),
-                    ),  # softer grid
+                    ),
                     # --- ZEBRA STRIPING (alternating row shading) ---
                     ("BACKGROUND", (0, 1), (-1, -1), colors.white),
                     (

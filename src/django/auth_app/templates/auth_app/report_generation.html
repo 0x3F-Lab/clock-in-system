@@ -35,69 +35,103 @@
       </div>
   </div>
 
-    <div class="col-12">
+  <div class="col-12">
 
-      <!-- SHIFT LOG REPORT MODAL -->
-      <div class="modal fade" id="shiftLogsModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-          <div class="modal-content report-modal">
+    <!-- SHIFT LOG REPORT MODAL -->
+    <div class="modal fade" id="shiftLogsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content report-modal">
 
-            <div class="modal-header bg-primary text-white">
-              <h5 class="modal-title">Shift Logs Report</h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body">
-
-              <form id="shiftLogReportForm">
-                
-                <div class="row">
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold">Start Date</label>
-                    <input type="date" id="startDate" class="form-control mb-3">
-                  </div>
-
-                  <div class="col-md-6">
-                    <label class="form-label fw-semibold">End Date</label>
-                    <input type="date" id="endDate" class="form-control mb-3">
-                  </div>
-                </div>
-
-                <div class="row mb-3">
-
-                  <div class="col-md-6">
-                    <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="onlyUnfinished">
-                      <label class="form-check-label fw-semibold">Only Unfinished Shifts</label>
-                    </div>
-                  </div>
-
-                  <div class="col-md-6">
-                    <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="onlyPublicHol">
-                      <label class="form-check-label fw-semibold">Only Public Holidays</label>
-                    </div>
-                  </div>
-
-                </div>
-
-                <label class="form-label fw-semibold">Filter Names (optional)</label>
-                <input type="text" class="form-control"
-                      id="filterNames" placeholder="e.g. John, Jane, Doe">
-
-              </form>
-            </div>
-
-            <div class="modal-footer">
-              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button type="submit" form="shiftLogReportForm" class="btn btn-primary">
-                <i class="fa-solid fa-file-pdf me-2"></i> Generate PDF
-              </button>
-            </div>
-
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Shift Logs Report</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
+
+          <div class="modal-body">
+
+            <form id="shiftLogReportForm">
+
+              <!-- Dates -->
+              <div class="row">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Start Date</label>
+                  <input type="date" id="startDate" class="form-control mb-3">
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">End Date</label>
+                  <input type="date" id="endDate" class="form-control mb-3">
+                </div>
+              </div>
+
+              <div class="row mb-3">
+
+                <div class="col-md-6">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="onlyPublicHol">
+                    <label class="form-check-label fw-semibold">Only Public Holidays</label>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Filters -->
+              <div class="row mb-3">
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Minimum Hours Worked</label>
+                  <input type="number" id="minHours" class="form-control" placeholder="e.g. 5">
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Minimum Deliveries</label>
+                  <input type="number" id="minDeliveries" class="form-control" placeholder="e.g. 1">
+                </div>
+
+              </div>
+
+              <!-- Sorting -->
+              <div class="row mb-3">
+
+                <div class="col-md-8">
+                  <label class="form-label fw-semibold">Sort By</label>
+                  <select id="sortBy" class="form-select">
+                    <option value="name">Staff Name</option>
+                    <option value="login">Exact Login</option>
+                    <option value="logout">Exact Logout</option>
+                    <option value="hours">Hours Worked</option>
+                    <option value="deliveries">Deliveries</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4 d-flex align-items-end">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="sortDesc">
+                    <label class="form-check-label fw-semibold">Descending</label>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Filter Names -->
+              <label class="form-label fw-semibold">Filter Names (optional)</label>
+              <input type="text" class="form-control" id="filterNames" placeholder="e.g. John, Jane, Doe">
+
+            </form>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" form="shiftLogReportForm" class="btn btn-primary">
+              <i class="fa-solid fa-file-pdf me-2"></i> Generate PDF
+            </button>
+          </div>
+
         </div>
       </div>
+    </div>
+
+  </div>
 
 
 
