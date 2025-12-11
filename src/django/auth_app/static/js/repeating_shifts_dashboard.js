@@ -187,12 +187,13 @@ document.addEventListener("DOMContentLoaded", () => {
         renderEmployeeList($(this).val());
     });
 
-    $('.add-repeating-shift-btn').on('click', function (e) {
+    $(document).on('click', '.add-repeating-shift-btn', function (e) {
         e.preventDefault();
         const weekNum = parseInt($(this).data('week'), 10);
         const dayIndex = parseInt($(this).data('day'), 10);
         openCreateRepeatingShiftModal(weekNum, dayIndex);
     });
+
 
     $(document).on('click', '.shift-item', function () {
         const shiftId = $(this).data('shiftId');
@@ -396,92 +397,102 @@ function deleteRepeatingShift(shiftId) {
 
   // RENDERING THE 4-WEEK CYCLE HERE ---------------------------------------------
 
-    function renderAllWeeks() {
-    for (let week = 1; week <= 4; week++) {
-      renderWeek(week);
-    }
-    updateWeekHeader();
+  function renderAllWeeks() {
+      for (let week = 1; week <= 4; week++) {
+          renderRepeatingTableView(week);
+      }
+      updateWeekHeader();
   }
 
-  function renderWeek(weekNum) {
+  function renderRepeatingTableView(weekNum) {
     const container = document.getElementById(`week-${weekNum}-schedule-container`);
     if (!container || !repeatingSchedule) return;
 
-    container.querySelectorAll(".day-column").forEach(dayCol => {
-      const dayIndex = parseInt(dayCol.dataset.day);
-      const shiftsList = dayCol.querySelector(".shifts-list");
-      if (!shiftsList) return;
+    container.innerHTML = "";
 
-      shiftsList.innerHTML = "";
-
-      const shiftsForDay = [];
-
-      // repeatingSchedule shape from backend:
-      // {
-      //   "John Doe": {
-      //     "id": 3,
-      //     "week1": { 0: [shift, ...], 1: [...], ... },
-      //     "week2": {...},
-      //     ...
-      //   },
-      //   ...
-      // }
-      for (const empName in repeatingSchedule) {
-        const empData = repeatingSchedule[empName];
-        const weekKey = `week${weekNum}`;
-        if (!empData[weekKey]) continue;
-
-        const dayShifts = empData[weekKey][String(dayIndex)];
-        if (!dayShifts || !Array.isArray(dayShifts)) continue;
-
-        dayShifts.forEach(s => {
-          shiftsForDay.push({
-            employee_name: empName,
-            ...s,
-          });
-        });
-      }
-
-      if (shiftsForDay.length === 0) {
-        shiftsList.innerHTML = '<div class="text-center text-white p-3"><small>No repeating shifts</small></div>';
+    const employeeNames = Object.keys(repeatingSchedule);
+    if (employeeNames.length === 0) {
+        container.innerHTML = '<p class="text-center text-white">No repeating shifts to display.</p>';
         return;
-      }
+    }
 
-      const fragment = document.createDocumentFragment();
+    const weekKey = `week${weekNum}`;
+    const days = [0,1,2,3,4,5,6];
 
-      shiftsForDay.forEach(shift => {
-        const card = document.createElement("div");
-        const shiftId = shift.id || shift.shift_id;
-        const borderColor = shift.role_colour || "#adb5bd";
-        const backgroundColor = "#f8f9fa"; 
-        const duration = calculateDuration(shift.start_time, shift.end_time);
+    let tableHtml = `
+        <table class="schedule-table-view">
+            <thead>
+                <tr>
+                    <th class="employee-name-cell">Employee</th>
+                    ${days.map(d => `
+                      <th>
+                          ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][d]}
+                          <br>
+                          <small class="day-date">&nbsp;</small>
+                                          
+                          <button class="btn add-shift-btn add-repeating-shift-btn"
+                              data-week="${weekNum}"
+                              data-day="${d}"
+                              data-bs-toggle="tooltip"
+                              title="Add repeating shift for this day">
+                              <i class="fas fa-plus"></i>
+                          </button>
+                      </th>
+                    `).join("")}
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-        card.className = "shift-item position-relative cursor-pointer";
-        if (shiftId) {
-          card.dataset.shiftId = shiftId;
-        }
-        card.style.borderLeft = `8px solid ${borderColor}`;
-        card.style.backgroundColor = backgroundColor;
+    employeeNames.forEach(empName => {
+        const empData = repeatingSchedule[empName];
+        const empId = empData.id;
 
-        card.innerHTML = `
-          ${shift.has_comment
-            ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This repeating shift has a comment">C</span>'
-            : ""
-          }
-          <div class="shift-item-employee">${shift.employee_name}</div>
-          <div class="shift-item-details">
-            <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-            <span>⌛ ${duration}</span>
-            ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ""}
-          </div>
+        tableHtml += `
+            <tr>
+                <td class="employee-name-cell cursor-pointer" data-id="${empId}">
+                    ${empName}
+                </td>
         `;
 
-        fragment.appendChild(card);
-      });
+        days.forEach(dayIndex => {
+            const shifts = (empData[weekKey] && empData[weekKey][dayIndex]) || [];
 
-      shiftsList.appendChild(fragment);
+            tableHtml += `<td class="shift-cell">`;
+
+            shifts.forEach(shift => {
+                const shiftId = shift.id || shift.shift_id;
+                const duration = calculateDuration(shift.start_time, shift.end_time);
+                const backgroundColor = "#f8f9fa";
+                const borderColor = shift.role_colour || "#adb5bd";
+
+                tableHtml += `
+                    <div class="shift-item cursor-pointer mb-2 position-relative"
+                         data-shift-id="${shiftId}"
+                         style="border-left:8px solid ${borderColor}; background:${backgroundColor};">
+
+                        ${shift.has_comment ?
+                            '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="Comment">C</span>'
+                        : ''}
+
+                        <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                        <span>⌛ ${duration}</span>
+                        ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ""}
+                    </div>
+                `;
+            });
+
+            tableHtml += `</td>`;
+        });
+
+        tableHtml += "</tr>";
     });
-  }
+
+    tableHtml += "</tbody></table>";
+
+    container.innerHTML = tableHtml;
+}
+
 
   async function loadRepeatingForCurrentStore() {
     if (!currentStoreId) return;
