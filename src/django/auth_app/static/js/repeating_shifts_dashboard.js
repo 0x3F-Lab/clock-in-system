@@ -349,13 +349,20 @@ function createRepeatingShift(payload) {
     method: "POST",
     contentType: "application/json",
     data: JSON.stringify({
-      ...payload,
+      employee_id: payload.employee_id,
+      start_weekday: payload.start_weekday,
+      end_weekday: payload.end_weekday,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
       active_weeks: JSON.stringify(payload.active_weeks),
+      role_id: payload.role_id,
+      comment: payload.comment
     }),
     xhrFields: { withCredentials: true },
     headers: { "X-CSRFToken": getCSRFToken() }
   });
 }
+
 
 function updateRepeatingShift(shiftId, payload) {
   return $.ajax({
@@ -363,14 +370,20 @@ function updateRepeatingShift(shiftId, payload) {
     method: "POST",
     contentType: "application/json",
     data: JSON.stringify({
-      ...payload,
-      active_weeks: JSON.stringify(payload.active_weeks),
       employee_id: payload.employee_id,
+      start_weekday: payload.start_weekday,
+      end_weekday: payload.end_weekday,
+      start_time: payload.start_time,
+      end_time: payload.end_time,
+      active_weeks: JSON.stringify(payload.active_weeks),
+      role_id: payload.role_id,
+      comment: payload.comment
     }),
     xhrFields: { withCredentials: true },
     headers: { "X-CSRFToken": getCSRFToken() }
   });
 }
+
 
 function deleteRepeatingShift(shiftId) {
   return $.ajax({
