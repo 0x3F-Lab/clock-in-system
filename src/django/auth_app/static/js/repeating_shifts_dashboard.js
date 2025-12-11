@@ -280,44 +280,66 @@ document.addEventListener("DOMContentLoaded", () => {
     return "";
   }
 
-async function fetchEmployees(storeId) {
-  const url = `${api.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`;
-  const res = await fetch(url);
-  if (!res.ok) return;
-  const data = await res.json();
-  employees = data.names || [];
-  console.log("Loaded employees:", employees);
-  renderEmployeeList("");
+function fetchEmployees(storeId) {
+  $.ajax({
+    url: `${api.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`,
+    method: "GET",
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() },
+
+    success: function (data) {
+      employees = data.names || [];
+      renderEmployeeList("");
+    },
+
+    error: function (jqXHR) {
+      handleAjaxError(jqXHR, "Failed to load employees");
+    }
+  });
 }
 
 
-async function fetchRoles(storeId) {
-  const url = `${api.listStoreRoles}${storeId}/`;
-  const res = await fetch(url);
-  if (!res.ok) return;
-  const data = await res.json();
-  roles = data.data || [];
-  console.log("Loaded roles:", roles);
-  populateRoleSelect();
+
+function fetchRoles(storeId) {
+  $.ajax({
+    url: `${api.listStoreRoles}${storeId}/`,
+    method: "GET",
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() },
+
+    success: function (resp) {
+      roles = resp.data || [];
+      populateRoleSelect();
+    },
+
+    error: function (jqXHR) {
+      handleAjaxError(jqXHR, "Failed to load roles");
+    }
+  });
 }
 
 
-async function fetchRepeatingSchedule(storeId) {
+function fetchRepeatingSchedule(storeId) {
   const filters = getFilters();
   const qs = buildQueryParams(filters);
 
-  const url = `${api.listRepeatingShifts}${storeId}/?${qs}`;
-  console.log("Fetching repeating shifts from:", url);
+  $.ajax({
+    url: `${api.listRepeatingShifts}${storeId}/?${qs}`,
+    method: "GET",
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() },
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    console.error("Failed to load repeating shifts");
-    return;
-  }
-  const data = await res.json();
-  repeatingSchedule = data.schedule || {};
-  renderAllWeeks();
+    success: function (data) {
+      repeatingSchedule = data.schedule || {};
+      renderAllWeeks();
+    },
+
+    error: function (jqXHR) {
+      handleAjaxError(jqXHR, "Failed to load repeating shifts");
+    }
+  });
 }
+
 
 
   async function fetchRepeatingShiftDetails(shiftId) {
@@ -332,66 +354,44 @@ async function fetchRepeatingSchedule(storeId) {
     return await res.json();
   }
 
-
-async function createRepeatingShift(payload) {
-  const storeId = currentStoreId;
-  const url = `${api.createRepeatingShift}/${storeId}`;
-  const res = await fetch(url, {
+function createRepeatingShift(payload) {
+  return $.ajax({
+    url: `${api.createRepeatingShift}/${currentStoreId}`,
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCSRFToken(),
-    },
-    body: JSON.stringify({
+    contentType: "application/json",
+    data: JSON.stringify({
+      ...payload,
+      active_weeks: JSON.stringify(payload.active_weeks),
+    }),
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() }
+  });
+}
+
+function updateRepeatingShift(shiftId, payload) {
+  return $.ajax({
+    url: `${api.manageRepeatingShift}/${shiftId}`,
+    method: "POST",
+    contentType: "application/json",
+    data: JSON.stringify({
       ...payload,
       active_weeks: JSON.stringify(payload.active_weeks),
       employee_id: payload.employee_id,
-
     }),
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() }
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.Error || err.error || "Failed to create repeating shift");
-  }
-  return await res.json();
 }
 
-
-async function updateRepeatingShift(shiftId, payload) {
-  const url = `${api.manageRepeatingShift}/${shiftId}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCSRFToken(),
-    },
-    body: JSON.stringify({
-      ...payload,
-      active_weeks: JSON.stringify(payload.active_weeks),
-      employee_id: payload.employee_id,
-
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.Error || err.error || "Failed to update repeating shift");
-  }
-  return await res.json();
-}
-
-
-async function deleteRepeatingShift(shiftId) {
-  const url = `${api.manageRepeatingShift}/${shiftId}`;
-  const res = await fetch(url, {
+function deleteRepeatingShift(shiftId) {
+  return $.ajax({
+    url: `${api.manageRepeatingShift}/${shiftId}`,
     method: "DELETE",
-    headers: { "X-CSRFToken": getCSRFToken() },
+    xhrFields: { withCredentials: true },
+    headers: { "X-CSRFToken": getCSRFToken() }
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.Error || err.error || "Failed to delete repeating shift");
-  }
 }
+
 
 
   // RENDERING THE 4-WEEK CYCLE HERE ---------------------------------------------
