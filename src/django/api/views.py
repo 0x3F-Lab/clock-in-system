@@ -4604,6 +4604,14 @@ def generate_account_summary_report(request):
     except err.NotAssociatedWithStoreAsManagerError:
         return Response({"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
 
+    except err.ShiftExceptionExistsError:
+        return Response(
+            {
+                "Error": "There exists unapproved shift exceptions for the period. Please resolve them first."
+            },
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
     except Exception as e:
         logger.critical(f"Account report failure: {e}")
         return Response(
