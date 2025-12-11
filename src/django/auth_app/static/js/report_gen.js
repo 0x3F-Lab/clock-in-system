@@ -150,10 +150,45 @@ function generateAccountSummaryReport(e) {
 
 // ROSTER REPORT HANDLER
 
+function loadWeeklyRosterRoles() {
+    let storeId = getSelectedStoreID();
+    if (!storeId) return;
+
+    $.ajax({
+        url: `${window.djangoURLs.listStoreRoles}${storeId}/`,
+        method: "GET",
+        xhrFields: { withCredentials: true },
+        headers: { "X-CSRFToken": getCSRFToken() },
+
+        success: function(resp) {
+            const $roleSelect = $("#weeklyRosterRoles");
+            $roleSelect.empty();
+
+            if (resp.data && resp.data.length > 0) {
+                resp.data.forEach(role => {
+                    $roleSelect.append(
+                        `<option value="${role.id}">${role.name}</option>`
+                    );
+                });
+            } else {
+                $roleSelect.append(`<option disabled>No roles found</option>`);
+            }
+        },
+
+        error: function(xhr) {
+            console.error("Failed to load roles", xhr);
+        }
+    });
+
+}
+
+
 function openWeeklyRosterModal() {
+    loadWeeklyRosterRoles();
     const modal = new bootstrap.Modal(document.getElementById("weeklyRosterModal"));
     modal.show();
 }
+
 
 function generateWeeklyRosterReport() {
     let storeId = getSelectedStoreID();
@@ -183,13 +218,7 @@ function generateWeeklyRosterReport() {
         },
         success: function(blob) {
             hideSpinner();
-
-            const pdf = new Blob([blob], { type: "application/pdf" });
-            const url = URL.createObjectURL(pdf);
-
-            window.open(url, "_blank");
-
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            openPDFBlob(blob, "weekly_roster_report.pdf");
         },
         error: function(xhr) {
             handleAjaxError(xhr, "Failed to generate roster report.");

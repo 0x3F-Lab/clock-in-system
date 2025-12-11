@@ -252,6 +252,16 @@
 
               <hr>
 
+              <hr>
+
+              <label class="fw-semibold">Filter by Roles (optional)</label>
+              <select id="weeklyRosterRoles" class="form-select" multiple>
+                <!-- Options will be injected dynamically -->
+              </select>
+              <small class="text-muted">Leave empty for all roles</small>
+
+              <hr>
+
               <div class="form-check">
                 <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">
                 <label class="form-check-label fw-semibold">Hide resigned employees</label>
@@ -288,4 +298,5 @@
     generateShiftReport: "{% url 'api:generate_shift_logs_report' %}",
     generateAccountSummaryPDF: "{% url 'api:generate_account_summary_report' %}",
     generateWeeklyRosterPDF: "{% url 'api:generate_weekly_roster_report' %}",
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
 {% endblock %}
