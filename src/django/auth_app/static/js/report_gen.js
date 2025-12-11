@@ -167,7 +167,7 @@ function loadWeeklyRosterRoles() {
             if (resp.data && resp.data.length > 0) {
                 resp.data.forEach(role => {
                     $roleSelect.append(
-                        `<option value="${role.id}">${role.name}</option>`
+                        `<option value="${role.id}" data-role-name="${role.name}">${role.name}</option>`
                     );
                 });
             } else {
@@ -180,6 +180,10 @@ function loadWeeklyRosterRoles() {
         }
     });
 
+}
+
+function clearWeeklyRosterRoleSelection() {
+    $("#weeklyRosterRoles").val([]).trigger("change");
 }
 
 
@@ -195,6 +199,9 @@ function generateWeeklyRosterReport() {
     let week = $("#weeklyRosterWeek").val();
     let filterNames = $("#weeklyRosterFilterNames").val();
     let hideResigned = $("#weeklyRosterHideResigned").is(":checked");
+    let selectedRoles = ($("#weeklyRosterRoles").find("option:selected")
+        .map(function() { return $(this).data("role-name"); })
+        .get());
 
     if (!storeId || !week) {
         showNotification("Please select store and week.", "danger");
@@ -214,7 +221,8 @@ function generateWeeklyRosterReport() {
             store_id: storeId,
             week: week,
             filter: filterNames,
-            hide_resigned: hideResigned
+            hide_resigned: hideResigned,
+            roles: selectedRoles.join(",")
         },
         success: function(blob) {
             hideSpinner();

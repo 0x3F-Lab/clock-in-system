@@ -4631,6 +4631,12 @@ def generate_weekly_roster_report(request):
         week = util.clean_param_str(request.GET.get("week"))
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
 
+        roles_raw = request.GET.get("roles", "")
+        if roles_raw:
+            roles_filter = [r.strip() for r in roles_raw.split(",") if r.strip()]
+        else:
+            roles_filter = []
+
         if not store_id or not week:
             return Response(
                 {"Error": "Missing store_id or week."},
@@ -4663,7 +4669,7 @@ def generate_weekly_roster_report(request):
 
         try:
 
-            pdf_bytes = build_roster_report_pdf(store, week, filter_names)
+            pdf_bytes = build_roster_report_pdf(store, week, filter_names, roles_filter)
 
             return HttpResponse(pdf_bytes, content_type="application/pdf")
 

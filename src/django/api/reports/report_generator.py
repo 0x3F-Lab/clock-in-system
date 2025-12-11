@@ -370,7 +370,9 @@ def build_account_summary_pdf(
         raise ReportBuildError("Failed to generate Account Summary PDF.")
 
 
-def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=False):
+def build_weekly_roster_matrix(
+    store_id, week, filter_names=None, hide_resigned=False, roles_filter=None
+):
     """
     Converts API roster structure into printable matrix with role info.
     """
@@ -388,7 +390,7 @@ def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=
         hide_resigned=False,
         sort_field="name",
         filter_names=filter_names,
-        filter_roles=[],
+        filter_roles=roles_filter or None,
     )
 
     schedule_map = data.get("schedule", {})
@@ -434,12 +436,12 @@ def build_weekly_roster_matrix(store_id, week, filter_names=None, hide_resigned=
     return roster, week_start, week_start + timedelta(days=6)
 
 
-def build_roster_report_pdf(store, week, filter_names) -> bytes:
+def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
     try:
 
         roster, week_start, week_end = build_weekly_roster_matrix(
-            store.id, week, filter_names=filter_names
+            store.id, week, filter_names=filter_names, roles_filter=roles_filter
         )
 
         buffer = BytesIO()
