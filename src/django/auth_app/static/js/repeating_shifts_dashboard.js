@@ -269,18 +269,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return params.toString();
   }
 
-  function getCSRFToken() {
-    const name = "csrftoken=";
-    const cookies = document.cookie ? document.cookie.split(";") : [];
-    for (let c of cookies) {
-      c = c.trim();
-      if (c.startsWith(name)) {
-        return decodeURIComponent(c.slice(name.length));
-      }
-    }
-    return "";
-  }
-
 function fetchEmployees(storeId) {
   $.ajax({
     url: `${api.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`,
@@ -429,7 +417,7 @@ function deleteRepeatingShift(shiftId) {
                           ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][d]}
                           <br>
                           <small class="day-date">&nbsp;</small>
-                                          
+
                           <button class="btn add-shift-btn add-repeating-shift-btn"
                               data-week="${weekNum}"
                               data-day="${d}"
