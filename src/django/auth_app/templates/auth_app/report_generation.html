@@ -240,9 +240,9 @@
 
             <div class="modal-body">
 
-              <label class="fw-semibold">Week Starting (Monday)</label>
+              <label class="fw-semibold">Week</label>
               <input type="date" id="weeklyRosterWeek" class="form-control">
-              <small><em>Select the Monday week start date</em></small>
+              <small><em>Retrieves full week for selected date</em></small>
 
               <hr>
 
@@ -252,20 +252,13 @@
 
               <hr>
 
-              <hr>
-
               <label class="fw-semibold">Filter by Roles (optional)</label>
-              <select id="weeklyRosterRoles" class="form-select" multiple>
-                <!-- Options will be injected dynamically -->
-              </select>
-              <small class="text-muted">Leave empty for all roles</small>
+              <div id="weeklyRosterRoles" class="list-group mb-2" style="max-height: 220px; overflow-y:auto;">
+                  <!-- checkboxes inserted dynamically -->
+              </div>
+              <small><em>Leave unselected to default all roles</em></small>
 
               <hr>
-
-              <button type="button" class="btn btn-sm btn-outline-secondary mt-2"
-                      onclick="clearWeeklyRosterRoleSelection()">
-                Clear Role Selection
-              </button>
 
               <div class="form-check">
                 <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">

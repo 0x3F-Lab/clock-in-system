@@ -161,14 +161,20 @@ function loadWeeklyRosterRoles() {
         headers: { "X-CSRFToken": getCSRFToken() },
 
         success: function(resp) {
-            const $roleSelect = $("#weeklyRosterRoles");
-            $roleSelect.empty();
+            const $roleList = $("#weeklyRosterRoles");
+            $roleList.empty();
 
             if (resp.data && resp.data.length > 0) {
                 resp.data.forEach(role => {
-                    $roleSelect.append(
-                        `<option value="${role.id}" data-role-name="${role.name}">${role.name}</option>`
-                    );
+                    $roleList.append(`
+                        <label class="list-group-item d-flex align-items-center">
+                            <input class="form-check-input me-2 roster-role-checkbox" 
+                                type="checkbox" 
+                                value="${role.id}"
+                                data-role-name="${role.name}">
+                            ${role.name}
+                        </label>
+                    `);
                 });
             } else {
                 $roleSelect.append(`<option disabled>No roles found</option>`);
@@ -180,10 +186,6 @@ function loadWeeklyRosterRoles() {
         }
     });
 
-}
-
-function clearWeeklyRosterRoleSelection() {
-    $("#weeklyRosterRoles").val([]).trigger("change");
 }
 
 
@@ -199,9 +201,7 @@ function generateWeeklyRosterReport() {
     let week = $("#weeklyRosterWeek").val();
     let filterNames = $("#weeklyRosterFilterNames").val();
     let hideResigned = $("#weeklyRosterHideResigned").is(":checked");
-    let selectedRoles = ($("#weeklyRosterRoles").find("option:selected")
-        .map(function() { return $(this).data("role-name"); })
-        .get());
+    let selectedRoles = $(".roster-role-checkbox:checked").map(function () {return $(this).data("role-name");}).get();
 
     if (!storeId || !week) {
         showNotification("Please select store and week.", "danger");
