@@ -228,59 +228,58 @@
     </div>
 
 
-      <!-- WEEKLY ROSTER MODAL -->
-      <div class="modal fade" id="weeklyRosterModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-          <div class="modal-content report-modal">
+    <!-- WEEKLY ROSTER MODAL -->
+    <div class="modal fade" id="weeklyRosterModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content report-modal">
 
-            <div class="modal-header bg-primary text-white">
-              <h5 class="modal-title">Weekly Roster Report</h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Weekly Roster Report</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+
+            <label class="form-label fw-semibold">Week</label>
+            <input type="date" id="weeklyRosterWeek" class="form-control">
+            <small><em>Retrieves full week for selected date</em></small>
+
+            <hr>
+
+            <label class="form-label fw-semibold">Filter Names (optional)</label>
+            <input type="text" id="weeklyRosterFilterNames" class="form-control"
+                    placeholder="e.g. John, Jane, Doe">
+
+            <hr>
+
+            <label class="form-label fw-semibold">Filter by Roles (optional)</label>
+            <div id="weeklyRosterRoles" class="list-group mb-2" style="max-height: 220px; overflow-y:auto;">
+                <!-- checkboxes inserted dynamically -->
             </div>
+            <small><em>Leave unselected to default all roles</em></small>
 
-            <div class="modal-body">
+            <hr>
 
-              <label class="fw-semibold">Week</label>
-              <input type="date" id="weeklyRosterWeek" class="form-control">
-              <small><em>Retrieves full week for selected date</em></small>
-
-              <hr>
-
-              <label class="fw-semibold">Filter Names (optional)</label>
-              <input type="text" id="weeklyRosterFilterNames" class="form-control"
-                     placeholder="e.g. John, Jane, Doe">
-
-              <hr>
-
-              <label class="fw-semibold">Filter by Roles (optional)</label>
-              <div id="weeklyRosterRoles" class="list-group mb-2" style="max-height: 220px; overflow-y:auto;">
-                  <!-- checkboxes inserted dynamically -->
-              </div>
-              <small><em>Leave unselected to default all roles</em></small>
-
-              <hr>
-
-              <div class="form-check">
-                <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">
-                <label class="form-check-label fw-semibold">Hide resigned employees</label>
-              </div>
-
-            </div>
-
-            <div class="modal-footer">
-              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-              <button id="weeklyRosterGenerateBtn" class="btn btn-primary">
-                <i class="fa-solid fa-file-pdf me-2"></i> Generate
-              </button>
+            <div class="form-check">
+              <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">
+              <label class="form-check-label fw-semibold">Hide resigned employees</label>
             </div>
 
           </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="weeklyRosterGenerateBtn" class="btn btn-primary">
+              <i class="fa-solid fa-file-pdf me-2"></i> Generate
+            </button>
+          </div>
+
         </div>
       </div>
-
     </div>
 
-  </div>
+
+
 </div>
 
 {% endblock %}

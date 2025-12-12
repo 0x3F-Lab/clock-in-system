@@ -162,9 +162,7 @@ def build_shift_logs_pdf(
         )
 
         elements.append(table)
-
-        elements.append(Spacer(1, 40))
-
+        elements.append(Spacer(1, 12))
         # Timestamp footer
         generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
         timestamp = f"<font size='8' color='#888888'>Generated: {generated_time}</font>"
@@ -437,9 +435,7 @@ def build_weekly_roster_matrix(
 
 
 def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
-
     try:
-
         roster, week_start, week_end = build_weekly_roster_matrix(
             store.id, week, filter_names=filter_names, roles_filter=roles_filter
         )
@@ -448,17 +444,21 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
         doc = SimpleDocTemplate(
             buffer,
             pagesize=landscape(A4),
-            rightMargin=18,
-            leftMargin=18,
-            topMargin=25,
-            bottomMargin=25,
+            rightMargin=24,
+            leftMargin=24,
+            topMargin=30,
+            bottomMargin=30,
         )
 
         elements = []
         styles = getSampleStyleSheet()
 
+        # --- HEADER ---
         elements.append(
-            Paragraph(f"Weekly Roster Report — {store.name}", styles["Title"])
+            Paragraph(
+                f"<b>Weekly Roster Report</b> — {store.name}",
+                styles["Title"],
+            )
         )
         elements.append(
             Paragraph(
@@ -466,40 +466,87 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
                 styles["Normal"],
             )
         )
-        elements.append(Paragraph(f"Store Code: {store.code}"))
-        elements.append(Spacer(1, 15))
+        elements.append(
+            Paragraph(f"<font color='#555555'>Store Code: {store.code}</font>")
+        )
+        elements.append(Spacer(1, 18))
 
+        # --- TABLE DATA ---
         data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
 
         for emp in roster:
-            row = [Paragraph(emp["name"], styles["Normal"])]
+            row = [
+                Paragraph(
+                    f"<b>{emp['name']}</b>",
+                    styles["Normal"],
+                )
+            ]
             for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
-                row.append(Paragraph(emp[day].replace("\n", "<br/>"), styles["Normal"]))
+                row.append(
+                    Paragraph(
+                        emp[day].replace("\n", "<br/>") or "-",
+                        styles["Normal"],
+                    )
+                )
             data.append(row)
 
-        table = Table(data, repeatRows=1, colWidths=[110] + [90] * 7)
+        table = Table(
+            data,
+            repeatRows=1,
+            colWidths=[120] + [95] * 7,
+        )
 
         table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004aad")),
+                    # --- HEADER ---
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a73e8")),
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                    ("FONTSIZE", (0, 0), (-1, 0), 11),
+                    ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                    ("TOPPADDING", (0, 0), (-1, 0), 8),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                    # --- BODY ---
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
                     ("ALIGN", (1, 1), (-1, -1), "CENTER"),
                     ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#f7f9fc")),
+                    # --- GRID ---
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.25,
+                        colors.HexColor("#cccccc"),
+                    ),
+                    # --- ZEBRA STRIPING ---
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [
+                            colors.white,
+                            colors.HexColor("#f7faff"),
+                        ],
+                    ),
+                    # --- CELL PADDING ---
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                    ("TOPPADDING", (0, 1), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
                 ]
             )
         )
 
         elements.append(table)
 
+        # --- FOOTER ---
+        elements.append(Spacer(1, 14))
         generated = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(Spacer(1, 12))
         elements.append(
             Paragraph(
-                f"<font size=8 color='#888888'>Generated: {generated}</font>",
+                f"<font size='8' color='#888888'>Generated: {generated}</font>",
                 styles["Normal"],
             )
         )
@@ -508,7 +555,6 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
         pdf_data = buffer.getvalue()
         buffer.close()
-
         return pdf_data
 
     except Exception as e:
