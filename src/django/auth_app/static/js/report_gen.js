@@ -16,15 +16,20 @@ $(document).ready(function () {
 
 });
 
+// Will open the file AND download
 function openPDFBlob(blob, filename) {
     const file = new Blob([blob], { type: "application/pdf" });
-    const url  = URL.createObjectURL(file);
+    const url = URL.createObjectURL(file);
 
-    const viewer = window.open(url, "_blank");
+    // Open for preview
+    window.open(url, "_blank");
 
-    if (viewer) {
-        viewer.document.title = filename;
-    }
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;  
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
