@@ -13,6 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let employees = [];
   let roles = [];
 
+  let repeatingOffset = 0;
+  let repeatingLimit = 20;
+  let repeatingTotal = 0;
+
 
     function openCreateRepeatingShiftModal(weekNum, dayIndex) {
     
@@ -310,7 +314,7 @@ function fetchRoles(storeId) {
 
 function fetchRepeatingSchedule(storeId) {
   const filters = getFilters();
-  const qs = buildQueryParams(filters);
+  const qs = buildQueryParams(filters, repeatingOffset, repeatingLimit);
 
   $.ajax({
     url: `${api.listRepeatingShifts}${storeId}/?${qs}`,
@@ -320,14 +324,21 @@ function fetchRepeatingSchedule(storeId) {
 
     success: function (data) {
       repeatingSchedule = data.schedule || {};
+      repeatingOffset = data.offset ?? repeatingOffset;
+      repeatingTotal = data.total ?? 0;
+
       renderAllWeeks();
+
+      setPaginationValues(repeatingOffset, repeatingTotal);
     },
 
     error: function (jqXHR) {
       handleAjaxError(jqXHR, "Failed to load repeating shifts");
+      setPaginationValues(0, 0);
     }
   });
 }
+
 
 
 
@@ -510,15 +521,19 @@ function deleteRepeatingShift(shiftId) {
       const value = storeSelect.value;
       currentStoreId = value || null;
       currentWeek = 1;
-
+    
+      repeatingOffset = 0;
+      resetPaginationValues();
+    
       updateWeekHeader();
-
+    
       if (currentStoreId) {
         fetchEmployees(currentStoreId);
         fetchRoles(currentStoreId);
         loadRepeatingForCurrentStore();
       }
     });
+
 
     if (storeSelect.value) {
       currentStoreId = storeSelect.value;
@@ -538,6 +553,10 @@ function deleteRepeatingShift(shiftId) {
     tableControllerSubmit.addEventListener("click", e => {
       e.preventDefault();
       if (!currentStoreId) return;
+
+      repeatingOffset = 0;
+      resetPaginationValues();
+    
       fetchRepeatingSchedule(currentStoreId);
     });
   }
@@ -568,5 +587,18 @@ function deleteRepeatingShift(shiftId) {
       updateWeekHeader();
     });
   }
+
+  handlePagination({
+  updateFunc: loadRepeatingViaPagination
+});
+
+function loadRepeatingViaPagination() {
+  if (!currentStoreId) return;
+
+  repeatingOffset = getPaginationOffset();
+  repeatingLimit = getPaginationLimit();
+  fetchRepeatingSchedule(currentStoreId);
+}
+
 
 });
