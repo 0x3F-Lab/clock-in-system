@@ -46,6 +46,13 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 
+from api.reports.report_generator import (
+    build_shift_logs_pdf,
+    build_account_summary_pdf,
+    ReportBuildError,
+    build_roster_report_pdf,
+)
+
 
 logger = logging.getLogger("api")
 
@@ -4419,7 +4426,6 @@ def list_shift_requests(request):
 
 @api_manager_required
 @api_view(["GET"])
-@renderer_classes([JSONRenderer])
 def generate_shift_logs_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
@@ -4433,6 +4439,21 @@ def generate_shift_logs_report(request):
             return Response(
                 {"Error": "Missing required parameters (store, start, end)."},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if end_date < start_date:
+            return Response(
+                {"Error": "End date cannot be before start date."},
+                status=status.HTTP_418_IM_A_TEAPOT,
             )
 
         try:
@@ -4517,17 +4538,8 @@ def generate_shift_logs_report(request):
         )
 
 
-from api.reports.report_generator import (
-    build_shift_logs_pdf,
-    build_account_summary_pdf,
-    ReportBuildError,
-    build_roster_report_pdf,
-)
-
-
 @api_manager_required
 @api_view(["GET"])
-@renderer_classes([JSONRenderer])
 def generate_account_summary_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
@@ -4555,7 +4567,7 @@ def generate_account_summary_report(request):
         if end_date < start_date:
             return Response(
                 {"Error": "End date cannot be before start date."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_418_IM_A_TEAPOT,
             )
 
         try:
@@ -4622,9 +4634,7 @@ def generate_account_summary_report(request):
 
     except err.ShiftExceptionExistsError:
         return Response(
-            {
-                "Error": "There exists unapproved shift exceptions for the period. Please resolve them first."
-            },
+            {" - "},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
@@ -4638,7 +4648,6 @@ def generate_account_summary_report(request):
 # Roster Report Generation
 @api_manager_required
 @api_view(["GET"])
-@renderer_classes([JSONRenderer])
 def generate_weekly_roster_report(request):
     try:
         user = util.api_get_user_object_from_session(request)

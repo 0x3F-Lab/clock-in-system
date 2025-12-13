@@ -87,7 +87,7 @@ function generateShiftLogReport(e) {
 
         },
         error: function(xhr) {
-            handleAjaxError(xhr, "Failed to generate report");
+            showErrorMessage(xhr.status);
         }
     });
 }
@@ -148,9 +148,46 @@ function generateAccountSummaryReport(e) {
         },
 
         error: function (xhr) {
-            handleAjaxError(xhr, "Failed to generate account summary report");
+            hideSpinner();
+            if (xhr.status === 422) {
+                showNotification("There exists unapproved shift exceptions for the period. Please resolve them first.", "Danger")
+            } else {
+                showErrorMessage(xhr.status);
+            }
+            
         }
     });
+}
+
+function showErrorMessage(status) {
+    let message;
+
+    switch (status) {
+        case 400:
+            message = "Invalid input. Please check the inputs.";
+            break;
+
+        case 403:
+            message = "You are not authorised to generate this report.";
+            break;
+
+        case 418:
+            message = "End date cannot be before start date.";
+            break;
+
+        case 404:
+            message = "Store not found";
+            break;
+
+        case 500:
+            message = "Internal server error. Please try again later.";
+            break;
+
+        default:
+            message = "Failed to generate report. Please try again. If issue persists, contanct and admin";
+    }
+
+            showNotification(message, "danger");
 }
 
 // ROSTER REPORT HANDLER
@@ -187,7 +224,7 @@ function loadWeeklyRosterRoles() {
         },
 
         error: function(xhr) {
-            console.error("Failed to load roles", xhr);
+            showNotification("Failed to load roles correctly", "danger");
         }
     });
 
@@ -234,7 +271,7 @@ function generateWeeklyRosterReport() {
             openPDFBlob(blob, "weekly_roster_report.pdf");
         },
         error: function(xhr) {
-            handleAjaxError(xhr, "Failed to generate roster report.");
+            showErrorMessage(xhr.status);
         }
     });
 }
