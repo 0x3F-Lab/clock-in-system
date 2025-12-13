@@ -219,7 +219,7 @@ function loadWeeklyRosterRoles() {
                     `);
                 });
             } else {
-                $roleSelect.append(`<option disabled>No roles found</option>`);
+                $roleList.append(`<option disabled>No roles found</option>`);
             }
         },
 
