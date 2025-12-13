@@ -4543,6 +4543,22 @@ def generate_account_summary_report(request):
             )
 
         try:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate date order
+        if end_date < start_date:
+            return Response(
+                {"Error": "End date cannot be before start date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
             store = Store.objects.get(pk=store_id)
         except Store.DoesNotExist:
             return Response(
