@@ -574,6 +574,7 @@ class TestScheduleAuthorisation:
             name="Other Store",
             code="OTH001",
             is_active=True,
+            location_street="123 Main St",
             location_latitude=2.0,
             location_longitude=2.0,
             store_pin="111",
@@ -704,8 +705,14 @@ class TestScheduleAuthorisation:
         THEN they should be denied with a 403 Forbidden error.
         """
         api_client = logged_in_employee
+        now_time = now()
         activity = Activity.objects.create(
-            employee=employee, store=store, login_time=now(), logout_time=now()
+            employee=employee,
+            store=store,
+            login_time=now_time,
+            login_timestamp=now_time,
+            logout_time=now_time,
+            logout_timestamp=now_time,
         )
         exception = ShiftException.objects.create(
             activity=activity, reason=ShiftException.Reason.INCORRECTLY_CLOCKED
@@ -729,8 +736,14 @@ class TestScheduleAuthorisation:
         api_client = logged_in_manager
         # Create an employee and an activity associated with the other_store
         StoreUserAccess.objects.create(user=employee, store=other_store)
+        now_time = now()
         activity_in_other_store = Activity.objects.create(
-            employee=employee, store=other_store, login_time=now(), logout_time=now()
+            employee=employee,
+            store=other_store,
+            login_time=now_time,
+            login_timestamp=now_time,
+            logout_time=now_time,
+            logout_timestamp=now_time,
         )
         exception_in_other_store = ShiftException.objects.create(
             activity=activity_in_other_store,

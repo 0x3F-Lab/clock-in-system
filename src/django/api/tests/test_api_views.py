@@ -856,12 +856,16 @@ class TestScheduleAndRoleAPIs:
             start_time=time(9, 0),
             end_time=time(17, 0),
         )
+
+        now_time = now()
         # Create a shift exception for testing
         self.activity = Activity.objects.create(
             employee=self.employee,
             store=self.store,
-            login_time=now() - timedelta(hours=1),
-            logout_time=now(),
+            login_time=now_time - timedelta(hours=1),
+            login_timestamp=now_time - timedelta(hours=1),
+            logout_time=now_time,
+            logout_timestamp=now_time,
         )
         self.exception = ShiftException.objects.create(
             activity=self.activity, reason=ShiftException.Reason.INCORRECTLY_CLOCKED
@@ -1130,8 +1134,12 @@ class TestScheduleAndRoleAPIs:
 
         Shift.objects.all().delete()
 
-        emp_a = User.objects.create(email="emp_a@test.com", first_name="Copied")
-        emp_b = User.objects.create(email="emp_b@test.com", first_name="Skipped")
+        emp_a = User.objects.create(
+            email="emp_a@test.com", first_name="Copied", last_name="Something"
+        )
+        emp_b = User.objects.create(
+            email="emp_b@test.com", first_name="Skipped", last_name="Something"
+        )
         StoreUserAccess.objects.create(user=emp_a, store=store)
         StoreUserAccess.objects.create(user=emp_b, store=store)
 

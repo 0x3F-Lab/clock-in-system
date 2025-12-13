@@ -48,6 +48,8 @@ class User(models.Model):
     updated_at = models.DateTimeField(auto_now=True, null=False)
 
     def save(self, *args, **kwargs):
+        if not self.pin:
+            self.set_unique_pin()
         self.full_clean()
         super().save(*args, **kwargs)
 

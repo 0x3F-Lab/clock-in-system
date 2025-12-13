@@ -1194,7 +1194,7 @@ def create_new_employee(request):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-        # Create user
+        # Create user - automatically sets unique pin
         employee = User.objects.create(
             first_name=string.capwords(first_name),
             last_name=string.capwords(last_name),
@@ -1214,8 +1214,6 @@ def create_new_employee(request):
 
         # Finally save the new employee and their association with a transation to ensure no errors occur
         with transaction.atomic():
-            # Set employee account pin
-            employee.set_unique_pin()
             employee.save()
             new_association.save()
 
