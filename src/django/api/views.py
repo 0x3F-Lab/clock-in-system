@@ -4669,6 +4669,14 @@ def generate_weekly_roster_report(request):
             )
 
         try:
+            temp_week = datetime.strptime(week, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
             store = Store.objects.get(pk=store_id)
         except Store.DoesNotExist:
             return Response(

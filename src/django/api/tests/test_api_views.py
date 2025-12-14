@@ -1376,3 +1376,273 @@ class TestShiftRequestAPI:
         request.refresh_from_db()
         assert request.status == ShiftRequest.Status.REJECTED
         assert mock_notify_task.called
+
+
+# Reports Testing
+
+
+@pytest.mark.django_db
+def test_account_summary_report_success(
+    api_client, logged_in_manager, store, store_associate_manager, manager
+):
+    """
+    Valid request should return a PDF.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_account_summary_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-01",
+            "end": "2025-12-07",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"] == "application/pdf"
+    assert len(response.content) > 100  # basic sanity check
+
+
+@pytest.mark.django_db
+def test_account_summary_report_missing_params(api_client, logged_in_manager):
+    """
+    Missing required params should fail.
+    """
+    api_client.force_authenticate(user=logged_in_manager)
+
+    url = reverse("api:generate_account_summary_report")
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_account_summary_report_invalid_date_order(
+    api_client, logged_in_manager, store
+):
+    """
+    End date before start date should fail.
+    """
+    api_client.force_authenticate(user=logged_in_manager)
+
+    url = reverse("api:generate_account_summary_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-10",
+            "end": "2025-12-01",
+        },
+    )
+
+    assert response.status_code in (
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status.HTTP_418_IM_A_TEAPOT,
+    )
+
+    # If JSON error response
+    if response.headers.get("Content-Type") == "application/json":
+        assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_account_summary_report_unauthorized(api_client, logged_in_employee, store):
+    """
+    Non-manager should be blocked.
+    """
+    api_client = logged_in_employee
+
+    url = reverse("api:generate_account_summary_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-01",
+            "end": "2025-12-07",
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_weekly_roster_report_success(
+    api_client,
+    logged_in_manager,
+    store,
+    store_associate_manager,
+):
+    """
+    Valid weekly roster request should return a PDF.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_weekly_roster_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "week": "2025-12-16",  # any date in the week
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"] == "application/pdf"
+    assert len(response.content) > 100
+
+
+@pytest.mark.django_db
+def test_weekly_roster_report_missing_params(api_client, logged_in_manager):
+    """
+    Missing required params should fail.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_weekly_roster_report")
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_weekly_roster_report_invalid_week(api_client, logged_in_manager, store):
+    """
+    Invalid week format should fail.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_weekly_roster_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "week": "not-a-date",
+        },
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_weekly_roster_report_unauthorized(
+    api_client,
+    logged_in_employee,
+    store,
+):
+    """
+    Non-manager should be blocked.
+    """
+    api_client = logged_in_employee
+
+    url = reverse("api:generate_weekly_roster_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "week": "2025-12-16",
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_shift_logs_report_success(
+    api_client,
+    logged_in_manager,
+    store,
+    store_associate_manager,
+):
+    """
+    Valid shift logs request should return a PDF.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_shift_logs_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-01",
+            "end": "2025-12-07",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"] == "application/pdf"
+    assert len(response.content) > 100
+
+
+@pytest.mark.django_db
+def test_shift_logs_report_missing_params(api_client, logged_in_manager):
+    """
+    Missing required params should fail.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_shift_logs_report")
+    response = api_client.get(url)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_shift_logs_report_invalid_date_order(
+    api_client,
+    logged_in_manager,
+    store,
+):
+    """
+    End date before start date should fail.
+    """
+    api_client = logged_in_manager
+
+    url = reverse("api:generate_shift_logs_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-10",
+            "end": "2025-12-01",
+        },
+    )
+
+    assert response.status_code in (
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status.HTTP_418_IM_A_TEAPOT,
+    )
+
+    if response.headers.get("Content-Type") == "application/json":
+        assert "Error" in response.json()
+
+
+@pytest.mark.django_db
+def test_shift_logs_report_unauthorized(
+    api_client,
+    logged_in_employee,
+    store,
+):
+    """
+    Non-manager should be blocked.
+    """
+    api_client = logged_in_employee
+
+    url = reverse("api:generate_shift_logs_report")
+    response = api_client.get(
+        url,
+        {
+            "store_id": store.id,
+            "start": "2025-12-01",
+            "end": "2025-12-07",
+        },
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
