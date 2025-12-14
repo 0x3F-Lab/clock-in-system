@@ -33,7 +33,7 @@ urlpatterns = [
         name="manage_employee_details",
     ),
     path(
-        "repeating-shifts/",
+        "repeating_shifts",
         views.repeating_shifts_dashboard,
         name="repeating_shifts_dashboard",
     ),

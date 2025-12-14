@@ -48,6 +48,9 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
+# Determine if running outside of docker
+IS_DOCKER = os.getenv("DJANGO_ENV", "local").lower() == "docker"
+
 # Get the BASE_URL from the environment
 BASE_URL = os.getenv(
     "BASE_URL", "http://localhost:8000"
@@ -167,6 +170,9 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "InsEcuR3Pa55w0Rd"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "TEST": {
+            "NAME": "test",
+        },
     }
 }
 

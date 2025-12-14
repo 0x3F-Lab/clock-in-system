@@ -11,6 +11,8 @@ services:
     image: django
     build:
       context: ./django  # Path to your Django directory
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
       - ~/logs/:/app/logs:rw            # Add file to ensure easy access to the debug log file
@@ -26,6 +28,8 @@ services:
     restart: always
     image: django  # Reuse the same Django image
     command: celery -A clock_in_system worker --loglevel=info
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - ~/logs/:/app/logs:rw
     env_file:
@@ -39,6 +43,8 @@ services:
     restart: always
     image: django
     command: celery -A clock_in_system beat --loglevel=info
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - ~/logs/:/app/logs:rw
     env_file:

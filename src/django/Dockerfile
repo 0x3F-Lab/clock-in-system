@@ -10,14 +10,23 @@ RUN apt-get update
 # Upgrade pip, setuptools, and wheel to the latest versions
 RUN pip install --upgrade pip setuptools wheel
 
+# Create user and group
+RUN groupadd -r django && useradd -r -g django django
+
 # Copy project files
 COPY . .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Ensure correct ownership
+RUN chown -R django:django /app
+
 # Expose Django's development server port
 EXPOSE 8000
+
+# Set user
+USER django
 
 # Add entrypoint script
 RUN chmod +x entrypoint.sh
