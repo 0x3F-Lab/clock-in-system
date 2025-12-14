@@ -187,7 +187,7 @@ def test_create_repeating_shift_end_time_before_start_time(
 
 
 @pytest.mark.django_db
-def test_create_repeating_shift_employee_not_associated_417(
+def test_create_repeating_shift_employee_not_associated(
     logged_in_manager,
     store,
     employee,
