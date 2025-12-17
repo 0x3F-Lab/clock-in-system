@@ -4419,7 +4419,7 @@ def list_shift_requests(request):
 
 
 @api_manager_required
-@api_view(["POST"])
+@api_view(["PUT"])
 @renderer_classes([JSONRenderer])
 def create_repeating_shift(request, store_id):
     try:
@@ -4518,14 +4518,14 @@ def create_repeating_shift(request, store_id):
             raise err.NotAssociatedWithStoreAsManagerError
         elif not store.is_associated_with_user(employee_id):
             return Response(
-                {"Error": f"Store is not associated with employee {employee_id}"},
+                {"Error": f"Cannot create a shift for an unassociated employee."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
         elif not store.is_active:
             raise err.InactiveStoreError
         elif role_id and not store.has_role(role_id):
             return Response(
-                {"Error": f"Store does not have role {role_id}"},
+                {"Error": f"Cannot use an unrelated role for this store."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
         elif end_weekday < start_weekday:
@@ -4539,7 +4539,7 @@ def create_repeating_shift(request, store_id):
         employee = User.objects.get(pk=employee_id)
         if not employee.is_active or employee.is_hidden:
             return Response(
-                {"Error": f"Employee {employee_id} is inactive."},
+                {"Error": f"Cannot create a shift for an inactive employee."},
                 status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
@@ -4602,9 +4602,7 @@ def create_repeating_shift(request, store_id):
         )
     except err.NotAssociatedWithStoreAsManagerError:
         return Response(
-            {
-                "Error": f"Cannot create repeating shift for unassociated store ID {store_id}."
-            },
+            {"Error": "Cannot create repeating shift for an unassociated store."},
             status=status.HTTP_403_FORBIDDEN,
         )
     except Exception as e:
@@ -4626,6 +4624,7 @@ def manage_repeating_shift(request, shift_id):
             pk=shift_id
         )
 
+        new_employee_id = util.clean_param_str(request.data.get("employee_id", None))
         active_weeks = util.clean_param_str(request.data.get("active_weeks", None))
         start_weekday = util.clean_param_str(request.data.get("start_weekday", None))
         end_weekday = util.clean_param_str(
@@ -4652,14 +4651,21 @@ def manage_repeating_shift(request, shift_id):
                 },
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
+        elif new_employee_id:
+            if request.method == "POST" and not shift.store.is_associated_with_user(
+                new_employee_id
+            ):
+                raise err.NotAssociatedWithStoreError
+            elif not util.is_user_active(new_employee_id):
+                raise err.InactiveUserError
 
         if request.method == "GET":
             return Response(
                 {
                     "shift_id": shift.id,
                     "employee_id": shift.employee_id,
-                    "start_time": shift.start_time,
-                    "end_time": shift.end_time,
+                    "start_time": shift.start_time.strftime("%H:%M"),
+                    "end_time": shift.end_time.strftime("%H:%M"),
                     "start_weekday": shift.start_weekday,
                     "end_weekday": shift.end_weekday,
                     "active_weeks": shift.active_weeks,
@@ -4674,14 +4680,9 @@ def manage_repeating_shift(request, shift_id):
 
         elif request.method == "DELETE":
             shift.delete()
-            return Response({"shift_id": shift.id}, status=status.HTTP_200_OK)
+            return Response({"repeating_shift_id": shift.id}, status=status.HTTP_200_OK)
 
         elif request.method == "POST":
-            new_employee_id = util.clean_param_str(
-                request.data.get("employee_id", None)
-            )
-            print("EMPLOYEE IN POST:", new_employee_id)
-
             required_fields = {
                 "active_weeks": active_weeks,
                 "start_weekday": start_weekday,
@@ -4767,7 +4768,7 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_406_NOT_ACCEPTABLE,
                 )
 
-            if not controllers.check_conflicting_repeating_shifts(
+            elif not controllers.check_conflicting_repeating_shifts(
                 shift.employee_id,
                 shift.store_id,
                 start_weekday,
@@ -4784,17 +4785,6 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-            print(
-                "=== DEBUG SAVE ===",
-                start_weekday,
-                end_weekday,
-                start_time,
-                end_time,
-                active_weeks_list,
-                role_id,
-                comment,
-            )
-
             with transaction.atomic():
                 if new_employee_id:
                     shift.employee_id = int(new_employee_id)
@@ -4804,11 +4794,11 @@ def manage_repeating_shift(request, shift_id):
                 shift.start_weekday = start_weekday
                 shift.end_weekday = end_weekday
                 shift.active_weeks = active_weeks_list
-                shift.comment = comment or ""
+                shift.comment = comment
                 shift.save()
 
             return Response(
-                {"success": True, "shift_id": shift.id},
+                {"repeating_shift_id": shift.id},
                 status=status.HTTP_200_OK,
             )
 
@@ -4826,6 +4816,16 @@ def manage_repeating_shift(request, shift_id):
         return Response(
             {"Error": "Cannot manage repeating shift for unassociated store."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Cannot update shift for an unassociated employee."},
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except err.InactiveUserError:
+        return Response(
+            {"Error": "Cannot update shift for an inactive employee."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         logger.critical(

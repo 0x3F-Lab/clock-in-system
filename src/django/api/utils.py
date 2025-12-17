@@ -800,3 +800,14 @@ def get_next_date_for_cycle_week(
         shift_date += timedelta(weeks=4)
 
     return shift_date
+
+
+def is_user_active(user_id: int) -> bool:
+    """
+    Determines if the user id is active.
+    """
+    try:
+        emp = User.objects.get(pk=int(user_id))
+        return emp.is_active
+    except User.DoesNotExist:
+        return False

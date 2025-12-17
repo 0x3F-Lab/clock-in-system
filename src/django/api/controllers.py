@@ -2445,7 +2445,8 @@ def get_all_store_repeating_shifts(
             }
           },
           "total": ...,
-          "offset": ...
+          "offset": ...,
+          "week_one_next_date": YYYY-MM-DD
         }
     """
     if store is None or not isinstance(store, Store):
@@ -2536,7 +2537,7 @@ def get_all_store_repeating_shifts(
         "schedule": schedule,
         "week_one_next_date": util.get_next_date_for_cycle_week(
             0, RepeatingShift.CycleWeek.WEEK_1
-        ).strftime("%d/%m/%Y"),
+        ).isoformat(),
         "total": total,
         "offset": offset,
     }

@@ -1,604 +1,491 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const storeSelect = document.getElementById("storeSelectDropdown");
-  const weekHeaderTitle = document.getElementById("schedule-week-title");
-  const previousWeekBtn = document.getElementById("previous-week-btn");
-  const nextWeekBtn = document.getElementById("next-week-btn");
-  const tableControllerSubmit = document.getElementById("tableControllerSubmit");
+$(document).ready(function() {
+    // Handle delete shift button and its confirmation
+    handleDeleteShiftBtn();
 
-  const api = window.djangoURLs || {};
+    // Handle functionality of switching between weeks
+    handleWeekSwitching();
 
-  let currentWeek = 1;
-  let repeatingSchedule = null;
-  let currentStoreId = null;
-  let employees = [];
-  let roles = [];
+    // Handle shift edits, deletes and creations
+    handleShiftModification();
 
-  let repeatingOffset = 0;
-  let repeatingLimit = 20;
-  let repeatingTotal = 0;
+    // Handle table controls submission
+    $('#tableControllerSubmit').on('click', () => {
+      if ($('#useLegacy').is(':checked')) {
+          $('#paginationController').addClass('d-none');
+      } else {
+          $('#paginationController').removeClass('d-none');
+      }
+      resetPaginationValues();
+      loadSchedule();
+    });
+
+    // Update table controller icon on collapse/show
+    $('#tableControllerCollapse').on('show.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+    });
+
+    $('#tableControllerCollapse').on('hide.bs.collapse', function () {
+      $('#tableControllerToggleIcon').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+    });
+
+    // --- Store Selector ---
+    $('#storeSelectDropdown').on('change', function() {
+        updateStoreInformation();
+        loadSchedule();
+    });
+
+    // --- Initial Page Load ---
+    updateStoreInformation();
+    loadSchedule();
+
+    // Activate the pagination system (set the update function)
+    handlePagination({updateFunc: loadSchedule});
+
+    // Add page reloader to force reload after period of inactivity
+    setupVisibilityReload(30); // 30 minutes
+});
 
 
-    function openCreateRepeatingShiftModal(weekNum, dayIndex) {
-    
-        $('#repeatingEditModalLabel').text("Add Repeating Shift");
-        $('#repeatingShiftId').val('');
-        $('#repeatingShiftStoreId').val(currentStoreId);
-        $('#repeatingStartWeekday').val(dayIndex);
-        $('#repeatingEndWeekday').val(dayIndex);
+function handleShiftModification() {
+    // CLICK `+` ON A CERTAIN DAY -> OPEN EDIT MODAL AND SET TO CREATION
+    $('.schedule-container').on('click', '.add-repeating-shift-btn', function() {
+        const day = $(this).data('day');
+        const week = $(this).data('week');
+        $('#repeatingStartWeekday').val(day);
+        $('.repeating-week-checkbox').prop('checked', false);
+        $(`#repeatingActiveWeek${week}`).prop('checked', true).trigger('change');
+        $('#editModalSelectedEmployeeID').val(''); // Select no employee
+        $('#repeatingShiftId').val(''); // Set NO ID -> CREATION MODE
+        $('#repeatingRole').val('');
         $('#repeatingStartTime').val('');
         $('#repeatingEndTime').val('');
-        $('#repeatingRole').val('');
         $('#repeatingComment').val('');
-        $('#repeatingSelectedEmployeeID').val('');
-    
-        $('.repeating-week-checkbox').each(function () {
-            $(this).prop('checked', parseInt($(this).val()) === weekNum);
+        $('#deleteRepeatingShiftBtn').addClass('d-none'); // Hide 'Delete' button
+        
+        const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
+        addShiftModal.show();
+    });
+
+    // CLICK ON EXISTING SHIFT -> OPEN EDIT MODAL AND SET TO MODIFICATION
+    $('.schedule-container').on('click', '.shift-item', function() {
+        showSpinner();
+        const shiftId = $(this).data('shift-id');
+
+        // Get shift info -> ENSURE ITS ALWAYS UP TO DATE
+        $.ajax({
+            url: `${window.djangoURLs.manageRepeatingShift}${shiftId}/`,
+            method: 'GET',
+            headers: { 'X-CSRFToken': getCSRFToken() },
+            xhrFields: { withCredentials: true },
+            success: function(shiftData) {
+              $('#repeatingStartWeekday').val(shiftData.start_weekday);
+              $('#editModalSelectedEmployeeID').val(shiftData.employee_id);
+              $('#repeatingShiftId').val(shiftData.shift_id);
+              $('#repeatingRole').val(shiftData.role_id);
+              $('#repeatingStartTime').val(shiftData.start_time);
+              $('#repeatingEndTime').val(shiftData.end_time);
+              $('#repeatingComment').val(shiftData.comment);
+              $('#deleteRepeatingShiftBtn').removeClass('d-none');
+
+              $('.repeating-week-checkbox').prop('checked', false);
+              $.each(shiftData.active_weeks, function(_, week) {
+                  $(`#repeatingActiveWeek${week}`).prop('checked', true).trigger('change');
+              });
+              
+              hideSpinner();
+              const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+              editModal.show();
+            },
+            error: function(jqXHR) { handleAjaxError(jqXHR, "Failed to get shift information"); }
         });
-      
-        $('#saveRepeatingShiftBtn').removeClass('d-none');
-        $('#deleteRepeatingShiftBtn').addClass('d-none');
-        $('#confirmDeleteRepeatingShiftBtn').addClass('d-none');
-      
-        bootstrap.Modal.getOrCreateInstance('#repeatingEditModal').show();
-    }
+    });
 
-
-    function openEditRepeatingShiftModal(shiftId) {
-        $.get(`${api.manageRepeatingShift}/${shiftId}`, function(data) {
+    // CLICK ON EMPLOYEE NAME -> OPEN MODEL AND SET TO CREATION
+    $(document).on('click', '.employee-name-cell.cursor-pointer', function () {
+        const id = $(this).data('id') || '';
+        // Reset form and ONLY SET EMPLOYEE
+        $('.repeating-week-checkbox').prop('checked', false);
+        $('#repeatingStartWeekday').val('');
+        $('#editModalSelectedEmployeeID').val(id);
+        $('#repeatingShiftId').val('');
+        $('#repeatingRole').val('');
+        $('#repeatingStartTime').val('');
+        $('#repeatingEndTime').val('');
+        $('#repeatingComment').val('');
+        $('#deleteRepeatingShiftBtn').addClass('d-none'); // Hide 'Delete' button
         
-            $('#repeatingEditModalLabel').text("Edit Repeating Shift");
-        
-            const primaryId = data.id ?? data.shift_id;
-        
-            $('#repeatingShiftId').val(primaryId);
-            $('#repeatingShiftStoreId').val(data.store_id);
-        
-            $('#repeatingSelectedEmployeeID').val(
-                data.employee_id ??
-                data.employee ??
-                data.employeeId ??
-                data.emp_id ??
-                ''
-            );
-          
-            renderEmployeeList($('#repeatingEmployeeSearchBar').val() || "");
+        const addShiftModal = new bootstrap.Modal(document.getElementById('editModal'));
+        addShiftModal.show();
+    });
 
-            $('#repeatingStartWeekday').val(data.start_weekday);
-            $('#repeatingEndWeekday').val(data.end_weekday);
-            $('#repeatingStartTime').val(data.start_time.slice(0,5));
-            $('#repeatingEndTime').val(data.end_time.slice(0,5));
-            $('#repeatingRole').val(data.role_id || '');
-            $('#repeatingComment').val(data.comment || '');
-          
-            const weeks = (data.active_weeks || []).map(Number);
-            $('.repeating-week-checkbox').each(function () {
-                $(this).prop('checked', weeks.includes(parseInt($(this).val())));
-            });
-          
-            $('#saveRepeatingShiftBtn').removeClass('d-none');
-            $('#deleteRepeatingShiftBtn').removeClass('d-none');
-            $('#confirmDeleteRepeatingShiftBtn').addClass('d-none');
-          
-            bootstrap.Modal.getOrCreateInstance('#repeatingEditModal').show();
-        });
-    }
+    // --- CREATE/EDIT SHIFT FORM SUBMISSION ---
+    $('#saveRepeatingShiftBtn').on('click', function() {
+        const form = $('#repeatingShiftForm');
+        active_week_selection = $('.repeating-week-checkbox:checked')
+        .map(function () {
+            return ensureSafeInt(this.value, 1, 4);
+        })
+        .get();
 
-
-
-    
-    $('#saveRepeatingShiftBtn').on('click', async function () {
-    
-        const payload = {
-            employee_id: $('#repeatingSelectedEmployeeID').val(),
-            start_weekday: parseInt($('#repeatingStartWeekday').val(), 10),
-            end_weekday: parseInt($('#repeatingEndWeekday').val(), 10),
-            start_time: $('#repeatingStartTime').val(),
-            end_time: $('#repeatingEndTime').val(),
-            active_weeks: $('.repeating-week-checkbox:checked').map(function () {
-                return parseInt(this.value);
-            }).get(),
-            role_id: $('#repeatingRole').val(),
-            comment: $('#repeatingComment').val().trim(),
+        const formData = {
+            employee_id: form.find('#editModalSelectedEmployeeID').val(),
+            role_id: form.find('#repeatingRole').val(),
+            start_weekday: form.find('#repeatingStartWeekday').val(),
+            start_time: form.find('#repeatingStartTime').val(),
+            end_time: form.find('#repeatingEndTime').val(),
+            comment: form.find('#repeatingComment').val(),
+            active_weeks: active_week_selection
         };
-      
-        const shiftId = $('#repeatingShiftId').val();
-      
-        if (shiftId) {
-            await updateRepeatingShift(shiftId, payload);
-        } else {
-            await createRepeatingShift(payload);
-        }
-      
-        const modal = bootstrap.Modal.getOrCreateInstance('#repeatingEditModal');
-        modal.hide();
-      
-        fetchRepeatingSchedule(currentStoreId);
-    });
 
-
-    $('#deleteRepeatingShiftBtn').on('click', function () {
-        $('#deleteRepeatingShiftBtn').addClass('d-none');
-        $('#confirmDeleteRepeatingShiftBtn').removeClass('d-none');
-    });
-
-    $('#confirmDeleteRepeatingShiftBtn').on('click', async function () {
-        const shiftId = $('#repeatingShiftId').val();
-        if (!shiftId) return;
-    
-        try {
-            await deleteRepeatingShift(shiftId);
-            await fetchRepeatingSchedule(currentStoreId);
-            bootstrap.Modal.getOrCreateInstance('#repeatingEditModal').hide();
-        } catch (err) {
-            console.error("Failed to delete repeating shift:", err);
-        } finally {
-            $('#deleteRepeatingShiftBtn').removeClass('d-none');
-            $('#confirmDeleteRepeatingShiftBtn').addClass('d-none');
-        }
-    });
-
-
-
-    function renderEmployeeList(filterText = "") {
-    
-        const $list = $('#repeatingEmployeeList');
-        if ($list.length === 0) return;
-    
-        const term = filterText.trim().toLowerCase();
-    
-        const filtered = employees.filter(emp => {
-            const name = (emp.name || "").toLowerCase();
-            return !term || name.includes(term);
-        });
-      
-        $list.empty();
-      
-        if (filtered.length === 0) {
-            $list.html('<li class="list-group-item text-center text-muted">No employees found</li>');
+        console.log(formData);
+        if (!formData.employee_id || !formData.start_time || !formData.end_time || !formData.start_weekday || formData.active_weeks.length === 0) {
+            showNotification('Cannot submit form without all required fields.', 'warning');
             return;
         }
-      
-        const selectedId = $('#repeatingSelectedEmployeeID').val() || "";
-      
-        filtered.forEach(emp => {
-            const thisId = String(emp.id);
+
+        const shiftId = $('#repeatingShiftId').val();
         
-            const $li = $(`
-                <li class="list-group-item list-group-item-action cursor-pointer">${emp.name}</li>
-            `);
-            
-            $li.data("employeeId", thisId);
-            
-            if (thisId === selectedId) {
-                $li.addClass("active");
+        // EITHER CREATE OR UPDATE EXISTING SHIFT DEPENDING IF shiftID SET
+        showSpinner();
+        $.ajax({
+            url: !isEmpty(shiftId) ? `${window.djangoURLs.manageRepeatingShift}${shiftId}/` : `${window.djangoURLs.createRepeatingShift}${getSelectedStoreID()}/`,
+            method: !isEmpty(shiftId) ? 'POST' : 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            headers: { 'X-CSRFToken': getCSRFToken() },
+            xhrFields: { withCredentials: true },
+            success: function(response) {
+                // Dont hide spinner
+                bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                form[0].reset();
+                loadSchedule();
+                showNotification(!isEmpty(shiftId) ? "Successfully updated a repeating shift." : "Successfully created a repeating shift.", "success");
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                handleAjaxError(jqXHR, !isEmpty(shiftId) ? "Failed to update the repeating shift" : "Failed to create the repeating shift");
             }
-          
-            $li.on('click', function () {
-                $('#repeatingSelectedEmployeeID').val(thisId);
+        });
+    });
+
+    // --- DELETE SHIFT ---
+    $('#confirmDeleteRepeatingShiftBtn').on('click', function() {
+        showSpinner();
+        const shiftId = $('#repeatingShiftId').val();
+
+        $.ajax({
+            url: `${window.djangoURLs.manageRepeatingShift}${shiftId}/`,
+            method: 'DELETE',
+            xhrFields: {withCredentials: true},
+            headers: {'X-CSRFToken': getCSRFToken()},
+            success: function(response) {
+                // Dont hide spinner
+                bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                loadSchedule();
+                showNotification("Successfully deleted a repeating shift.", "success");
+            },
+            error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to delete the repeating shift"); }
+        });
+    });
+
+    // MODAL IS OPENED -> Show the employee in the list
+    $('#editModal').on('shown.bs.modal', () => {
+        showEmployeeInSelectionList();
+    });
+
+    // HANDLE EMPLOYEE LIST INPUT/SELECTION
+    // Filter list on input
+    $("#editModalEmployeeSearchBar").on("input", function() {
+        const term = $(this).val().toLowerCase();
+        $("#editModalEmployeeList").children("li").each(function() {
+            $(this).toggle($(this).text().toLowerCase().includes(term));
+        });
+    });
+
+    // Click on an employee name to select
+    $("#editModalEmployeeList").on("click", "li", function() {
+        $("#editModalEmployeeList li").removeClass("active");
+        $(this).addClass("active");
+        const userId = $(this).data("id");
+        $("#editModalSelectedEmployeeID").val(userId);
+    });
+}
+
+
+function loadSchedule() {
+    const storeId = getSelectedStoreID();
+
+    // Get all filter and sort values
+    const sort = $('#sortFields input[type="radio"]:checked').val();
+    const filterNames = $('#filterNames').val();
+    const filterRoles = $('#filterRoles').val();
+    const hideDeactive = $('#hideDeactivated').is(':checked');
+    const hideResigned = $('#hideResigned').is(':checked');
+    const offset = getPaginationOffset();
+    const limit = getPaginationLimit();
+
+    showSpinner();
+    $.ajax({
+        // The URL now includes the 'legacy' parameter to tell the backend which data to send
+        url: `${window.djangoURLs.listRepeatingShifts}${storeId}/?offset=${offset}&limit=${limit}&sort=${sort}&hide_deactive=${hideDeactive}&hide_resign=${hideResigned}&filter_names=${filterNames}&filter_roles=${filterRoles}`,
+        method: 'GET',
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
+        success: function(data) {
+            hideSpinner();
+            renderScheduleTable(data);
+            setPaginationValues(data.offset, data.total);
             
-                $list.find(".list-group-item").removeClass("active");
-                $(this).addClass("active");
-            });
-          
-            $list.append($li);
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        },
+        error: function(jqXHR) {
+            $('.schedule-container').html(`
+                <div class="d-flex flex-row gap-3 justify-content-around align-items-center bg-danger text-white text-center rounded p-2 w-100 mb-2">
+                    <div><i class="fas fa-circle-exclamation"></i></div>
+                    <div>
+                        <p class="m-0">Error loading roster. Please try again later.</p>
+                    </div>
+                </div>`);
+            handleAjaxError(jqXHR, "Failed to load the repeating shifts");
+            setPaginationValues(0, 0); // Set pagination values to ensure selector doesnt become bugged
+        }
+    });
+}
+
+
+function renderScheduleTable(data) {
+    const days = {0:"Monday", 1:"Tuesday", 2:"Wednesday", 3:"Thursday", 4:"Friday", 5:"Saturday", 6:"Sunday"};
+    const mondayWeekOne = data['week_one_next_date'];
+    console.log(mondayWeekOne)
+
+    $.each([1,2,3,4], function(_, week) {
+        let tableHtml = `
+        <table class="schedule-table-view">
+          <thead>
+            <tr>
+              <th class="employee-name-cell">Employee</th>
+              ${Object.entries(days).map(([dayIndex, dayWord]) => `
+                <th>
+                  ${dayWord}<br>
+                  <small class="day-date">${getDateForCycleWeek(mondayWeekOne, week, dayIndex)}</small>
+                  <button class="btn add-repeating-shift-btn" data-day="${dayIndex}" data-week="${week}" title="Add repeating shift for this day">
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </th>
+              `).join('')}
+            </tr>
+          </thead>
+        <tbody>`;
+
+        // Go through a week for every employee
+        $.each(data.schedule, function (employeeName, employeeData) {
+            const weekData = employeeData[`week${week}`];
+
+            if (weekData && Object.entries(weekData).length > 0) {
+                tableHtml += `<tr><td class="employee-name-cell cursor-pointer" data-id="${employeeData['id']}">${employeeName}</td>`;
+
+                // Go through every day for that week
+                $.each([0,1,2,3,4,5,6], function(_, day) {
+                    const dayData = weekData[day];
+
+                    if (dayData && Object.entries(weekData).length > 0) {
+                        // Go through every shift for that day
+                        $.each(dayData, function(_, shift) {
+                            const duration = calculateDuration(shift.start_time, shift.end_time);
+                            const borderColor = shift.role_colour || '#adb5bd';
+
+                            tableHtml += `
+                            <td class="shift-cell">
+                              <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
+                                  <div class="shift-item-details">
+                                      ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+                                      <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                                      <span>⌛ ${duration}</span>
+                                      ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                                  </div>
+                              </div>
+                            </td>`;
+                        });
+
+                    } else{
+                      tableHtml += `<td></td>`;
+                    }
+                });
+
+                tableHtml +='</tr>';
+
+            } else {
+              tableHtml += `
+              <tr>
+                <td class="employee-name-cell cursor-pointer" data-id="${employeeData['id']}">${employeeName}</td>
+                <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+              </tr>`
+            }
         });
-    }
+
+        tableHtml += `</tbody></table>`;
+
+        $(`#schedule-container-week-${week}`).html(tableHtml);
+    });
+}
 
 
+// Fetches employees and roles for the currently selected store and updates the dropdown
+function updateStoreInformation() {
+    showSpinner();
 
+    const $editEmployeeList = $("#editModalEmployeeList");
+    const $editShiftSelect = $("#repeatingRole");
 
-    $('#repeatingEmployeeSearchBar').on('input', function () {
-        renderEmployeeList($(this).val());
+    // Clear everything first
+    $editEmployeeList.empty();
+    $editShiftSelect.html(`<option value="" selected>No Role</option>`);
+
+    // Fetch employees names
+    $.ajax({
+        url: `${window.djangoURLs.listStoreEmployeeNames}?store_id=${getSelectedStoreID()}&only_active=false`,
+        type: 'GET',
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
+
+        success: function(response) {
+            const employeeList = response.names;
+
+            if (Array.isArray(employeeList) && employeeList.length > 0) {
+                employeeList.forEach(employee => {
+                    $editEmployeeList.append(
+                        `<li class="list-group-item cursor-pointer" data-id="${employee.id}">${employee.name}</li>`
+                    );
+                });
+            } else {
+                $editEmployeeList.append('<option value="">No Employees available</option>');
+                showNotification("There are no employees associated to the selected store.", "danger");
+            }
+        },
+
+        error: function(jqXHR, textStatus, errorThrown) {
+            handleAjaxError(jqXHR, "Failed to load employee names", false);
+            $editEmployeeList.append('<option value="">Error getting employees</option>');
+        }
     });
 
-    $(document).on('click', '.add-repeating-shift-btn', function (e) {
+    // Fetch store roles
+    $.ajax({
+        url: `${window.djangoURLs.listStoreRoles}${getSelectedStoreID()}/`,
+        type: 'GET',
+        xhrFields: {withCredentials: true},
+        headers: {'X-CSRFToken': getCSRFToken()},
+
+        success: function(resp) {
+            let roleOptionsHtml = '';
+
+            if (resp.data && resp.data.length > 0) {
+                resp.data.forEach(role => {
+                    roleOptionsHtml += `<option value="${role.id}">${role.name}</option>`;
+                });
+            }
+            $editShiftSelect.append(roleOptionsHtml);
+        },
+
+        error: function(jqXHR, textStatus, errorThrown) { handleAjaxError(jqXHR, "Failed to load store roles", false); }
+    });
+
+    hideSpinner();
+}
+
+
+function handleDeleteShiftBtn() {
+    $('#deleteRepeatingShiftBtn').on('click', () => {
+        $('#confirmDeleteRepeatingShiftBtn').removeClass('d-none');
+        $('#deleteRepeatingShiftBtn').addClass('d-none');
+    });
+
+    $('#editModal').on('hide.bs.modal', () => {
+        $('#confirmDeleteRepeatingShiftBtn').addClass('d-none');
+        $('#deleteRepeatingShiftBtn').removeClass('d-none');
+    });
+}
+
+
+function handleWeekSwitching() {
+    $('#previous-week-btn').on('click', function(e) {
         e.preventDefault();
-        const weekNum = parseInt($(this).data('week'), 10);
-        const dayIndex = parseInt($(this).data('day'), 10);
-        openCreateRepeatingShiftModal(weekNum, dayIndex);
+        const currentWeek = ensureSafeInt($('.repeating-week:not(.d-none)').first().data('week'), 1, 4);
+        const newWeek = ((currentWeek + 2) % 4) + 1;
+        
+        $('.repeating-week').addClass('d-none');
+        $(`#repeating-week-${newWeek}`).removeClass('d-none');
+        $('#schedule-week-title').text(`Cycle Week ${newWeek} of 4`);
     });
 
-
-    $(document).on('click', '.shift-item', function () {
-        const shiftId = $(this).data('shiftId');
-        openEditRepeatingShiftModal(shiftId);
+    $('#next-week-btn').on('click', function(e) {
+        e.preventDefault();
+        const currentWeek = ensureSafeInt($('.repeating-week:not(.d-none)').first().data('week'), 1, 4);
+        const newWeek = (currentWeek % 4) + 1;
+        
+        $('.repeating-week').addClass('d-none');
+        $(`#repeating-week-${newWeek}`).removeClass('d-none');
+        $('#schedule-week-title').text(`Cycle Week ${newWeek} of 4`);
     });
-
-    function populateRoleSelect() {
-        const $roleSelect = $('#repeatingRole');
-        if ($roleSelect.length === 0) return;
-    
-        $roleSelect.empty();
-    
-        $roleSelect.append(`<option value="">No role selected</option>`);
-    
-        roles.forEach(role => {
-            $roleSelect.append(
-                `<option value="${role.id}">${role.name}</option>`
-            );
-        });
-    }
+}
 
 
-    function calculateDuration(startTime, endTime) {
+// This function scroll to the position of a user in the list IF GIVEN (otherwise scroll to top)
+function showEmployeeInSelectionList() {
+  const $listItems = $('#editModalEmployeeList .list-group-item');
+  const $container = $('#editModalEmployeeList');
+  const userId = $('#editModalSelectedEmployeeID').val();
+  $listItems.removeClass('active'); // Clear any existing selections
+
+
+  if (!userId) {
+    // Scroll to top if no userId is provided
+    $container.scrollTop(0);
+    return;
+  }
+
+  // Find and highlight the item
+  const $selectedItem = $listItems.filter(`[data-id="${userId}"]`);
+  if ($selectedItem.length) {
+    $selectedItem.addClass('active');
+    // Scroll to the selected item (centered)
+    $container.scrollTop(
+        $selectedItem.offset().top - $container.offset().top + $container.scrollTop() - $container.height() / 2
+    );
+  }
+}
+
+//////////////////////////////// HELPER FUNCTIONS /////////////////////////////////////
+
+function calculateDuration(startTime, endTime) {
+    // Create date objects to calculate the difference. Date itself doesn't matter.
     const start = new Date(`01/01/2000 ${startTime}`);
     let end = new Date(`01/01/2000 ${endTime}`);
 
+    // Handle overnight shifts
     if (end < start) {
-      end.setDate(end.getDate() + 1);
+        end.setDate(end.getDate() + 1);
     }
-
-    const diffMs = end - start;
+    
+    let diffMs = end - start;
     const hours = Math.floor(diffMs / 3600000);
     const minutes = Math.floor((diffMs % 3600000) / 60000);
 
     return `${hours}h ${minutes}m`;
-  }
-
-  function getSelectedSortField() {
-    const checked = document.querySelector("input[name='sortField']:checked");
-    return checked ? checked.value : "name";
-  }
-
-  function getFilters() {
-    const hideDeactivated = document.getElementById("hideDeactivated");
-    const hideResigned = document.getElementById("hideResigned");
-    const filterNamesEl = document.getElementById("filterNames");
-    const filterRolesEl = document.getElementById("filterRoles");
-
-    return {
-      hideDeactivated: hideDeactivated ? hideDeactivated.checked : false,
-      hideResigned: hideResigned ? hideResigned.checked : false,
-      filterNames: filterNamesEl ? filterNamesEl.value.trim() : "",
-      filterRoles: filterRolesEl ? filterRolesEl.value.trim() : "",
-      sortField: getSelectedSortField(),
-    };
-  }
-
-  function buildQueryParams(filters, offset = 0, limit = 100) {
-    const params = new URLSearchParams();
-    params.set("offset", offset);
-    params.set("limit", limit);
-
-    params.set("hide_deactive", filters.hideDeactivated ? "true" : "false");
-    params.set("hide_resign", filters.hideResigned ? "true" : "false");
-    params.set("sort", filters.sortField);
-
-    if (filters.filterNames) {
-      params.set("filter_names", filters.filterNames);
-    }
-    if (filters.filterRoles) {
-      params.set("filter_roles", filters.filterRoles);
-    }
-    return params.toString();
-  }
-
-function fetchEmployees(storeId) {
-  $.ajax({
-    url: `${api.listStoreEmployeeNames}?store_id=${storeId}&only_active=false`,
-    method: "GET",
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() },
-
-    success: function (data) {
-      employees = data.names || [];
-      renderEmployeeList("");
-    },
-
-    error: function (jqXHR) {
-      handleAjaxError(jqXHR, "Failed to load employees");
-    }
-  });
 }
 
+function getDateForCycleWeek(mondayWeekOne, weekNumber, dayIndex) {
+    const baseDate = new Date(Date.parse(mondayWeekOne));
 
+    const weeksOffset = (weekNumber - 1) * 7;
+    const totalDays = weeksOffset + ensureSafeInt(dayIndex, 0, 6);
 
-function fetchRoles(storeId) {
-  $.ajax({
-    url: `${api.listStoreRoles}${storeId}/`,
-    method: "GET",
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() },
+    const resultDate = new Date(baseDate);
+    resultDate.setDate(baseDate.getDate() + totalDays);
 
-    success: function (resp) {
-      roles = resp.data || [];
-      populateRoleSelect();
-    },
+    // Format as DD/MM/YYYY
+    const dd = String(resultDate.getDate()).padStart(2, '0');
+    const mm = String(resultDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = resultDate.getFullYear();
 
-    error: function (jqXHR) {
-      handleAjaxError(jqXHR, "Failed to load roles");
-    }
-  });
+    return `${dd}/${mm}/${yyyy}`;
 }
-
-
-function fetchRepeatingSchedule(storeId) {
-  const filters = getFilters();
-  const qs = buildQueryParams(filters, repeatingOffset, repeatingLimit);
-
-  $.ajax({
-    url: `${api.listRepeatingShifts}${storeId}/?${qs}`,
-    method: "GET",
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() },
-
-    success: function (data) {
-      repeatingSchedule = data.schedule || {};
-      repeatingOffset = data.offset ?? repeatingOffset;
-      repeatingTotal = data.total ?? 0;
-
-      renderAllWeeks();
-
-      setPaginationValues(repeatingOffset, repeatingTotal);
-    },
-
-    error: function (jqXHR) {
-      handleAjaxError(jqXHR, "Failed to load repeating shifts");
-      setPaginationValues(0, 0);
-    }
-  });
-}
-
-
-
-
-  async function fetchRepeatingShiftDetails(shiftId) {
-    const url = `${api.manageRepeatingShift}/${shiftId}`;
-    console.log("Fetching repeating shift details from:", url);
-
-    const res = await fetch(url);
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.Error || errData.error || "Failed to load repeating shift");
-    }
-    return await res.json();
-  }
-
-function createRepeatingShift(payload) {
-  return $.ajax({
-    url: `${api.createRepeatingShift}/${currentStoreId}`,
-    method: "POST",
-    contentType: "application/json",
-    data: JSON.stringify({
-      employee_id: payload.employee_id,
-      start_weekday: payload.start_weekday,
-      end_weekday: payload.end_weekday,
-      start_time: payload.start_time,
-      end_time: payload.end_time,
-      active_weeks: JSON.stringify(payload.active_weeks),
-      role_id: payload.role_id,
-      comment: payload.comment
-    }),
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() }
-  });
-}
-
-
-function updateRepeatingShift(shiftId, payload) {
-  return $.ajax({
-    url: `${api.manageRepeatingShift}/${shiftId}`,
-    method: "POST",
-    contentType: "application/json",
-    data: JSON.stringify({
-      employee_id: payload.employee_id,
-      start_weekday: payload.start_weekday,
-      end_weekday: payload.end_weekday,
-      start_time: payload.start_time,
-      end_time: payload.end_time,
-      active_weeks: JSON.stringify(payload.active_weeks),
-      role_id: payload.role_id,
-      comment: payload.comment
-    }),
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() }
-  });
-}
-
-
-function deleteRepeatingShift(shiftId) {
-  return $.ajax({
-    url: `${api.manageRepeatingShift}/${shiftId}`,
-    method: "DELETE",
-    xhrFields: { withCredentials: true },
-    headers: { "X-CSRFToken": getCSRFToken() }
-  });
-}
-
-
-
-  // RENDERING THE 4-WEEK CYCLE HERE ---------------------------------------------
-
-  function renderAllWeeks() {
-      for (let week = 1; week <= 4; week++) {
-          renderRepeatingTableView(week);
-      }
-      updateWeekHeader();
-  }
-
-  function renderRepeatingTableView(weekNum) {
-    const container = document.getElementById(`week-${weekNum}-schedule-container`);
-    if (!container || !repeatingSchedule) return;
-
-    container.innerHTML = "";
-
-    const employeeNames = Object.keys(repeatingSchedule);
-    if (employeeNames.length === 0) {
-        container.innerHTML = '<p class="text-center text-white">No repeating shifts to display.</p>';
-        return;
-    }
-
-    const weekKey = `week${weekNum}`;
-    const days = [0,1,2,3,4,5,6];
-
-    let tableHtml = `
-        <table class="schedule-table-view">
-            <thead>
-                <tr>
-                    <th class="employee-name-cell">Employee</th>
-                    ${days.map(d => `
-                      <th>
-                          ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][d]}
-                          <br>
-                          <small class="day-date">&nbsp;</small>
-
-                          <button class="btn add-shift-btn add-repeating-shift-btn"
-                              data-week="${weekNum}"
-                              data-day="${d}"
-                              data-bs-toggle="tooltip"
-                              title="Add repeating shift for this day">
-                              <i class="fas fa-plus"></i>
-                          </button>
-                      </th>
-                    `).join("")}
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    employeeNames.forEach(empName => {
-        const empData = repeatingSchedule[empName];
-        const empId = empData.id;
-
-        tableHtml += `
-            <tr>
-                <td class="employee-name-cell cursor-pointer" data-id="${empId}">
-                    ${empName}
-                </td>
-        `;
-
-        days.forEach(dayIndex => {
-            const shifts = (empData[weekKey] && empData[weekKey][dayIndex]) || [];
-
-            tableHtml += `<td class="shift-cell">`;
-
-            shifts.forEach(shift => {
-                const shiftId = shift.id || shift.shift_id;
-                const duration = calculateDuration(shift.start_time, shift.end_time);
-                const backgroundColor = "#f8f9fa";
-                const borderColor = shift.role_colour || "#adb5bd";
-
-                tableHtml += `
-                    <div class="shift-item cursor-pointer mb-2 position-relative"
-                         data-shift-id="${shiftId}"
-                         style="border-left:8px solid ${borderColor}; background:${backgroundColor};">
-
-                        ${shift.has_comment ?
-                            '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="Comment">C</span>'
-                        : ''}
-
-                        <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                        <span>⌛ ${duration}</span>
-                        ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ""}
-                    </div>
-                `;
-            });
-
-            tableHtml += `</td>`;
-        });
-
-        tableHtml += "</tr>";
-    });
-
-    tableHtml += "</tbody></table>";
-
-    container.innerHTML = tableHtml;
-}
-
-
-  async function loadRepeatingForCurrentStore() {
-    if (!currentStoreId) return;
-
-    try {
-      await fetchRepeatingSchedule(currentStoreId);
-    } catch (err) {
-      console.error("Error loading repeating shifts:", err);
-    }
-  }
-
-  if (storeSelect) {
-    storeSelect.addEventListener("change", () => {
-      const value = storeSelect.value;
-      currentStoreId = value || null;
-      currentWeek = 1;
-    
-      repeatingOffset = 0;
-      resetPaginationValues();
-    
-      updateWeekHeader();
-    
-      if (currentStoreId) {
-        fetchEmployees(currentStoreId);
-        fetchRoles(currentStoreId);
-        loadRepeatingForCurrentStore();
-      }
-    });
-
-
-    if (storeSelect.value) {
-      currentStoreId = storeSelect.value;
-      updateWeekHeader();
-      fetchEmployees(currentStoreId);
-      fetchRoles(currentStoreId);
-      loadRepeatingForCurrentStore();
-    } else {
-      updateWeekHeader();
-    }
-  } else {
-    updateWeekHeader();
-  }
-
-
-  if (tableControllerSubmit) {
-    tableControllerSubmit.addEventListener("click", e => {
-      e.preventDefault();
-      if (!currentStoreId) return;
-
-      repeatingOffset = 0;
-      resetPaginationValues();
-    
-      fetchRepeatingSchedule(currentStoreId);
-    });
-  }
-
-
-  function updateWeekHeader() {
-    if (weekHeaderTitle) {
-      weekHeaderTitle.textContent = `Cycle Week ${currentWeek} of 4`;
-    }
-    document.querySelectorAll(".repeating-week").forEach(el => {
-      const w = parseInt(el.dataset.week);
-      el.style.display = (w === currentWeek) ? "" : "none";
-    });
-  }
-
-  if (previousWeekBtn) {
-    previousWeekBtn.addEventListener("click", e => {
-      e.preventDefault();
-      currentWeek = currentWeek === 1 ? 4 : currentWeek - 1;
-      updateWeekHeader();
-    });
-  }
-
-  if (nextWeekBtn) {
-    nextWeekBtn.addEventListener("click", e => {
-      e.preventDefault();
-      currentWeek = currentWeek === 4 ? 1 : currentWeek + 1;
-      updateWeekHeader();
-    });
-  }
-
-  handlePagination({
-  updateFunc: loadRepeatingViaPagination
-});
-
-function loadRepeatingViaPagination() {
-  if (!currentStoreId) return;
-
-  repeatingOffset = getPaginationOffset();
-  repeatingLimit = getPaginationLimit();
-  fetchRepeatingSchedule(currentStoreId);
-}
-
-
-});

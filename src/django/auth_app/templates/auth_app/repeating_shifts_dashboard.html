@@ -7,7 +7,7 @@
 
 {% block content %}
 <h1 class="text-center flex-grow-1 mb-3 fw-bolder">
-  Repeating Shift Template (4-Week Cycle)
+  Repeating Shifts
 </h1>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -32,8 +32,8 @@
     <span style="width: 24px;"></span>
     <h3 class="flex-grow-1 text-center fw-semibold m-0">Table Controls</h3>
     <i class="fa-solid fa-chevron-right ms-2 border border-secondary rounded px-2 py-2"
-       id="tableControllerToggleIcon"
-       style="width: 34px;"></i>
+        id="tableControllerToggleIcon"
+        style="width: 34px;"></i>
   </button>
 
   <div class="collapse" id="tableControllerCollapse">
@@ -90,8 +90,8 @@
 </div>
 
 <div id="schedule-header"
-     class="d-flex justify-content-between gradient-panel align-items-center mb-4 py-0 px-2 px-md-4 rounded"
-     style="background-color: #2d3748;">
+      class="d-flex justify-content-between gradient-panel align-items-center mb-4 py-0 px-2 px-md-4 rounded"
+      style="background-color: #2d3748;">
   <div>
     <a class="btn btn-outline-light" href="#" id="previous-week-btn">
       <i class="fas fa-arrow-left"></i> Back
@@ -107,14 +107,14 @@
   </a>
 </div>
 
-{% for week_number in week_numbers %}
+{% for week_number in "1234" %}
 <div
-  class="scroll-container break-content-container repeating-week"
+  class="scroll-container break-content-container repeating-week {% if not forloop.first %}d-none{% endif %}"
   data-week="{{ week_number }}"
-  {% if not forloop.first %}style="display:none;"{% endif %}
+  id="repeating-week-{{ week_number }}"
 >
-  <div class="d-flex" id="week-{{ week_number }}-schedule-container">
-    {% for day_name in weekday_names %}
+  <div class="d-flex schedule-container" id="schedule-container-week-{{ week_number }}">
+    {% for day_name in "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"|split:"," %}
       {% with day_index=forloop.counter0 %}
       <div class="day-column mb-4" data-day="{{ day_index }}">
         <div class="day-header">
@@ -129,7 +129,7 @@
             <i class="fas fa-plus"></i>
           </button>
         </div>
-        <div class="shifts-list">
+        <div id="shifts-list-{{ week_number }}-{{ day_index }}" class="shifts-list">
           Loading...
         </div>
       </div>
@@ -141,36 +141,37 @@
 
 {% include "components/pagination_controller.html" with limit=100 %}
 
-<div class="modal fade" id="repeatingEditModal" tabindex="-1" aria-labelledby="repeatingEditModalLabel" aria-hidden="true">
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content rounded-3 shadow-sm">
+
       <div class="modal-header text-white">
-        <h5 class="modal-title w-100 text-center" id="repeatingEditModalLabel">Add Repeating Shift</h5>
+        <h5 class="modal-title w-100 text-center" id="editModalLabel">Add Repeating Shift</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
       <div class="modal-body">
         <form id="repeatingShiftForm" class="px-1">
           <input type="hidden" id="repeatingShiftId" name="repeatingShiftId">
-          <input type="hidden" id="repeatingShiftStoreId" name="storeId">
 
           <div id="repeatingEmployeeListContainer" class="mb-4">
             <div class="mb-3">
-              <label for="repeatingEmployeeSearchBar" class="form-label">Select Employee</label>
+              <label for="editModalEmployeeSearchBar" class="form-label">Select Employee</label>
               <input
                 type="text"
                 class="form-control"
-                id="repeatingEmployeeSearchBar"
+                id="editModalEmployeeSearchBar"
                 placeholder="Type to filter employees..."
+                required
               >
             </div>
             <ul
-              id="repeatingEmployeeList"
+              id="editModalEmployeeList"
               class="list-group mb-3 scrollable-list"
             ></ul>
             <input
               type="hidden"
-              id="repeatingSelectedEmployeeID"
+              id="editModalSelectedEmployeeID"
               name="employeeID"
               value=""
             >
@@ -179,7 +180,7 @@
           <div class="row mb-3">
             <div class="col">
               <label for="repeatingStartWeekday" class="form-label">Start Day:</label>
-              <select class="form-select" id="repeatingStartWeekday">
+              <select class="form-select" id="repeatingStartWeekday" required>
                 <option value="0">Monday</option>
                 <option value="1">Tuesday</option>
                 <option value="2">Wednesday</option>
@@ -189,9 +190,9 @@
                 <option value="6">Sunday</option>
               </select>
             </div>
-            <div class="col">
+            <!-- <div class="col disabled">
               <label for="repeatingEndWeekday" class="form-label">End Day:</label>
-              <select class="form-select" id="repeatingEndWeekday">
+              <select class="form-select" id="repeatingEndWeekday" disabled>
                 <option value="0">Monday</option>
                 <option value="1">Tuesday</option>
                 <option value="2">Wednesday</option>
@@ -200,7 +201,7 @@
                 <option value="5">Saturday</option>
                 <option value="6">Sunday</option>
               </select>
-            </div>
+            </div> -->
           </div>
 
           <div class="row mb-3">
@@ -218,8 +219,8 @@
             <label class="form-label d-block">Active Weeks (in 4-week cycle):</label>
             <div class="btn-group" role="group" aria-label="ActiveWeeks">
               {% for w in "1234" %}
-              <input type="checkbox" class="btn-check repeating-week-checkbox" id="repeatingWeek{{ forloop.counter }}" value="{{ forloop.counter }}" autocomplete="off">
-              <label class="btn btn-outline-info" for="repeatingWeek{{ forloop.counter }}">Week {{ forloop.counter }}</label>
+              <input type="checkbox" class="btn-check repeating-week-checkbox" id="repeatingActiveWeek{{ forloop.counter }}" value="{{ forloop.counter }}" autocomplete="off">
+              <label class="btn btn-outline-info" for="repeatingActiveWeek{{ forloop.counter }}">Week {{ forloop.counter }}</label>
               {% endfor %}
             </div>
           </div>
@@ -229,7 +230,7 @@
               <span>Role:</span>
               <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
             </label>
-            <select class="form-select" id="repeatingRole"></select>
+            <select class="form-select" id="repeatingRole" required></select>
           </div>
 
           <div class="mb-3">
@@ -247,7 +248,7 @@
           Cancel
         </button>
         <button type="button" class="btn btn-primary" id="saveRepeatingShiftBtn">
-          <i class="fa-solid fa-floppy-disk me-1"></i> Save Repeating Shift
+          <i class="fa-solid fa-floppy-disk me-1"></i> Save Shift
         </button>
         <button type="button" class="btn btn-danger d-none" id="deleteRepeatingShiftBtn">
           <i class="fa-solid fa-trash me-1"></i> Delete
@@ -255,53 +256,6 @@
         <button type="button" class="btn btn-warning d-none" id="confirmDeleteRepeatingShiftBtn">
           <i class="fa-solid fa-triangle-exclamation me-1"></i> Confirm Delete
         </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal modal-xl fade" id="manageRolesModal" tabindex="-1" aria-labelledby="manageRolesModalLabel">
-  <div class="modal-dialog">
-    <div class="modal-content w-75">
-      <div class="modal-header">
-        <h5 class="modal-title w-100 text-center" id="manageRolesModalLabel">Manage Store Roles</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="row">
-          <div class="col-md-6 mt-1">
-            <div class="d-flex flex-row justify-content-between mb-1">
-              <h6 class="fw-semibold mb-0">Existing Roles</h6>
-              <button class="btn btn-sm btn-outline-light rounded-circle d-flex align-items-center justify-content-center" id="addNewRoleBtn" style="width: 30px; height: 30px;">
-                <i class="fas fa-plus"></i>
-              </button>
-            </div>
-            <ul class="list-group scrollable-list" id="existingRolesList">
-              <li class="list-group-item">Loading...</li>
-            </ul>
-          </div>
-          <div class="col-md-6 mt-4 mt-md-1">
-            <h6 class="fw-semibold">Add New Role</h6>
-            <form id="addRoleForm">
-              <div class="mb-3">
-                <label for="newRoleName" class="text-light">Role Name:</label>
-                <input type="text" class="form-control" id="newRoleName" required>
-              </div>
-              <div class="mb-3">
-                <label for="newRoleDescription" class="text-light w-100 d-flex flex-row align-items-center justify-content-between">
-                  <span>Description:</span>
-                  <small class="text-light-emphasis fs-6 ms-2"><em>(Optional)</em></small>
-                </label>
-                <textarea class="form-control" id="newRoleDescription" rows="2"></textarea>
-              </div>
-              <div class="mb-3 d-flex flex-column">
-                <label for="newRoleColor" class="text-light">Color:</label>
-                <input type="color" class="form-control form-control-color w-75 align-self-center" id="newRoleColor" value='#adb5bd' title="Choose a color">
-              </div>
-              <button type="submit" class="btn btn-primary w-100">Add Role</button>
-            </form>
-          </div>
-        </div>
       </div>
     </div>
   </div>

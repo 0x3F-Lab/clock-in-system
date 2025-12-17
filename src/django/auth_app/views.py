@@ -896,19 +896,4 @@ def repeating_shifts_dashboard(request):
         )
         return redirect("home")
 
-    context.update(
-        {
-            "week_numbers": [1, 2, 3, 4],
-            "weekday_names": [
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-                "Sunday",
-            ],
-        }
-    )
-
-    return render(request, "auth_app/repeating_shifts.html", context)
+    return render(request, "auth_app/repeating_shifts_dashboard.html", context)

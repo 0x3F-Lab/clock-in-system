@@ -415,7 +415,13 @@ def write_out_repeating_shifts_for_week(
                     login=shift.start_time,
                     logout=shift.end_time,
                 ):
-                    shifts_not_created.append(shift)
+                    shifts_not_created.append((shift, "Conflicting Shift"))
+                    continue
+                elif not shift.employee.is_active:
+                    shifts_not_created.append((shift, "Employee Deactivated"))
+                    continue
+                elif not shift.employee.is_associated_with_store(shift.store_id):
+                    shifts_not_created.append((shift, "Employee Resigned"))
                     continue
 
                 shifts_to_create.append(
@@ -462,8 +468,8 @@ def write_out_repeating_shifts_for_week(
                 f"[`{store.code}`] Repeating Shift Results"
             )
             str_conflicting_shifts = "\n".join(
-                f"<li>{calendar.day_abbr[shift.start_weekday - 1].upper()} {shift.start_time.strftime('%H:%M')} to {shift.end_time.strftime('%H:%M')} (Role: {shift.role.name if shift.role else 'N/A'}) - {shift.employee.first_name} {shift.employee.last_name}</li>"
-                for shift in shifts_not_created
+                f"<li>{calendar.day_abbr[shift.start_weekday - 1].upper()} {shift.start_time.strftime('%H:%M')} to {shift.end_time.strftime('%H:%M')} (Role: {shift.role.name if shift.role else 'N/A'}) - {shift.employee.first_name} {shift.employee.last_name} [{reason}]</li>"
+                for shift, reason in shifts_not_created
             )
             str_conflicting_msg = f"\n\nThe system failed to create **{len(shifts_not_created)} shift(s)** due to conflicts with existing shifts, they are as follow: {str_conflicting_shifts}"
             str_msg = util.sanitise_markdown_message_text(
