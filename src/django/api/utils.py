@@ -13,7 +13,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import caches
 from django.contrib.sessions.models import Session
-from django.utils.timezone import make_aware, is_naive, localtime
+from django.utils.timezone import make_aware, is_naive, localtime, now
 from auth_app.models import User, Store, Activity, Shift, ShiftException
 
 logger = logging.getLogger("api")
@@ -120,6 +120,44 @@ def is_public_holiday(
         logger.error(f"Unexpected error when checking public holiday via API: {str(e)}")
 
     # Ensure something returns (DONT SET CACHE AS API CALL FAILED)
+    return False
+
+
+def can_manager_export_report(user: Union[User, int]) -> bool:
+    """
+    Checks if the user is within the period limits of exportation
+
+    :param user: The user to query
+    :type user: Union[User, int]
+    :return: Whether the user is within the period limit of report exportation
+    :rtype: bool
+    """
+    if isinstance(user, int) or (isinstance(user, str) and user.isdigit()):
+        try:
+            user = User.objects.get(pk=int(user))
+        except Exception:
+            return False
+
+    cache = caches["user_report_limits"]
+
+    export_times = cache.get(user.id)
+    if export_times is None:
+        export_times = [localtime(now())]
+        cache.set(export_times, True, timeout=settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
+        return True
+
+    new_export_times = []
+    for time in export_times:
+        if (
+            localtime(now()) - time
+        ).total_seconds() >= settings.MAX_USER_REPORT_EXPORT_TTL_SEC:
+            new_export_times.append(time)
+
+    if len(new_export_times) < settings.MAX_USER_REPORT_EXPORT_LIMIT:
+        new_export_times.append(localtime(now()))
+        cache.set(new_export_times, True, settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
+        return True
+
     return False
 
 

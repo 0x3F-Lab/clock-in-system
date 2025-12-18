@@ -35,6 +35,7 @@ jobs:
           echo -e "\nREDIS_DEFAULT_DJANGO_CACHE_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/2" >> ./src/.env.production
           echo -e "\nREDIS_HOLIDAY_CHECKS_DJANGO_CACHE_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/3" >> ./src/.env.production
           echo -e "\nREDIS_USER_STATS_DJANGO_CACHE_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/4" >> ./src/.env.production
+          echo -e "\nREDIS_USER_REPORT_LIMITS_CACHE_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/5" >> ./src/.env.production
 
       - name: Build Docker images
         run: |

@@ -183,6 +183,10 @@ if DEBUG and str_to_bool(os.getenv("DJANGO_USE_MEMORY_CACHE", "false")):
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "user_stats_cache",
         },
+        "user_report_limits": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "user_report_limits_cache",
+        },
     }
 else:
     CACHES = {
@@ -204,6 +208,13 @@ else:
             "LOCATION": os.getenv(
                 "REDIS_USER_STATS_DJANGO_CACHE_URL",
                 "redis://:securepassword@redis:6379/4",
+            ),
+        },
+        "user_report_limits": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_USER_REPORT_LIMITS_CACHE_URL",
+                "redis://:securepassword@redis:6379/5",
             ),
         },
     }
@@ -351,6 +362,10 @@ MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
 
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
+
+# What is the maximum number of reports a manager can export within the given period
+MAX_USER_REPORT_EXPORT_LIMIT = 10
+MAX_USER_REPORT_EXPORT_TTL_SEC = 3600  # 1 hour
 
 # Define minimum and maximum field lengths
 PASSWORD_MIN_LENGTH = 6

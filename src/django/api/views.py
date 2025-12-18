@@ -4654,9 +4654,9 @@ def generate_weekly_roster_report(request):
 
         store_id = util.clean_param_str(request.GET.get("store_id"))
         week = util.clean_param_str(request.GET.get("week"))
-        filter_raw = util.clean_param_str(request.GET.get("filter", ""))
+        filter_raw = util.clean_param_str(request.GET.get("filter", ""))  # filter_names
+        roles_raw = util.clean_param_str(request.GET.get("roles", ""))
 
-        roles_raw = request.GET.get("roles", "")
         if roles_raw:
             roles_filter = [r.strip() for r in roles_raw.split(",") if r.strip()]
         else:
@@ -4669,7 +4669,7 @@ def generate_weekly_roster_report(request):
             )
 
         try:
-            temp_week = datetime.strptime(week, "%Y-%m-%d").date()
+            week = datetime.strptime(week, "%Y-%m-%d").date()
         except ValueError:
             return Response(
                 {"Error": "Invalid date format. Expected YYYY-MM-DD."},
@@ -4686,6 +4686,13 @@ def generate_weekly_roster_report(request):
 
         if not user.is_manager(store=store.id):
             raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             filter_names = util.get_filter_list_from_string(filter_raw)
@@ -4693,15 +4700,6 @@ def generate_weekly_roster_report(request):
             filter_names = []
 
         try:
-            datetime.strptime(week, "%Y-%m-%d")
-        except ValueError:
-            return Response(
-                {"Error": "Invalid week format. Use YYYY-MM-DD."},
-                status=status.HTTP_406_NOT_ACCEPTABLE,
-            )
-
-        try:
-
             pdf_bytes = build_roster_report_pdf(store, week, filter_names, roles_filter)
 
             return HttpResponse(pdf_bytes, content_type="application/pdf")
@@ -4717,7 +4715,11 @@ def generate_weekly_roster_report(request):
             {"Error": "Not authorised for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
     except Exception as e:
         logger.critical(f"Roster API failure: {e}")
         return Response(
