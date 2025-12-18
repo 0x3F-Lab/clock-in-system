@@ -13,6 +13,29 @@ class ReportBuildError(Exception):
     pass
 
 
+from reportlab.lib.units import mm
+
+
+def draw_page_meta(canvas, doc, store_code):
+    canvas.saveState()
+
+    timestamp = datetime.now().strftime("%d %b %Y %H:%M:%S")
+
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.grey)
+
+    page_width, page_height = doc.pagesize
+
+    # ---- STORE HEADER (TOP LEFT) ----
+    canvas.drawString(36, page_height - 20, f"Store: {store_code}")
+
+    # ---- FOOTER (BOTTOM CENTER) ----
+    footer_text = f"Page {doc.page} - {timestamp}"
+    canvas.drawCentredString(page_width / 2, 15, footer_text)
+
+    canvas.restoreState()
+
+
 def build_shift_logs_pdf(
     store, start, end, results, sort_by, min_hours, min_deliveries, sort_desc
 ) -> bytes:
@@ -45,18 +68,28 @@ def build_shift_logs_pdf(
             pagesize=A4,
             rightMargin=36,
             leftMargin=36,
-            topMargin=54,
+            topMargin=24,
             bottomMargin=36,
         )
+
+        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+        start_fmt = datetime.strptime(start, "%Y-%m-%d").strftime("%d %b %Y")
+        end_fmt = datetime.strptime(end, "%Y-%m-%d").strftime("%d %b %Y")
 
         elements = []
         styles = getSampleStyleSheet()
 
         # Header
         elements.append(Paragraph(f"Shift Logs Report — {store.name}", styles["Title"]))
-        elements.append(Paragraph(f"Date Range: {start} to {end}", styles["Normal"]))
-        elements.append(Paragraph(f"Store Code: {store.code}"))
-        elements.append(Spacer(1, 20))
+        elements.append(Spacer(1, 12))
+        meta_line = (
+            f"<b>Date Range:</b> {start_fmt} → {end_fmt} &nbsp;&nbsp;&nbsp; "
+            f"<b>Store:</b> {store.code} &nbsp;&nbsp;&nbsp; "
+            f"<b>Generated:</b> {generated_time}"
+        )
+
+        elements.append(Paragraph(meta_line, styles["Normal"]))
+        elements.append(Spacer(1, 12))
 
         # Table data
         table_data = [
@@ -163,12 +196,12 @@ def build_shift_logs_pdf(
 
         elements.append(table)
         elements.append(Spacer(1, 12))
-        # Timestamp footer
-        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        timestamp = f"<font size='8' color='#888888'>Generated: {generated_time}</font>"
-        elements.append(Paragraph(timestamp, styles["Normal"]))
 
-        doc.build(elements)
+        doc.build(
+            elements,
+            onFirstPage=lambda c, d: draw_page_meta(c, d, store.code),
+            onLaterPages=lambda c, d: draw_page_meta(c, d, store.code),
+        )
 
         pdf = buffer.getvalue()
         buffer.close()
@@ -225,18 +258,33 @@ def build_account_summary_pdf(
             pagesize=A4,
             rightMargin=36,
             leftMargin=36,
-            topMargin=54,
+            topMargin=24,
             bottomMargin=36,
         )
 
         elements = []
         styles = getSampleStyleSheet()
 
+        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+        start_fmt = datetime.strptime(start, "%Y-%m-%d").strftime("%d %b %Y")
+        end_fmt = datetime.strptime(end, "%Y-%m-%d").strftime("%d %b %Y")
+
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Header
         elements.append(
             Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
         )
-        elements.append(Paragraph(f"Date Range: {start} to {end}", styles["Normal"]))
-        elements.append(Paragraph(f"Store Code: {store.code}"))
+        elements.append(Spacer(1, 12))
+        meta_line = (
+            f"<b>Date Range:</b> {start_fmt} → {end_fmt} &nbsp;&nbsp;&nbsp; "
+            f"<b>Store:</b> {store.code} &nbsp;&nbsp;&nbsp; "
+            f"<b>Generated:</b> {generated_time}"
+        )
+
+        elements.append(Paragraph(meta_line, styles["Normal"]))
+        elements.append(Spacer(1, 12))
 
         if ignore_no_hours:
             elements.append(
@@ -345,18 +393,12 @@ def build_account_summary_pdf(
         )
 
         elements.append(table)
-        elements.append(Spacer(1, 12))
 
-        # Footer timestamp
-        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(
-            Paragraph(
-                f"<font size=8 color='#888888'>Generated: {generated_time}</font>",
-                styles["Normal"],
-            )
+        doc.build(
+            elements,
+            onFirstPage=lambda c, d: draw_page_meta(c, d, store.code),
+            onLaterPages=lambda c, d: draw_page_meta(c, d, store.code),
         )
-
-        doc.build(elements)
 
         pdf_bytes = buffer.getvalue()
         buffer.close()
@@ -446,30 +488,28 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
             pagesize=landscape(A4),
             rightMargin=24,
             leftMargin=24,
-            topMargin=30,
+            topMargin=24,
             bottomMargin=30,
         )
+
+        # --- HEADER ---
+        generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
 
         elements = []
         styles = getSampleStyleSheet()
 
-        # --- HEADER ---
+        # Header
         elements.append(
-            Paragraph(
-                f"<b>Weekly Roster Report</b> — {store.name}",
-                styles["Title"],
-            )
+            Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
         )
-        elements.append(
-            Paragraph(
-                f"Week: {week_start.strftime('%d %b %Y')} → {week_end.strftime('%d %b %Y')}",
-                styles["Normal"],
-            )
+        elements.append(Spacer(1, 12))
+        meta_line = (
+            f"<b>Store:</b> {store.code} &nbsp;&nbsp;&nbsp; "
+            f"<b>Generated:</b> {generated_time}"
         )
-        elements.append(
-            Paragraph(f"<font color='#555555'>Store Code: {store.code}</font>")
-        )
-        elements.append(Spacer(1, 18))
+
+        elements.append(Paragraph(meta_line, styles["Normal"]))
+        elements.append(Spacer(1, 12))
 
         # --- TABLE DATA ---
         data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
@@ -541,17 +581,11 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
         elements.append(table)
 
-        # --- FOOTER ---
-        elements.append(Spacer(1, 14))
-        generated = datetime.now().strftime("%d %b %Y %H:%M:%S")
-        elements.append(
-            Paragraph(
-                f"<font size='8' color='#888888'>Generated: {generated}</font>",
-                styles["Normal"],
-            )
+        doc.build(
+            elements,
+            onFirstPage=lambda c, d: draw_page_meta(c, d, store.code),
+            onLaterPages=lambda c, d: draw_page_meta(c, d, store.code),
         )
-
-        doc.build(elements)
 
         pdf_data = buffer.getvalue()
         buffer.close()
