@@ -4429,7 +4429,6 @@ def list_shift_requests(request):
 def generate_shift_logs_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
-
         store_id = util.clean_param_str(request.GET.get("store_id"))
         start = util.clean_param_str(request.GET.get("start"))
         end = util.clean_param_str(request.GET.get("end"))
@@ -4454,7 +4453,7 @@ def generate_shift_logs_report(request):
             return Response(
                 {"Error": "End date cannot be before start date."},
                 status=status.HTTP_418_IM_A_TEAPOT,
-            )
+            )  # HTTP 418 as a result of how error messages are handled at front
 
         try:
             store = Store.objects.get(pk=store_id)
@@ -4464,9 +4463,15 @@ def generate_shift_logs_report(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Manager authorisation
-        if not user.is_manager(store=int(store_id)):
+        if not user.is_manager(store=store.id):
             raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
 
         # Optional filters
         only_pub = util.str_to_bool(request.GET.get("only_pub", "false"))
@@ -4530,6 +4535,12 @@ def generate_shift_logs_report(request):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     except Exception as e:
         logger.critical(f"Shift report critical failure: {e}")
         return Response(
@@ -4543,7 +4554,6 @@ def generate_shift_logs_report(request):
 def generate_account_summary_report(request):
     try:
         user = util.api_get_user_object_from_session(request)
-
         store_id = util.clean_param_str(request.GET.get("store_id"))
         start = util.clean_param_str(request.GET.get("start"))
         end = util.clean_param_str(request.GET.get("end"))
@@ -4579,6 +4589,13 @@ def generate_account_summary_report(request):
 
         if not user.is_manager(store=store.id):
             raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
 
         # --- NEW FILTERS ---
         ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
@@ -4608,7 +4625,7 @@ def generate_account_summary_report(request):
             start_date=start,
             end_date=end,
             ignore_no_hours=ignore_no_hours,
-            sort_field="name",  # base sort only; your logic overrides
+            sort_field="name",
             filter_names=filter_list,
             allow_inactive_store=True,
         )
@@ -4632,9 +4649,17 @@ def generate_account_summary_report(request):
     except err.NotAssociatedWithStoreAsManagerError:
         return Response({"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
 
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     except err.ShiftExceptionExistsError:
         return Response(
-            {" - "},
+            {
+                "Pending exception exists. Please approve of all exception and try again."
+            },
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
 
@@ -4654,7 +4679,7 @@ def generate_weekly_roster_report(request):
 
         store_id = util.clean_param_str(request.GET.get("store_id"))
         week = util.clean_param_str(request.GET.get("week"))
-        filter_raw = util.clean_param_str(request.GET.get("filter", ""))  # filter_names
+        filter_raw = util.clean_param_str(request.GET.get("filter", ""))
         roles_raw = util.clean_param_str(request.GET.get("roles", ""))
 
         if roles_raw:
@@ -4691,7 +4716,7 @@ def generate_weekly_roster_report(request):
         elif not util.can_manager_export_report(user):
             return Response(
                 {"Error": "Cannot exceed 10 reports within the hour."},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_417_EXPECTATION_FAILED,
             )
 
         try:

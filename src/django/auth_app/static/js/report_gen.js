@@ -24,12 +24,12 @@ function openPDFBlob(blob, filename) {
     // Open for preview
     window.open(url, "_blank");
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;  
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // const a = document.createElement("a");
+    // a.href = url;
+    // a.download = filename;  
+    // document.body.appendChild(a);
+    // a.click();
+    // document.body.removeChild(a);
 
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
@@ -87,6 +87,7 @@ function generateShiftLogReport(e) {
 
         },
         error: function(xhr) {
+            hideSpinner();
             showErrorMessage(xhr.status);
         }
     });
@@ -159,6 +160,7 @@ function generateAccountSummaryReport(e) {
     });
 }
 
+// Error notifications
 function showErrorMessage(status) {
     let message;
 
@@ -169,6 +171,10 @@ function showErrorMessage(status) {
 
         case 403:
             message = "You are not authorised to generate this report.";
+            break;
+        
+        case 417:
+            message = "Cannot exceed 10 reports generated per hour. Try again later."
             break;
 
         case 418:
@@ -184,7 +190,7 @@ function showErrorMessage(status) {
             break;
 
         default:
-            message = "Failed to generate report. Please try again. If issue persists, contanct and admin";
+            message = "Failed to generate report. Please try again. If issue persists, contact an admin";
     }
 
             showNotification(message, "danger");
@@ -224,6 +230,7 @@ function loadWeeklyRosterRoles() {
         },
 
         error: function(xhr) {
+            hideSpinner();
             showErrorMessage(xhr.status);
         }
     });
@@ -271,6 +278,7 @@ function generateWeeklyRosterReport() {
             openPDFBlob(blob, "weekly_roster_report.pdf");
         },
         error: function(xhr) {
+            hideSpinner();
             showErrorMessage(xhr.status);
         }
     });

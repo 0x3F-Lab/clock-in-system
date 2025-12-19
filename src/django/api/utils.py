@@ -132,33 +132,33 @@ def can_manager_export_report(user: Union[User, int]) -> bool:
     :return: Whether the user is within the period limit of report exportation
     :rtype: bool
     """
-    if isinstance(user, int) or (isinstance(user, str) and user.isdigit()):
+    if isinstance(user, (int, str)) and str(user).isdigit():
         try:
             user = User.objects.get(pk=int(user))
-        except Exception:
+        except User.DoesNotExist:
             return False
 
     cache = caches["user_report_limits"]
+    key = f"user_report_export:{user.id}"
+    now_time = localtime(now())
 
-    export_times = cache.get(user.id)
-    if export_times is None:
-        export_times = [localtime(now())]
-        cache.set(export_times, True, timeout=settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
-        return True
+    export_times = cache.get(key, [])
 
-    new_export_times = []
-    for time in export_times:
-        if (
-            localtime(now()) - time
-        ).total_seconds() >= settings.MAX_USER_REPORT_EXPORT_TTL_SEC:
-            new_export_times.append(time)
+    # Keep only non-expired timestamps
+    export_times = [
+        t
+        for t in export_times
+        if (now_time - t).total_seconds() < settings.MAX_USER_REPORT_EXPORT_TTL_SEC
+    ]
 
-    if len(new_export_times) < settings.MAX_USER_REPORT_EXPORT_LIMIT:
-        new_export_times.append(localtime(now()))
-        cache.set(new_export_times, True, settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
-        return True
+    if len(export_times) >= settings.MAX_USER_REPORT_EXPORT_LIMIT:
+        return False
 
-    return False
+    export_times.append(now_time)
+
+    cache.set(key, export_times, timeout=settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
+
+    return True
 
 
 def api_get_user_object_from_session(request) -> User:
