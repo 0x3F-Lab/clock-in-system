@@ -6,14 +6,12 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 import api.controllers as controllers
 from auth_app.models import Store
+from reportlab.lib.units import mm
 
 
 class ReportBuildError(Exception):
 
     pass
-
-
-from reportlab.lib.units import mm
 
 
 def draw_page_meta(canvas, doc, store_code):
@@ -314,8 +312,27 @@ def build_account_summary_pdf(
             ]
         ]
 
+        total_weekday = 0.0
+        total_weekend = 0.0
+        total_public = 0.0
+        total_deliveries = 0
+        total_hours = 0.0
         # Rows
         for summary in summaries:
+
+            weekday = float(summary.get("hours_weekday") or 0)
+            weekend = float(summary.get("hours_weekend") or 0)
+            public_hol = float(summary.get("hours_public_holiday") or 0)
+            deliveries = int(summary.get("deliveries") or 0)
+            total = float(summary.get("hours_total") or 0)
+
+            # accumulate totals
+            total_weekday += weekday
+            total_weekend += weekend
+            total_public += public_hol
+            total_deliveries += deliveries
+            total_hours += total
+
             table_data.append(
                 [
                     summary.get("name", "-"),
@@ -328,13 +345,25 @@ def build_account_summary_pdf(
                 ]
             )
 
+        table_data.append(
+            [
+                "TOTAL",
+                f"{total_weekday:.2f}",
+                f"{total_weekend:.2f}",
+                f"{total_public:.2f}",
+                total_deliveries,
+                f"{total_hours:.2f}",
+                "",
+            ]
+        )
+
         if len(table_data) == 1:
             table_data.append(["No records found", "", "", "", "", "", ""])
 
         table = Table(
             table_data,
             repeatRows=1,
-            colWidths=[100, 80, 80, 90, 60, 90, 50],  # adjust as needed
+            colWidths=[100, 80, 80, 90, 60, 90, 50],
         )
 
         table.setStyle(
@@ -434,7 +463,7 @@ def build_weekly_roster_matrix(
     )
 
     schedule_map = data.get("schedule", {})
-    week_start = data.get("week_start")  # always Monday
+    week_start = data.get("week_start")
 
     week_dates = [week_start + timedelta(days=i) for i in range(7)]
 
