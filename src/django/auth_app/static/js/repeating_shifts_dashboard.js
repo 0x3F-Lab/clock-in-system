@@ -48,7 +48,7 @@ $(document).ready(function() {
 
 function handleShiftModification() {
     // CLICK `+` ON A CERTAIN DAY -> OPEN EDIT MODAL AND SET TO CREATION
-    $('.schedule-container').on('click', '.add-repeating-shift-btn', function() {
+    $('.schedule-container').on('click', '.add-shift-btn', function() {
         const day = $(this).data('day');
         const week = $(this).data('week');
         $('#repeatingStartWeekday').val(day);
@@ -137,7 +137,6 @@ function handleShiftModification() {
             active_weeks: active_week_selection
         };
 
-        console.log(formData);
         if (!formData.employee_id || !formData.start_time || !formData.end_time || !formData.start_weekday || formData.active_weeks.length === 0) {
             showNotification('Cannot submit form without all required fields.', 'warning');
             return;
@@ -255,7 +254,6 @@ function loadSchedule() {
 function renderScheduleTable(data) {
     const days = {0:"Monday", 1:"Tuesday", 2:"Wednesday", 3:"Thursday", 4:"Friday", 5:"Saturday", 6:"Sunday"};
     const mondayWeekOne = data['week_one_next_date'];
-    console.log(mondayWeekOne)
 
     $.each([1,2,3,4], function(_, week) {
         let tableHtml = `
