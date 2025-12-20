@@ -267,7 +267,7 @@ function renderScheduleTable(data) {
                 <th>
                   ${dayWord}<br>
                   <small class="day-date">${getDateForCycleWeek(mondayWeekOne, week, dayIndex)}</small>
-                  <button class="btn add-repeating-shift-btn" data-day="${dayIndex}" data-week="${week}" title="Add repeating shift for this day">
+                  <button class="btn add-shift-btn" data-day="${dayIndex}" data-week="${week}" title="Add repeating shift for this day">
                     <i class="fas fa-plus"></i>
                   </button>
                 </th>

@@ -10,7 +10,10 @@ services:
     restart: always
     image: django
     build:
-      context: ./django  # Path to your Django directory
+      context: ./django
+      args:
+        UID: 1000
+        GID: 1000
     environment:
       DJANGO_ENV: docker
     volumes:

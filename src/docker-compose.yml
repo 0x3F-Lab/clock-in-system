@@ -11,7 +11,11 @@ services:
 
   django:
     container_name: Django
-    build: ./django
+    build:
+      context: ./django
+      args:
+        UID: 1000
+        GID: 1000
     environment:
       DJANGO_ENV: docker
     volumes:

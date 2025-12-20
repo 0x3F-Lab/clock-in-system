@@ -765,14 +765,14 @@ def get_repeating_shift_cycle_week(
     return RepeatingShift.CycleWeek(cycle_week_number)
 
 
-def get_next_date_for_cycle_week(
+def get_real_date_from_repeating_shift_cycle(
     start_weekday: int,
     target_cycle_week: RepeatingShift.CycleWeek,
     today: Union[datetime, date] = None,
 ) -> date:
     """
     Given a target cycle week (1-4) and a weekday (0=Mon..6=Sun),
-    find the next calendar date this shift occurs after today.
+    find the next calendar date this shift occurs including today.
 
     :param start_weekday: Weekday of shift start (0=Mon..6=Sun)
     :param target_cycle_week: Desired cycle week (1-4)
@@ -796,7 +796,7 @@ def get_next_date_for_cycle_week(
     shift_date = target_week_monday + timedelta(days=start_weekday)
 
     # If shift_date is still in the past relative to today, add 4 weeks
-    if shift_date <= today:
+    if shift_date < today:
         shift_date += timedelta(weeks=4)
 
     return shift_date

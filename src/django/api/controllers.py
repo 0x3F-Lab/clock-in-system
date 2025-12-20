@@ -2535,7 +2535,7 @@ def get_all_store_repeating_shifts(
 
     return {
         "schedule": schedule,
-        "week_one_next_date": util.get_next_date_for_cycle_week(
+        "week_one_next_date": util.get_real_date_from_repeating_shift_cycle(
             0, RepeatingShift.CycleWeek.WEEK_1
         ).isoformat(),
         "total": total,

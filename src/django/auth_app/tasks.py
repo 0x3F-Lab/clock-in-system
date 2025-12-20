@@ -99,6 +99,7 @@ def check_clocked_in_users():
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -402,7 +403,7 @@ def write_out_repeating_shifts_for_week(
             shifts_not_created = []
 
             for shift in repeating_shifts:
-                shift_date = util.get_next_date_for_cycle_week(
+                shift_date = util.get_real_date_from_repeating_shift_cycle(
                     start_weekday=shift.start_weekday,
                     target_cycle_week=cycle_week,
                     today=week_start,
@@ -453,6 +454,7 @@ def write_out_repeating_shifts_for_week(
                         users=store.get_store_managers(),
                         title=str_title,
                         message=str_msg,
+                        store=store,
                         notification_type=Notification.Type.AUTOMATIC_ALERT,
                         recipient_group=Notification.RecipientType.STORE_MANAGERS,
                         expires_on=notification_default_expires_on(7),
@@ -467,11 +469,11 @@ def write_out_repeating_shifts_for_week(
             str_title = util.sanitise_markdown_title_text(
                 f"[`{store.code}`] Repeating Shift Results"
             )
-            str_conflicting_shifts = "\n".join(
-                f"<li>{calendar.day_abbr[shift.start_weekday - 1].upper()} {shift.start_time.strftime('%H:%M')} to {shift.end_time.strftime('%H:%M')} (Role: {shift.role.name if shift.role else 'N/A'}) - {shift.employee.first_name} {shift.employee.last_name} [{reason}]</li>"
+            str_conflicting_shifts = "\n\n".join(
+                f"- {shift.employee.first_name} {shift.employee.last_name}: {calendar.day_abbr[shift.start_weekday - 1].upper()} - {shift.start_time.strftime('%H:%M')} to {shift.end_time.strftime('%H:%M')} (Role: {shift.role.name if shift.role else 'N/A'}) [Reason: {reason}]"
                 for shift, reason in shifts_not_created
             )
-            str_conflicting_msg = f"\n\nThe system failed to create **{len(shifts_not_created)} shift(s)** due to conflicts with existing shifts, they are as follow: {str_conflicting_shifts}"
+            str_conflicting_msg = f"\n\nThe system failed to create **{len(shifts_not_created)} shift(s)** due to conflicts with existing shifts, they are as follow:\n\n{str_conflicting_shifts}"
             str_msg = util.sanitise_markdown_message_text(
                 f"The system has written out repeating shifts as actual shifts for the store `{store.code}` in the week starting **{week_start}**. There were **{len(shifts_to_create)} shift(s)** generated from this process.{str_conflicting_msg if shifts_not_created else ''}\n\nIf there are any issues with this process please contact a *Site Administrator* to resolve it."
             )
@@ -479,6 +481,7 @@ def write_out_repeating_shifts_for_week(
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -556,6 +559,7 @@ def notify_managers_account_deactivated(user_id: int, manager_id: int):
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -626,6 +630,7 @@ def notify_managers_account_activated(user_id: int, manager_id: int):
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -702,6 +707,7 @@ def notify_managers_and_employee_account_resigned(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -798,6 +804,7 @@ def notify_managers_and_employee_account_assigned(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -998,6 +1005,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(14),
@@ -1087,6 +1095,7 @@ def notify_managers_and_user_elevated_permission(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -1176,6 +1185,7 @@ def notify_managers_and_user_removed_permission(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
