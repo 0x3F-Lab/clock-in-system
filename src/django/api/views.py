@@ -4714,7 +4714,9 @@ def generate_weekly_roster_report(request):
             )
 
         try:
-            week = datetime.strptime(week, "%Y-%m-%d").date()
+            temp_week = datetime.strptime(
+                week, "%Y-%m-%d"
+            ).date()  # LEAVE AS temp_week FOR VALIDATION ONLY
         except ValueError:
             return Response(
                 {"Error": "Invalid date format. Expected YYYY-MM-DD."},
