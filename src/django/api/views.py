@@ -4455,6 +4455,12 @@ def generate_shift_logs_report(request):
                 status=status.HTTP_418_IM_A_TEAPOT,
             )  # HTTP 418 as a result of how error messages are handled at front
 
+        if (end_date - start_date).days > settings.MAX_RANGE_DAYS:
+            return Response(
+                {"Error": "Date range cannot exceed 6 months."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
         try:
             store = Store.objects.get(pk=store_id)
         except Store.DoesNotExist:
@@ -4578,6 +4584,12 @@ def generate_account_summary_report(request):
             return Response(
                 {"Error": "End date cannot be before start date."},
                 status=status.HTTP_418_IM_A_TEAPOT,
+            )
+
+        if (end_date - start_date).days > settings.MAX_RANGE_DAYS:
+            return Response(
+                {"Error": "Date range cannot exceed 6 months."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
 
         try:

@@ -375,6 +375,9 @@ ROLE_DESC_MAX_LENGTH = 750  # DB is 750
 SHIFT_COMMENT_MAX_LENGTH = 1500  # DB is 2500
 NOTIFICATION_MESSAGE_MAX_LENGTH = 2500  # CHAR LENGTH - DB has no limit
 
+# Maximum numbers of days for report generation
+MAX_RANGE_DAYS = 183  # Approximately 6 months
+
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (
     r"^[a-zA-Z\s\-']+$"  # Allows letters, spaces, hyphens, and apostrophes

@@ -172,6 +172,10 @@ function showErrorMessage(status) {
         case 403:
             message = "You are not authorised to generate this report.";
             break;
+
+        case 413:
+            message = "Date range exceed 6 months. Please reduce time frame."
+            break;
         
         case 417:
             message = "Cannot exceed 10 reports generated per hour. Try again later."
