@@ -174,7 +174,7 @@ function showErrorMessage(status) {
             break;
 
         case 413:
-            message = "Date range exceed 6 months. Please reduce time frame."
+            message = "Date range exceeds 4 months. Please reduce the time frame."
             break;
         
         case 417:

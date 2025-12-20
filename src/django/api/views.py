@@ -4455,9 +4455,13 @@ def generate_shift_logs_report(request):
                 status=status.HTTP_418_IM_A_TEAPOT,
             )  # HTTP 418 as a result of how error messages are handled at front
 
-        if (end_date - start_date).days > settings.MAX_RANGE_DAYS:
+        if (
+            end_date - start_date
+        ).days > settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS:
             return Response(
-                {"Error": "Date range cannot exceed 6 months."},
+                {
+                    "Error": f"Date range cannot exceed {settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS} days."
+                },
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
 
@@ -4586,9 +4590,13 @@ def generate_account_summary_report(request):
                 status=status.HTTP_418_IM_A_TEAPOT,
             )
 
-        if (end_date - start_date).days > settings.MAX_RANGE_DAYS:
+        if (
+            end_date - start_date
+        ).days > settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS:
             return Response(
-                {"Error": "Date range cannot exceed 6 months."},
+                {
+                    "Error": f"Date range cannot exceed {settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS} days."
+                },
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             )
 
