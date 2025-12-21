@@ -2452,14 +2452,29 @@ def get_all_store_repeating_shifts(
     if store is None or not isinstance(store, Store):
         raise Exception("Store object is not given.")
 
-    employee_qs = store.get_store_employees(
-        include_hidden=False, include_inactive=(not hide_deactivated)
+    # Employees currently in the store (via StoreAccess)
+    current_employees_qs = store.get_store_employees(include_hidden=False)
+
+    # Employees who have a repeating shifts (covers resigned employees)
+    shift_employee_ids = (
+        RepeatingShift.objects.filter(store=store)
+        .values_list("employee_id", flat=True)
+        .distinct()
     )
 
-    if hide_resigned:
-        employee_qs = employee_qs.prefetch_related("store_access").filter(
-            store_access__store_id=store.id
+    employee_qs = (
+        User.objects.filter(
+            Q(id__in=current_employees_qs.values_list("id", flat=True))
+            | Q(id__in=shift_employee_ids)
         )
+        .prefetch_related("store_access")
+        .filter(is_hidden=False)
+    )
+
+    if hide_deactivated:
+        employee_qs = employee_qs.filter(is_active=True)
+    if hide_resigned:
+        employee_qs = employee_qs.filter(store_access__store_id=store.id)
 
     if filter_names:
         # Annotate full_name
