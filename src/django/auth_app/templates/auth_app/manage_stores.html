@@ -49,6 +49,11 @@
         {% if info.is_global_shift_view_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}
       </span>
     </p>
+    <p><span class="fw-semibold">Has Repeating Shifts Enabled:</span> 
+      <span class="store-repeating-shifts" data-value="{{ info.is_repeating_shifts_enabled }}">
+        {% if info.is_repeating_shifts_enabled %}<span class="text-success">Yes</span>{% else %}<span class="text-danger">No</span>{% endif %}
+      </span>
+    </p>
   </div>
   {% endfor %}
   <button type="button" class="btn btn-lg w-100 btn-gradient" id="openEditModal">
@@ -89,6 +94,10 @@
           <div class="form-check form-switch my-3">
             <input type="checkbox" id="editGlobalShiftViewCapEnabled" class="form-check-input p-2" />
             <label for="editGlobalShiftViewCapEnabled" class="form-check-label">Enable global shift viewing for ALL employees.</label>
+          </div>
+          <div class="form-check form-switch my-3">
+            <input type="checkbox" id="editRepeatingShiftsCapEnabled" class="form-check-input p-2" />
+            <label for="editRepeatingShiftsCapEnabled" class="form-check-label">Enable repeating shifts.</label>
           </div>
         </form>
       </div>

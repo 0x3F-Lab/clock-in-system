@@ -329,6 +329,7 @@ def get_manager_associated_stores_full_info(user: User) -> dict:
             "is_active": store.is_active,
             "is_scheduling_enabled": store.is_scheduling_enabled,
             "is_global_shift_view_enabled": store.is_global_shift_view_enabled,
+            "is_repeating_shifts_enabled": store.is_repeating_shifts_enabled,
         }
 
     return store_data

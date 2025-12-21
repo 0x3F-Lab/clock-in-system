@@ -2165,6 +2165,9 @@ def update_store_info(request, id):
                 "cap_global_shift_view", store.is_global_shift_view_enabled
             )
         )
+        cap_repeating_shifts = util.str_to_bool(
+            request.data.get("cap_repeating_shifts", store.is_repeating_shifts_enabled)
+        )
 
         try:
             clocking_dist = int(clocking_dist)
@@ -2237,6 +2240,7 @@ def update_store_info(request, id):
             "clocking_dist": store.allowable_clocking_dist_m,
             "cap_scheduling": store.is_scheduling_enabled,
             "cap_global_shift_view": store.is_global_shift_view_enabled,
+            "cap_repeating_shifts": store.is_repeating_shifts_enabled,
         }
 
         # Ensure only update DB if something has changed
@@ -2272,6 +2276,10 @@ def update_store_info(request, id):
             store.is_global_shift_view_enabled = cap_global_shift_view
             update = True
 
+        if store.is_repeating_shifts_enabled != cap_repeating_shifts:
+            store.is_repeating_shifts_enabled = cap_repeating_shifts
+            update = True
+
         if not update:
             return JsonResponse(
                 {"Error": "No changes detected."},
@@ -2288,7 +2296,7 @@ def update_store_info(request, id):
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE INFORMATION for Store ID {store.id} ({original['code']})."
         )
         logger.debug(
-            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street} -- CAP Scheduling: {original['cap_scheduling']} → {store.is_scheduling_enabled} -- CAP Global Shift View: {original['cap_global_shift_view']} → {store.is_global_shift_view_enabled}"
+            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street} -- CAP Scheduling: {original['cap_scheduling']} → {store.is_scheduling_enabled} -- CAP Global Shift View: {original['cap_global_shift_view']} → {store.is_global_shift_view_enabled} -- CAP Repeating Shifts: {original['cap_repeating_shifts']} → {cap_repeating_shifts}"
         )
         return JsonResponse(
             {"id": store.id, "code": store.code}, status=status.HTTP_202_ACCEPTED
