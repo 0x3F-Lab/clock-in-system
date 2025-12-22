@@ -668,6 +668,8 @@ def get_all_shifts(
                 "emp_last_name": act.employee.last_name,
                 "emp_active": act.employee.is_active,
                 "emp_resigned": not act.is_store_associated,
+                "login_timestamp_raw": act.login_timestamp,
+                "logout_timestamp_raw": act.logout_timestamp,
                 "login_time": (
                     localtime(act.login_time).strftime("%H:%M")
                     if act.login_time

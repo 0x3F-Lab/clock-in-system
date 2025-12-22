@@ -53,8 +53,8 @@ def build_shift_logs_pdf(
             "name": lambda r: f"{r.get('emp_first_name','')} {r.get('emp_last_name','')}",
             "hours": lambda r: float(r.get("hours_worked") or 0),
             "deliveries": lambda r: int(r.get("deliveries") or 0),
-            "login": lambda r: r.get("login_timestamp") or "",
-            "logout": lambda r: r.get("logout_timestamp") or "",
+            "login": lambda r: r.get("login_timestamp_raw") or "",
+            "logout": lambda r: r.get("logout_timestamp_raw") or "",
         }
 
         if sort_by in sort_keys:
