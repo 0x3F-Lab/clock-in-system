@@ -562,7 +562,16 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
         elements.append(Spacer(1, 12))
 
         # --- TABLE DATA ---
-        data = [["Employee", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
+        week_dates = [week_start + timedelta(days=i) for i in range(7)]
+
+        header = ["Employee"]
+
+        for d in week_dates:
+            day_label = d.strftime("%a")
+            date_label = d.strftime("%d/%m")
+            header.append(f"{day_label}\n{date_label}")
+
+        data = [header]
 
         for emp in roster:
             row = [
