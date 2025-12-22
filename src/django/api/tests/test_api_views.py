@@ -1383,7 +1383,7 @@ class TestShiftRequestAPI:
 
 @pytest.mark.django_db
 def test_account_summary_report_success(
-    api_client, logged_in_manager, store, store_associate_manager, manager
+    api_client, logged_in_manager, store, store_associate_manager, manager, mocker
 ):
     """
     Valid request should return a PDF.
@@ -1476,10 +1476,7 @@ def test_account_summary_report_unauthorized(api_client, logged_in_employee, sto
 
 @pytest.mark.django_db
 def test_weekly_roster_report_success(
-    api_client,
-    logged_in_manager,
-    store,
-    store_associate_manager,
+    api_client, logged_in_manager, store, store_associate_manager, mocker
 ):
     """
     Valid weekly roster request should return a PDF.
@@ -1564,10 +1561,7 @@ def test_weekly_roster_report_unauthorized(
 
 @pytest.mark.django_db
 def test_shift_logs_report_success(
-    api_client,
-    logged_in_manager,
-    store,
-    store_associate_manager,
+    api_client, logged_in_manager, store, store_associate_manager, mocker
 ):
     """
     Valid shift logs request should return a PDF.
