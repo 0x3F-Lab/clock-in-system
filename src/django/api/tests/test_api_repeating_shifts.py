@@ -29,7 +29,7 @@ def test_create_repeating_shift_success(
         "comment": "Morning shift",
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",
@@ -80,7 +80,7 @@ def test_create_repeating_shift_conflict(
         "comment": "Overlapping shift",
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",
@@ -112,7 +112,7 @@ def test_create_repeating_shift_unassociated_manager(
         "end_time": "17:00",
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",
@@ -144,7 +144,7 @@ def test_create_repeating_shift_missing_required_field(
         # end_time missing
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",
@@ -177,7 +177,7 @@ def test_create_repeating_shift_end_time_before_start_time(
         "end_time": "09:00",
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",
@@ -208,7 +208,7 @@ def test_create_repeating_shift_employee_not_associated(
         "end_time": "17:00",
     }
 
-    response = api_client.post(
+    response = api_client.put(
         reverse("api:create_repeating_shift", args=[store.id]),
         data=payload,
         format="json",

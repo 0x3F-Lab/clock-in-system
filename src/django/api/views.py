@@ -4543,12 +4543,10 @@ def create_repeating_shift(request, store_id):
                 },
                 status=status.HTTP_406_NOT_ACCEPTABLE,
             )
-
-        employee = User.objects.get(pk=employee_id)
-        if not employee.is_active or employee.is_hidden:
+        elif end_time < start_time:
             return Response(
-                {"Error": f"Cannot create a shift for an inactive employee."},
-                status=status.HTTP_417_EXPECTATION_FAILED,
+                {"Error": "The shift cannot end before the start time."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
             )
 
         elif not util.is_repeating_shift_duration_valid(
@@ -4564,8 +4562,15 @@ def create_repeating_shift(request, store_id):
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
 
+        employee = User.objects.get(pk=employee_id)
+        if not employee.is_active or employee.is_hidden:
+            return Response(
+                {"Error": f"Cannot create a shift for an inactive employee."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
         # Check all shifts in the cycle are valid (no conflicting shifts)
-        if not controllers.check_conflicting_repeating_shifts(
+        elif not controllers.check_conflicting_repeating_shifts(
             employee_id,
             store_id,
             start_weekday,
@@ -4643,7 +4648,7 @@ def manage_repeating_shift(request, shift_id):
         role_id = util.clean_param_str(request.data.get("role_id", None))
         comment = util.clean_param_str(request.data.get("comment", ""))
 
-        if not manager.is_manager_of(shift.store_id) or shift.employee.is_hidden:
+        if not manager.is_manager_of(shift.store_id):
             raise err.NotAssociatedWithStoreAsManagerError
         elif not shift.store.is_active and request.method != "GET":
             raise err.InactiveStoreError
@@ -4773,6 +4778,11 @@ def manage_repeating_shift(request, shift_id):
                     {
                         "Error": "The shift cannot finish on a day before the shift. Week-wrapping is not supported."
                     },
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
+            elif end_time < start_time:
+                return Response(
+                    {"Error": "The shift cannot end before the start time."},
                     status=status.HTTP_406_NOT_ACCEPTABLE,
                 )
 
