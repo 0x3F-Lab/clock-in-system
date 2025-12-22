@@ -467,6 +467,16 @@ def build_weekly_roster_matrix(
 
     week_dates = [week_start + timedelta(days=i) for i in range(7)]
 
+    daily_totals = {
+        "Mon": 0.0,
+        "Tue": 0.0,
+        "Wed": 0.0,
+        "Thu": 0.0,
+        "Fri": 0.0,
+        "Sat": 0.0,
+        "Sun": 0.0,
+    }
+
     roster = []
 
     for full_name, info in schedule_map.items():
@@ -491,6 +501,14 @@ def build_weekly_roster_matrix(
             if shift_list:
                 formatted = []
                 for s in shift_list:
+                    start_t = datetime.strptime(s["start_time"], "%H:%M")
+                    end_t = datetime.strptime(s["end_time"], "%H:%M")
+
+                    hours = (end_t - start_t).total_seconds() / 3600
+
+                    day_name = d.strftime("%a")
+                    daily_totals[day_name] += hours
+
                     time_part = f"{s['start_time']}–{s['end_time']}"
 
                     if s.get("role_name"):
@@ -502,12 +520,12 @@ def build_weekly_roster_matrix(
 
         roster.append(row)
 
-    return roster, week_start, week_start + timedelta(days=6)
+    return roster, week_start, week_start + timedelta(days=6), daily_totals
 
 
 def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
     try:
-        roster, week_start, week_end = build_weekly_roster_matrix(
+        roster, week_start, week_end, daily_totals = build_weekly_roster_matrix(
             store.id, week, filter_names=filter_names, roles_filter=roles_filter
         )
 
@@ -559,6 +577,17 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
                 )
             data.append(row)
 
+        weekly_total = sum(daily_totals.values())
+
+        totals_row = [Paragraph("<b>Total Hours</b>", styles["Normal"])]
+
+        for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]:
+            totals_row.append(
+                Paragraph(f"<b>{daily_totals[day]:.2f}</b>", styles["Normal"])
+            )
+
+        data.append(totals_row)
+
         table = Table(
             data,
             repeatRows=1,
@@ -609,6 +638,14 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
         )
 
         elements.append(table)
+
+        elements.append(Spacer(1, 10))
+        elements.append(
+            Paragraph(
+                f"<b>Weekly Total:</b> {weekly_total:.2f} hrs",
+                styles["Normal"],
+            )
+        )
 
         doc.build(
             elements,
