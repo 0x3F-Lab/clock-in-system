@@ -541,6 +541,8 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
         # --- HEADER ---
         generated_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
+        week_start_fmt = week_start.strftime("%d %b %Y")
+        week_end_fmt = week_end.strftime("%d %b %Y")
 
         elements = []
         styles = getSampleStyleSheet()
@@ -551,6 +553,7 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
         )
         elements.append(Spacer(1, 12))
         meta_line = (
+            f"<b>Week:</b> {week_start_fmt} → {week_end_fmt} &nbsp;&nbsp;&nbsp; "
             f"<b>Store:</b> {store.code} &nbsp;&nbsp;&nbsp; "
             f"<b>Generated:</b> {generated_time}"
         )
