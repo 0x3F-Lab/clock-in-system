@@ -1390,6 +1390,11 @@ def test_account_summary_report_success(
     """
     api_client = logged_in_manager
 
+    mocker.patch(
+        "api.views.util.can_manager_export_report",
+        return_value=True,
+    )
+
     url = reverse("api:generate_account_summary_report")
     response = api_client.get(
         url,
@@ -1481,6 +1486,11 @@ def test_weekly_roster_report_success(
     """
     api_client = logged_in_manager
 
+    mocker.patch(
+        "api.views.util.can_manager_export_report",
+        return_value=True,
+    )
+
     url = reverse("api:generate_weekly_roster_report")
     response = api_client.get(
         url,
@@ -1563,6 +1573,11 @@ def test_shift_logs_report_success(
     Valid shift logs request should return a PDF.
     """
     api_client = logged_in_manager
+
+    mocker.patch(
+        "api.views.util.can_manager_export_report",
+        return_value=True,
+    )
 
     url = reverse("api:generate_shift_logs_report")
     response = api_client.get(
