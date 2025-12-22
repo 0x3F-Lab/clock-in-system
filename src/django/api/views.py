@@ -4787,7 +4787,7 @@ def manage_repeating_shift(request, shift_id):
                 )
 
             elif not controllers.check_conflicting_repeating_shifts(
-                shift.employee_id,
+                new_employee_id if new_employee_id else shift.employee_id,
                 shift.store_id,
                 start_weekday,
                 end_weekday,

@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/logs
 
 # Ensure correct ownership
-RUN chown -R django:django /app
+RUN chown -R ${UID}:${GID} /app
 
 # Set user
 USER django

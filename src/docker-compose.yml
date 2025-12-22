@@ -41,6 +41,7 @@ services:
   celery:
     container_name: Celery
     build: ./django
+    user: "1000:1000"
     environment:
       DJANGO_ENV: docker
     command: celery -A clock_in_system worker --loglevel=info
@@ -55,6 +56,7 @@ services:
   celery-beat:
     container_name: CeleryBeat
     build: ./django
+    user: "1000:1000"
     environment:
       DJANGO_ENV: docker
     command: celery -A clock_in_system beat --loglevel=info

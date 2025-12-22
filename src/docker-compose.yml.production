@@ -30,6 +30,7 @@ services:
     container_name: celery
     restart: always
     image: django  # Reuse the same Django image
+    user: "1000:1000"
     command: celery -A clock_in_system worker --loglevel=info
     environment:
       DJANGO_ENV: docker
@@ -45,6 +46,7 @@ services:
     container_name: celerybeat
     restart: always
     image: django
+    user: "1000:1000"
     command: celery -A clock_in_system beat --loglevel=info
     environment:
       DJANGO_ENV: docker

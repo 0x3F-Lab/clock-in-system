@@ -287,22 +287,22 @@ function renderScheduleTable(data) {
 
                     if (dayData && Object.entries(weekData).length > 0) {
                         // Go through every shift for that day
+                        tableHtml += '<td class="shift-cell">';
                         $.each(dayData, function(_, shift) {
                             const duration = calculateDuration(shift.start_time, shift.end_time);
                             const borderColor = shift.role_colour || '#adb5bd';
 
                             tableHtml += `
-                            <td class="shift-cell">
-                              <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
-                                  <div class="shift-item-details">
-                                      ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
-                                      <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
-                                      <span>⌛ ${duration}</span>
-                                      ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
-                                  </div>
-                              </div>
-                            </td>`;
+                            <div class="shift-item cursor-pointer mb-2 position-relative" style="border-left: 8px solid ${borderColor}; background-color: #f8f9fa;" data-shift-id="${shift.id}">
+                                <div class="shift-item-details">
+                                    ${shift.has_comment ? '<span class="danger-tooltip-icon position-absolute p-1" data-bs-toggle="tooltip" title="This shift has a comment">C</span>' : ''}
+                                    <span>🕒 ${shift.start_time} – ${shift.end_time}</span>
+                                    <span>⌛ ${duration}</span>
+                                    ${shift.role_name ? `<span>👤 ${shift.role_name}</span>` : ''}
+                                </div>
+                            </div>`;
                         });
+                        tableHtml += "</td>";
 
                     } else{
                       tableHtml += `<td></td>`;
