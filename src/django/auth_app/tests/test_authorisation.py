@@ -122,9 +122,7 @@ def test_logout_clears_session_and_redirects(logged_in_employee, employee):
     assert b"Successfully logged out" in response.content
 
 
-pytest.mark.django_db
-
-
+@pytest.mark.django_db
 def test_account_setup_success(web_client, unsetup_employee):
     """
     Test that a valid POST to setup_account sets up the account and logs the user in.

@@ -534,3 +534,17 @@ class NotificationForm(forms.Form):
             )
 
         return cleaned_data
+
+
+class AdminActionRepeatingShiftWriterForm(forms.Form):
+    week_start_date = forms.DateField(
+        required=True, widget=forms.DateInput(attrs={"type": "date"})
+    )
+
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(
+            is_active=True, is_scheduling_enabled=True, is_repeating_shifts_enabled=True
+        ),
+        required=True,
+        label="Store",
+    )

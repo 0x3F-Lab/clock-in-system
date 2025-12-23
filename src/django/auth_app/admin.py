@@ -1,6 +1,10 @@
-from django.contrib import admin
+from django.urls import path
+from django.contrib import admin, messages
+from django.shortcuts import render, redirect
 from django.utils.timezone import now, localtime
 from django.utils.translation import gettext_lazy as _
+from auth_app.tasks import write_out_repeating_shifts_for_week
+from auth_app.forms import AdminActionRepeatingShiftWriterForm
 from auth_app.models import (
     User,
     Activity,
@@ -12,6 +16,7 @@ from auth_app.models import (
     Shift,
     ShiftException,
     ShiftRequest,
+    RepeatingShift,
 )
 
 
@@ -189,6 +194,66 @@ class StoreAdmin(admin.ModelAdmin):
     search_fields = ("code", "name", "store_pin")
     ordering = ("name",)
     inlines = [StoreUserAccessInlineForStore]
+    actions = ["action_repeating_shift_writer"]
+
+    def action_repeating_shift_writer(self, request, queryset):
+        if queryset.count() != 1:
+            messages.error(request, "Please select only ONE store for this action.")
+            return redirect(".")
+        return redirect(f"action-repeating-shift-writer/?store={queryset.first().id}")
+
+    action_repeating_shift_writer.short_description = (
+        "Run repeating shift writer ADHOC (with parameters)"
+    )
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "action-repeating-shift-writer/",
+                self.admin_site.admin_view(self.run_repeating_shifts_view),
+                name="action-repeating-shift-writer",
+            )
+        ]
+        return custom_urls + urls
+
+    def run_repeating_shifts_view(self, request):
+        stores_param = request.GET.get("stores", "")
+        selected_stores = [int(s) for s in stores_param.split(",") if s]
+
+        initial = {}
+        if len(selected_stores) == 1:
+            initial["store"] = Store.objects.get(id=selected_stores[0])
+
+        if request.method == "POST":
+            form = AdminActionRepeatingShiftWriterForm(request.POST)
+
+            if form.is_valid():
+                store_id = form.cleaned_data["store"].id
+                week_start_date = form.cleaned_data["week_start_date"]
+
+                write_out_repeating_shifts_for_week.delay(
+                    store_id=store_id,
+                    week_start_date=(
+                        week_start_date.strftime("%Y-%m-%d")
+                        if week_start_date
+                        else None
+                    ),
+                )
+
+                messages.success(request, "Task queued successfully.")
+                return redirect("..")
+
+        else:
+            form = AdminActionRepeatingShiftWriterForm(initial=initial)
+
+        context = dict(
+            self.admin_site.each_context(request),
+            title="Run Repeating Shift Writer",
+            form=form,
+            selected_stores=selected_stores,
+        )
+        return render(request, "admin/action_repeating_shift_writer.html", context)
 
 
 @admin.register(Activity)
@@ -468,8 +533,62 @@ class ShiftRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description="Store Code")
     def store_code(self, obj):
-        return obj.store.code if obj.store else "—"
+        try:
+            return obj.get_store().code
+        except Exception:
+            return "N/A"
 
     @admin.display(description="Shift ID")
     def shift_id(self, obj):
         return obj.shift.id if obj.shift else "—"
+
+
+@admin.register(RepeatingShift)
+class RepeatingShiftAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "store__code",
+        "employee_name",
+        "start_weekday",
+        "start_time",
+        "end_weekday",
+        "end_time",
+        "active_weeks",
+        "role_display",
+        "created_at",
+    )
+
+    list_filter = (
+        "store",
+        "start_weekday",
+        "active_weeks",
+        "employee__is_active",
+        "employee__is_hidden",
+        HasCommentFilter,
+    )
+
+    search_fields = (
+        "employee__first_name",
+        "employee__last_name",
+        "store__code",
+        "store__name",
+        "role__name",
+    )
+
+    @admin.display(description="Store Code")
+    def store_code(self, obj):
+        try:
+            return obj.get_store().code
+        except Exception:
+            return "N/A"
+
+    @admin.display(description="Employee")
+    def employee_name(self, obj):
+        try:
+            return f"{obj.employee.first_name} {obj.employee.last_name}"
+        except Exception:
+            return "N/A"
+
+    @admin.display(description="Role")
+    def role_display(self, obj):
+        return obj.role.name if obj.role else "Unassigned"

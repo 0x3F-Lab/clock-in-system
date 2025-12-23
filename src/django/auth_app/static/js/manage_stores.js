@@ -87,12 +87,14 @@ function openEditModal() {
   const dist = infoDiv.find('.store-distance').text().trim();
   const schedEnabled = toBool(infoDiv.find('.store-sched').data('value'));
   const globalEnabled = toBool(infoDiv.find('.store-global').data('value'));
+  const repeatingShiftsEnabled = toBool(infoDiv.find('.store-repeating-shifts').data('value'));
 
   // Update modal inputs
   $('#editStreet').val(street);
   $('#editDist').val(dist);
   $('#editSchedulingCapEnabled').prop('checked', schedEnabled);
   $('#editGlobalShiftViewCapEnabled').prop('checked', globalEnabled);
+  $('#editRepeatingShiftsCapEnabled').prop('checked', repeatingShiftsEnabled);
 
   const editModal = new bootstrap.Modal(document.getElementById("editModal"));
   editModal.show();
@@ -117,6 +119,7 @@ function updateStoreInfo() {
           clocking_dist: $('#editDist').val(),
           cap_scheduling: $('#editSchedulingCapEnabled').prop('checked'),
           cap_global_shift_view: $('#editGlobalShiftViewCapEnabled').prop('checked'),
+          cap_repeating_shifts: $('#editRepeatingShiftsCapEnabled').prop('checked'),
         }),
     
         success: function(resp) {

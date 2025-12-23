@@ -16,6 +16,27 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: clock_in_system
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: InsEcuR3Pa55w0Rd
+          POSTGRES_HOST: postgres
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      POSTGRES_DB: clock_in_system
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: InsEcuR3Pa55w0Rd
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,7 +44,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: |

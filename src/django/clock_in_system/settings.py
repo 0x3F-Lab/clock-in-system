@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from pathlib import Path
+from datetime import datetime
+from django.utils import timezone
 from celery.schedules import crontab
 
 
@@ -23,7 +25,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.3.1"  #
+STATIC_CACHE_VER = "v1.3.2"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -45,6 +47,9 @@ SECRET_KEY = os.getenv(
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "True") == "True"
+
+# Determine if running outside of docker
+IS_DOCKER = os.getenv("DJANGO_ENV", "local").lower() == "docker"
 
 # Get the BASE_URL from the environment
 BASE_URL = os.getenv(
@@ -165,6 +170,9 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "InsEcuR3Pa55w0Rd"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "TEST": {
+            "NAME": "test",
+        },
     }
 }
 
@@ -282,6 +290,10 @@ CELERY_BEAT_SCHEDULE = {
             hour=0, minute=5
         ),  # DO NOT CHANGE FROM 12:05AM - UNLESS YOU'VE CONSULTED TASK FUNCTION
     },
+    "write_out_repeating_shifts_for_week": {
+        "task": "auth_app.tasks.write_out_repeating_shifts_for_week",
+        "schedule": crontab(hour=0, minute=30, day_of_week=1),  # DONT CHANGE THIS
+    },
 }
 
 
@@ -343,11 +355,15 @@ START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS = 60  # Default is 60m
 # How long a user must wait between starting a shift and finishing it
 FINISH_SHIFT_TIME_DELTA_THRESHOLD_MINS = 15  # Default is 15m
 
-# How long should a shift be (minimum)
+# How long should a shift be (min/max)
 MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 30  # Default is 30m
+MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS = 1080  # 18 hours
 
 # What is the maximum period a manager (non-admin) can modify a shift/activity (exceptions are handled up to this+1 days)
 MAX_SHIFT_ACTIVITY_AGE_MODIFIABLE_DAYS = 14
+
+# When should the repeating cycle start? I.e. if its a 4 week cycle, when does the very first system's cycle 1 start? (to align them all)
+REPEATING_SHIFTS_CYCLE_START = timezone.make_aware(datetime(2025, 1, 6, 0, 0, 0, 0))
 
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150

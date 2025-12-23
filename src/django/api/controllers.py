@@ -9,6 +9,7 @@ from datetime import timedelta, datetime
 from django.conf import settings
 from django.db import transaction, IntegrityError
 from django.db.models import Prefetch
+from django.db.models.query import QuerySet
 from django.db.models.functions import Coalesce, Concat
 from django.utils.timezone import now, localtime, make_aware
 from django.db.models import (
@@ -32,6 +33,7 @@ from auth_app.models import (
     ShiftException,
     StoreUserAccess,
     ShiftRequest,
+    RepeatingShift,
 )
 
 
@@ -1052,8 +1054,8 @@ def get_all_store_schedules_legacy(
             - 'prev_week': date of the previous week's Monday,
             - 'next_week': date of the next week's Monday.
     """
-    if store is None or week is None:
-        raise Exception("Store object or week is None.")
+    if store is None or not isinstance(store, Store) or week is None:
+        raise Exception("Store object or week is not given.")
 
     try:
         week_start = date.fromisoformat(week)
@@ -1202,8 +1204,8 @@ def get_all_store_schedules(
             'next_week': ...
         }
     """
-    if store is None or week is None:
-        raise Exception("Store object or week is None.")
+    if store is None or not isinstance(store, Store) or week is None:
+        raise Exception("Store object or week is not given.")
 
     try:
         week_start = date.fromisoformat(week)
@@ -2273,3 +2275,284 @@ def get_shift_requests(
         requests_data.append(info)
 
     return requests_data, total
+
+
+def get_overlapping_repeating_shifts(
+    employee_id: int,
+    store_id: int,
+    start_weekday: int,
+    end_weekday: int,
+    active_weeks_list: List[int],
+) -> QuerySet[RepeatingShift]:
+    """
+    Retrieve existing repeating shifts that overlap with the given shift parameters.
+
+    This function checks for other repeating shifts belonging to the same employee
+    and store that overlap in active weeks and weekdays. It supports detection of
+    overnight or multi-day shifts (where `end_weekday` may differ from `start_weekday`).
+
+    Args:
+        employee (User):
+            The employee whose shifts are being validated.
+        store (Store):
+            The store where the shift occurs.
+        start_weekday (int):
+            The weekday on which the new shift starts (0 = Monday, 6 = Sunday).
+        end_weekday (int):
+            The weekday on which the new shift ends (0 = Monday, 6 = Sunday).
+        active_weeks_list (list[int]):
+            List of integers (1-4) representing which weeks in the 4-week cycle
+            the shift is active.
+
+    Returns:
+        QuerySet[RepeatingShift]:
+            A queryset containing all existing repeating shifts that overlap
+            with the specified parameters.
+    """
+    # Build query for overlapping weekday ranges
+    q_overlap = (
+        Q(start_weekday__range=(start_weekday, end_weekday))
+        | Q(end_weekday__range=(start_weekday, end_weekday))
+        | Q(start_weekday__lte=end_weekday, end_weekday__gte=start_weekday)
+    )
+
+    # Handle wrap-around case (e.g. Sat -> Mon)
+    if end_weekday < start_weekday:
+        q_overlap = Q(start_weekday__gte=start_weekday) | Q(
+            end_weekday__lte=end_weekday
+        )
+
+    return (
+        RepeatingShift.objects.filter(
+            employee__id=employee_id,
+            store__id=store_id,
+        )
+        .filter(q_overlap)
+        .filter(active_weeks__overlap=active_weeks_list)
+    )
+
+
+def check_conflicting_repeating_shifts(
+    employee_id: int,
+    store_id: int,
+    start_weekday: int,
+    end_weekday: int,
+    start_time: time,
+    end_time: time,
+    active_weeks_list: List[int],
+    existing_shift_id: Union[int, None] = None,
+) -> bool:
+    """
+    Args:
+        employee (User):
+            The employee whose shifts are being validated.
+        store (Store):
+            The store where the shift occurs.
+        start_weekday (int):
+            The weekday on which the new shift starts (0 = Monday, 6 = Sunday).
+        end_weekday (int):
+            The weekday on which the new shift ends (0 = Monday, 6 = Sunday).
+        start_time (datetime):
+            The time of when the shift will begin.
+        end_time (datetime):
+            The time of when the shift will end.
+        active_weeks_list (list[int]):
+            List of integers (1-4) representing which weeks in the 4-week cycle
+            the shift is active.
+        existing_shift_id (int | None):
+            The ID of the existing shift to ignore; i.e. if updating the shift.
+
+    Returns:
+        Bool:
+            Wether the given repeating shift is allowed to be created or modified as such.
+    """
+    buffer = timedelta(minutes=settings.START_NEW_SHIFT_TIME_DELTA_THRESHOLD_MINS)
+    existing_shifts = get_overlapping_repeating_shifts(
+        employee_id, store_id, start_weekday, end_weekday, active_weeks_list
+    )
+
+    if existing_shift_id:
+        existing_shifts = existing_shifts.exclude(pk=existing_shift_id)
+
+    for existing in existing_shifts:
+        ref_date = datetime(2024, 1, 1)
+        existing_start_dt = datetime.combine(
+            ref_date + timedelta(days=existing.start_weekday), existing.start_time
+        )
+        existing_end_dt = datetime.combine(
+            ref_date + timedelta(days=existing.end_weekday), existing.end_time
+        )
+        new_start_dt = datetime.combine(
+            ref_date + timedelta(days=start_weekday), start_time
+        )
+        new_end_dt = datetime.combine(ref_date + timedelta(days=end_weekday), end_time)
+
+        # Adjust for overnight shifts
+        if existing_end_dt <= existing_start_dt:
+            existing_end_dt += timedelta(days=1)
+        if new_end_dt <= new_start_dt:
+            new_end_dt += timedelta(days=1)
+
+        # Apply buffer
+        buffered_start = existing_start_dt - buffer
+        buffered_end = existing_end_dt + buffer
+
+        if new_start_dt < buffered_end and buffered_start < new_end_dt:
+            return False
+
+    return True
+
+
+def get_all_store_repeating_shifts(
+    store: Store,
+    offset: int,
+    limit: int,
+    hide_deactivated: bool = False,
+    hide_resigned: bool = False,
+    sort_field: str = "name",
+    filter_names: List[str] = None,
+    filter_roles: List[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get all of a store's repeating shift information for all four weeks of the cycle.
+
+    Args:
+        store (Store obj):
+            The store for which the schedule will be fetched
+        offset (int):
+            Pagination offset.
+        limit (int):
+            Pagination limit.
+        hide_deactivated (bool):
+            Exclude deactivated employees. Default False.
+        hide_resigned (bool):
+            Exclude resigned employees. Default False.
+        sort_field (str):
+            One of "name", "age", "acc_age".
+        filter_names (List[str]):
+            Case-insensitive names to include.
+        filter_roles (List[str]):
+            Case-insensitive roles to include.
+
+    Returns:
+        {
+          "schedule": {
+            "John Doe": {
+              "id": 3,
+              "week1": {weekday: [shift1, shift2], 1: [...], ...},
+              "week2": {...},
+              ...
+            }
+          },
+          "total": ...,
+          "offset": ...,
+          "week_one_next_date": YYYY-MM-DD
+        }
+    """
+    if store is None or not isinstance(store, Store):
+        raise Exception("Store object is not given.")
+
+    # Employees currently in the store (via StoreAccess)
+    current_employees_qs = store.get_store_employees(include_hidden=False)
+
+    # Employees who have a repeating shifts (covers resigned employees)
+    shift_employee_ids = (
+        RepeatingShift.objects.filter(store=store)
+        .values_list("employee_id", flat=True)
+        .distinct()
+    )
+
+    employee_qs = (
+        User.objects.filter(
+            Q(id__in=current_employees_qs.values_list("id", flat=True))
+            | Q(id__in=shift_employee_ids)
+        )
+        .prefetch_related("store_access")
+        .filter(is_hidden=False)
+    )
+
+    if hide_deactivated:
+        employee_qs = employee_qs.filter(is_active=True)
+    if hide_resigned:
+        employee_qs = employee_qs.filter(store_access__store_id=store.id)
+
+    if filter_names:
+        # Annotate full_name
+        employee_qs = employee_qs.annotate(
+            full_name=Concat("first_name", Value(" "), "last_name")
+        )
+        name_query = Q()
+        for name in filter_names:
+            name_query |= Q(full_name__icontains=name)
+        employee_qs = employee_qs.filter(name_query)
+
+    # Add prefetch for shifts within appropriate range
+    filtered_shifts = RepeatingShift.objects.filter(store=store).select_related("role")
+
+    if filter_roles:
+        role_query = Q()
+        for role in filter_roles:
+            role_query |= Q(role__name__icontains=role)
+        filtered_shifts = filtered_shifts.filter(role_query)
+
+    employee_qs = employee_qs.prefetch_related(
+        Prefetch(
+            "repeating_shifts", queryset=filtered_shifts, to_attr="filtered_shifts"
+        )
+    )
+
+    sort_map = {
+        "name": ("first_name", "last_name", "birth_date"),
+        "age": ("birth_date", "first_name", "last_name"),
+        "acc_age": ("created_at", "first_name", "last_name"),
+    }
+    employee_qs = employee_qs.order_by(*sort_map.get(sort_field, sort_map["name"]))
+
+    # Apply pagination
+    total = employee_qs.count()
+    employees = employee_qs[offset : offset + limit]
+
+    schedule = OrderedDict()
+
+    for emp in employees:
+        emp_weeks: Dict[str, Dict[int, list]] = {}
+
+        for shift in getattr(emp, "filtered_shifts", []):
+            for week_num in shift.active_weeks:
+                if 1 <= week_num <= 4:
+                    week_key = f"week{week_num}"
+                    weekday = shift.start_weekday
+
+                    # Initialise week and weekday as needed
+                    if week_key not in emp_weeks:
+                        emp_weeks[week_key] = {}
+                    if weekday not in emp_weeks[week_key]:
+                        emp_weeks[week_key][weekday] = []
+
+                    emp_weeks[week_key][weekday].append(
+                        {
+                            "id": shift.id,
+                            "start_time": shift.start_time.strftime("%H:%M"),
+                            "end_time": shift.end_time.strftime("%H:%M"),
+                            "role_id": shift.role.id if shift.role else None,
+                            "role_name": shift.role.name if shift.role else None,
+                            "role_colour": (
+                                shift.role.colour_hex if shift.role else None
+                            ),
+                            "has_comment": bool(shift.comment),
+                        }
+                    )
+
+        schedule[f"{emp.first_name} {emp.last_name}"] = {
+            "id": emp.id,
+            **emp_weeks,
+        }
+
+    return {
+        "schedule": schedule,
+        "week_one_next_date": util.get_real_date_from_repeating_shift_cycle(
+            0, RepeatingShift.CycleWeek.WEEK_1
+        ).isoformat(),
+        "total": total,
+        "offset": offset,
+    }
