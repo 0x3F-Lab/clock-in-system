@@ -4648,7 +4648,7 @@ def manage_repeating_shift(request, shift_id):
         role_id = util.clean_param_str(request.data.get("role_id", None))
         comment = util.clean_param_str(request.data.get("comment", ""))
 
-        if not manager.is_manager_of(shift.store_id):
+        if not manager.is_manager(store=shift.store_id):
             raise err.NotAssociatedWithStoreAsManagerError
         elif not shift.store.is_active and request.method != "GET":
             raise err.InactiveStoreError
@@ -4879,13 +4879,10 @@ def list_repeating_shifts(request, store_id):
             request, default_limit=100
         )
 
-        if not manager.is_manager_of(store.id):
-            return Response(
-                {"Error": f"You are not authorised to manage this repeating shift."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        if not manager.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
 
-        if sort_field not in {"name", "age", "acc_age"}:
+        elif sort_field not in {"name", "age", "acc_age"}:
             return Response(
                 {"Error": f"Invalid sort field. Must be one of: name, age, acc_age."},
                 status=status.HTTP_406_NOT_ACCEPTABLE,
@@ -4927,6 +4924,13 @@ def list_repeating_shifts(request, store_id):
         return Response(
             {"Error": "Cannot get repeating shifts for unassociated store."},
             status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {
+                "Error": "You are not authorised to manage repeating shifts for this store."
+            },
+            status=status.HTTP_401_UNAUTHORIZED,
         )
     except Exception as e:
         logger.critical(
