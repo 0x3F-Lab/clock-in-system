@@ -1,9 +1,12 @@
 import logging
+import calendar
 import traceback
+import api.utils as api_util
 import auth_app.utils as util
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from celery import shared_task
+from django.db import transaction
 from django.db.models import Q
 from django.conf import settings
 from django.utils.timezone import now, localtime
@@ -16,6 +19,7 @@ from auth_app.models import (
     Activity,
     Shift,
     ShiftRequest,
+    RepeatingShift,
     notification_default_expires_on,
 )
 
@@ -95,6 +99,7 @@ def check_clocked_in_users():
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -345,7 +350,154 @@ def delete_old_shift_requests():
             f"Failed to delete old shift requests, generating the error:\n\n{str(e)}",
         )
         logger_beat.critical(
-            f"[FAILURE] Failed to complete task delete_old_shift_requests` due to the error: {str(e)}\n{traceback.format_exc()}"
+            f"[FAILURE] Failed to complete task `delete_old_shift_requests` due to the error: {str(e)}\n{traceback.format_exc()}"
+        )
+        return
+
+
+@shared_task
+def write_out_repeating_shifts_for_week(
+    week_start_date: str = None,  # optional date string "YYYY-MM-DD"
+    store_id: int = None,  # optional specific store
+):
+    """
+    Generate weekly repeating shifts for all stores (cron) or for a specific date/store (ad-hoc).
+
+    :param week_start_date: Optional date to generate shifts for (format "YYYY-MM-DD")
+    :param store_id: Optional specific store ID to generate shifts for
+    """
+    logger_beat.info(f"[AUTOMATED] Running task `write_out_repeating_shifts_for_week`.")
+
+    try:
+        if week_start_date:
+            time = datetime.strptime(week_start_date, "%Y-%m-%d").date()
+            week_start = util.get_week_start(time)
+        else:
+            time = localtime(now()).date()
+            week_start = util.get_week_start(time) + timedelta(
+                days=14
+            )  # Only allow 7/14/21 day offsets (1st or 2nd or 3rd week in advance)
+
+        cycle_week = util.get_repeating_shift_cycle_week(week_start)
+        total_count = 0
+
+        if store_id:
+            stores = Store.objects.filter(
+                id=store_id,
+                is_active=True,
+                is_scheduling_enabled=True,
+                is_repeating_shifts_enabled=True,
+            )
+        else:
+            stores = Store.objects.filter(
+                is_active=True,
+                is_scheduling_enabled=True,
+                is_repeating_shifts_enabled=True,
+            )
+
+        for store in stores:
+            repeating_shifts = RepeatingShift.objects.select_related(
+                "employee", "role"
+            ).filter(store_id=store.id, active_weeks__contains=[cycle_week])
+            shifts_to_create = []
+            shifts_not_created = []
+
+            for shift in repeating_shifts:
+                shift_date = util.get_real_date_from_repeating_shift_cycle(
+                    start_weekday=shift.start_weekday,
+                    target_cycle_week=cycle_week,
+                    today=week_start,
+                )
+
+                if api_util.employee_has_conflicting_shifts(
+                    employee_id=shift.employee_id,
+                    store_id=shift.store_id,
+                    date=shift_date,
+                    login=shift.start_time,
+                    logout=shift.end_time,
+                ):
+                    shifts_not_created.append((shift, "Conflicting Shift"))
+                    continue
+                elif not shift.employee.is_active:
+                    shifts_not_created.append((shift, "Employee Deactivated"))
+                    continue
+                elif not shift.employee.is_associated_with_store(shift.store_id):
+                    shifts_not_created.append((shift, "Employee Resigned"))
+                    continue
+
+                shifts_to_create.append(
+                    Shift(
+                        employee_id=shift.employee_id,
+                        store_id=shift.store_id,
+                        date=shift_date,
+                        start_time=shift.start_time,
+                        end_time=shift.end_time,
+                        role=shift.role,
+                        comment=shift.comment,
+                    )
+                )
+
+            if shifts_to_create:
+                try:
+                    with transaction.atomic():  # nested atomic per store
+                        Shift.objects.bulk_create(shifts_to_create)
+                        total_count += len(shifts_to_create)
+
+                except Exception as e:
+                    str_title = util.sanitise_markdown_title_text(
+                        f"[`{store.code}`] Repeating Shifts Failure"
+                    )
+                    str_msg = util.sanitise_markdown_message_text(
+                        f"The system failed to generate shifts for the store `{store.code}` using the store's repeating shits for the week starting **{week_start}**. There was expected to be **{len(shifts_to_create)} shift(s)** generated.\n\nPlease contact a ++**Site Administrator**++ to resolve this."
+                    )
+                    Notification.send_to_users(
+                        users=store.get_store_managers(),
+                        title=str_title,
+                        message=str_msg,
+                        store=store,
+                        notification_type=Notification.Type.AUTOMATIC_ALERT,
+                        recipient_group=Notification.RecipientType.STORE_MANAGERS,
+                        expires_on=notification_default_expires_on(7),
+                    )
+
+                    notify_admins_error_generated(
+                        "[`{store.code}`] **ERROR** - Repeating Shifts Copy",
+                        f"Failed to write out **{len(shifts_to_create)} shifts** for the store `{store.code}` in the week starting **{week_start}**. The error encountered:\n\n{str(e)}",
+                    )
+                    pass
+
+            str_title = util.sanitise_markdown_title_text(
+                f"[`{store.code}`] Repeating Shift Results"
+            )
+            str_conflicting_shifts = "\n\n".join(
+                f"- {shift.employee.first_name} {shift.employee.last_name}: {calendar.day_abbr[shift.start_weekday - 1].upper()} - {shift.start_time.strftime('%H:%M')} to {shift.end_time.strftime('%H:%M')} (Role: {shift.role.name if shift.role else 'N/A'}) [Reason: {reason}]"
+                for shift, reason in shifts_not_created
+            )
+            str_conflicting_msg = f"\n\nThe system failed to create **{len(shifts_not_created)} shift(s)** due to conflicts with existing shifts, they are as follow:\n\n{str_conflicting_shifts}"
+            str_msg = util.sanitise_markdown_message_text(
+                f"The system has written out repeating shifts as actual shifts for the store `{store.code}` in the week starting **{week_start}**. There were **{len(shifts_to_create)} shift(s)** generated from this process.{str_conflicting_msg if shifts_not_created else ''}\n\nIf there are any issues with this process please contact a *Site Administrator* to resolve it."
+            )
+            Notification.send_to_users(
+                users=store.get_store_managers(),
+                title=str_title,
+                message=str_msg,
+                store=store,
+                notification_type=Notification.Type.AUTOMATIC_ALERT,
+                recipient_group=Notification.RecipientType.STORE_MANAGERS,
+                expires_on=notification_default_expires_on(7),
+            )
+
+        logger_beat.info(
+            f"Finished running task `write_out_repeating_shifts_for_week` and wrote out {total_count} new shifts from their corresponding repeating shift."
+        )
+
+    except Exception as e:
+        notify_admins_error_generated(
+            "**ERROR** running task `write_out_repeating_shifts_for_week`",
+            f"Failed to write out any shift using repeated shifts, generating the error:\n\n{str(e)}",
+        )
+        logger_beat.critical(
+            f"[FAILURE] Failed to complete task `write_out_repeating_shifts_for_week` due to the error: {str(e)}\n{traceback.format_exc()}"
         )
         return
 
@@ -407,6 +559,7 @@ def notify_managers_account_deactivated(user_id: int, manager_id: int):
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -477,6 +630,7 @@ def notify_managers_account_activated(user_id: int, manager_id: int):
                 users=store.get_store_managers(),
                 title=str_title,
                 message=str_msg,
+                store=store,
                 notification_type=Notification.Type.AUTOMATIC_ALERT,
                 recipient_group=Notification.RecipientType.STORE_MANAGERS,
                 expires_on=notification_default_expires_on(7),
@@ -553,6 +707,7 @@ def notify_managers_and_employee_account_resigned(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -649,6 +804,7 @@ def notify_managers_and_employee_account_assigned(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -849,6 +1005,7 @@ def notify_managers_store_information_updated(store_id: int, manager_id: int):
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(14),
@@ -938,6 +1095,7 @@ def notify_managers_and_user_elevated_permission(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),
@@ -1027,6 +1185,7 @@ def notify_managers_and_user_removed_permission(
             users=store.get_store_managers(),
             title=str_title,
             message=str_msg,
+            store=store,
             notification_type=Notification.Type.AUTOMATIC_ALERT,
             recipient_group=Notification.RecipientType.STORE_MANAGERS,
             expires_on=notification_default_expires_on(7),

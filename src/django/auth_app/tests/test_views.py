@@ -291,6 +291,24 @@ def test_manage_stores_access(manager, store_associate_manager, logged_in_manage
 
 
 @pytest.mark.django_db
+def test_repeating_shifts_dashboard(
+    manager, store_associate_manager, logged_in_manager
+):
+    """
+    Test that repeating shifts dashboard page is accessible to a logged-in manager.
+    """
+    client = logged_in_manager
+    url = reverse("repeating_shifts_dashboard")
+    response = client.get(url)
+
+    assert response.status_code == 200
+    assert "auth_app/repeating_shifts_dashboard.html" in [
+        t.name for t in response.templates
+    ]
+    assert b"Repeating Shifts" in response.content
+
+
+@pytest.mark.django_db
 def test_manage_account_summary_access(
     manager, store_associate_manager, logged_in_manager
 ):

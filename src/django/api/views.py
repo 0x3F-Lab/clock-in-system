@@ -1,4 +1,5 @@
 import re
+import json
 import string
 import logging
 import traceback
@@ -17,6 +18,7 @@ from django.http import JsonResponse
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.views.decorators.http import require_GET
 from django.utils.timezone import now, localtime, make_aware
 from auth_app.utils import (
     sanitise_markdown_title_text,
@@ -34,6 +36,7 @@ from auth_app.models import (
     Role,
     ShiftException,
     ShiftRequest,
+    RepeatingShift,
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
@@ -1206,7 +1209,7 @@ def create_new_employee(request):
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
 
-        # Create user
+        # Create user - automatically sets unique pin
         employee = User.objects.create(
             first_name=string.capwords(first_name),
             last_name=string.capwords(last_name),
@@ -1226,8 +1229,6 @@ def create_new_employee(request):
 
         # Finally save the new employee and their association with a transation to ensure no errors occur
         with transaction.atomic():
-            # Set employee account pin
-            employee.set_unique_pin()
             employee.save()
             new_association.save()
 
@@ -2179,6 +2180,9 @@ def update_store_info(request, id):
                 "cap_global_shift_view", store.is_global_shift_view_enabled
             )
         )
+        cap_repeating_shifts = util.str_to_bool(
+            request.data.get("cap_repeating_shifts", store.is_repeating_shifts_enabled)
+        )
 
         try:
             clocking_dist = int(clocking_dist)
@@ -2212,7 +2216,12 @@ def update_store_info(request, id):
                 {"Error": "Length of Store code cannot be shorter than 4 characters."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
-        elif clocking_dist and clocking_dist > 2500:
+        elif (
+            clocking_dist
+            and clocking_dist > 2500
+            and store.allowable_clocking_dist_m != clocking_dist
+        ):
+            # Allow existing high values to pass
             return Response(
                 {
                     "Error": "Allowable clocking distance of a Store cannot be greater than 2500m."
@@ -2246,6 +2255,7 @@ def update_store_info(request, id):
             "clocking_dist": store.allowable_clocking_dist_m,
             "cap_scheduling": store.is_scheduling_enabled,
             "cap_global_shift_view": store.is_global_shift_view_enabled,
+            "cap_repeating_shifts": store.is_repeating_shifts_enabled,
         }
 
         # Ensure only update DB if something has changed
@@ -2281,6 +2291,10 @@ def update_store_info(request, id):
             store.is_global_shift_view_enabled = cap_global_shift_view
             update = True
 
+        if store.is_repeating_shifts_enabled != cap_repeating_shifts:
+            store.is_repeating_shifts_enabled = cap_repeating_shifts
+            update = True
+
         if not update:
             return JsonResponse(
                 {"Error": "No changes detected."},
@@ -2297,7 +2311,7 @@ def update_store_info(request, id):
             f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated STORE INFORMATION for Store ID {store.id} ({original['code']})."
         )
         logger.debug(
-            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street} -- CAP Scheduling: {original['cap_scheduling']} → {store.is_scheduling_enabled} -- CAP Global Shift View: {original['cap_global_shift_view']} → {store.is_global_shift_view_enabled}"
+            f"[UPDATE: STORE (ID: {original['id']})] Name: {original['name']} → {store.name} -- Code: {original['code']} → {store.code} -- Clocking Dist: {original['clocking_dist']} → {store.allowable_clocking_dist_m} -- Street Loc: {original['loc_street']} → {store.location_street} -- CAP Scheduling: {original['cap_scheduling']} → {store.is_scheduling_enabled} -- CAP Global Shift View: {original['cap_global_shift_view']} → {store.is_global_shift_view_enabled} -- CAP Repeating Shifts: {original['cap_repeating_shifts']} → {cap_repeating_shifts}"
         )
         return JsonResponse(
             {"id": store.id, "code": store.code}, status=status.HTTP_202_ACCEPTED
@@ -3377,7 +3391,7 @@ def manage_store_shift(request, id):
             ):
                 return Response(
                     {
-                        "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
+                        "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} min and greater than {settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} mins."
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
@@ -3600,7 +3614,7 @@ def create_store_shift(request, store_id):
         elif not util.is_shift_duration_valid(start_time=start_time, end_time=end_time):
             return Response(
                 {
-                    "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} minutes"
+                    "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} min and greater than {settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} mins."
                 },
                 status=status.HTTP_412_PRECONDITION_FAILED,
             )
@@ -4685,12 +4699,8 @@ def generate_account_summary_report(request):
 
     except Exception as e:
         logger.critical(f"Account report failure: {e}")
-        return Response(
-            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
 
 
-# Roster Report Generation
 @api_manager_required
 @api_view(["GET"])
 def generate_weekly_roster_report(request):
@@ -4769,6 +4779,517 @@ def generate_weekly_roster_report(request):
         )
     except Exception as e:
         logger.critical(f"Roster API failure: {e}")
+
+
+################################### REPEATING SHIFTS ######################################################################
+
+
+@api_manager_required
+@api_view(["PUT"])
+@renderer_classes([JSONRenderer])
+def create_repeating_shift(request, store_id):
+    try:
+        manager = util.api_get_user_object_from_session(request)
+        store = Store.objects.get(pk=store_id)
+        employee_id = util.clean_param_str(request.data.get("employee_id", None))
+        active_weeks = util.clean_param_str(request.data.get("active_weeks", None))
+        start_weekday = util.clean_param_str(request.data.get("start_weekday", None))
+        end_weekday = util.clean_param_str(
+            request.data.get("start_weekday", None)
+        )  # TODO: Impliment logic to handle overnight shifts
+        start_time = util.clean_param_str(request.data.get("start_time", None))
+        end_time = util.clean_param_str(request.data.get("end_time", None))
+        role_id = util.clean_param_str(request.data.get("role_id", None))
+        comment = util.clean_param_str(request.data.get("comment", ""))
+
+        required_fields = {
+            "employee_id": employee_id,
+            "active_weeks": active_weeks,
+            "start_weekday": start_weekday,
+            "end_weekday": end_weekday,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+
+        missing = [key for key, value in required_fields.items() if not value]
+        if missing:
+            return Response(
+                {"Error": f"Missing required fields: {', '.join(missing)}"},
+                status=status.HTTP_428_PRECONDITION_REQUIRED,
+            )
+
+        active_weeks_list = []
+        try:
+            active_weeks_list = (
+                json.loads(active_weeks)
+                if isinstance(active_weeks, str)
+                else active_weeks
+            )
+            if (
+                not isinstance(active_weeks_list, list)
+                or not active_weeks_list
+                or not all(
+                    isinstance(int(w), int) and 1 <= int(w) <= 4
+                    for w in active_weeks_list
+                )
+            ):
+                raise ValueError
+            active_weeks_list = [int(w) for w in active_weeks_list]
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return Response(
+                {
+                    "Error": "active_weeks must be a non-empty list of integers between 1 and 4."
+                },
+                status=status.HTTP_428_PRECONDITION_REQUIRED,
+            )
+
+        try:
+            start_weekday = int(start_weekday)
+            end_weekday = int(end_weekday)
+            if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
+                raise ValueError
+        except ValueError:
+            return Response(
+                {
+                    "Error": "start_weekday and end_weekday must be integers between 0 and 6"
+                },
+                status=status.HTTP_428_PRECONDITION_REQUIRED,
+            )
+
+        try:
+            start_time = datetime.strptime(start_time, "%H:%M").time()
+            end_time = datetime.strptime(end_time, "%H:%M").time()
+        except ValueError:
+            return Response(
+                {"Error": "start_time/end_time must be in HH:MM format"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if comment:
+            comment = comment.strip().replace("\n", "").replace("\t", "")
+            if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                return Response(
+                    {
+                        "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                    },
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+            elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                return Response(
+                    {"Error": "Comment includes invalid characters."},
+                    status=status.HTTP_412_PRECONDITION_FAILED,
+                )
+
+        if not manager.is_manager(store):
+            raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_associated_with_user(employee_id):
+            return Response(
+                {"Error": f"Cannot create a shift for an unassociated employee."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif role_id and not store.has_role(role_id):
+            return Response(
+                {"Error": f"Cannot use an unrelated role for this store."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+        elif end_weekday < start_weekday:
+            return Response(
+                {
+                    "Error": "The shift cannot finish on a day before the shift. Week-wrapping is not supported."
+                },
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        elif end_time < start_time:
+            return Response(
+                {"Error": "The shift cannot end before the start time."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        elif not util.is_repeating_shift_duration_valid(
+            start_time=start_time,
+            end_time=end_time,
+            start_weekday=start_weekday,
+            end_weekday=end_weekday,
+        ):
+            return Response(
+                {
+                    "Error": f"A shift cannot be shorter than {settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} min and greater than {settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS} mins."
+                },
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        employee = User.objects.get(pk=employee_id)
+        if not employee.is_active or employee.is_hidden:
+            return Response(
+                {"Error": f"Cannot create a shift for an inactive employee."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Check all shifts in the cycle are valid (no conflicting shifts)
+        elif not controllers.check_conflicting_repeating_shifts(
+            employee_id,
+            store_id,
+            start_weekday,
+            end_weekday,
+            start_time,
+            end_time,
+            active_weeks_list,
+        ):
+            return Response(
+                {
+                    "Error": "There exists a shift that conflicts with the new one. Please resolve."
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        new_shift = RepeatingShift.objects.create(
+            employee=employee,
+            store=store,
+            start_time=start_time,
+            end_time=end_time,
+            start_weekday=start_weekday,
+            end_weekday=end_weekday,
+            role_id=role_id,
+            active_weeks=active_weeks_list,
+            comment=comment,
+        )
+
+        return Response(
+            {"repeating_shift_id": new_shift.id},
+            status=status.HTTP_201_CREATED,
+        )
+
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised interact with an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {"Error": "Cannot create repeating shift for an unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"Error creating Repeating Shift for employee ID {employee_id} in store ID {store_id}: {str(e)}\n{traceback.format_exc()}"
+        )
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_manager_required
+@api_view(["DELETE", "POST", "GET"])
+@renderer_classes([JSONRenderer])
+def manage_repeating_shift(request, shift_id):
+    try:
+        manager = util.api_get_user_object_from_session(request)
+        shift = RepeatingShift.objects.select_related("employee", "store", "role").get(
+            pk=shift_id
+        )
+
+        new_employee_id = util.clean_param_str(request.data.get("employee_id", None))
+        active_weeks = util.clean_param_str(request.data.get("active_weeks", None))
+        start_weekday = util.clean_param_str(request.data.get("start_weekday", None))
+        end_weekday = util.clean_param_str(
+            request.data.get("start_weekday", None)
+        )  # TODO: Impliment logic to handle overnight shifts
+        start_time = util.clean_param_str(request.data.get("start_time", None))
+        end_time = util.clean_param_str(request.data.get("end_time", None))
+        role_id = util.clean_param_str(request.data.get("role_id", None))
+        comment = util.clean_param_str(request.data.get("comment", ""))
+
+        if not manager.is_manager_of(shift.store_id):
+            raise err.NotAssociatedWithStoreAsManagerError
+        elif not shift.store.is_active and request.method != "GET":
+            raise err.InactiveStoreError
+        elif role_id and not shift.store.has_role(role_id):
+            return Response(
+                {"Error": f"Store does not have role {role_id}"},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+        elif (end_weekday and start_weekday) and end_weekday < start_weekday:
+            return Response(
+                {
+                    "Error": "The shift cannot finish on a day before the shift. Week-wrapping is not supported."
+                },
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+        elif new_employee_id:
+            if request.method == "POST" and not shift.store.is_associated_with_user(
+                new_employee_id
+            ):
+                raise err.NotAssociatedWithStoreError
+            elif not util.is_user_active(new_employee_id):
+                raise err.InactiveUserError
+
+        if request.method == "GET":
+            return Response(
+                {
+                    "shift_id": shift.id,
+                    "employee_id": shift.employee_id,
+                    "start_time": shift.start_time.strftime("%H:%M"),
+                    "end_time": shift.end_time.strftime("%H:%M"),
+                    "start_weekday": shift.start_weekday,
+                    "end_weekday": shift.end_weekday,
+                    "active_weeks": shift.active_weeks,
+                    "comment": shift.comment if shift.comment else "",
+                    "role_id": shift.role_id if shift.role else None,
+                    "role_name": shift.role.name if shift.role else None,
+                    "role_colour": shift.role.colour_hex if shift.role else None,
+                    "role_description": shift.role.description if shift.role else None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        elif request.method == "DELETE":
+            shift.delete()
+            return Response({"repeating_shift_id": shift.id}, status=status.HTTP_200_OK)
+
+        elif request.method == "POST":
+            required_fields = {
+                "active_weeks": active_weeks,
+                "start_weekday": start_weekday,
+                "end_weekday": end_weekday,
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+
+            missing = [key for key, value in required_fields.items() if not value]
+            if missing:
+                return Response(
+                    {"Error": f"Missing required fields: {', '.join(missing)}"},
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            active_weeks_list = []
+            try:
+                active_weeks_list = (
+                    json.loads(active_weeks)
+                    if isinstance(active_weeks, str)
+                    else active_weeks
+                )
+                if (
+                    not isinstance(active_weeks_list, list)
+                    or not active_weeks_list
+                    or not all(
+                        isinstance(int(w), int) and 1 <= int(w) <= 4
+                        for w in active_weeks_list
+                    )
+                ):
+                    raise ValueError
+                active_weeks_list = [int(w) for w in active_weeks_list]
+            except (ValueError, TypeError, json.JSONDecodeError):
+                return Response(
+                    {
+                        "Error": "active_weeks must be a non-empty list of integers between 1 and 4."
+                    },
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            try:
+                start_weekday = int(start_weekday)
+                end_weekday = int(end_weekday)
+                if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
+                    raise ValueError
+            except ValueError:
+                return Response(
+                    {
+                        "Error": "start_weekday and end_weekday must be integers between 0 and 6"
+                    },
+                    status=status.HTTP_428_PRECONDITION_REQUIRED,
+                )
+
+            try:
+                start_time = datetime.strptime(start_time, "%H:%M").time()
+                end_time = datetime.strptime(end_time, "%H:%M").time()
+            except ValueError:
+                return Response(
+                    {"Error": "start_time/end_time must be in HH:MM format"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if comment:
+                comment = comment.strip().replace("\n", "").replace("\t", "")
+                if len(comment) > settings.SHIFT_COMMENT_MAX_LENGTH:
+                    return Response(
+                        {
+                            "Error": f"Comment must be less than {settings.SHIFT_COMMENT_MAX_LENGTH} characters."
+                        },
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+                elif not re.match(settings.VALID_SHIFT_COMMENT_PATTERN, comment):
+                    return Response(
+                        {"Error": "Comment includes invalid characters."},
+                        status=status.HTTP_412_PRECONDITION_FAILED,
+                    )
+
+            if end_weekday < start_weekday:
+                return Response(
+                    {
+                        "Error": "The shift cannot finish on a day before the shift. Week-wrapping is not supported."
+                    },
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
+            elif end_time < start_time:
+                return Response(
+                    {"Error": "The shift cannot end before the start time."},
+                    status=status.HTTP_406_NOT_ACCEPTABLE,
+                )
+
+            elif not controllers.check_conflicting_repeating_shifts(
+                new_employee_id if new_employee_id else shift.employee_id,
+                shift.store_id,
+                start_weekday,
+                end_weekday,
+                start_time,
+                end_time,
+                active_weeks_list,
+                existing_shift_id=shift.id,
+            ):
+                return Response(
+                    {
+                        "Error": "There exists a shift that conflicts with the new one. Please resolve."
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            with transaction.atomic():
+                if new_employee_id:
+                    shift.employee_id = int(new_employee_id)
+                shift.role_id = role_id
+                shift.start_time = start_time
+                shift.end_time = end_time
+                shift.start_weekday = start_weekday
+                shift.end_weekday = end_weekday
+                shift.active_weeks = active_weeks_list
+                shift.comment = comment
+                shift.save()
+
+            return Response(
+                {"repeating_shift_id": shift.id},
+                status=status.HTTP_200_OK,
+            )
+
+    except RepeatingShift.DoesNotExist:
+        return Response(
+            {"Error": f"Repeating shift {shift_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised interact with an inactive store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {"Error": "Cannot manage repeating shift for unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Cannot update shift for an unassociated employee."},
+            status=status.HTTP_417_EXPECTATION_FAILED,
+        )
+    except err.InactiveUserError:
+        return Response(
+            {"Error": "Cannot update shift for an inactive employee."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    except Exception as e:
+        logger.critical(
+            f"Error {request.method} on Repeating Shift ID {shift_id}: {str(e)}\n{traceback.format_exc()}"
+        )
+        return Response(
+            {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+@renderer_classes([JSONRenderer])
+def list_repeating_shifts(request, store_id):
+    try:
+        manager = util.api_get_user_object_from_session(request)
+        store = Store.objects.get(pk=store_id)
+
+        hide_deactivated = util.str_to_bool(
+            request.query_params.get("hide_deactive", "false")
+        )
+        hide_resigned = util.str_to_bool(
+            request.query_params.get("hide_resign", "false")
+        )
+        sort_field = util.clean_param_str(request.query_params.get("sort", "name"))
+        filter_names = util.clean_param_str(
+            request.query_params.get("filter_names", "")
+        )
+        filter_roles = util.clean_param_str(
+            request.query_params.get("filter_roles", "")
+        )
+        offset, limit = util.get_pagination_values_from_request(
+            request, default_limit=100
+        )
+
+        if not manager.is_manager_of(store.id):
+            return Response(
+                {"Error": f"You are not authorised to manage this repeating shift."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if sort_field not in {"name", "age", "acc_age"}:
+            return Response(
+                {"Error": f"Invalid sort field. Must be one of: name, age, acc_age."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        # Convert filter_names string to list
+        try:
+            filter_names_list = util.get_filter_list_from_string(
+                filter_names, settings.VALID_NAME_LIST_PATTERN
+            )
+            filter_roles_list = util.get_filter_list_from_string(
+                filter_roles, settings.VALID_ROLE_NAME_DESC_PATTERN
+            )
+        except ValueError:
+            return Response(
+                {"Error": "Invalid characters in either filter list."},
+                status=status.HTTP_406_NOT_ACCEPTABLE,
+            )
+
+        data = controllers.get_all_store_repeating_shifts(
+            store=store,
+            offset=offset,
+            limit=limit,
+            hide_deactivated=hide_deactivated,
+            hide_resigned=hide_resigned,
+            sort_field=sort_field,
+            filter_names=filter_names_list,
+            filter_roles=filter_roles_list,
+        )
+
+        return JsonResponse(data, status=status.HTTP_200_OK)
+
+    except Store.DoesNotExist:
+        return Response(
+            {"Error": f"Store ID {store_id} does not exist."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except err.NotAssociatedWithStoreError:
+        return Response(
+            {"Error": "Cannot get repeating shifts for unassociated store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(
+            f"Error getting all Repeating Shifts for store ID {store_id}: {str(e)}\n{traceback.format_exc()}"
+        )
         return Response(
             {"Error": "Internal error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

@@ -1,8 +1,9 @@
 import pytest
 from unittest.mock import patch
 from freezegun import freeze_time
-from datetime import date, timedelta, time
+from datetime import date, timedelta, time, datetime
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.timezone import timedelta, now, localtime
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -66,7 +67,7 @@ def test_list_store_employee_names_success(
     assert inactive_employee.id not in returned_ids
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_list_all_shift_details_success(
     manager,
@@ -127,7 +128,7 @@ def test_list_all_shift_details_success(
     assert shift["hours_worked"] == "3.00"
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_list_singular_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -161,7 +162,7 @@ def test_list_singular_shift_details_success(
     assert data["logout_timestamp"] is not None
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_update_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -207,7 +208,7 @@ def test_update_shift_details_success(
     )
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_delete_shift_details_success(
     logged_in_manager, store, store_associate_manager, employee
@@ -233,7 +234,7 @@ def test_delete_shift_details_success(
     assert not Activity.objects.filter(id=activity.id).exists()
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_create_new_shift_success(
     manager,
@@ -243,8 +244,8 @@ def test_create_new_shift_success(
     employee,
     store_associate_employee,
 ):
-    login_time = (now() - timedelta(hours=2)).replace(second=0, microsecond=0)
-    logout_time = (now() - timedelta(hours=1)).replace(second=0, microsecond=0)
+    login_time = (now() - timedelta(hours=9)).replace(second=0, microsecond=0)
+    logout_time = (now() - timedelta(hours=8)).replace(second=0, microsecond=0)
 
     response = logged_in_manager.put(
         reverse("api:create_new_shift"),
@@ -268,7 +269,7 @@ def test_create_new_shift_success(
     assert activity.is_public_holiday is True
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_create_new_shift_missing_fields(
     logged_in_manager,
@@ -668,7 +669,7 @@ def test_list_account_summaries_success(
     assert emp["employee_id"] == clocked_in_employee.id
 
 
-@freeze_time("2025-01-01 15:00:00")
+@freeze_time(datetime(2025, 1, 1, 15, 0, tzinfo=timezone.get_default_timezone()))
 @pytest.mark.django_db
 def test_list_account_summaries_full_hour_breakdown(
     logged_in_manager,
@@ -856,12 +857,16 @@ class TestScheduleAndRoleAPIs:
             start_time=time(9, 0),
             end_time=time(17, 0),
         )
+
+        now_time = now()
         # Create a shift exception for testing
         self.activity = Activity.objects.create(
             employee=self.employee,
             store=self.store,
-            login_time=now() - timedelta(hours=1),
-            logout_time=now(),
+            login_time=now_time - timedelta(hours=1),
+            login_timestamp=now_time - timedelta(hours=1),
+            logout_time=now_time,
+            logout_timestamp=now_time,
         )
         self.exception = ShiftException.objects.create(
             activity=self.activity, reason=ShiftException.Reason.INCORRECTLY_CLOCKED
@@ -1130,8 +1135,12 @@ class TestScheduleAndRoleAPIs:
 
         Shift.objects.all().delete()
 
-        emp_a = User.objects.create(email="emp_a@test.com", first_name="Copied")
-        emp_b = User.objects.create(email="emp_b@test.com", first_name="Skipped")
+        emp_a = User.objects.create(
+            email="emp_a@test.com", first_name="Copied", last_name="Something"
+        )
+        emp_b = User.objects.create(
+            email="emp_b@test.com", first_name="Skipped", last_name="Something"
+        )
         StoreUserAccess.objects.create(user=emp_a, store=store)
         StoreUserAccess.objects.create(user=emp_b, store=store)
 

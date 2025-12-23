@@ -32,6 +32,7 @@ def employee(db, store):
     """
     Create a basic active employee associated with a store.
     """
+    # Automatically sets unique pin
     employee = User.objects.create(
         first_name="John",
         last_name="Doe",
@@ -41,7 +42,6 @@ def employee(db, store):
         is_setup=True,
     )
     employee.set_password("testpassword")
-    employee.set_unique_pin()
     employee.save()
 
     return employee
@@ -61,7 +61,6 @@ def unsetup_employee(db, store):
         is_active=True,
         is_setup=False,
     )
-    user.set_unique_pin()
     user.save()
 
     return user
@@ -81,7 +80,6 @@ def inactive_employee(db, store):
         is_setup=True,
     )
     employee.set_password("testpassword")
-    employee.set_unique_pin()
     employee.save()
 
     return employee
@@ -101,7 +99,6 @@ def clocked_in_employee(db, store):
         is_setup=True,
     )
     employee.set_password("testpassword")
-    employee.set_unique_pin()
     employee.save()
 
     StoreUserAccess.objects.create(user=employee, store=store, is_manager=False)
@@ -132,7 +129,6 @@ def manager(db, store):
         is_setup=True,
     )
     manager.set_password("testpassword")
-    manager.set_unique_pin()
     manager.save()
 
     # ENSURE USER IS A MANAGER FOR SOME OTHER STORE (A UNUSED STORE)

@@ -362,13 +362,11 @@ function handleDeleteShiftBtn() {
     $('#deleteShiftBtn').on('click', () => {
         $('#confirmDeleteBtn').removeClass('d-none');
         $('#deleteShiftBtn').addClass('d-none');
-        $('#updateShiftBtn').addClass('disabled');
     });
 
     $('#editModal').on('hide.bs.modal', () => {
         $('#confirmDeleteBtn').addClass('d-none');
         $('#deleteShiftBtn').removeClass('d-none');
-        $('#updateShiftBtn').removeClass('disabled');
     });
 }
 
@@ -590,14 +588,12 @@ function updateStoreInformation() {
     showSpinner();
 
     const $editEmployeeList = $("#editModalEmployeeList");
-    const $addRoleSelect = $("#addRoleSelect");
-    const $editRoleSelect = $("#editShiftRole");
+    const $editShiftSelect = $("#editShiftRole");
     const $existingRolesList = $("#existingRolesList");
 
     // Clear everything first
     $editEmployeeList.empty();
-    $addRoleSelect.html(`<option value="" selected>No Role</option>`);
-    $editRoleSelect.html(`<option value="" selected>No Role</option>`);
+    $editShiftSelect.html(`<option value="" selected>No Role</option>`);
     $existingRolesList.html('<li class="list-group-item">Loading...</li>');
 
     // Fetch employees names
@@ -612,19 +608,19 @@ function updateStoreInformation() {
 
             if (Array.isArray(employeeList) && employeeList.length > 0) {
                 employeeList.forEach(employee => {
-                    $("#editModalEmployeeList").append(
+                    $editEmployeeList.append(
                         `<li class="list-group-item cursor-pointer" data-id="${employee.id}">${employee.name}</li>`
                     );
                 });
             } else {
-                $("#editModalEmployeeList").append('<option value="">No Employees available</option>');
+                $editEmployeeList.append('<option value="">No Employees available</option>');
                 showNotification("There are no employees associated to the selected store.", "danger");
             }
         },
 
         error: function(jqXHR, textStatus, errorThrown) {
             handleAjaxError(jqXHR, "Failed to load employee names", false);
-            $("#editModalEmployeeList").append('<option value="">Error getting employees</option>');
+            $editEmployeeList.append('<option value="">Error getting employees</option>');
         }
     });
 
@@ -671,8 +667,7 @@ function updateStoreInformation() {
             $existingRolesList.append('<li class="list-group-item">No roles found</li>');
         }
 
-        $addRoleSelect.append(roleOptionsHtml);
-        $editRoleSelect.append(roleOptionsHtml);
+        $editShiftSelect.append(roleOptionsHtml);
     },
 
         error: function(jqXHR, textStatus, errorThrown) {

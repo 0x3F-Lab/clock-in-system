@@ -896,3 +896,24 @@ def report_generation(request):
         return redirect("home")
 
     return render(request, "auth_app/report_generation.html", context)
+
+
+@manager_required
+@ensure_csrf_cookie
+@require_GET
+def repeating_shifts_dashboard(request):
+    try:
+        context, _ = get_default_page_context(request)
+    except User.DoesNotExist:
+        logger.error(
+            "Failed to load user ID {}'s associated stores. Flushed their session.".format(
+                request.session.get("user_id", None)
+            )
+        )
+        messages.error(
+            request,
+            "Failed to get your account's associated stores. Your session has been reset. Contact an admin for support.",
+        )
+        return redirect("home")
+
+    return render(request, "auth_app/repeating_shifts_dashboard.html", context)

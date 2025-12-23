@@ -70,6 +70,7 @@ if (isDevEnvironment) {
     { url: "{% static 'js/manage_stores.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/schedule_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
     { url: "{% static 'js/exception_page.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" },
+    { url: "{% static 'js/repeating_shifts_dashboard.js' %}", revision: "{{ STATIC_CACHE_VER|default:'v0'|escapejs }}" }
   ]);
 
   // For full pages

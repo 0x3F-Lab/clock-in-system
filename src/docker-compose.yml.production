@@ -10,7 +10,12 @@ services:
     restart: always
     image: django
     build:
-      context: ./django  # Path to your Django directory
+      context: ./django
+      args:
+        UID: 1000
+        GID: 1000
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - static_volume:/app/staticfiles  # Serve static files via a shared volume
       - ~/logs/:/app/logs:rw            # Add file to ensure easy access to the debug log file
@@ -25,7 +30,10 @@ services:
     container_name: celery
     restart: always
     image: django  # Reuse the same Django image
+    user: "1000:1000"
     command: celery -A clock_in_system worker --loglevel=info
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - ~/logs/:/app/logs:rw
     env_file:
@@ -38,7 +46,10 @@ services:
     container_name: celerybeat
     restart: always
     image: django
+    user: "1000:1000"
     command: celery -A clock_in_system beat --loglevel=info
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - ~/logs/:/app/logs:rw
     env_file:

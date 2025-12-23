@@ -10,12 +10,6 @@ from .settings import *
 ###################################################################
 
 
-# Override the DATABASES setting for testing
-DATABASES["default"] = {
-    "ENGINE": "django.db.backends.sqlite3",
-    "NAME": ":memory:",  # Use an in-memory SQLite database
-}
-
 # Use cache for session storage in testing
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 

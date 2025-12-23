@@ -11,7 +11,13 @@ services:
 
   django:
     container_name: Django
-    build: ./django
+    build:
+      context: ./django
+      args:
+        UID: 1000
+        GID: 1000
+    environment:
+      DJANGO_ENV: docker
     volumes:
       - ./django:/app:rw  # Sync Django project files
     ports:
@@ -35,6 +41,9 @@ services:
   celery:
     container_name: Celery
     build: ./django
+    user: "1000:1000"
+    environment:
+      DJANGO_ENV: docker
     command: celery -A clock_in_system worker --loglevel=info
     volumes:
       - ./django/logs/:/app/logs:rw
@@ -47,6 +56,9 @@ services:
   celery-beat:
     container_name: CeleryBeat
     build: ./django
+    user: "1000:1000"
+    environment:
+      DJANGO_ENV: docker
     command: celery -A clock_in_system beat --loglevel=info
     volumes:
       - ./django/logs/:/app/logs:rw

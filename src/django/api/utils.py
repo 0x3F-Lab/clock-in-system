@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.core.cache import caches
 from django.contrib.sessions.models import Session
 from django.utils.timezone import make_aware, is_naive, localtime, now
-from auth_app.models import User, Store, Activity, Shift, ShiftException
+from auth_app.models import User, Store, Activity, Shift, ShiftException, RepeatingShift
 
 logger = logging.getLogger("api")
 
@@ -528,19 +528,24 @@ def is_shift_duration_valid(
     start_time: time,
     end_time: time,
     min_duration_mins: int = settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    max_duration_mins: int = settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
 ) -> bool:
     """
-    Check if the time duration between start_time and end_time is greater than or equal
-    to a minimum required duration. Assumes both times are on the same day and end_time is after start_time.
+    Check if the time duration between start_time and end_time is between max and min duration.
+    Assumes both times are on the same day and end_time is after start_time.
 
     Args:
         start_time (time): Shift start time.
         end_time (time): Shift end time.
-        minimum_duration_minutes (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        min_duration_mins (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        max_duration_mins (int): Maximum duration in minutes the shift must span. Defaults to settings value.
 
     Returns:
         bool: True if the duration is valid, False otherwise.
     """
+    if start_time is None or end_time is None:
+        return False
+
     # Assume both times are on the same (arbitrary) day
     dt_start = datetime.combine(datetime.min, start_time)
     dt_end = datetime.combine(datetime.min, end_time)
@@ -550,7 +555,57 @@ def is_shift_duration_valid(
         return False
 
     duration = dt_end - dt_start
-    return duration >= timedelta(minutes=min_duration_mins)
+    return (
+        timedelta(minutes=min_duration_mins)
+        <= duration
+        <= timedelta(minutes=max_duration_mins)
+    )
+
+
+def is_repeating_shift_duration_valid(
+    start_time: time,
+    end_time: time,
+    start_weekday: int,
+    end_weekday: int,
+    min_duration_mins: int = settings.MINIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+    max_duration_mins: int = settings.MAXIMUM_SHIFT_LENGTH_ASSIGNMENT_MINS,
+) -> bool:
+    """
+    Check if the time duration between start_time and end_time is between max and min duration.
+    Uses weekday integer value to support shift spanning two days.
+
+    Args:
+        start_time (time): Shift start time.
+        end_time (time): Shift end time.
+        start_weekday (int): Day of week the shift starts. 0=Mon, 6=Sun.
+        end_weekday (int): Day of week the shift ends. 0=Mon, 6=Sun.
+        min_duration_mins (int): Minimum duration in minutes the shift must span. Defaults to settings value.
+        max_duration_mins (int): Maximum duration in minutes the shift must span. Defaults to settings value.
+
+    Returns:
+        bool: True if the duration is valid, False otherwise.
+    """
+    if not (0 <= start_weekday <= 6 and 0 <= end_weekday <= 6):
+        return False
+    if start_time is None or end_time is None:
+        return False
+
+    ref_date = datetime(2024, 1, 1)  # arbitrary Monday
+    dt_start = datetime.combine(ref_date + timedelta(days=start_weekday), start_time)
+    dt_end = datetime.combine(ref_date + timedelta(days=end_weekday), end_time)
+
+    # Handle overnight or next-week shifts
+    if dt_end <= dt_start:
+        dt_end += (
+            timedelta(days=7) if end_weekday < start_weekday else timedelta(days=1)
+        )
+
+    duration = dt_end - dt_start
+    return (
+        timedelta(minutes=min_duration_mins)
+        <= duration
+        <= timedelta(minutes=max_duration_mins)
+    )
 
 
 def check_store_exceptions_in_period(
@@ -574,11 +629,15 @@ def check_store_exceptions_in_period(
     ).exists()
 
 
-def get_week_start(d: date) -> date:
+def get_week_start(d: Union[datetime, date]) -> date:
     """
-    Ensure date is on the monday of the given week (roll back if need be)
+    Ensure date is on the monday of the given week (roll back if need be).
+    Monday is considered the start of the week.
     """
-    return d - timedelta(days=d.weekday())  # Monday is weekday 0
+    if isinstance(d, datetime):
+        d = d.date()
+
+    return d - timedelta(days=d.weekday())
 
 
 def check_perfect_shift_activity_timings(activity: Activity, shift: Shift) -> bool:
@@ -706,3 +765,87 @@ def schedule_copy_do_shifts_collide(
     return not (
         shift1_end + gap_delta <= shift2_start or shift2_end + gap_delta <= shift1_start
     )
+
+
+# THESE FOLLOWING TWO FUNCTIONS ARE DUPLICATED IN AUTH_APP.UTILS
+def get_repeating_shift_cycle_week(
+    dt: Union[datetime, date],
+) -> RepeatingShift.CycleWeek:
+    """
+    Determine which 4-week repeating-shift cycle week a given datetime falls into.
+
+    The cycle is defined as:
+    - Week 1 begins at `settings.REPEATING_SHIFTS_CYCLE_START` (timezone-aware).
+    - Each week begins on Monday.
+    - After Week 4, the cycle returns to Week 1.
+
+    :param dt: A date or datetime for which to determine the cycle week.
+                If datetime, it may be naive or timezone-aware.
+    :type dt: datetime | date
+
+
+    :return: The cycle week (1-4) that `dt` falls into.
+    :rtype: RepeatingShift.CycleWeek
+    """
+    if isinstance(dt, datetime):
+        dt = dt.date()
+
+    cycle_start = settings.REPEATING_SHIFTS_CYCLE_START
+    if isinstance(cycle_start, datetime):
+        cycle_start = cycle_start.date()
+
+    # Use dates to ensure week boundaries
+    diff = dt - cycle_start
+    weeks_passed = diff.days // 7
+
+    cycle_week_number = (weeks_passed % 4) + 1
+
+    return RepeatingShift.CycleWeek(cycle_week_number)
+
+
+def get_real_date_from_repeating_shift_cycle(
+    start_weekday: int,
+    target_cycle_week: RepeatingShift.CycleWeek,
+    today: Union[datetime, date] = None,
+) -> date:
+    """
+    Given a target cycle week (1-4) and a weekday (0=Mon..6=Sun),
+    find the next calendar date this shift occurs including today.
+
+    :param start_weekday: Weekday of shift start (0=Mon..6=Sun)
+    :param target_cycle_week: Desired cycle week (1-4)
+    :param today: Reference date (default: now)
+    :return: The next calendar date of the shift
+    """
+    # Use today or current date
+    if today is None:
+        today = localtime(now()).date()
+    elif isinstance(today, datetime):
+        today = today.date()
+
+    current_cycle_week = get_repeating_shift_cycle_week(today)
+
+    # Wrap around the 4-week cycle
+    weeks_ahead = (target_cycle_week.value - current_cycle_week.value) % 4
+
+    current_week_monday = get_week_start(today)
+    target_week_monday = current_week_monday + timedelta(weeks=weeks_ahead)
+
+    shift_date = target_week_monday + timedelta(days=start_weekday)
+
+    # If shift_date is still in the past relative to today, add 4 weeks
+    if shift_date < today:
+        shift_date += timedelta(weeks=4)
+
+    return shift_date
+
+
+def is_user_active(user_id: int) -> bool:
+    """
+    Determines if the user id is active.
+    """
+    try:
+        emp = User.objects.get(pk=int(user_id))
+        return emp.is_active
+    except User.DoesNotExist:
+        return False
