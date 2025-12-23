@@ -36,6 +36,10 @@ RUN mkdir -p /app/logs
 # Ensure correct ownership
 RUN chown -R django:django /app
 
+# Add entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x entrypoint.sh
+
 # Set user
 USER django
 
@@ -44,10 +48,6 @@ RUN python manage.py collectstatic --noinput
 
 # Expose Django's internal port
 EXPOSE 8000
-
-# Add entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x entrypoint.sh
 
 # Run entrypoint script
 ENTRYPOINT ["sh", "entrypoint.sh"]

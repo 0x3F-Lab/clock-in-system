@@ -35,14 +35,14 @@ RUN mkdir -p /app/logs
 # Ensure correct ownership
 RUN chown -R ${UID}:${GID} /app
 
+# Add entrypoint script
+RUN chmod +x entrypoint.sh
+
 # Set user
 USER django
 
 # Expose Django's development server port
 EXPOSE 8000 5678
-
-# Add entrypoint script
-RUN chmod +x entrypoint.sh
 
 # Run entrypoint script
 ENTRYPOINT ["sh", "entrypoint.sh"]
