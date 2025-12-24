@@ -25,7 +25,7 @@ def str_to_bool(value):
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ######################################################
 #          PLEASE CHANGE THIS EVERY VERSION          #
-STATIC_CACHE_VER = "v1.3.2"  #
+STATIC_CACHE_VER = "v1.3.3"  #
 #  Must be increased for any change to static files  #
 ######################################################
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -191,6 +191,10 @@ if DEBUG and str_to_bool(os.getenv("DJANGO_USE_MEMORY_CACHE", "false")):
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
             "LOCATION": "user_stats_cache",
         },
+        "user_report_limits": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "user_report_limits_cache",
+        },
     }
 else:
     CACHES = {
@@ -212,6 +216,13 @@ else:
             "LOCATION": os.getenv(
                 "REDIS_USER_STATS_DJANGO_CACHE_URL",
                 "redis://:securepassword@redis:6379/4",
+            ),
+        },
+        "user_report_limits": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": os.getenv(
+                "REDIS_USER_REPORT_LIMITS_CACHE_URL",
+                "redis://:securepassword@redis:6379/5",
             ),
         },
     }
@@ -368,6 +379,10 @@ REPEATING_SHIFTS_CYCLE_START = timezone.make_aware(datetime(2025, 1, 6, 0, 0, 0,
 # Determine maximum possible dump size for db queries (i.e. employee details list)
 MAX_DATABASE_DUMP_LIMIT = 150
 
+# What is the maximum number of reports a manager can export within the given period
+MAX_USER_REPORT_EXPORT_LIMIT = 10
+MAX_USER_REPORT_EXPORT_TTL_SEC = 3600  # 1 hour
+
 # Define minimum and maximum field lengths
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 50  # DB is max 256 chars however it gets hashed so keep below 100
@@ -375,6 +390,9 @@ ROLE_NAME_MAX_LENGTH = 200  # DB is 210 max
 ROLE_DESC_MAX_LENGTH = 750  # DB is 750
 SHIFT_COMMENT_MAX_LENGTH = 1500  # DB is 2500
 NOTIFICATION_MESSAGE_MAX_LENGTH = 2500  # CHAR LENGTH - DB has no limit
+
+# Maximum numbers of days for report generation
+USER_REPORT_MAX_GENERATION_RANGE_DAYS = 122  # Approximately 6 months
 
 # Define a pattern for valid fields
 VALID_NAME_PATTERN = (

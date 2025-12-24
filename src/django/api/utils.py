@@ -123,6 +123,44 @@ def is_public_holiday(
     return False
 
 
+def can_manager_export_report(user: Union[User, int]) -> bool:
+    """
+    Checks if the user is within the period limits of exportation
+
+    :param user: The user to query
+    :type user: Union[User, int]
+    :return: Whether the user is within the period limit of report exportation
+    :rtype: bool
+    """
+    if isinstance(user, (int, str)) and str(user).isdigit():
+        try:
+            user = User.objects.get(pk=int(user))
+        except User.DoesNotExist:
+            return False
+
+    cache = caches["user_report_limits"]
+    key = f"user_report_export:{user.id}"
+    now_time = localtime(now())
+
+    export_times = cache.get(key, [])
+
+    # Keep only non-expired timestamps
+    export_times = [
+        t
+        for t in export_times
+        if (now_time - t).total_seconds() < settings.MAX_USER_REPORT_EXPORT_TTL_SEC
+    ]
+
+    if len(export_times) >= settings.MAX_USER_REPORT_EXPORT_LIMIT:
+        return False
+
+    export_times.append(now_time)
+
+    cache.set(key, export_times, timeout=settings.MAX_USER_REPORT_EXPORT_TTL_SEC)
+
+    return True
+
+
 def api_get_user_object_from_session(request) -> User:
     # Get user's id
     employee_id = request.session.get("user_id", None)

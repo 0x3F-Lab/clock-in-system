@@ -1,0 +1,299 @@
+{% extends "auth_app/base.html" %}
+{% block title %}Pizza Clock-in || Reports{% endblock %}
+
+{% block content_container_class %}container-fluid py-5{% endblock %}
+
+{% block content %}
+<h1 class="text-center flex-grow-1 mb-3 fw-bolder">Reports</h1>
+
+<div class="d-flex justify-content-center my-4">
+  {% include "components/store_selection_controller.html" with store_dict=associated_stores_as_manager %}
+</div>
+
+<!-- Report Layout Container -->
+<div class="container-fluid mt-5">
+
+  <div class="col-12 d-flex justify-content-center">
+      <div style="max-width: 420px; width:100%;" class="text-center">
+
+        <div class="d-flex flex-column gap-3">
+
+          <button id="openShiftLogModal" class="btn btn-report w-100">
+            <i class="fa-solid fa-file-lines me-2"></i> Shift Logs Report
+          </button>
+
+          <button id="openAccountSummaryModal" class="btn btn-report w-100">
+            <i class="fa-solid fa-list-check me-2"></i> Account Summary Report
+          </button>
+
+          <button id="openWeeklyRosterModal" class="btn btn-report w-100">
+            <i class="fa-solid fa-calendar-week me-2"></i> Weekly Roster Report
+          </button>
+
+        </div>
+
+      </div>
+  </div>
+
+  <div class="col-12">
+
+    <!-- SHIFT LOG REPORT MODAL -->
+    <div class="modal fade" id="shiftLogsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content report-modal">
+
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Shift Logs Report</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+
+            <form id="shiftLogReportForm">
+
+              <!-- Dates -->
+              <div class="row">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Start Date</label>
+                  <input type="date" id="startDate" class="form-control mb-3">
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">End Date</label>
+                  <input type="date" id="endDate" class="form-control mb-3">
+                </div>
+              </div>
+
+              <div class="row mb-3">
+
+                <div class="col-md-6">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="onlyPublicHol">
+                    <label class="form-check-label fw-semibold">Only Public Holidays</label>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Filters -->
+              <div class="row mb-3">
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Minimum Hours Worked</label>
+                  <input type="number" id="minHours" class="form-control" placeholder="e.g. 5">
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold">Minimum Deliveries</label>
+                  <input type="number" id="minDeliveries" class="form-control" placeholder="e.g. 1">
+                </div>
+
+              </div>
+
+              <!-- Sorting -->
+              <div class="row mb-3">
+
+                <div class="col-md-8">
+                  <label class="form-label fw-semibold">Sort By</label>
+                  <select id="sortBy" class="form-select">
+                    <option value="name">Staff Name</option>
+                    <option value="login">Exact Login</option>
+                    <option value="logout">Exact Logout</option>
+                    <option value="hours">Hours Worked</option>
+                    <option value="deliveries">Deliveries</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4 d-flex align-items-end">
+                  <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="sortDesc">
+                    <label class="form-check-label fw-semibold">Descending</label>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- Filter Names -->
+              <label class="form-label fw-semibold">Filter Names (optional)</label>
+              <input type="text" class="form-control" id="filterNames" placeholder="e.g. John, Jane, Doe">
+
+            </form>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" form="shiftLogReportForm" class="btn btn-primary">
+              <i class="fa-solid fa-file-pdf me-2"></i> Generate PDF
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+
+  <!-- ACCOUNT SUMMARY MODAL -->
+  <div class="modal fade" id="accountSummaryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content report-modal">
+
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Account Summary Report</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+
+          <form id="accountSummaryForm">
+
+            <!-- Dates -->
+            <div class="row">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Start Date</label>
+                <input type="date" id="summaryStartDate" class="form-control mb-3">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">End Date</label>
+                <input type="date" id="summaryEndDate" class="form-control mb-3">
+              </div>
+            </div>
+
+            <!-- Ignore No-Hours -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="form-check form-switch">
+                  <input type="checkbox" class="form-check-input" id="summaryIgnoreNoHours">
+                  <label class="form-check-label fw-semibold">Ignore No-Hours Employees</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Minimum Hours Worked</label>
+                <input type="number" id="summaryMinHours" class="form-control" placeholder="e.g. 5">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Minimum Deliveries</label>
+                <input type="number" id="summaryMinDeliveries" class="form-control" placeholder="e.g. 1">
+              </div>
+            </div>
+
+            <!-- Sorting -->
+            <div class="row mb-3">
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Sort By</label>
+                <select id="summarySortBy" class="form-select">
+                  <option value="name">Staff Name</option>
+                  <option value="weekday">Weekday Hours</option>
+                  <option value="weekend">Weekend Hours</option>
+                  <option value="public_holiday">Public Holiday Hours</option>
+                  <option value="deliveries">Deliveries</option>
+                  <option value="total">Total Hours</option>
+                  <option value="age">Age</option>
+                </select>
+              </div>
+
+              <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="summarySortDesc">
+                  <label class="form-check-label fw-semibold">Descending</label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filter Names -->
+            <label class="form-label fw-semibold">Filter Names (optional)</label>
+            <input type="text" class="form-control mb-3" id="summaryFilterNames" placeholder="e.g. John, Jane, Doe">
+
+          </form>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" form="accountSummaryForm" class="btn btn-primary">
+            <i class="fa-solid fa-file-pdf me-2"></i> Generate PDF
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+
+    <!-- WEEKLY ROSTER MODAL -->
+    <div class="modal fade" id="weeklyRosterModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content report-modal">
+
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">Weekly Roster Report</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+
+            <label class="form-label fw-semibold">Week</label>
+            <input type="date" id="weeklyRosterWeek" class="form-control">
+            <small><em>Retrieves full week for selected date</em></small>
+
+            <hr>
+
+            <label class="form-label fw-semibold">Filter Names (optional)</label>
+            <input type="text" id="weeklyRosterFilterNames" class="form-control"
+                    placeholder="e.g. John, Jane, Doe">
+
+            <hr>
+
+            <label class="form-label fw-semibold">Filter by Roles (optional)</label>
+            <div id="weeklyRosterRoles" class="list-group mb-2" style="max-height: 220px; overflow-y:auto;">
+                <!-- checkboxes inserted dynamically -->
+            </div>
+            <small><em>Leave unselected to default all roles</em></small>
+
+            <hr>
+
+            <div class="form-check">
+              <input type="checkbox" id="weeklyRosterHideResigned" class="form-check-input">
+              <label class="form-check-label fw-semibold">Hide resigned employees</label>
+            </div>
+
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button id="weeklyRosterGenerateBtn" class="btn btn-primary">
+              <i class="fa-solid fa-file-pdf me-2"></i> Generate
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+
+</div>
+
+{% endblock %}
+
+
+
+{% block customscripts %}
+{% load static %}
+<script src="{% static 'js/report_gen.js' %}"></script>
+{% endblock %}
+
+{% block extra_urls %}
+    generateShiftReport: "{% url 'api:generate_shift_logs_report' %}",
+    generateAccountSummaryPDF: "{% url 'api:generate_account_summary_report' %}",
+    generateWeeklyRosterPDF: "{% url 'api:generate_weekly_roster_report' %}",
+    listStoreRoles: "{% url 'api:list_store_roles' 0 %}".slice(0, -2),
+{% endblock %}

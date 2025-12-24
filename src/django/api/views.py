@@ -7,6 +7,7 @@ import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
 import auth_app.tasks as tasks
+import api.reports.report_generator as reports
 
 from datetime import date, datetime, time, timedelta
 from rest_framework import status
@@ -14,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, renderer_classes
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -40,7 +41,7 @@ from auth_app.models import (
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
-from django.db.models import Q
+
 
 logger = logging.getLogger("api")
 
@@ -4423,6 +4424,349 @@ def list_shift_requests(request):
         )
 
 
+@api_manager_required
+@api_view(["GET"])
+def generate_shift_logs_report(request):
+    try:
+        user = util.api_get_user_object_from_session(request)
+        store_id = util.clean_param_str(request.GET.get("store_id"))
+        start = util.clean_param_str(request.GET.get("start"))
+        end = util.clean_param_str(request.GET.get("end"))
+
+        # Validate required params
+        if not all([store_id, start, end]):
+            return Response(
+                {"Error": "Missing required parameters (store, start, end)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if end_date < start_date:
+            return Response(
+                {"Error": "End date cannot be before start date."},
+                status=status.HTTP_418_IM_A_TEAPOT,
+            )  # HTTP 418 as a result of how error messages are handled at front
+
+        if (
+            end_date - start_date
+        ).days > settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS:
+            return Response(
+                {
+                    "Error": f"Date range cannot exceed {settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS} days."
+                },
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"Error": f"Store with ID {store_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not user.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # Optional filters
+        only_pub = util.str_to_bool(request.GET.get("only_pub", "false"))
+        filter_names_raw = util.clean_param_str(request.GET.get("filter", ""))
+        min_hours = util.clean_param_str(request.GET.get("min_hours"))
+        min_deliveries = util.clean_param_str(request.GET.get("min_deliveries"))
+        sort_by = util.clean_param_str(request.GET.get("sort_by", "time"))
+        sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
+
+        try:
+            min_hours = float(min_hours) if min_hours else None
+            min_deliveries = int(min_deliveries) if min_deliveries else None
+        except ValueError:
+            return Response(
+                {"Error": "Invalid value for minimum fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            filter_names = util.get_filter_list_from_string(filter_names_raw)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid characters in employee filter field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        results, _ = controllers.get_all_shifts(
+            store_id=store_id,
+            start_date=start,
+            end_date=end,
+            sort_field="time",
+            filter_names=filter_names,
+            only_public_hol=only_pub,
+            hide_deactivated=False,
+            hide_resigned=False,
+            allow_inactive_store=True,
+        )
+
+        pdf = reports.build_shift_logs_pdf(
+            store=store,
+            start=start,
+            end=end,
+            results=results,
+            sort_by=sort_by,
+            sort_desc=sort_desc,
+            min_hours=min_hours,
+            min_deliveries=min_deliveries,
+        )
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated shift log report for store {store.id} [{store.code}] for periods {start} till {end}."
+        )
+        return HttpResponse(pdf, content_type="application/pdf")
+
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {"Error": "Not authorised to access this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(f"Shift report critical failure: {e}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+def generate_account_summary_report(request):
+    try:
+        user = util.api_get_user_object_from_session(request)
+        store_id = util.clean_param_str(request.GET.get("store_id"))
+        start = util.clean_param_str(request.GET.get("start"))
+        end = util.clean_param_str(request.GET.get("end"))
+
+        if not all([store_id, start, end]):
+            return Response(
+                {"Error": "Missing required parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_date = datetime.strptime(start, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate date order
+        if end_date < start_date:
+            return Response(
+                {"Error": "End date cannot be before start date."},
+                status=status.HTTP_418_IM_A_TEAPOT,
+            )
+
+        if (
+            end_date - start_date
+        ).days > settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS:
+            return Response(
+                {
+                    "Error": f"Date range cannot exceed {settings.USER_REPORT_MAX_GENERATION_RANGE_DAYS} days."
+                },
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"Error": "Store not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not user.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        # --- NEW FILTERS ---
+        ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
+        filter_raw = util.clean_param_str(request.GET.get("filter", ""))
+
+        min_hours = util.clean_param_str(request.GET.get("min_hours"))
+        min_deliveries = util.clean_param_str(request.GET.get("min_deliveries"))
+        sort_by = util.clean_param_str(request.GET.get("sort_by", "name"))
+        sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
+
+        try:
+            min_hours = float(min_hours) if min_hours else None
+            min_deliveries = int(min_deliveries) if min_deliveries else None
+        except ValueError:
+            return Response(
+                {"Error": "Invalid value for minimum fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            filter_list = util.get_filter_list_from_string(filter_raw)
+        except ValueError:
+            return Response(
+                {"Error": "Invalid characters in filter."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --- FETCH DATA ---
+        summaries, _ = controllers.get_account_summaries(
+            store_id=store_id,
+            start_date=start,
+            end_date=end,
+            ignore_no_hours=ignore_no_hours,
+            sort_field="name",
+            filter_names=filter_list,
+            allow_inactive_store=True,
+        )
+
+        # Build PDF
+        pdf_bytes = reports.build_account_summary_pdf(
+            store,
+            start,
+            end,
+            summaries,
+            ignore_no_hours,
+            filter_list,
+            sort_by=sort_by,
+            min_hours=min_hours,
+            min_deliveries=min_deliveries,
+            sort_desc=sort_desc,
+        )
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated account summary report for store {store.id} [{store.code}] for periods {start} till {end}."
+        )
+        return HttpResponse(pdf_bytes, content_type="application/pdf")
+
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response({"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.ShiftExceptionExistsError:
+        return Response(
+            {
+                "Pending exception exists. Please approve of all exception and try again."
+            },
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+    except Exception as e:
+        logger.critical(f"Account report failure: {e}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_manager_required
+@api_view(["GET"])
+def generate_weekly_roster_report(request):
+    try:
+        user = util.api_get_user_object_from_session(request)
+
+        store_id = util.clean_param_str(request.GET.get("store_id"))
+        week = util.clean_param_str(request.GET.get("week"))
+        filter_raw = util.clean_param_str(request.GET.get("filter", ""))
+        roles_raw = util.clean_param_str(request.GET.get("roles", ""))
+
+        if roles_raw:
+            roles_filter = [r.strip() for r in roles_raw.split(",") if r.strip()]
+        else:
+            roles_filter = []
+
+        if not store_id or not week:
+            return Response(
+                {"Error": "Missing store_id or week."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            _ = datetime.strptime(week, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"Error": "Invalid date format. Expected YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            store = Store.objects.get(pk=store_id)
+        except Store.DoesNotExist:
+            return Response(
+                {"Error": f"Store with ID {store_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not user.is_manager(store=store.id):
+            raise err.NotAssociatedWithStoreAsManagerError
+        elif not store.is_active:
+            raise err.InactiveStoreError
+        elif not util.can_manager_export_report(user):
+            return Response(
+                {"Error": "Cannot exceed 10 reports within the hour."},
+                status=status.HTTP_417_EXPECTATION_FAILED,
+            )
+
+        try:
+            filter_names = util.get_filter_list_from_string(filter_raw)
+        except ValueError:
+            filter_names = []
+
+        pdf_bytes = reports.build_roster_report_pdf(
+            store, week, filter_names, roles_filter
+        )
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated weekly roster report for store {store.id} [{store.code}]."
+        )
+        return HttpResponse(pdf_bytes, content_type="application/pdf")
+
+    except err.NotAssociatedWithStoreAsManagerError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except err.InactiveStoreError:
+        return Response(
+            {"Error": "Not authorised for this store."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    except Exception as e:
+        logger.critical(f"Roster API failure: {e}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 ################################### REPEATING SHIFTS ######################################################################
 
 
@@ -4597,6 +4941,12 @@ def create_repeating_shift(request, store_id):
             active_weeks=active_weeks_list,
             comment=comment,
         )
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a Repeating Shift for Employee {employee.id} ({employee.first_name} {employee.last_name}) in store {store.id} [{store.code}]."
+        )
+        logger.debug(
+            f"[CREATE: REPSHIFT (ID: {new_shift.id})] EmployeeID: {employee.id} -- StoreID: {store.id} -- Time: Day {start_weekday} at {start_time} → Day {end_weekday} at {end_time} -- RoleID: {role_id} -- ActiveWeeks: {active_weeks_list}"
+        )
 
         return Response(
             {"repeating_shift_id": new_shift.id},
@@ -4693,6 +5043,12 @@ def manage_repeating_shift(request, shift_id):
 
         elif request.method == "DELETE":
             shift.delete()
+            logger.info(
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) deleated Repeating Shift {shift.id} for Employee {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) in store {shift.store.id} [{shift.store.code}]."
+            )
+            logger.debug(
+                f"[DELETE: REPSHIFT (ID: {shift.id})] EmployeeID: {shift.employee.id} -- StoreID: {shift.store.id} -- Time: Day {shift.start_weekday} at {shift.start_time} → Day {shift.end_weekday} at {shift.end_time} -- RoleID: {shift.role.id if shift.role else 'N/A'} -- ActiveWeeks: {shift.active_weeks}"
+            )
             return Response({"repeating_shift_id": shift.id}, status=status.HTTP_200_OK)
 
         elif request.method == "POST":
@@ -4803,6 +5159,16 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
+            original = {
+                "emp_id": shift.employee.id,
+                "start_time": shift.start_time,
+                "end_time": shift.end_time,
+                "start_weekday": shift.start_weekday,
+                "end_weekday": shift.end_weekday,
+                "active_weeks": shift.active_weeks,
+                "role": shift.role.name if shift.role else "N/A",
+            }
+
             with transaction.atomic():
                 if new_employee_id:
                     shift.employee_id = int(new_employee_id)
@@ -4815,6 +5181,12 @@ def manage_repeating_shift(request, shift_id):
                 shift.comment = comment
                 shift.save()
 
+            logger.info(
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated Repeating Shift {shift.id} for Employee {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) in store {shift.store.id} [{shift.store.code}]."
+            )
+            logger.debug(
+                f"[UPDATE: REPSHIFT (ID: {shift.id})] EmployeeID: {original['emp_id']} → {shift.employee.id} -- StoreID: {shift.store.id} -- StartTime: Day {original['start_weekday']} at {original['start_time']} →  Day {shift.start_weekday} at {shift.start_time} -- EndTime: Day {original['end_weekday']} at {original['end_time']} → Day {shift.end_weekday} at {shift.end_time} -- Role: {original['role']} → {shift.role.name if shift.role else 'N/A'} -- ActiveWeeks: {original['active_weeks']} → {shift.active_weeks}"
+            )
             return Response(
                 {"repeating_shift_id": shift.id},
                 status=status.HTTP_200_OK,

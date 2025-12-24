@@ -223,3 +223,13 @@ class StoreNotSchedulingCapable(Exception):
     def __init__(self, message="The Store is not scheduling capable."):
         self.message = message
         super().__init__(self.message)
+
+
+class ReportBuildError(Exception):
+    """
+    Raised when trying to build a report but it fails.
+    """
+
+    def __init__(self, message="An error occured when building a report."):
+        self.message = message
+        super().__init__(self.message)

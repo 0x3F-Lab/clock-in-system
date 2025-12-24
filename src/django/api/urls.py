@@ -128,6 +128,21 @@ urlpatterns = [
         name="manage_shift_request",
     ),
     path(
+        "generate_shift_logs_report/",
+        views.generate_shift_logs_report,
+        name="generate_shift_logs_report",
+    ),
+    path(
+        "generate_account_summary_report/",
+        views.generate_account_summary_report,
+        name="generate_account_summary_report",
+    ),
+    path(
+        "generate_weekly_roster_report/",
+        views.generate_weekly_roster_report,
+        name="generate_weekly_roster_report",
+    ),
+    path(
         "create-repeating-shift/<int:store_id>/",
         views.create_repeating_shift,
         name="create_repeating_shift",
