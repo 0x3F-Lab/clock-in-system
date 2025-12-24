@@ -573,7 +573,7 @@ def get_all_shifts(
     Args:
         store_id (int): The store ID.
         offset (int): Pagination offset. Only applies if limit is set.
-        limit (int): Pagination limit.
+        limit (int): Pagination limit. ALWAYS LIMITED BY 15K
         start_date (str): Filter start date (YYYY-MM-DD).
         end_date (str): Filter end date (YYYY-MM-DD).
         sort_field (str): One of "time", "name", "length", "delivery".
@@ -660,6 +660,8 @@ def get_all_shifts(
     # Apply pagination (DB-level)
     if limit is not None:
         qs = qs[offset : offset + limit]
+    else:
+        qs = qs[:15000]
 
     results = []
     for act in qs:
@@ -719,7 +721,7 @@ def get_account_summaries(
     Args:
         store_id (int or str): The ID of the store to filter employees by.
         offset (int): The number of records to skip (for pagination). Only applies if limit is set.
-        limit (int): The maximum number of records to return.
+        limit (int): The maximum number of records to return. ALWAYS LIMITED BY 15K
         start_date (str): The start of the date range in YYYY-MM-DD format.
         end_date (str): The end of the date range in YYYY-MM-DD format.
         ignore_no_hours (bool): Whether to exclude employees with zero hours worked.
@@ -828,10 +830,12 @@ def get_account_summaries(
 
         # Apply pagination (DB-level)
         if limit is not None:
-            paginated_employees = employees_qs[offset : offset + limit]
+            employees_qs = employees_qs[offset : offset + limit]
+        else:
+            employees_qs = employees_qs[:15000]
 
         summary_list = []
-        for employee in paginated_employees:
+        for employee in employees_qs:
             # Calculate age based on employee's DOB & current date (rounded to whole numbers)
             age = None
             if employee.birth_date:
