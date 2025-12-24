@@ -5161,12 +5161,12 @@ def manage_repeating_shift(request, shift_id):
 
             original = {
                 "emp_id": shift.employee.id,
-                "end_time": shift.start_time,
+                "start_time": shift.start_time,
                 "end_time": shift.end_time,
                 "start_weekday": shift.start_weekday,
                 "end_weekday": shift.end_weekday,
                 "active_weeks": shift.active_weeks,
-                "role_id": shift.role.name if shift.role else "N/A",
+                "role": shift.role.name if shift.role else "N/A",
             }
 
             with transaction.atomic():
