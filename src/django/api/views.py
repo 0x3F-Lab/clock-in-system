@@ -4941,6 +4941,12 @@ def create_repeating_shift(request, store_id):
             active_weeks=active_weeks_list,
             comment=comment,
         )
+        logger.info(
+            f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) created a Repeating Shift for Employee {employee.id} ({employee.first_name} {employee.last_name}) in store {store.id} [{store.code}]."
+        )
+        logger.debug(
+            f"[CREATE: REPSHIFT (ID: {new_shift.id})] EmployeeID: {employee.id} -- StoreID: {store.id} -- Time: Day {start_weekday} at {start_time} → Day {end_weekday} at {end_time} -- RoleID: {role_id} -- ActiveWeeks: {active_weeks_list}"
+        )
 
         return Response(
             {"repeating_shift_id": new_shift.id},
@@ -5037,6 +5043,12 @@ def manage_repeating_shift(request, shift_id):
 
         elif request.method == "DELETE":
             shift.delete()
+            logger.info(
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) deleated Repeating Shift {shift.id} for Employee {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) in store {shift.store.id} [{shift.store.code}]."
+            )
+            logger.debug(
+                f"[DELETE: REPSHIFT (ID: {shift.id})] EmployeeID: {shift.employee.id} -- StoreID: {shift.store.id} -- Time: Day {shift.start_weekday} at {shift.start_time} → Day {shift.end_weekday} at {shift.end_time} -- RoleID: {shift.role.id if shift.role else 'N/A'} -- ActiveWeeks: {shift.active_weeks}"
+            )
             return Response({"repeating_shift_id": shift.id}, status=status.HTTP_200_OK)
 
         elif request.method == "POST":
@@ -5147,6 +5159,16 @@ def manage_repeating_shift(request, shift_id):
                     status=status.HTTP_409_CONFLICT,
                 )
 
+            original = {
+                "emp_id": shift.employee.id,
+                "end_time": shift.start_time,
+                "end_time": shift.end_time,
+                "start_weekday": shift.start_weekday,
+                "end_weekday": shift.end_weekday,
+                "active_weeks": shift.active_weeks,
+                "role_id": shift.role.name if shift.role else "N/A",
+            }
+
             with transaction.atomic():
                 if new_employee_id:
                     shift.employee_id = int(new_employee_id)
@@ -5159,6 +5181,12 @@ def manage_repeating_shift(request, shift_id):
                 shift.comment = comment
                 shift.save()
 
+            logger.info(
+                f"Manager ID {manager.id} ({manager.first_name} {manager.last_name}) updated Repeating Shift {shift.id} for Employee {shift.employee.id} ({shift.employee.first_name} {shift.employee.last_name}) in store {shift.store.id} [{shift.store.code}]."
+            )
+            logger.debug(
+                f"[UPDATE: REPSHIFT (ID: {shift.id})] EmployeeID: {original['emp_id']} → {shift.employee.id} -- StoreID: {shift.store.id} -- StartTime: Day {original['start_weekday']} at {original['start_time']} →  Day {shift.start_weekday} at {shift.start_time} -- EndTime: Day {original['end_weekday']} at {original['end_time']} → Day {shift.end_weekday} at {shift.end_time} -- Role: {original['role']} → {shift.role.name if shift.role else 'N/A'} -- ActiveWeeks: {original['active_weeks']} → {shift.active_weeks}"
+            )
             return Response(
                 {"repeating_shift_id": shift.id},
                 status=status.HTTP_200_OK,
