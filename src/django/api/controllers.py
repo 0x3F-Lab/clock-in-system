@@ -555,12 +555,12 @@ def get_all_employee_details(
 
 def get_all_shifts(
     store_id: Union[str, int],
-    offset: int,
-    limit: int,
     start_date: str,
     end_date: str,
     sort_field: str,
     filter_names: List[str],
+    offset: int = 0,
+    limit: Union[int, None] = None,
     only_unfinished: bool = False,
     only_public_hol: bool = False,
     hide_deactivated: bool = False,
@@ -572,7 +572,7 @@ def get_all_shifts(
 
     Args:
         store_id (int): The store ID.
-        offset (int): Pagination offset.
+        offset (int): Pagination offset. Only applies if limit is set.
         limit (int): Pagination limit.
         start_date (str): Filter start date (YYYY-MM-DD).
         end_date (str): Filter end date (YYYY-MM-DD).
@@ -657,8 +657,9 @@ def get_all_shifts(
     # Total count before pagination
     total = qs.count()
 
-    # Apply pagination (now DB-level)
-    qs = qs[offset : offset + limit]
+    # Apply pagination (DB-level)
+    if limit is not None:
+        qs = qs[offset : offset + limit]
 
     results = []
     for act in qs:
@@ -703,12 +704,12 @@ def get_all_shifts(
 
 def get_account_summaries(
     store_id: Union[str, int],
-    offset: int,
-    limit: int,
     start_date: str,
     end_date: str,
     sort_field: str,
     filter_names: List[str],
+    offset: int = 0,
+    limit: Union[int, None] = None,
     ignore_no_hours: bool = False,
     allow_inactive_store: bool = False,
 ) -> Tuple[List[dict], int]:
@@ -717,7 +718,7 @@ def get_account_summaries(
 
     Args:
         store_id (int or str): The ID of the store to filter employees by.
-        offset (int): The number of records to skip (for pagination).
+        offset (int): The number of records to skip (for pagination). Only applies if limit is set.
         limit (int): The maximum number of records to return.
         start_date (str): The start of the date range in YYYY-MM-DD format.
         end_date (str): The end of the date range in YYYY-MM-DD format.
@@ -825,8 +826,9 @@ def get_account_summaries(
         # Total count before pagination
         total_summaries = employees_qs.count()
 
-        # Apply pagination (now DB-level)
-        paginated_employees = employees_qs[offset : offset + limit]
+        # Apply pagination (DB-level)
+        if limit is not None:
+            paginated_employees = employees_qs[offset : offset + limit]
 
         summary_list = []
         for employee in paginated_employees:

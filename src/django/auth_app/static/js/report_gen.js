@@ -1,7 +1,4 @@
-// DOCUMENT READY
-
 $(document).ready(function () {
-
     // SHIFT LOG REPORT
     $("#openShiftLogModal").on("click", openShiftLogModal);
     $("#shiftLogReportForm").on("submit", generateShiftLogReport);
@@ -14,6 +11,8 @@ $(document).ready(function () {
     $("#openWeeklyRosterModal").on("click", openWeeklyRosterModal);
     $("#weeklyRosterGenerateBtn").on("click", generateWeeklyRosterReport);
 
+    // Add page reloader to force reload after period of inactivity
+    setupVisibilityReload(30); // 30 minutes
 });
 
 // Will open the file AND download
@@ -35,7 +34,6 @@ function openPDFBlob(blob, filename) {
 }
 
 // SHIFT LOG REPORT HANDLER
-
 function openShiftLogModal() {
     const modal = new bootstrap.Modal(document.getElementById("shiftLogsModal"));
     modal.show();
@@ -44,17 +42,17 @@ function openShiftLogModal() {
 function generateShiftLogReport(e) {
     e.preventDefault();
 
-    let storeId = getSelectedStoreID();
-    let start   = $("#startDate").val();
-    let end     = $("#endDate").val();
-    let filter  = $("#filterNames").val().trim();
-    let onlyPublicHol  = $("#onlyPublicHol").is(":checked");
-    let minHours = $("#minHours").val() || "";
-    let minDeliveries = $("#minDeliveries").val() || "";
+    const storeId = getSelectedStoreID();
+    const start   = $("#startDate").val();
+    const end     = $("#endDate").val();
+    const filter  = $("#filterNames").val().trim();
+    const onlyPublicHol  = $("#onlyPublicHol").is(":checked");
+    const minHours = $("#minHours").val() || "";
+    const minDeliveries = $("#minDeliveries").val() || "";
 
 
-    let sortBy = $("#sortBy").val();
-    let sortDesc = $("#sortDesc").is(":checked") ? "true" : "false";
+    const sortBy = $("#sortBy").val();
+    const sortDesc = $("#sortDesc").is(":checked") ? "true" : "false";
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start and end date.", "danger");
@@ -105,18 +103,18 @@ function openAccountSummaryModal() {
 function generateAccountSummaryReport(e) {
     e.preventDefault();
 
-    let storeId     = getSelectedStoreID();
-    let start       = $("#summaryStartDate").val();
-    let end         = $("#summaryEndDate").val();
+    const storeId     = getSelectedStoreID();
+    const start       = $("#summaryStartDate").val();
+    const end         = $("#summaryEndDate").val();
 
-    let ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
-    let minHours    = $("#summaryMinHours").val() || "";
-    let minDeliveries = $("#summaryMinDeliveries").val() || "";
+    const ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
+    const minHours    = $("#summaryMinHours").val() || "";
+    const minDeliveries = $("#summaryMinDeliveries").val() || "";
 
-    let sortBy      = $("#summarySortBy").val();
-    let sortDesc    = $("#summarySortDesc").is(":checked");
+    const sortBy      = $("#summarySortBy").val();
+    const sortDesc    = $("#summarySortDesc").is(":checked");
 
-    let filterNames = $("#summaryFilterNames").val().trim();
+    const filterNames = $("#summaryFilterNames").val().trim();
 
     if (!storeId || !start || !end) {
         showNotification("Please select store, start date and end date.", "danger");
@@ -163,41 +161,33 @@ function generateAccountSummaryReport(e) {
 // Error notifications
 function showErrorMessage(status) {
     let message;
-
     switch (status) {
         case 400:
             message = "Invalid input. Please check the inputs.";
             break;
-
         case 403:
             message = "You are not authorised to generate this report.";
             break;
-
         case 413:
             message = "Date range exceeds 4 months. Please reduce the time frame."
             break;
-        
         case 417:
             message = "Cannot exceed 10 reports generated per hour. Try again later."
             break;
-
         case 418:
             message = "End date cannot be before start date.";
             break;
-
         case 404:
             message = "Store not found";
             break;
-
         case 500:
             message = "Internal server error. Please try again later.";
             break;
-
         default:
             message = "Failed to generate report. Please try again. If issue persists, contact an admin";
+            break;
     }
-
-            showNotification(message, "danger");
+    showNotification(message, "danger");
 }
 
 // ROSTER REPORT HANDLER

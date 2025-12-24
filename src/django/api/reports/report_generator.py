@@ -1,17 +1,17 @@
+import logging
+import api.exceptions as err
+import api.controllers as controllers
+
 from io import BytesIO
 from datetime import datetime, timedelta
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-import api.controllers as controllers
 from auth_app.models import Store
-from reportlab.lib.units import mm
 
 
-class ReportBuildError(Exception):
-
-    pass
+logger = logging.getLogger("api")
 
 
 def draw_page_meta(canvas, doc, store_code):
@@ -39,14 +39,15 @@ def build_shift_logs_pdf(
 ) -> bytes:
     try:
 
-        if min_hours is not None:
+        if min_hours is not None or min_deliveries is not None:
             results = [
-                r for r in results if float(r.get("hours_worked") or 0) >= min_hours
-            ]
-
-        if min_deliveries is not None:
-            results = [
-                r for r in results if int(r.get("deliveries") or 0) >= min_deliveries
+                r
+                for r in results
+                if (min_hours is None or float(r.get("hours_worked") or 0) >= min_hours)
+                and (
+                    min_deliveries is None
+                    or int(r.get("deliveries") or 0) >= min_deliveries
+                )
             ]
 
         sort_keys = {
@@ -203,14 +204,12 @@ def build_shift_logs_pdf(
 
         pdf = buffer.getvalue()
         buffer.close()
-
         return pdf
 
     except Exception as e:
-
         logger.critical(f"Shift log PDF build failure: {e}")
 
-        raise ReportBuildError("Failed to generate shift log report PDF.")
+        raise err.ReportBuildError("Failed to generate shift log report PDF.")
 
 
 def build_account_summary_pdf(
@@ -226,15 +225,15 @@ def build_account_summary_pdf(
     sort_desc=False,
 ) -> bytes:
     try:
-
-        if min_hours is not None:
+        if min_hours is not None or min_deliveries is not None:
             summaries = [
-                s for s in summaries if float(s.get("hours_total") or 0) >= min_hours
-            ]
-
-        if min_deliveries is not None:
-            summaries = [
-                s for s in summaries if int(s.get("deliveries") or 0) >= min_deliveries
+                s
+                for s in summaries
+                if (min_hours is None or float(s.get("hours_total") or 0) >= min_hours)
+                and (
+                    min_deliveries is None
+                    or int(s.get("deliveries") or 0) >= min_deliveries
+                )
             ]
 
         sort_keys = {
@@ -431,17 +430,14 @@ def build_account_summary_pdf(
 
         pdf_bytes = buffer.getvalue()
         buffer.close()
-
         return pdf_bytes
 
     except Exception as e:
         logger.critical(f"Account Summary PDF build failure: {e}")
-        raise ReportBuildError("Failed to generate Account Summary PDF.")
+        raise err.ReportBuildError("Failed to generate Account Summary PDF.")
 
 
-def build_weekly_roster_matrix(
-    store_id, week, filter_names=None, hide_resigned=False, roles_filter=None
-):
+def build_weekly_roster_matrix(store_id, week, filter_names=None, roles_filter=None):
     """
     Converts API roster structure into printable matrix with role info.
     """
@@ -509,7 +505,7 @@ def build_weekly_roster_matrix(
                     day_name = d.strftime("%a")
                     daily_totals[day_name] += hours
 
-                    time_part = f"{s['start_time']}–{s['end_time']}"
+                    time_part = f"{s['start_time']}-{s['end_time']}"
 
                     if s.get("role_name"):
                         formatted.append(f"{time_part}\n<i>{s['role_name']}</i>")
@@ -549,7 +545,7 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
         # Header
         elements.append(
-            Paragraph(f"Account Summary Report — {store.name}", styles["Title"])
+            Paragraph(f"Account Summary Report - {store.name}", styles["Title"])
         )
         elements.append(Spacer(1, 12))
         meta_line = (
@@ -671,4 +667,4 @@ def build_roster_report_pdf(store, week, filter_names, roles_filter) -> bytes:
 
     except Exception as e:
         logger.critical(f"Roster PDF build failure: {e}")
-        raise ReportBuildError("Failed to generate Roster report PDF.")
+        raise err.ReportBuildError("Failed to generate Roster report PDF.")

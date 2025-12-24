@@ -880,6 +880,7 @@ def shift_requests(request):
 
 @ensure_csrf_cookie
 @manager_required
+@require_GET
 def report_generation(request):
     try:
         context, _ = get_default_page_context(request)

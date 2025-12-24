@@ -7,6 +7,7 @@ import api.utils as util
 import api.exceptions as err
 import api.controllers as controllers
 import auth_app.tasks as tasks
+import api.reports.report_generator as reports
 
 from datetime import date, datetime, time, timedelta
 from rest_framework import status
@@ -14,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import api_view, renderer_classes
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db import transaction, IntegrityError, DatabaseError
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
@@ -40,21 +41,6 @@ from auth_app.models import (
 )
 from auth_app.utils import api_manager_required, api_employee_required
 from auth_app.serializers import ActivitySerializer, ClockedInfoSerializer
-from django.db.models import Q
-
-from django.http import HttpResponse
-from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
-
-from api.reports.report_generator import (
-    build_shift_logs_pdf,
-    build_account_summary_pdf,
-    ReportBuildError,
-    build_roster_report_pdf,
-)
 
 
 logger = logging.getLogger("api")
@@ -4500,13 +4486,19 @@ def generate_shift_logs_report(request):
         # Optional filters
         only_pub = util.str_to_bool(request.GET.get("only_pub", "false"))
         filter_names_raw = util.clean_param_str(request.GET.get("filter", ""))
-        min_hours = request.GET.get("min_hours")
-        min_deliveries = request.GET.get("min_deliveries")
-        sort_by = request.GET.get("sort_by", "time")
+        min_hours = util.clean_param_str(request.GET.get("min_hours"))
+        min_deliveries = util.clean_param_str(request.GET.get("min_deliveries"))
+        sort_by = util.clean_param_str(request.GET.get("sort_by", "time"))
         sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
 
-        min_hours = float(min_hours) if min_hours else None
-        min_deliveries = int(min_deliveries) if min_deliveries else None
+        try:
+            min_hours = float(min_hours) if min_hours else None
+            min_deliveries = int(min_deliveries) if min_deliveries else None
+        except ValueError:
+            return Response(
+                {"Error": "Invalid value for minimum fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             filter_names = util.get_filter_list_from_string(filter_names_raw)
@@ -4516,11 +4508,8 @@ def generate_shift_logs_report(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Get shift records
-        results, total = controllers.get_all_shifts(
+        results, _ = controllers.get_all_shifts(
             store_id=store_id,
-            offset=0,
-            limit=9999,
             start_date=start,
             end_date=end,
             sort_field="time",
@@ -4531,26 +4520,19 @@ def generate_shift_logs_report(request):
             allow_inactive_store=True,
         )
 
-        try:
-
-            pdf = build_shift_logs_pdf(
-                store=store,
-                start=start,
-                end=end,
-                results=results,
-                sort_by=sort_by,
-                sort_desc=sort_desc,
-                min_hours=min_hours,
-                min_deliveries=min_deliveries,
-            )
-
-        except ShiftLogReportBuildError as e:
-
-            return Response(
-                {"Error": "Failed to generate PDF."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
+        pdf = reports.build_shift_logs_pdf(
+            store=store,
+            start=start,
+            end=end,
+            results=results,
+            sort_by=sort_by,
+            sort_desc=sort_desc,
+            min_hours=min_hours,
+            min_deliveries=min_deliveries,
+        )
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated shift log report for store {store.id} [{store.code}] for periods {start} till {end}."
+        )
         return HttpResponse(pdf, content_type="application/pdf")
 
     except err.NotAssociatedWithStoreAsManagerError:
@@ -4558,13 +4540,11 @@ def generate_shift_logs_report(request):
             {"Error": "Not authorised to access this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except err.InactiveStoreError:
         return Response(
             {"Error": "Not authorised for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except Exception as e:
         logger.critical(f"Shift report critical failure: {e}")
         return Response(
@@ -4635,13 +4615,19 @@ def generate_account_summary_report(request):
         ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
 
-        min_hours = request.GET.get("min_hours")
-        min_deliveries = request.GET.get("min_deliveries")
-        sort_by = request.GET.get("sort_by", "name")
+        min_hours = util.clean_param_str(request.GET.get("min_hours"))
+        min_deliveries = util.clean_param_str(request.GET.get("min_deliveries"))
+        sort_by = util.clean_param_str(request.GET.get("sort_by", "name"))
         sort_desc = util.str_to_bool(request.GET.get("sort_desc", "false"))
 
-        min_hours = float(min_hours) if min_hours else None
-        min_deliveries = int(min_deliveries) if min_deliveries else None
+        try:
+            min_hours = float(min_hours) if min_hours else None
+            min_deliveries = int(min_deliveries) if min_deliveries else None
+        except ValueError:
+            return Response(
+                {"Error": "Invalid value for minimum fields."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             filter_list = util.get_filter_list_from_string(filter_raw)
@@ -4652,10 +4638,8 @@ def generate_account_summary_report(request):
             )
 
         # --- FETCH DATA ---
-        summaries, total = controllers.get_account_summaries(
+        summaries, _ = controllers.get_account_summaries(
             store_id=store_id,
-            offset=0,
-            limit=9999,
             start_date=start,
             end_date=end,
             ignore_no_hours=ignore_no_hours,
@@ -4665,7 +4649,7 @@ def generate_account_summary_report(request):
         )
 
         # Build PDF
-        pdf_bytes = build_account_summary_pdf(
+        pdf_bytes = reports.build_account_summary_pdf(
             store,
             start,
             end,
@@ -4677,18 +4661,18 @@ def generate_account_summary_report(request):
             min_deliveries=min_deliveries,
             sort_desc=sort_desc,
         )
-
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated account summary report for store {store.id} [{store.code}] for periods {start} till {end}."
+        )
         return HttpResponse(pdf_bytes, content_type="application/pdf")
 
     except err.NotAssociatedWithStoreAsManagerError:
         return Response({"Error": "Not authorised."}, status=status.HTTP_403_FORBIDDEN)
-
     except err.InactiveStoreError:
         return Response(
             {"Error": "Not authorised for this store."},
             status=status.HTTP_403_FORBIDDEN,
         )
-
     except err.ShiftExceptionExistsError:
         return Response(
             {
@@ -4696,9 +4680,12 @@ def generate_account_summary_report(request):
             },
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
-
     except Exception as e:
         logger.critical(f"Account report failure: {e}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_manager_required
@@ -4724,9 +4711,7 @@ def generate_weekly_roster_report(request):
             )
 
         try:
-            temp_week = datetime.strptime(
-                week, "%Y-%m-%d"
-            ).date()  # LEAVE AS temp_week FOR VALIDATION ONLY
+            _ = datetime.strptime(week, "%Y-%m-%d").date()
         except ValueError:
             return Response(
                 {"Error": "Invalid date format. Expected YYYY-MM-DD."},
@@ -4756,16 +4741,13 @@ def generate_weekly_roster_report(request):
         except ValueError:
             filter_names = []
 
-        try:
-            pdf_bytes = build_roster_report_pdf(store, week, filter_names, roles_filter)
-
-            return HttpResponse(pdf_bytes, content_type="application/pdf")
-
-        except Exception as e:
-            return Response(
-                {"Error": "Failed to generate PDF."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        pdf_bytes = reports.build_roster_report_pdf(
+            store, week, filter_names, roles_filter
+        )
+        logger.info(
+            f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated weekly roster report for store {store.id} [{store.code}]."
+        )
+        return HttpResponse(pdf_bytes, content_type="application/pdf")
 
     except err.NotAssociatedWithStoreAsManagerError:
         return Response(
@@ -4779,6 +4761,10 @@ def generate_weekly_roster_report(request):
         )
     except Exception as e:
         logger.critical(f"Roster API failure: {e}")
+        return Response(
+            {"Error": "Internal error occurred."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 ################################### REPEATING SHIFTS ######################################################################
