@@ -95,7 +95,8 @@ function addTableRowInformation(legacyStyle, sum) {
         <td class="py-2">
           <p class="mb-1"><u><b>${sum.name}</b> (Age: ${sum.age != null ? sum.age : "N/A"})</u></p>
           <p class="mb-1"><b>Weekday Hours:</b> ${sum.hours_weekday}</p>
-          <p class="mb-1"><b>Weekend Hours:</b> ${sum.hours_weekend}</p>
+          <p class="mb-1"><b>Saturday Hours:</b> ${sum.hours_saturday}</p>
+          <p class="mb-1"><b>Sunday Hours:</b> ${sum.hours_sunday}</p>
           <p class="mb-1"><b>Public Holiday Hours:</b> ${sum.hours_public_holiday}</p>
           <p class="mb-1"><b>Deliveries:</b> ${sum.deliveries != null ? sum.deliveries : "N/A"}</p>
           <p class="mb-1"><span class="${parseFloat(sum.hours_total) > 38 ? 'mark' : ''}"><b>Total Hours:</b> ${sum.hours_total}</span></p>
@@ -110,7 +111,8 @@ function addTableRowInformation(legacyStyle, sum) {
       <tr class="${rowColour}">
         <td class="py-3">${sum.name}</td>
         <td class="py-3">${sum.hours_weekday}</td>
-        <td class="py-3">${sum.hours_weekend}</td>
+        <td class="py-3">${sum.hours_saturday}</td>
+        <td class="py-3">${sum.hours_sunday}</td>
         <td class="py-3">${sum.hours_public_holiday}</td>
         <td class="py-3">${sum.deliveries != null ? sum.deliveries : "N/A"}</td>
         <td class="py-3 ${parseFloat(sum.hours_total) > 38 ? 'cell-danger' : ''}">${sum.hours_total}</td>

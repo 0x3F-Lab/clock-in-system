@@ -858,7 +858,7 @@ def get_account_summaries(
             )
 
             # Calculate hours for weekdays, weekends, and public holidays
-            mins_weekday = mins_weekend = mins_public_holiday = 0
+            mins_weekday = mins_saturday = mins_sunday = mins_public_holiday = 0
 
             # Calculate the hours based on the activity's day type
             for act in emp_activities:
@@ -878,8 +878,10 @@ def get_account_summaries(
                 elif day_of_week < 5:
                     mins_weekday += shift_length
                 # Weekend (Sat-Sun)
+                elif day_of_week == 5:
+                    mins_saturday += shift_length
                 else:
-                    mins_weekend += shift_length
+                    mins_sunday += shift_length
 
             summary_list.append(
                 {
@@ -887,7 +889,8 @@ def get_account_summaries(
                     "name": employee.full_name,
                     "hours_total": round(employee.total_mins / 60, 2),
                     "hours_weekday": round(mins_weekday / 60, 2),
-                    "hours_weekend": round(mins_weekend / 60, 2),
+                    "hours_saturday": round(mins_saturday / 60, 2),
+                    "hours_sunday": round(mins_sunday / 60, 2),
                     "hours_public_holiday": round(mins_public_holiday / 60, 2),
                     "deliveries": employee.deliveries,
                     "age": age,  # Integer age or None
