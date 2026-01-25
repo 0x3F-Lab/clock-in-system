@@ -60,8 +60,7 @@ function updateSummaryTable() {
           if (legacyStyle) {
             $('#legacySummaryTable tbody').html(`<tr><td colspan="1" class="table-danger">No Summaries Found</td></tr>`);
           } else {
-            const colCount = combineWeekend ? 7 : 8;
-            $('#summaryTable tbody').html(`<tr><td colspan="${colCount}" class="table-danger">No Summaries Found</td></tr>`);
+            $('#summaryTable tbody').html(`<tr><td colspan="8" class="table-danger">No Summaries Found</td></tr>`);
           }
           showNotification("Obtained no summaries when updating table.", "danger");
           setPaginationValues(0, 1); // Set pagination values to indicate an empty table
@@ -84,8 +83,7 @@ function updateSummaryTable() {
 
     error: function(jqXHR, textStatus, errorThrown) {
       const errorMessage = handleAjaxError(jqXHR, "Failed to load summary table");
-      const colCount = combineWeekend ? 7 : 8;
-      $('#summaryTable tbody').html(`<tr><td colspan="${colCount}" class="table-danger">${errorMessage}</td></tr>`);
+      $('#summaryTable tbody').html(`<tr><td colspan="8" class="table-danger">${errorMessage}</td></tr>`);
       setPaginationValues(0, 0);
     }
   });
