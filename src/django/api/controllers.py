@@ -891,6 +891,7 @@ def get_account_summaries(
                     "hours_weekday": round(mins_weekday / 60, 2),
                     "hours_saturday": round(mins_saturday / 60, 2),
                     "hours_sunday": round(mins_sunday / 60, 2),
+                    "hours_weekend": round((mins_saturday + mins_sunday) / 60, 2),
                     "hours_public_holiday": round(mins_public_holiday / 60, 2),
                     "deliveries": employee.deliveries,
                     "age": age,  # Integer age or None

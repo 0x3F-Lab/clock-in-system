@@ -57,11 +57,19 @@
     <label for="legacyStyle" class="form-check-label">Use Legacy Table Layout</label>
   </div>
 
+  <div class="form-check form-switch mb-4">
+    <input type="checkbox" id="combineWeekend" class="form-check-input p-2" />
+    <label for="combineWeekend" class="form-check-label">Combine Saturday + Sunday into "Weekend"</label>
+  </div>  
+
   <div class="mb-4">
     <label for="filterNames" class="form-label">Filter by Employee Names (Case Insensitive)</label>
     <input type="text" id="filterNames" class="form-control" placeholder="e.g. John, Jane, Doe" />
     <small class="text-light-emphasis fs-6 mt-1 d-block"><em>Separate names with commas</em></small>
   </div>
+
+
+
 
   <div class="text-center">
     <button type="button" class="btn btn-lg btn-gradient" id="summaryTableControllerSubmit">
