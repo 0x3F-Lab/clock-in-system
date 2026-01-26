@@ -10,7 +10,8 @@ sitemaps = {
 
 
 urlpatterns = [
-    path("", views.home_directory, name="home"),
+    path("", views.landing, name="landing"),
+    path("home/", views.home_directory, name="home"),
     path("manifest.json", views.manifest, name="manifest"),
     path("sw.js", views.service_worker, name="service_worker"),
     path("robots.txt", views.robots, name="robots"),

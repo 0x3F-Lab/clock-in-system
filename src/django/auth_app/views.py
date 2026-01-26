@@ -918,3 +918,10 @@ def repeating_shifts_dashboard(request):
         return redirect("home")
 
     return render(request, "auth_app/repeating_shifts_dashboard.html", context)
+
+
+def landing(request):
+    # If logged in, skip marketing page
+    if request.session.get("user_id"):
+        return redirect("home")
+    return render(request, "auth_app/landing.html")
