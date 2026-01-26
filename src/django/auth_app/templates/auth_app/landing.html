@@ -8,6 +8,9 @@
 
   <link rel="stylesheet" href="{% static 'css/landing.css' %}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.0.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -28,52 +31,60 @@
   </nav>
 </header>
 
-<section class="hero">
 
-  <div class="hero-left">
-    <h1>
-      Streamline Staff<br>
-      Management and<br>
-      Clock-in/Out
-    </h1>
+<section class="above-fold" id="home">
+    <section class="hero">
 
-    <p>
-      Easily manage employee schedules, track hours, and allow staff to clock in
-      and out seamlessly.
-    </p>
+      <div class="hero-left">
+        <h1>
+          Run your roster.<br>
+          Track hours.<br>
+          <span class="accent">Pay staff confidently.</span>
+        </h1>
 
-    <div class="hero-actions">
-      <a href="{% url 'login' %}" class="btn-primary">Get Started for Free</a>
-      <span>No credit card required</span>
-    </div>
-  </div>
 
-  <div class="hero-right">
-    <img src="{% static 'img/landing_mock.png' %}" class="app-mock">
-  </div>
+        <p>
+          Easily manage employee schedules, track hours, and allow staff to clock in
+          and out seamlessly.
+        </p>
 
-</section>
+        <div class="hero-actions">
+          <a href="{% url 'login' %}" class="btn-primary">Get Started for Free</a>
+          <span>No credit card required</span>
+        </div>
+      </div>
 
-<section id="features" class="feature-cards">
+        <div class="hero-right">
+          <img
+            src="{% static 'img/schedule.png' %}"
+            class="app-mock"
+            alt="Chronex scheduling dashboard preview"
+          >
+        </div>
 
-  <div onclick="scrollToSection('employee')" class="feature">
-    <i class="fa-solid fa-user"></i>
-    <h3>Employee Dashboard</h3>
-    <p>View shifts, clock in/out, track hours.</p>
-  </div>
+    </section>
 
-  <div onclick="scrollToSection('manager')" class="feature">
-    <i class="fa-solid fa-chart-line"></i>
-    <h3>Manager Dashboard</h3>
-    <p>Manage staff, rosters and timesheets.</p>
-  </div>
+    <section id="features" class="feature-cards">
 
-  <div onclick="scrollToSection('clock')" class="feature">
-    <i class="fa-solid fa-clock"></i>
-    <h3>Easy Clock-in/Out</h3>
-    <p>Fast time tracking for busy teams.</p>
-  </div>
+      <div onclick="scrollToSection('employee')" class="feature">
+        <i class="fa-solid fa-user"></i>
+        <h3>Employee Dashboard</h3>
+        <p>View shifts, clock in/out, track hours.</p>
+      </div>
 
+      <div onclick="scrollToSection('manager')" class="feature">
+        <i class="fa-solid fa-chart-line"></i>
+        <h3>Manager Dashboard</h3>
+        <p>Manage staff, rosters and timesheets.</p>
+      </div>
+
+      <div onclick="scrollToSection('clock')" class="feature">
+        <i class="fa-solid fa-clock"></i>
+        <h3>Easy Clock-in/Out</h3>
+        <p>Fast time tracking for busy teams.</p>
+      </div>
+
+    </section>
 </section>
 
 <section class="details-wrap">
