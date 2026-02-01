@@ -12,7 +12,6 @@ body{
   overflow-x:hidden;
 }
 
-
 .nav{
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -334,6 +333,15 @@ body{
   line-height: 1.75;
   color: rgba(226,232,240,0.78);
 }
+
+.about-cta a{
+  text-decoration: none;
+}
+
+.about-cta{
+  margin-top: 26px;
+}
+
 
 .feature-wheel{
   display: flex;
