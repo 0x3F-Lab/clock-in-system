@@ -74,27 +74,82 @@
 
     </section>
 
-    <section id="features" class="feature-cards">
+<section id="features" class="feature-carousel">
+  <div class="carousel-head">
+    <h2>Staff management, without the complexity.</h2>
+  </div>
 
-      <div onclick="scrollToSection('employee')" class="feature">
-        <i class="fa-solid fa-user"></i>
-        <h3>Employee Dashboard</h3>
-        <p>View shifts, clock in/out, track hours.</p>
+  <div class="carousel-viewport">
+    <div class="carousel-track" id="featureTrack">
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-calendar-days"></i>
+          <h3>Smart Rostering</h3>
+          <p>Build weekly rosters fast.</p>
+        </div>
       </div>
 
-      <div onclick="scrollToSection('manager')" class="feature">
-        <i class="fa-solid fa-chart-line"></i>
-        <h3>Manager Dashboard</h3>
-        <p>Manage staff, rosters and timesheets.</p>
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-clock"></i>
+          <h3>Clock In and Out</h3>
+          <p>One tap time tracking.</p>
+        </div>
       </div>
 
-      <div onclick="scrollToSection('clock')" class="feature">
-        <i class="fa-solid fa-clock"></i>
-        <h3>Easy Clock-in/Out</h3>
-        <p>Fast time tracking for busy teams.</p>
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-file-invoice"></i>
+          <h3>Timesheets</h3>
+          <p>Clear hours and breaks.</p>
+        </div>
       </div>
 
-    </section>
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-check"></i>
+          <h3>Approvals</h3>
+          <p>Approve hours with confidence.</p>
+        </div>
+      </div>
+
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-users"></i>
+          <h3>Team Management</h3>
+          <p>Manage staff profiles easily.</p>
+        </div>
+      </div>
+
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-store"></i>
+          <h3>Stores and Roles</h3>
+          <p>Keep venues organised.</p>
+        </div>
+      </div>
+
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-chart-line"></i>
+          <h3>Simple Insights</h3>
+          <p>See your week at a glance.</p>
+        </div>
+      </div>
+
+      <div class="feature-slide">
+        <div class="feature">
+          <i class="fa-solid fa-shield-halved"></i>
+          <h3>Audit Trail</h3>
+          <p>Track changes and edits.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="carousel-dots" id="featureDots" aria-label="Feature carousel navigation"></div>
+</section>
+
 </section>
 
 <section class="about-band" id="about">
@@ -180,7 +235,7 @@
       </div>
 
       <p class="detail-text">
-        Employees get a clean, phone-friendly dashboard that shows upcoming shifts, today’s status,
+        Employees get a clean, phone-friendly dashboard that shows upcoming shifts, today's status,
         and quick actions. Clocking in/out is one tap, and hour totals update automatically.
       </p>
 
@@ -206,7 +261,7 @@
 
       <p class="detail-text">
         Managers can build schedules fast, track hours, and keep employee details organised across stores.
-        The goal is fewer spreadsheets and fewer “who’s working?” messages.
+        The goal is fewer spreadsheets and fewer "who's working?"" messages.
       </p>
 
       <ul class="detail-list">
@@ -251,86 +306,7 @@
 </section>
 
 <script src="{% static 'js/particles.js' %}"></script>
-
-<script>
-function scrollToSection(id){
-  document.getElementById(id).scrollIntoView({behavior:'smooth'});
-}
-</script>
-
-<script>
-(function(){
-  const wheel = document.querySelector('.wheel');
-  if(!wheel) return;
-
-  const items = Array.from(wheel.querySelectorAll('.wheel-item'));
-  const descEl = document.getElementById('wheelDesc');
-
-  const total = items.length;
-  let index = 0;
-  let timer = null;
-  let userLocked = false;
-
-  function positionItems(){
-    const size = wheel.getBoundingClientRect().width;
-    const radius = Math.max(110, (size / 2) - 34);
-
-    items.forEach((btn, i) => {
-      const angle = (i / total) * (Math.PI * 2) - Math.PI / 2;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      btn.style.transform =
-        `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
-    });
-  }
-
-  window.addEventListener('resize', positionItems);
-  positionItems();
-
-  function setActive(newIndex){
-    index = (newIndex + total) % total;
-
-    items.forEach((b, i) =>
-      b.classList.toggle('is-active', i === index)
-    );
-
-    if(descEl){
-      descEl.textContent = items[index].dataset.desc || '';
-    }
-  }
-
-  function next(){
-    setActive(index + 1);
-  }
-
-  function start(){
-    if(!userLocked){
-      timer = setInterval(next, 2400);
-    }
-  }
-
-  function stop(){
-    if(timer) clearInterval(timer);
-    timer = null;
-  }
-
-  items.forEach((btn, i) => {
-    btn.addEventListener('click', () => {
-      userLocked = true;
-      stop();
-      setActive(i);
-    });
-  });
-
-  const initial = items.findIndex(b => b.classList.contains('is-active'));
-  setActive(initial >= 0 ? initial : 0);
-  start();
-})();
-</script>
-
-
-
-
+<script src="{% static 'js/landing.js' %}"></script>
 
 </body>
 </html>
