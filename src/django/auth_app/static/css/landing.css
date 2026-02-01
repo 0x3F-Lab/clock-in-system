@@ -14,15 +14,21 @@ body{
 
 
 .nav{
-  position:fixed;
-  top:0; left:0; right:0;
-  padding:18px 50px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
   backdrop-filter: blur(10px);
   background: rgba(2,6,23,0.6);
-  z-index:10;
+  padding: 18px 50px;
+}
+
+.nav-inner{
+  max-width: 1200px;
+  margin: 0 auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .logo{
@@ -33,10 +39,35 @@ body{
 .logo img{ height:38px; }
 
 .nav nav a{
-  margin-left:22px;
-  text-decoration:none;
-  color:#cbd5f5;
+  text-decoration: none;
+  color: #cbd5f5;
 }
+
+.nav-links{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-left: 40px;
+}
+
+.nav-left,
+.nav-right{
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.nav-left a{
+  text-decoration: none;
+  color: #cbd5f5;
+  font-weight: 500;
+}
+
+.nav-right a{
+  text-decoration: none;
+}
+
 
 .btn-primary{
   background:#3b82f6;

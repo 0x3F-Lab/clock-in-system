@@ -18,18 +18,28 @@
 <canvas id="particles"></canvas>
 
 <header class="nav">
-  <div class="logo">
-    <img src="{% static 'img/logo.png' %}" />
-    <span>Chronex</span>
-  </div>
+  <div class="nav-inner">
+    <div class="logo">
+      <img src="{% static 'img/logo.png' %}" />
+      <span>Chronex</span>
+    </div>
 
-  <nav>
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="{% url 'login' %}" class="btn-outline">Login</a>
-    <a href="{% url 'login' %}" class="btn-primary">Sign Up Free</a>
-  </nav>
+    <nav class="nav-links">
+      <div class="nav-left">
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#">Contact Us</a>
+      </div>
+    
+      <div class="nav-right">
+        <a href="{% url 'login' %}" class="btn-outline">Login</a>
+        <a href="{% url 'login' %}" class="btn-primary">Sign Up Free</a>
+      </div>
+    </nav>
+    
+  </div>
 </header>
+
 
 
 <section class="above-fold" id="home">
