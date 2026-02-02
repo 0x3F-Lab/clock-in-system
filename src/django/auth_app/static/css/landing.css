@@ -659,3 +659,85 @@ body{
   align-items: center;
   gap: 12px;
 }
+
+.dash-subgrid{
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.sub-card{
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.10);
+  overflow: hidden;
+}
+
+.sub-card > summary{
+  list-style: none;
+}
+.sub-card > summary::-webkit-details-marker{
+  display: none;
+}
+
+.sub-summary{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sub-title{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  color: rgba(248,250,252,0.94);
+  font-size: 14px;
+}
+
+.sub-title i{
+  color: rgba(56,189,248,0.88);
+}
+
+.sub-card[open] .sub-chevron{
+  transform: rotate(180deg);
+  background: rgba(56,189,248,0.08);
+  border-color: rgba(56,189,248,0.20);
+}
+
+.sub-content{
+  padding: 0 16px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.sub-list{
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: rgba(226,232,240,0.74);
+  line-height: 1.65;
+  font-size: 13.5px;
+}
+
+.sub-note{
+  margin: 10px 0 0;
+  color: rgba(226,232,240,0.62);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.dash-content{
+  padding: 0 24px 24px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.dash-desc{
+  margin: 16px 0 14px;
+  color: rgba(226,232,240,0.75);
+  line-height: 1.7;
+  font-size: 14px;
+  max-width: 900px;
+}
