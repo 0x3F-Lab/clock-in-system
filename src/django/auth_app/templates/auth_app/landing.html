@@ -427,30 +427,75 @@
 
   </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
 </section>
 
 
 
 
 <section id="pricing" class="pricing">
-  <h2>Simple Pricing</h2>
-  <p>Start free, upgrade when you grow.</p>
+  <div class="pricingInner">
+    <div class="pricingHead">
+      <h2>Simple Pricing</h2>
+      <p>Chronex is in its early launch phase, so we're giving businesses full access for free while we roll out features, gather feedback, and make sure the platform genuinely fits real hospitality workflows.</p>
+    </div>
+    
+    <div class="pricingGrid">
+
+      <div class="pricingCard pricingCard--trial">
+        <h3 class="pricingTitle">FREE TRIAL OUT NOW</h3>
+
+        <div class="pricingBody">
+          <div class="pricingAmount">
+            <div class="pricingPrice">Launch Offer:</div>
+            <div class="freePrice">Try Chronex for Free!</div>
+            <div class="freePriceDesc">Get full access at no cost for our first launch.</div>
+          </div>
+
+          <ul class="pricingList">
+            <li><i class="fa-solid fa-check"></i> Unlimited staff</li>
+            <li><i class="fa-solid fa-check"></i> Full scheduling & timesheets</li>
+            <li><i class="fa-solid fa-check"></i> Manager + employee dashboards</li>
+            <li><i class="fa-solid fa-check"></i> Basic reporting</li>
+          </ul>
+
+          <div class="pricingFooter">
+            <div class="pricingBigPrice">$0.00 <span>/mo</span></div>
+            <div class="pricingNote">Free for a limited time</div>
+            <a href="{% url 'login' %}" class="pricingBtn pricingBtn--light">Get Started</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="pricingCard pricingCard--paid">
+        <h3 class="pricingTitle pricingTitle--light">GROWING BUSINESS</h3>
+
+        <div class="pricingBody">
+          <div class="pricingAmount pricingAmount--center">
+            <div class="pricingBigPrice pricingBigPrice--dark">$29 <span>/mo</span></div>
+            <div class="pricingNote pricingNote--dark">AUD per location</div>
+          </div>
+
+          <div class="pricingDivider"></div>
+
+          <div class="pricingPlus">Everything in Trial, plus:</div>
+
+          <ul class="pricingList pricingList--dark">
+            <li><i class="fa-solid fa-check"></i> Advanced reporting</li>
+            <li><i class="fa-solid fa-check"></i> Payroll export</li>
+            <li><i class="fa-solid fa-check"></i> Priority support</li>
+            <li><i class="fa-solid fa-check"></i> No contract, cancel anytime</li>
+          </ul>
+
+          <div class="pricingFooter pricingFooter--center">
+            <a href="{% url 'login' %}" class="pricingBtn pricingBtn--primary">Choose Plan</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </section>
+
 
 <script src="{% static 'js/particles.js' %}"></script>
 <script src="{% static 'js/landing.js' %}"></script>

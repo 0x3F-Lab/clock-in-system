@@ -741,3 +741,238 @@ body{
   font-size: 14px;
   max-width: 900px;
 }
+
+.pricing{
+  background: #061a2e;
+  padding: 110px 40px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.pricingInner{
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pricingHead{
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.pricingHead h2{
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: rgba(248,250,252,0.96);
+  letter-spacing: -0.02em;
+}
+
+.pricingHead p{
+  margin: 10px 0 0;
+  color: rgba(226,232,240,0.72);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.pricingGrid{
+  display: flex;
+  justify-content: center;
+  gap: 54px;
+  margin-top: 40px;
+  flex-wrap: wrap;
+}
+
+.pricingCard{
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 30px 90px -60px rgba(0,0,0,0.95);
+}
+
+.pricingTitle{
+  font-size: 18px;
+  font-weight: 800;
+  padding: 14px 18px;
+  color: rgba(248,250,252,0.96);
+  margin: 0;
+  letter-spacing: 0.04em;
+  background: rgba(59,130,246,0.22);
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  text-align: center;
+}
+
+.pricingTitle--light{
+  background: rgba(15,23,42,0.04);
+  color: rgba(15,23,42,0.86);
+  border-bottom: 1px solid rgba(15,23,42,0.10);
+}
+
+.pricingBody{
+  padding: 18px 20px 20px;
+}
+
+.pricingCard--trial{
+  background: rgba(30,58,138,0.40);
+  backdrop-filter: blur(14px);
+}
+
+.pricingAmount{
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pricingPrice{
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+  color: rgba(248,250,252,0.90);
+}
+
+.freePrice{
+  font-weight: 800;
+  font-size: 32px;
+  color: rgba(248,250,252,0.98);
+  letter-spacing: -0.02em;
+}
+
+.freePriceDesc{
+  margin-bottom: 10px;
+  color: rgba(226,232,240,0.75);
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.pricingList{
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  display: grid;
+  gap: 10px;
+  color: rgba(226,232,240,0.82);
+  font-size: 14px;
+}
+
+.pricingList li{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pricingList i{
+  margin-top: 3px;
+  color: rgba(52,211,153,0.95);
+}
+
+.pricingFooter{
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.pricingBigPrice{
+  font-size: 48px;
+  font-weight: 900;
+  color: rgba(248,250,252,0.98);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.pricingBigPrice span{
+  font-size: 18px;
+  font-weight: 800;
+  opacity: 0.9;
+}
+
+.pricingNote{
+  margin-top: 8px;
+  color: rgba(226,232,240,0.72);
+  font-size: 13px;
+}
+
+.pricingCard--paid{
+  background: rgba(248,250,252,0.96);
+}
+
+.pricingAmount--center{
+  text-align: center;
+  margin-top: 6px;
+}
+
+.pricingBigPrice--dark{
+  color: rgba(15,23,42,0.92);
+}
+
+.pricingNote--dark{
+  color: rgba(15,23,42,0.60);
+}
+
+.pricingDivider{
+  height: 1px;
+  background: rgba(15,23,42,0.10);
+  margin: 18px 0;
+}
+
+.pricingPlus{
+  font-weight: 800;
+  color: rgba(15,23,42,0.70);
+  margin-bottom: 10px;
+}
+
+.pricingList--dark{
+  color: rgba(15,23,42,0.74);
+}
+
+.pricingFooter--center{
+  display: flex;
+  justify-content: center;
+  padding-top: 22px;
+  border-top: 1px solid rgba(15,23,42,0.10);
+}
+
+.pricingBtn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  font-weight: 800;
+  text-decoration: none;
+  margin-top: 16px;
+  border: 1px solid transparent;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.pricingBtn:active{
+  transform: translateY(1px);
+}
+
+.pricingBtn--light{
+  background: rgba(248,250,252,0.96);
+  color: rgba(15,23,42,0.92);
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 16px 40px -26px rgba(0,0,0,0.9);
+}
+
+.pricingBtn--primary{
+  background: linear-gradient(180deg, rgba(59,130,246,0.95), rgba(37,99,235,0.95));
+  color: rgba(248,250,252,0.98);
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 16px 40px -26px rgba(0,0,0,0.9);
+}
+
+@media (max-width: 900px){
+  .pricing{
+    padding: 90px 18px;
+  }
+  .pricingGrid{
+    gap: 18px;
+  }
+  .pricingCard{
+    width: 100%;
+    max-width: 420px;
+  }
+}
