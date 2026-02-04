@@ -976,3 +976,23 @@ body{
     max-width: 420px;
   }
 }
+
+
+.siteFooter{
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(4,11,24,0.92);
+  padding: 28px 20px;
+}
+
+.siteFooterInner{
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.siteFooter p{
+  margin: 0;
+  font-size: 13px;
+  color: rgba(226,232,240,0.60);
+  letter-spacing: 0.02em;
+}
