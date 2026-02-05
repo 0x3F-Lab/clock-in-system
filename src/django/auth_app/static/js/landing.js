@@ -1,7 +1,9 @@
 $(document).ready(function() {
+
   initFeatureCarousel();
   initFeatureWheel();
   initFeaturesDropdown();
+
 });
 
 function scrollToSection(id){
@@ -42,9 +44,7 @@ function initFeatureCarousel(){
       d.type = 'button';
       d.className = 'carousel-dot' + (i === index ? ' is-active' : '');
       d.setAttribute('aria-label', `Go to slide ${i + 1}`);
-      d.addEventListener('click', () => {
-        setIndex(i);
-      });
+      d.addEventListener('click', () => setIndex(i));
       dotsWrap.appendChild(d);
     }
   }
@@ -71,8 +71,7 @@ function initFeatureCarousel(){
   }
 
   window.addEventListener('resize', () => {
-    const newVisible = getVisibleCount();
-    visible = newVisible;
+    visible = getVisibleCount();
     maxIndex = Math.max(0, totalSlides - visible);
     index = Math.min(index, maxIndex);
     buildDots();
