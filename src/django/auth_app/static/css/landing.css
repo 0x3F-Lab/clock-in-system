@@ -977,7 +977,6 @@ body{
   }
 }
 
-
 .siteFooter{
   border-top: 1px solid rgba(255,255,255,0.08);
   background: rgba(4,11,24,0.92);
@@ -995,4 +994,52 @@ body{
   font-size: 13px;
   color: rgba(226,232,240,0.60);
   letter-spacing: 0.02em;
+}
+
+.dropdown{
+  position: relative;
+  display: inline-block;
+}
+
+.nav-drop-btn{
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nav-drop-panel{
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 200px;
+
+  background: #0b1220;
+  border: 1px solid rgba(148,163,184,0.18);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.35);
+
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.nav-drop-panel.is-animating{
+  will-change: height, opacity, transform;
+}
+
+.nav-drop-item{
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: rgba(248,250,252,0.92);
+}
+
+.nav-drop-item:hover{
+  background: rgba(56,189,248,0.12);
 }

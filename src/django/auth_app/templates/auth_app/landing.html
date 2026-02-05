@@ -25,7 +25,24 @@
 
     <nav class="nav-links">
       <div class="nav-left">
-        <a href="#features">Features</a>
+            <div class="nav-item dropdown">
+              <button
+                class="nav-drop-btn"
+                id="featuresBtn"
+                aria-expanded="false"
+                aria-controls="featuresPanel"
+                type="button"
+              >
+                Features
+              </button>
+            
+              <div class="nav-drop-panel" id="featuresPanel" hidden>
+                <a href="#features" class="nav-drop-item">Overview</a>
+                <a href="#features-scheduling" class="nav-drop-item">Scheduling</a>
+                <a href="#features-timesheets" class="nav-drop-item">Timesheets</a>
+                <a href="#features-reports" class="nav-drop-item">Reports</a>
+              </div>
+            </div>
         <a href="#pricing">Pricing</a>
         <a href="#">Contact Us</a>
       </div>
