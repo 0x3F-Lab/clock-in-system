@@ -264,6 +264,9 @@ html, body{
 }
 
 .feature-carousel{
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 70px 40px 40px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -272,16 +275,19 @@ html, body{
   width: 100%;
   display: flex;
   justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 @media (max-width: 900px){
+  .feature-carousel{
+    max-width: none;
+    padding: 60px 16px 30px;
+  }
+
   .carousel-dots{
     margin-top: 26px;
     gap: 14px;
-  }
-
-  .feature-carousel{
-    padding: 60px 18px 30px;
   }
 
   .carousel-track{
@@ -298,14 +304,14 @@ html, body{
 }
 
 @media (max-width: 520px){
-  .carousel-dots{
-    margin-top: 30px;
-    gap: 16px;
+  .feature-carousel{
+    max-width: none;
+    padding: 60px 16px 30px;
   }
 
-  .carousel-dot{
-    width: 9px;
-    height: 9px;
+  .carousel-dots{
+    margin-top: 26px;
+    gap: 14px;
   }
 
   .carousel-track{
