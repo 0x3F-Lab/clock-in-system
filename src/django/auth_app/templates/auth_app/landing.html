@@ -43,8 +43,8 @@
                 <a href="#features-reports" class="nav-drop-item">Reports</a>
               </div>
             </div>
-        <a href="#pricing">Pricing</a>
-        <a href="#">Contact Us</a>
+        <a href="#pricing" onclick="scrollToSection('pricing'); return false;">Pricing</a>
+        <a href="#" onclick="scrollToSection('contact'); return false;">Contact Us</a>
       </div>
     
       <div class="nav-right">
@@ -512,6 +512,73 @@
     </div>
   </div>
 </section>
+
+<section class="contact-band" id="contact">
+  <div class="contact-inner">
+
+    <header class="contact-head">
+      <h2>Contact us</h2>
+      <p>
+        Want help setting up the free trial for our first launch? Send us a message and we'll help you get Chronex running for your venue.
+      </p>
+    </header>
+
+    <div class="contact-grid">
+      <div class="contact-card">
+        <form class="contact-form">
+          <div class="contact-row">
+            <div class="contact-field">
+              <label for="contactName">Name</label>
+              <input id="contactName" type="text" placeholder="Your name">
+            </div>
+
+            <div class="contact-field">
+              <label for="contactEmail">Email</label>
+              <input id="contactEmail" type="email" placeholder="you@example.com">
+            </div>
+          </div>
+
+          <div class="contact-field">
+            <label for="contactSubject">Subject</label>
+            <input id="contactSubject" type="text" placeholder="Free trial setup">
+          </div>
+
+          <div class="contact-field">
+            <label for="contactMessage">What do you need help with?</label>
+            <textarea id="contactMessage" rows="5" placeholder="Tell us your venue name, staff size, and what you'd like set up..."></textarea>
+          </div>
+
+          <div class="contact-actions">
+            <button type="button" class="contact-btn">Send</button>
+            <span class="contact-note">We'll get back to you soon.</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="contact-side">
+        <div class="contact-side-card">
+          <h3>What to include</h3>
+          <ul>
+            <li>Business / venue name</li>
+            <li>Approx. staff count</li>
+            <li>Number of locations</li>
+            <li>Anything you want us to set up for you</li>
+          </ul>
+        </div>
+
+        <div class="contact-side-card">
+          <h3>Free trial support</h3>
+          <p>
+            During our first launch we're helping venues get started quickly, so you can trial Chronex properly and tell us what to improve.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
 
 <!-- === ADD A BIT OF JS LATER TO AUTOMATICALLY UPDATE THE YEAR -->
 <footer class="siteFooter">
