@@ -110,6 +110,7 @@ function generateAccountSummaryReport(e) {
     const ignoreHours = $("#summaryIgnoreNoHours").is(":checked");
     const minHours    = $("#summaryMinHours").val() || "";
     const minDeliveries = $("#summaryMinDeliveries").val() || "";
+    const splitWeekend = $("#summarySplitWeekend").is(":checked");
 
     const sortBy      = $("#summarySortBy").val();
     const sortDesc    = $("#summarySortDesc").is(":checked");
@@ -134,6 +135,7 @@ function generateAccountSummaryReport(e) {
             start: start,
             end: end,
             ignore_no_hours: ignoreHours,
+            split_weekend: splitWeekend,
             min_hours: minHours,
             min_deliveries: minDeliveries,
             sort_by: sortBy,

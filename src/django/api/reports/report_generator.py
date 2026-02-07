@@ -223,6 +223,7 @@ def build_account_summary_pdf(
     min_deliveries=None,
     sort_by="name",
     sort_desc=False,
+    split_weekend=False,
 ) -> bytes:
     try:
         if min_hours is not None or min_deliveries is not None:
@@ -240,6 +241,8 @@ def build_account_summary_pdf(
             "name": lambda s: s.get("name", ""),
             "weekday": lambda s: float(s.get("hours_weekday") or 0),
             "weekend": lambda s: float(s.get("hours_weekend") or 0),
+            "saturday": lambda s: float(s.get("hours_saturday") or 0),
+            "sunday": lambda s: float(s.get("hours_sunday") or 0),
             "public_holiday": lambda s: float(s.get("hours_public_holiday") or 0),
             "deliveries": lambda s: int(s.get("deliveries") or 0),
             "total": lambda s: float(s.get("hours_total") or 0),
@@ -298,9 +301,21 @@ def build_account_summary_pdf(
 
         elements.append(Spacer(1, 12))
 
-        # Table header
-        table_data = [
-            [
+        # Decide header + widths based on toggle
+        if split_weekend:
+            header = [
+                "Staff Name",
+                "Weekday Hrs",
+                "Sat Hrs",
+                "Sun Hrs",
+                "Public Hol Hrs",
+                "Deliveries",
+                "Total Hours",
+                "Age",
+            ]
+            col_widths = [90, 75, 60, 60, 90, 60, 85, 40]
+        else:
+            header = [
                 "Staff Name",
                 "Weekday Hrs",
                 "Weekend Hrs",
@@ -309,60 +324,101 @@ def build_account_summary_pdf(
                 "Total Hours",
                 "Age",
             ]
-        ]
+            col_widths = [100, 80, 80, 90, 60, 90, 50]
+
+        table_data = [header]
 
         total_weekday = 0.0
         total_weekend = 0.0
+        total_saturday = 0.0
+        total_sunday = 0.0
         total_public = 0.0
         total_deliveries = 0
         total_hours = 0.0
-        # Rows
-        for summary in summaries:
 
+        for summary in summaries:
             weekday = float(summary.get("hours_weekday") or 0)
-            weekend = float(summary.get("hours_weekend") or 0)
             public_hol = float(summary.get("hours_public_holiday") or 0)
             deliveries = int(summary.get("deliveries") or 0)
             total = float(summary.get("hours_total") or 0)
 
-            # accumulate totals
             total_weekday += weekday
-            total_weekend += weekend
             total_public += public_hol
             total_deliveries += deliveries
             total_hours += total
 
-            table_data.append(
-                [
-                    summary.get("name", "-"),
-                    summary.get("hours_weekday", 0),
-                    summary.get("hours_weekend", 0),
-                    summary.get("hours_public_holiday", 0),
-                    summary.get("deliveries", 0),
-                    summary.get("hours_total", 0),
-                    summary.get("age", "N/A"),
-                ]
-            )
+            if split_weekend:
+                saturday_hours = float(summary.get("hours_saturday") or 0)
+                sunday_hours = float(summary.get("hours_sunday") or 0)
+                total_saturday += saturday_hours
+                total_sunday += sunday_hours
 
-        table_data.append(
-            [
-                "TOTAL",
-                f"{total_weekday:.2f}",
-                f"{total_weekend:.2f}",
-                f"{total_public:.2f}",
-                total_deliveries,
-                f"{total_hours:.2f}",
-                "",
-            ]
-        )
+                table_data.append(
+                    [
+                        summary.get("name", "-"),
+                        f"{weekday:.2f}",
+                        f"{saturday_hours:.2f}",
+                        f"{sunday_hours:.2f}",
+                        f"{public_hol:.2f}",
+                        str(deliveries),
+                        f"{total:.2f}",
+                        summary.get("age", "N/A"),
+                    ]
+                )
+            else:
+                weekend = float(summary.get("hours_weekend") or 0)
+                total_weekend += weekend
+
+                table_data.append(
+                    [
+                        summary.get("name", "-"),
+                        f"{weekday:.2f}",
+                        f"{weekend:.2f}",
+                        f"{public_hol:.2f}",
+                        str(deliveries),
+                        f"{total:.2f}",
+                        summary.get("age", "N/A"),
+                    ]
+                )
+
+        # Handle no data
+        if len(table_data) == 1:
+            table_data.append(["No records found"] + [""] * (len(header) - 1))
+        else:
+            # Totals row
+            if split_weekend:
+                table_data.append(
+                    [
+                        "TOTAL",
+                        f"{total_weekday:.2f}",
+                        f"{total_saturday:.2f}",
+                        f"{total_sunday:.2f}",
+                        f"{total_public:.2f}",
+                        str(total_deliveries),
+                        f"{total_hours:.2f}",
+                        "",
+                    ]
+                )
+            else:
+                table_data.append(
+                    [
+                        "TOTAL",
+                        f"{total_weekday:.2f}",
+                        f"{total_weekend:.2f}",
+                        f"{total_public:.2f}",
+                        str(total_deliveries),
+                        f"{total_hours:.2f}",
+                        "",
+                    ]
+                )
 
         if len(table_data) == 1:
-            table_data.append(["No records found", "", "", "", "", "", ""])
+            table_data.append(["No records found"] + [""] * (len(header) - 1))
 
         table = Table(
             table_data,
             repeatRows=1,
-            colWidths=[100, 80, 80, 90, 60, 90, 50],
+            colWidths=col_widths,
         )
 
         table.setStyle(

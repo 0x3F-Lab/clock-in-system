@@ -4613,6 +4613,7 @@ def generate_account_summary_report(request):
 
         # --- NEW FILTERS ---
         ignore_no_hours = util.str_to_bool(request.GET.get("ignore_no_hours", "false"))
+        split_weekend = util.str_to_bool(request.GET.get("split_weekend", "false"))
         filter_raw = util.clean_param_str(request.GET.get("filter", ""))
 
         min_hours = util.clean_param_str(request.GET.get("min_hours"))
@@ -4660,6 +4661,7 @@ def generate_account_summary_report(request):
             min_hours=min_hours,
             min_deliveries=min_deliveries,
             sort_desc=sort_desc,
+            split_weekend=split_weekend,
         )
         logger.info(
             f"Manager ID {user.id} ({user.first_name} {user.last_name}) generated account summary report for store {store.id} [{store.code}] for periods {start} till {end}."
