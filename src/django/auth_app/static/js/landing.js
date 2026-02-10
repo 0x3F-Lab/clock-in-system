@@ -3,7 +3,8 @@ $(document).ready(function() {
   initFeatureCarousel();
   initFeatureWheel();
   initFeaturesDropdown();
-
+  initMobileNav();
+  
 });
 
 function scrollToSection(id){
@@ -234,5 +235,46 @@ function initFeaturesDropdown(){
   panel.addEventListener("click", (e) => {
     const link = e.target.closest("a");
     if (link) closePanel();
+  });
+}
+
+// Mobile navigation toggle burger menu
+function initMobileNav(){
+  const header = document.querySelector(".nav");
+  const toggle = document.getElementById("navToggle");
+  const nav = document.getElementById("siteNav");
+
+  if(!header || !toggle || !nav) return;
+
+  const closeMenu = () => {
+    header.classList.remove("is-open");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Open menu");
+  };
+
+  const openMenu = () => {
+    header.classList.add("is-open");
+    toggle.setAttribute("aria-expanded", "true");
+    toggle.setAttribute("aria-label", "Close menu");
+  };
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = header.classList.contains("is-open");
+    isOpen ? closeMenu() : openMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if(!header.classList.contains("is-open")) return;
+    if(!header.contains(e.target)) closeMenu();
+  });
+
+  nav.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if(link) closeMenu();
+  });
+
+  window.addEventListener("resize", () => {
+    if(window.innerWidth > 900) closeMenu();
   });
 }

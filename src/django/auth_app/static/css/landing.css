@@ -1368,6 +1368,116 @@ html, body{
 
 }
 
+/* NAVIGATION BURGER, ONLY DISPLAYED ON MOBILE/SMALLER SCREENS*/
+
+.nav-toggle{
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  padding: 10px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.nav-toggle span{
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: rgba(248,250,252,0.92);
+  border-radius: 99px;
+  transition: transform .18s ease, opacity .18s ease;
+}
+
+.nav.is-open .nav-toggle span:nth-child(1){
+  transform: translateY(8px) rotate(45deg);
+}
+.nav.is-open .nav-toggle span:nth-child(2){
+  opacity: 0;
+}
+.nav.is-open .nav-toggle span:nth-child(3){
+  transform: translateY(-8px) rotate(-45deg);
+}
 
 
+@media (max-width: 900px){
+  .nav-toggle{
+    display: inline-flex;
+  }
 
+
+  .nav-links{
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    top: calc(100% + 10px);
+
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+
+    margin-left: 0;
+    padding: 14px;
+    border-radius: 18px;
+
+    background: rgba(2,6,23,0.92);
+    border: 1px solid rgba(148,163,184,0.18);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+    backdrop-filter: blur(14px);
+  }
+
+  .nav.is-open .nav-links{
+    display: flex;
+  }
+
+  .nav-left,
+  .nav-right{
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .nav-left a,
+  .nav-left .nav-drop-btn{
+    width: 100%;
+    text-align: left;
+    padding: 12px 12px;
+    border-radius: 12px;
+  }
+
+  .nav-left a:hover,
+  .nav-left .nav-drop-btn:hover{
+    background: rgba(56,189,248,0.10);
+  }
+
+  .nav-right a{
+    width: 100%;
+    text-align: center;
+  }
+
+  .btn-primary,
+  .btn-outline{
+    display: inline-flex;
+    justify-content: center;
+  }
+
+
+  .nav-drop-panel{
+    position: static;
+    top: auto;
+    left: auto;
+    min-width: 0;
+    width: 100%;
+    margin-top: 8px;
+
+    opacity: 1;
+    transform: none;
+    box-shadow: none;
+  }
+}

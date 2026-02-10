@@ -23,7 +23,20 @@
       <img src="{% static 'img/Chronex_t.png' %}" />
     </div>
 
-    <nav class="nav-links">
+    <button
+      class="nav-toggle"
+      type="button"
+      aria-label="Open menu"
+      aria-expanded="false"
+      aria-controls="siteNav"
+      id="navToggle"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav class="nav-links" id="siteNav">
       <div class="nav-left">
             <div class="nav-item dropdown">
               <button
